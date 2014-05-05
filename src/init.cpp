@@ -59,6 +59,7 @@ enum BindFlags {
     BF_REPORT_ERROR = (1U << 1)
 };
 
+int mastercoin_init(void);
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -905,6 +906,8 @@ bool AppInit2(boost::thread_group& threadGroup)
             LogPrintf("No blocks matching %s were found\n", strMatch);
         return false;
     }
+
+    (void) mastercoin_init();
 
     // ********************************************************* Step 8: load wallet
 #ifdef ENABLE_WALLET

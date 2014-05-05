@@ -26,6 +26,8 @@
 using namespace std;
 using namespace boost;
 
+int mastercoin_tx_handler(const CTransaction &tx, int nBlock, unsigned int idx);
+
 #if defined(NDEBUG)
 # error "Bitcoin cannot be compiled without assertions."
 #endif
@@ -1927,9 +1929,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew) {
     BOOST_FOREACH(const CTransaction &tx, txConflicted) {
         SyncWithWallets(tx.GetHash(), tx, NULL);
     }
+    unsigned int tx_idx = 0;  // tx position/index within the block
     // ... and about transactions that got confirmed:
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         SyncWithWallets(tx.GetHash(), tx, &block);
+        (void) mastercoin_tx_handler(tx, GetHeight(), tx_idx++);
     }
     return true;
 }

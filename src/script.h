@@ -565,6 +565,11 @@ public:
         LogPrintf("CScript(%s)\n", HexStr(begin(), end(), true).c_str());
     }
 
+    std::string getHex() const
+    {
+      return HexStr(begin(), end(), false).c_str();
+    }
+
     std::string ToString() const
     {
         std::string str;
@@ -584,6 +589,37 @@ public:
                 str += ValueString(vch);
             else
                 str += GetOpName(opcode);
+        }
+        return str;
+    }
+
+    std::string msc_parse(vector<std::string>&msc_parsed) const
+    {
+        std::string str;
+        opcodetype opcode;
+        std::vector<unsigned char> vch;
+        const_iterator pc = begin();
+        while (pc < end())
+        {
+            if (!str.empty())
+            {
+//                str += " ";
+                str += "\n";
+            }
+            if (!GetOp(pc, opcode, vch))
+            {
+                str += "[error]";
+                return str;
+            }
+            if (0 <= opcode && opcode <= OP_PUSHDATA4)
+            {
+                str += ValueString(vch);
+                msc_parsed.push_back(ValueString(vch));
+            }
+            else
+            {
+                str += GetOpName(opcode);
+            }
         }
         return str;
     }
