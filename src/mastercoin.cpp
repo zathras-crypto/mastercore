@@ -164,6 +164,7 @@ private:
   map<string, msc_accept> my_accepts;
 
 public:
+  uint64_t getOfferAmount() const { return offer_amount; }
   unsigned int getCurrency() const { return currency; }
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
@@ -342,6 +343,33 @@ private:
       }
   }
 
+  bool offerExists(string seller_addr, unsigned int curr) const
+  {
+  const string combo = STR_ADDR_CURR_COMBO(seller_addr);
+  map<string, msc_offer>::iterator my_it = my_offers.find(combo);
+
+    return !(my_it == my_offers.end());
+  }
+
+  void offerCancel(string seller_addr, unsigned int curr) const
+  {
+  const string combo = STR_ADDR_CURR_COMBO(seller_addr);
+  map<string, msc_offer>::iterator my_it = my_offers.find(combo);
+  uint64_t nValue;
+
+    if (my_offers.end() == my_it) return; // offer not found
+
+//    string sellerAddr = (my_it->first).substr(0, strLine.find("-"));  // redundant
+    nValue = (my_it->second).getOfferAmount();
+
+    // take from RESERVED, give to REAL
+    update_tally_map(seller_addr, curr, - nValue, true);
+    update_tally_map(seller_addr, curr, nValue);
+
+    // erase the offer from the map
+    my_offers.erase(my_it);
+  }
+
   // will replace the previous accept for a specific item from this buyer
   void update_offer_accepts(int curr)
   {
@@ -367,10 +395,10 @@ private:
  // NOTE: TMSC is ignored for now...
  int interpretPacket()
  {
- unsigned short version = 0;
+ unsigned short version = MP_TX_PKT_V0;
  unsigned int type, currency;
  uint64_t amount_desired, min_fee;
- unsigned char blocktimelimit, subaction;
+ unsigned char blocktimelimit, subaction = 0;
 
 //  if (PACKET_SIZE-1 > pkt_size)
   if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
@@ -425,6 +453,12 @@ private:
       break;
 
     case MSC_TYPE_TRADE_OFFER:
+    {
+    enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
+    bool bActionNew = false;
+    bool bActionUpdate = false;
+    bool bActionCancel = false;
+
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
       memcpy(&min_fee, &pkt[25], 8);
@@ -439,14 +473,66 @@ private:
     printf("\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
     printf("\t      sub-action: %u\n", subaction);
 
-      update_tally_map(sender, currency, - nValue); // subtract from available
-      update_tally_map(sender, currency, nValue, true); // put in reserve
-      update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
+      // figure out which Action this is based on amount for sale, version & etc.
+      switch (version)
+      {
+        case MP_TX_PKT_V0:
+          if ((0 == nValue) && (MASTERCOIN_CURRENCY_TMSC == currency)) bActionCancel = true;
 
+          if (0 != nValue)
+          {
+            if (!offerExists(sender, currency))
+            {
+              bActionNew = true;
+            }
+            else
+            {
+              bActionUpdate = true;
+            }
+          }
+
+          break;
+
+        case MP_TX_PKT_V1:
+        default:
+          switch (subaction)
+          {
+            case NEW: bActionNew = true; break;
+            case UPDATE: bActionUpdate = true; break;
+            case CANCEL: bActionCancel = true; break;
+            default:
+              ++InvalidCount_per_spec;
+              break;
+          }
+
+          break;
+      };
+
+      // my simple math is: UPDATE = CANCEL + NEW
+      if (bActionUpdate)
+      {
+        bActionCancel = true;
+        bActionNew = true;
+      }
+      
+      if (bActionCancel)
+      {
+        offerCancel(sender, currency);  // tally is adjusted internally
+
+        // TODO: must delete from the map
+      }
+
+      if (bActionNew)
+      {
+        update_tally_map(sender, currency, - nValue); // subtract from available
+        update_tally_map(sender, currency, nValue, true); // put in reserve
+        update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
+      }
       break;
+    }
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
-      // the min fee spec requirement is checked in the following functions
+      // the min fee spec requirement is checked in the following function
       update_offer_accepts(currency);
       break;
   }
@@ -583,6 +669,7 @@ int marker_count = 0;
 vector<string>multisig_script_data;
 uint64_t inAll = 0;
 uint64_t outAll = 0;
+uint64_t txFee = 0;
 
             // quickly go through the outputs & ensure there is a marker (a send to the Exodus address)
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -618,7 +705,7 @@ uint64_t outAll = 0;
               return -1;
             }
 
-            if (msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            if (msc_debug4 || msc_debug2 || msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -662,7 +749,7 @@ uint64_t outAll = 0;
               printf("value_data.size=%lu\n", value_data.size());
             }
 
-            // now go through inputs & identify the sender
+            // now go through inputs & identify the sender, collect input amounts
             // go through inputs, find the largest per Mastercoin protocol, the Sender
             for (unsigned int i = 0; i < wtx.vin.size(); i++)
             {
@@ -693,9 +780,11 @@ uint64_t outAll = 0;
               if (msc_debug) printf("vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
             }
 
+            txFee = inAll - outAll; // this is the fee paid to miners for this TX
+
             if (!strSender.empty())
             {
-              if (msc_debug2) printf("The Sender: %s : %lu.%08lu\n", strSender.c_str(), nMax / COIN, nMax % COIN);
+              if (msc_debug2) printf("The Sender: %s : Value= %lu.%08lu ; fee= %lu.%08lu\n", strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
             }
             else
             {
@@ -1159,7 +1248,7 @@ boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
 int i = 0;
 string strAddress = vstr[0];
 
-  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
+//  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
 
   ++i;
 
