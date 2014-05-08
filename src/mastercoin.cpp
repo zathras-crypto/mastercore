@@ -42,30 +42,17 @@ const string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 // const string exodusHash = "946cb2e08075bcbaf157e47bcb67eb2b2339d242";
 
 int msc_debug  = 0;
-int msc_debug2 = 0;
+int msc_debug2 = 1;
 int msc_debug3 = 0;
-int msc_debug4 = 0;
+int msc_debug4 = 1;
 int msc_debug5 = 0;
+int msc_debug6 = 0;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice log, for now just keep a count
 
 // disable TMSC handling for now, has more legacy corner cases
 static int ignoreTMSC = 0;
-
-// TODO: clean up is needed for pre-production #DEFINEs , consts & alike belong in header files (classes)
-#define PACKET_SIZE 31
-#define MAX_PACKETS 5
-
-#define MSC_TYPE_SIMPLE_SEND              0
-#define MSC_TYPE_TRADE_OFFER              20
-#define MSC_TYPE_ACCEPT_OFFER_BTC         22
-#define MSC_TYPE_CREATE_PROPERTY_FIXED    50
-#define MSC_TYPE_CREATE_PROPERTY_VARIABLE 51
-#define MSC_TYPE_PROMOTE_PROPERTY         52
-
-#define MASTERCOIN_CURRENCY_MSC  1
-#define MASTERCOIN_CURRENCY_TMSC  2
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -178,6 +165,8 @@ private:
 
 public:
   unsigned int getCurrency() const { return currency; }
+
+  // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
   uint64_t getCurrencyAmount(uint64_t BTC_paid) const
   {
     // TODO: partial amounts -- adjust here or elsewhere... perhaps in msc_update_tally()...
@@ -284,8 +273,8 @@ CCriticalSection cs_tally;
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, msc_tally> msc_tally_map;
 
-// when HardFail is true -- do not transfer any funds if only a partial transfer would succeed
-void update_tally_map(string who, unsigned int which, int64_t amount, bool HardFail = true, bool bReserved = false)
+// TODO: when HardFail is true -- do not transfer any funds if only a partial transfer would succeed
+void update_tally_map(string who, unsigned int which, uint64_t amount, bool bReserved = false)
 {
   if (msc_debug2)
    printf("%s(%s, %d, %+ld%s), line %d, file: %s\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"", __LINE__, __FILE__);
@@ -308,6 +297,10 @@ void update_tally_map(string who, unsigned int which, int64_t amount, bool HardF
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
+// The class responsible for sorted tx parsing. It does the initial block parsing (via a priority_queue, sorted).
+// Also used as new block are received.
+//
+// It invokes other classes & methods: offers, accepts, tallies (balances).
 class msc
 {
 private:
@@ -380,7 +373,7 @@ private:
  unsigned char blocktimelimit, subaction;
 
 //  if (PACKET_SIZE-1 > pkt_size)
-  if (19 > pkt_size)  // class A could be 19 bytes
+  if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
   {
     printf("%s(); size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
     return -1;
@@ -419,7 +412,7 @@ private:
   switch(type)
   {
     case MSC_TYPE_SIMPLE_SEND:
-      if (!sender.empty()) update_tally_map(sender, currency, - nValue, true);
+      if (!sender.empty()) update_tally_map(sender, currency, - nValue);
       else ++InvalidCount_per_spec;
       // special case: if can't find the receiver -- assume sending to itself !
       // may also be true for BTC payments........
@@ -428,7 +421,7 @@ private:
       {
         receiver = sender;
       }
-      update_tally_map(receiver, currency, nValue, true);
+      update_tally_map(receiver, currency, nValue);
       break;
 
     case MSC_TYPE_TRADE_OFFER:
@@ -446,8 +439,8 @@ private:
     printf("\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
     printf("\t      sub-action: %u\n", subaction);
 
-      update_tally_map(sender, currency, - nValue, true); // subtract from available
-      update_tally_map(sender, currency, nValue, true, true); // put in reserve
+      update_tally_map(sender, currency, - nValue); // subtract from available
+      update_tally_map(sender, currency, nValue, true); // put in reserve
       update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
 
       break;
@@ -498,6 +491,8 @@ public:
   }
 };
 
+// incoming BTC payment for the offer
+// TODO: verify proper partial payment handling
 int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blockNow)
 {
   for (unsigned int curr=0;curr<MSC_MAX_KNOWN_CURRENCIES;curr++)
@@ -524,8 +519,8 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
         uint64_t target_currency_amount = offer.getCurrencyAmount(BTC_amount);
 
           // good, now adjust the amounts!!!
-          update_tally_map(seller, offer.getCurrency(), - target_currency_amount, false, true);
-          update_tally_map(customer, offer.getCurrency(), target_currency_amount, false);
+          update_tally_map(seller, offer.getCurrency(), - target_currency_amount, true);  // remove from reserve of the seller
+          update_tally_map(customer, offer.getCurrency(), target_currency_amount);  // give to buyer
 
           printf("#######################################################\n");
       }
@@ -549,8 +544,6 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
 //  9) build in consesus checks with the masterchain.info & masterchest.info -- possibly run them automatically, daily (?)
 // 10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
 //
-//
-//
 
 
 // MSC_periodic_function() will be called upon every new block received
@@ -564,7 +557,11 @@ int MSC_periodic_function()
   return 0;
 }
 
-
+// called once per block
+int mastercoin_block_handler(int nBlock)
+{
+  return 0;
+}
 
 static priority_queue<msc>txq;
 // idx is position within the block, 0-based
@@ -603,16 +600,21 @@ uint64_t outAll = 0;
                 {
                   ++marker_count;
                   // TODO: add other checks to verify a mastercoin tx !!!
-                  // FIXME: add them elsewhere as needed
                   nExodusValue = wtx.vout[i].nValue;
                 }
               }
             }
 
             // TODO: ensure only 1 output to the Exodus address is allowed (corner case?)
-            if (1 != marker_count)
+//            if (1 != marker_count)
+            if (!marker_count)  // 1Exodus is a special case, TODO: resolve later after PoC Sprint
+// https://github.com/m21/mastercore/commit/fbf06f6dbda06b5a8cf061414ff76f42194544d8#diff-7322bd4b20fe7eed15aa568e8905f657R607
             {
-              // not Mastercoin -- no output to the 'marker' Exodus or more than 1...
+              // not Mastercoin -- no output to the 'marker' Exodus or more than 1 -- more than 1 is OK per Zathras, May 2014
+              // TODO: if multiple markers are visible : how is nExodusValue calculated?
+  // [11:33:08 PM] my99key: I don't have a case -- so if multiple outputs to 1Exodus are found in a Class A TX -- it is not a valid MP TX?
+  // [11:33:36 PM] faiz: as far as i know, the only case that it would be valid is if the TX was actually also sent by exodus
+  // So, send from 1Exodus to self may have multiple outputs in a Class A TX !!!
               return -1;
             }
 
@@ -751,20 +753,24 @@ uint64_t outAll = 0;
 
               unsigned char sha_input[128];
               unsigned char sha_result[128];
-              string strObfuscatedHash[10];
+              string strObfuscatedHash[1+MAX_SHA256_OBFUSCATION_TIMES];
+              vector<unsigned char> vec_chars;
+
               strcpy((char *)sha_input, strSender.c_str());
-              // TODO: do only as many re-hashes as there are mastercoin packets, per spec
-              for (unsigned int j = 1; j<=3;j++)
+              // do only as many re-hashes as there are mastercoin packets, per spec, 255 per Zathras
+              // TODO -- verify what he meant:
+              // Zahtras: "We no longer need to brute force this though, since the location of the packet is fixed in order of the multisigs/vouts
+              // we can now determine sequence (and thus number of times to hash to deobfuscate) easily."
+              for (unsigned int j = 1; j<=MAX_SHA256_OBFUSCATION_TIMES;j++)
               {
                 SHA256(sha_input, strlen((const char *)sha_input), sha_result);
 
-                  vector<unsigned char> vec_chars;
                   vec_chars.resize(32);
                   memcpy(&vec_chars[0], &sha_result[0], 32);
                   strObfuscatedHash[j] = HexStr(vec_chars);
                   boost::to_upper(strObfuscatedHash[j]); // uppercase per spec
 
-                  if (msc_debug) printf("%d: sha256 hex: %s\n", j, strObfuscatedHash[j].c_str());
+                  if (msc_debug6) if (10>j) printf("%d: sha256 hex: %s\n", j, strObfuscatedHash[j].c_str());
                   strcpy((char *)sha_input, strObfuscatedHash[j].c_str());
               }
 
@@ -798,14 +804,14 @@ uint64_t outAll = 0;
   
                 if (("0000000000000001" == strSub) || ("0000000000000002" == strSub))
                 {
-                  if (strData.empty()) strData = script_data[k].substr(2*1,38);
+                  if (strData.empty()) strData = script_data[k].substr(2*1,2*PACKET_SIZE_CLASS_A);
   
                   if (msc_debug3) printf("strData #1:%s, seq = %x\n", strData.c_str(), seq);
 
                   if (value_data[k] == nExodusValue)
                   {
                     if (msc_debug3) printf("strData #2:%s, seq = %x\n", strData.c_str(), seq);
-                    strData = script_data[k].substr(2,38);
+                    strData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
                     break;
             }
                 }
@@ -831,11 +837,13 @@ uint64_t outAll = 0;
               if (strReference.empty())
               {
                 if (3 == script_data.size())
-                for (unsigned k = 0; k<script_data.size();k++)
-            {
-                  if ((address_data[k] != strData) && (address_data[k] != exodus))
+                {
+                  for (unsigned k = 0; k<script_data.size();k++)
                   {
-                    strReference = address_data[k];
+                    if ((address_data[k] != strData) && (address_data[k] != exodus))
+                    {
+                      strReference = address_data[k];
+                    }
                   }
                 }
               }
@@ -877,7 +885,7 @@ uint64_t outAll = 0;
             {
             // valid Class A packet almost ready
               if (msc_debug3) printf("valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strData.c_str());
-              packet_size = 19;
+              packet_size = PACKET_SIZE_CLASS_A;
               memcpy(single_pkt, &ParseHex(strData)[0], packet_size);
             }
           }
@@ -1143,56 +1151,146 @@ Value mscm(const Array& params, bool fHelp)
   return (string("done"));
 }
 
-
-int input_msc_string(const string &s)
+int input_msc_balances_string(const string &s)
 {
-int64_t  iValue;
+uint64_t  uValue = 0, uReserved = 0;
+std::vector<std::string> vstr;
+boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
+int i = 0;
+string strAddress = vstr[0];
 
-        std::vector<std::string> vstr;
-        boost::split(vstr, s, boost::is_any_of("="));
-        if (2 != vstr.size()) return 0;
+  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
 
-        if (!ParseMoney(vstr[1], iValue))
-        {
-          // parse error
-          // TODO: add an error handler...
-          ++InvalidCount_per_spec;
-          return -1;
-        }
+  ++i;
 
-        // want to bypass 0-value addresses...
-        if (0 == iValue) return 0;
+  uValue = boost::lexical_cast<boost::uint64_t>(vstr[i++]);
+  uReserved = boost::lexical_cast<boost::uint64_t>(vstr[i++]);
+  
+  // want to bypass 0-value addresses...
+  if ((0 == uValue) && (0 == uReserved)) return 0;
 
-        // ignoring TMSC for now...
-        update_tally_map(vstr[0], MASTERCOIN_CURRENCY_MSC, iValue);
+  // ignoring TMSC for now...
+  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uValue);
+  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uReserved, true);
 
   return 1;
 }
 
 #if 0
-int load_checkpoint()
+int input_msc_balances_string_old_decimals(const string &s)
 {
-const string loading[]={
-// #include"mastercoin_cp.h"
-"---------------------------"
-};
-int i = 0;
+int64_t  iValue, iReserved = 0;
+std::vector<std::string> vstr;
+boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
 
-  LogPrintf("Loading the Mastercoin checkpoint...\n");
-
-  while (0 != loading[i].compare(0,3,"---"))
+  switch (vstr.size())
   {
-    input_msc_string(loading[i]);
-    ++i;
+    case 3: // RESERVED column was optional in the earlier prototype code...
+      if (!ParseMoney(vstr[2], iReserved))
+      {
+      }
+      ///////////////////// fall-through
+    case 2:
+      if (!ParseMoney(vstr[1], iValue))
+      {
+      }
+      break;
+
+    default:
+      // parse error
+      // TODO: add an error handler...
+      ++InvalidCount_per_spec;
+    return -1;
   }
 
-  return 0;
+  // want to bypass 0-value addresses...
+  if ((0 == iValue) && (0 == iReserved)) return 0;
+
+  // ignoring TMSC for now...
+  update_tally_map(vstr[0], MASTERCOIN_CURRENCY_MSC, iValue);
+  update_tally_map(vstr[0], MASTERCOIN_CURRENCY_MSC, iReserved, true);
+
+  return 1;
 }
 #endif
 
-int msc_file_load_balances()
+// seller-address, offer_block, amount, currency, desired BTC , fee, blocktimelimit
+// 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,10000,6
+int input_msc_offers_string(const string &s)
+{
+int offerBlock;
+uint64_t Amount, Desired_BTC;
+unsigned int curr;
+uint64_t min_fee;
+unsigned char blocktimelimit;
+std::vector<std::string> vstr;
+boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
+string sellerAddr;
+int i = 0;
+
+  if (7 != vstr.size()) return -1;
+
+  printf("%s(%s), line %d, file: %s\n", __FUNCTION__, s.c_str(), __LINE__, __FILE__);
+
+  sellerAddr = vstr[i++];
+  offerBlock = atoi(vstr[i++]);
+  Amount = boost::lexical_cast<uint64_t>(vstr[i++]);
+  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
+  Desired_BTC = boost::lexical_cast<uint64_t>(vstr[i++]);
+  min_fee = boost::lexical_cast<uint64_t>(vstr[i++]);
+  blocktimelimit = atoi(vstr[i++]);
+
+  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
+
+  const string combo = STR_ADDR_CURR_COMBO(sellerAddr);
+
+  printf("%s(%s):%s:%d:%ld:%d:%ld:%ld:%d\n", __FUNCTION__,
+   combo.c_str(), sellerAddr.c_str(), offerBlock, Amount, curr, Desired_BTC, min_fee, blocktimelimit);
+
+  return 0;
+}
+
+// seller-address, currency, buyer-address, amount, fee, block
+// 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1, 148EFCFXbk2LrUhEHDfs9y3A5dJ4tttKVd,100000,11000,299126
+// 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1,1Md8GwMtWpiobRnjRabMT98EW6Jh4rEUNy,50000000,11000,299132
+int input_msc_accepts_string(const string &s)
+{
+int nBlock;
+std::vector<std::string> vstr;
+boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
+uint64_t Amount;
+uint64_t fee;
+unsigned int curr;
+string sellerAddr, buyerAddr;
+int i = 0;
+
+  if (6 != vstr.size()) return -1;
+
+  printf("%s(%s), line %d, file: %s\n", __FUNCTION__, s.c_str(), __LINE__, __FILE__);
+
+  sellerAddr = vstr[i++];
+  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
+  buyerAddr = vstr[i++];
+  Amount = boost::lexical_cast<uint64_t>(vstr[i++]);
+  fee = boost::lexical_cast<uint64_t>(vstr[i++]);
+  nBlock = atoi(vstr[i++]);
+
+  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
+
+  const string combo = STR_ADDR_CURR_COMBO(sellerAddr);
+
+  printf("%s(%s):%s:%d:%s:%ld:%ld:%d\n", __FUNCTION__,
+   combo.c_str(), sellerAddr.c_str(), curr, buyerAddr.c_str(), Amount, fee, nBlock);
+
+  return 0;
+}
+
+int msc_file_load(int what)
 {
 int lines = 0;
+int (*inputLineFunc)(const string &) = NULL;
+const string filename = GetDataDir().string() + "/" + string(mastercoin_filenames[what]);
+
 #ifdef  WIN32
 // FIXME -- switch to boost:path for Windows compatibility !
 #error Implement boost path here
@@ -1201,7 +1299,26 @@ int lines = 0;
 // TODO: think about placement for preseed files -- perhaps the directory where executables live is better?
 // these files are read-only preseeds
 // all run-time updates should go to a KV-store (leveldb is envisioned)
-const string filename = GetDataDir().string() + "/" + string(FILENAME_PRESEED_BALANCES);
+
+  switch (what)
+  {
+    case FILETYPE_BALANCES:
+      msc_tally_map.clear();
+      inputLineFunc = input_msc_balances_string;
+      break;
+
+    case FILETYPE_OFFERS:
+      my_offers.clear();
+      inputLineFunc = input_msc_offers_string;
+      break;
+
+    case FILETYPE_ACCEPTS:
+      inputLineFunc = input_msc_accepts_string;
+      break;
+
+    default:
+      return -1;
+  }
 
     LogPrintf("Loading %s ... \n", filename);
 
@@ -1213,15 +1330,16 @@ const string filename = GetDataDir().string() + "/" + string(FILENAME_PRESEED_BA
       return -1;
     }
 
-    msc_tally_map.clear();
-
     while (file.good())
     {
         std::string line;
         std::getline(file, line);
         if (line.empty() || line[0] == '#') continue;
 
-        input_msc_string(line);
+        // remove \r if the file came from Windows
+        line.erase( std::remove( line.begin(), line.end(), '\r' ), line.end() ) ;
+
+        if (inputLineFunc) inputLineFunc(line);
 
         ++lines;
     }
@@ -1230,17 +1348,6 @@ const string filename = GetDataDir().string() + "/" + string(FILENAME_PRESEED_BA
 
     printf("%s(): file: %s, loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
     LogPrintf("%s(): file: %s, loaded lines= %d\n", __FUNCTION__, filename, lines);
-
-/*
-       for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
-        {
-          // my_it->first = key
-          // my_it->second = value
-
-          printf("%-34s =>> ", (my_it->first).c_str());
-          (my_it->second).print();
-        }
-*/
 
   return 0;
 }
@@ -1251,10 +1358,14 @@ int mastercoin_init()
   printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 //  (void) load_checkpoint();
 
-  (void) msc_file_load_balances();
-  (void) msc_function(292421);  // scan new blocks after the checkpoint above
+  (void) msc_file_load(FILETYPE_BALANCES);
+  (void) msc_file_load(FILETYPE_OFFERS);
+//  (void) msc_file_load(FILETYPE_ACCEPTS); // not needed per Zathras -- we are capturing blocks for which there are no outstanding accepts!
 
-//  (void) msc_function(249497);  // Exodus block, test for Zathras
+//  (void) msc_function(292421);  // scan new blocks after the checkpoint above
+  (void) msc_function(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+
+//  (void) msc_function(249497);  // Exodus block, dump for Zathras
 
   return 0;
 }
@@ -1269,8 +1380,6 @@ int mastercoin_tx_handler(const CTransaction &tx, int nBlock, unsigned int idx)
 {
 int rc = 0;
 
-      // install the Mastercoin handler here...
-      // FIXME: will reduce this handler to a single line of code, with the goal of minimalistic changes to the Bitcoin Core (!)
       {
         rc = msc_tx_push(tx, nBlock, idx);
 

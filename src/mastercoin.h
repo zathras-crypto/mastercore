@@ -9,9 +9,28 @@
 #include "netbase.h"
 #include "protocol.h"
 
-#define FILENAME_PRESEED_BALANCES "mastercoin_balances.txt"
-#define FILENAME_PRESEED_OFFERS   "mastercoin_offers.txt"
-#define FILENAME_PRESEED_ACCEPTS  "mastercoin_accepts.txt"
+// TODO: clean up is needed for pre-production #DEFINEs , consts & alike belong in header files (classes)
+#define MAX_SHA256_OBFUSCATION_TIMES  255
+
+#define PACKET_SIZE_CLASS_A 19
+#define PACKET_SIZE         31
+#define MAX_PACKETS         5
+
+#define MSC_TYPE_SIMPLE_SEND              0
+#define MSC_TYPE_TRADE_OFFER              20
+#define MSC_TYPE_ACCEPT_OFFER_BTC         22
+#define MSC_TYPE_CREATE_PROPERTY_FIXED    50
+#define MSC_TYPE_CREATE_PROPERTY_VARIABLE 51
+#define MSC_TYPE_PROMOTE_PROPERTY         52
+
+#define FILETYPE_BALANCES 0
+#define FILETYPE_OFFERS   1
+#define FILETYPE_ACCEPTS  2
+const char mastercoin_filenames[][128]={
+"mastercoin_balances.txt",
+"mastercoin_offers.txt",
+"mastercoin_accepts.txt"
+};
 
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
