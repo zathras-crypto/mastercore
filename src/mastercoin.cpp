@@ -134,6 +134,7 @@ private:
   int offerBlock;
   string offerHash; // tx of the offer
   uint64_t offer_amount;
+  uint64_t original_offer_amount;
   unsigned int currency;
   uint64_t BTC_desired; // amount desired, in BTC
   uint64_t min_fee;
@@ -166,8 +167,8 @@ private:
 
 public:
   unsigned int getCurrency() const { return currency; }
-  uint64_t getOfferAmount() const { return offer_amount; }
-  void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; }
+  uint64_t getOriginalOfferAmount() const { return original_offer_amount; }
+  void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; } // TODO: check for negatives ? assert ?
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
   uint64_t getCurrencyAmount(uint64_t BTC_paid) const
@@ -181,7 +182,7 @@ public:
     if (0==(double)BTC_desired) return 0;  // divide by 0 protection
 
     X = (double)BTC_paid/(double)BTC_desired;
-    P = (double)offer_amount * X;
+    P = (double)original_offer_amount * X;
 
     purchased = rounduint64(P);
 
@@ -193,6 +194,8 @@ public:
   {
     if (msc_debug4) printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
+    original_offer_amount = a;
+
     my_accepts.clear();
   }
 
@@ -202,6 +205,7 @@ public:
 
     offerBlock = b;
     offer_amount = a;
+    original_offer_amount = a;
     currency = cu;
     BTC_desired = d;
     min_fee = fee;
@@ -233,11 +237,12 @@ public:
   void print(string address, bool bPrintAcceptsToo = false)
   {
   const double coins = (double)offer_amount/(double)COIN;
+  const double original_coins = (double)original_offer_amount/(double)COIN;
   const double wants_total = (double)BTC_desired/(double)COIN;
   const double price = coins ? wants_total/coins : 0;
 
-    printf("%36s selling %12.8lf %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
-     address.c_str(), coins, c_strMastercoinCurrency(currency), wants_total, price, offerBlock, blocktimelimit,(double)min_fee/(double)COIN);
+    printf("%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
+     address.c_str(), original_coins, coins, c_strMastercoinCurrency(currency), wants_total, price, offerBlock, blocktimelimit,(double)min_fee/(double)COIN);
 
         if (bPrintAcceptsToo)
         for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); my_it++)
@@ -376,7 +381,7 @@ private:
     if (my_offers.end() == my_it) return; // offer not found
 
 //    string sellerAddr = (my_it->first).substr(0, strLine.find("-"));  // redundant
-    nValue = (my_it->second).getOfferAmount();
+    nValue = (my_it->second).getOriginalOfferAmount();
 
     // take from RESERVED, give to REAL
     if (!update_tally_map(seller_addr, curr, - nValue, true))
