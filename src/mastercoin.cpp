@@ -170,13 +170,20 @@ public:
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
   uint64_t getCurrencyAmount(uint64_t BTC_paid) const
   {
-    // TODO: partial amounts -- adjust here or elsewhere... perhaps in msc_update_tally()...
+  double X;
+  double P;
+  uint64_t purchased;
+
     if (BTC_paid >= BTC_desired) return (offer_amount);
 
-    if (0==(double)BTC_paid) return 0;  // divide by 0 protection
-    if (0==(double)BTC_desired) return 0;  // divide division by 0 protection
+    if (0==(double)BTC_desired) return 0;  // divide by 0 protection
 
-    return (uint64_t)((double)offer_amount / (((double)BTC_desired / (double)BTC_paid)));
+    X = (double)BTC_paid/(double)BTC_desired;
+    P = (double)offer_amount * X;
+
+    purchased = rounduint64(P);
+
+    return purchased;
   }
 
   msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)

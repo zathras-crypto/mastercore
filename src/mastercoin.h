@@ -42,6 +42,11 @@ const char mastercoin_filenames[][128]={
 
 #define MSC_MAX_KNOWN_CURRENCIES  4
 
+inline uint64_t rounduint64(double d)
+{
+    return (uint64_t)(abs(0.5 + d));
+}
+
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
