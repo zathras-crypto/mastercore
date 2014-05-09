@@ -120,8 +120,16 @@ public:
     printf("\n");
   }
 
-  string getMSC();  // this function was created for QT only
-  string getTMSC(); // this function was created for QT only
+  string getMSC();  // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
+  string getTMSC(); // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
+
+  uint64_t getMoney(unsigned which_currency, bool bReserved) const
+  {
+    if (MSC_MAX_KNOWN_CURRENCIES <= which_currency) return 0;
+
+    if (!bReserved) return moneys[which_currency];
+    return reserved[which_currency];
+  }
 };
 
 extern map<string, msc_tally> msc_tally_map;

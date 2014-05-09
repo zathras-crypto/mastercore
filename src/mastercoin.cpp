@@ -336,6 +336,20 @@ CCriticalSection cs_tally;
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, msc_tally> msc_tally_map;
 
+// look at balance for an address
+uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved = false)
+{
+uint64_t balance = 0;
+const map<string, msc_tally>::iterator my_it = msc_tally_map.find(Address);
+
+  if (my_it != msc_tally_map.end())
+  {
+    balance = (my_it->second).getMoney(currency, bReserved);
+  }
+
+  return balance;
+}
+
 // TODO: when HardFail is true -- do not transfer any funds if only a partial transfer would succeed
 bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false)
 {
@@ -609,7 +623,10 @@ private:
 
       if (bActionNew)
       {
-        if (update_tally_map(sender, currency, - nValue)) // subtract from available
+        // if offering more than available -- put everythig up on sale
+        if (nValue > getMPbalance(sender, currency)) nValue = getMPbalance(sender, currency);
+
+        if (update_tally_map(sender, currency, - nValue)) // subtract from what's available
         {
           update_tally_map(sender, currency, nValue, true); // put in reserve
           update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
@@ -1236,7 +1253,8 @@ Value mgetbalance(const Array& params, bool fHelp)
         return  ValueFromAmount(nBalance);
 }
 
-int msc_function(int nHeight)
+// parse blocks, starting right after the preseed
+int msc_post_preseed(int nHeight)
 {
 int n_total = 0, n_found = 0;
 int max_block = chainActive.Height();
@@ -1333,7 +1351,7 @@ Value mscm(const Array& params, bool fHelp)
     if (nHeight < 0 || nHeight > chainActive.Height())
         throw runtime_error("Block number out of range.");
 
-  msc_function(nHeight);
+  msc_post_preseed(nHeight);
   return (string("done"));
 }
 
@@ -1510,10 +1528,14 @@ int mastercoin_init()
   (void) msc_file_load(FILETYPE_OFFERS);
 //  (void) msc_file_load(FILETYPE_ACCEPTS); // not needed per Zathras -- we are capturing blocks for which there are no outstanding accepts!
 
-//  (void) msc_function(292421);  // scan new blocks after the checkpoint above
-  (void) msc_function(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+//  (void) msc_post_preseed(292421);  // scan new blocks after the checkpoint above
+//  (void) msc_post_preseed(249497);  // Exodus block, dump for Zathras
 
-//  (void) msc_function(249497);  // Exodus block, dump for Zathras
+  (void) msc_post_preseed(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+
+  // dump a few random addresses & balances
+  printf("balance: %lu\n", getMPbalance("13rpJ1r4onYA7RJfya3P8S3AaEqgXEkM8n", MASTERCOIN_CURRENCY_MSC));
+  printf("balance: %lu\n", getMPbalance("1MnW3JgujMavTzBCiZyfxigDhu9pnDE7dU", MASTERCOIN_CURRENCY_MSC));
 
   return 0;
 }
