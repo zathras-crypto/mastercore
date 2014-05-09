@@ -50,6 +50,7 @@ int msc_debug6 = 0;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice log, for now just keep a count
+static int InsufficientFunds = 0;      // consolidate error messages
 
 // disable TMSC handling for now, has more legacy corner cases
 static int ignoreTMSC = 0;
@@ -164,8 +165,9 @@ private:
   map<string, msc_accept> my_accepts;
 
 public:
-  uint64_t getOfferAmount() const { return offer_amount; }
   unsigned int getCurrency() const { return currency; }
+  uint64_t getOfferAmount() const { return offer_amount; }
+  void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; }
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
   uint64_t getCurrencyAmount(uint64_t BTC_paid) const
@@ -282,8 +284,10 @@ CCriticalSection cs_tally;
 map<string, msc_tally> msc_tally_map;
 
 // TODO: when HardFail is true -- do not transfer any funds if only a partial transfer would succeed
-void update_tally_map(string who, unsigned int which, uint64_t amount, bool bReserved = false)
+bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false)
 {
+bool bReturn = true;
+
   if (msc_debug2)
    printf("%s(%s, %d, %+ld%s), line %d, file: %s\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"", __LINE__, __FILE__);
 
@@ -293,14 +297,19 @@ void update_tally_map(string who, unsigned int which, uint64_t amount, bool bRes
       if (my_it != msc_tally_map.end())
       {
         // element found -- update
-        if (!bReserved) (my_it->second).msc_update_moneys(which, amount);
-        else (my_it->second).msc_update_reserved(which, amount);
+        if (!bReserved) bReturn = (my_it->second).msc_update_moneys(which, amount);
+        else bReturn = (my_it->second).msc_update_reserved(which, amount);
       }
       else
       {
         // not found -- insert
-        msc_tally_map.insert(std::make_pair(who,msc_tally(which, amount)));
+        if (0<=amount) msc_tally_map.insert(std::make_pair(who,msc_tally(which, amount)));
+        else bReturn = false;
       }
+
+  if (!bReturn) printf("%s(%s, %d, %+ld%s) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"");
+
+  return bReturn;
 }
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
@@ -370,7 +379,11 @@ private:
     nValue = (my_it->second).getOfferAmount();
 
     // take from RESERVED, give to REAL
-    update_tally_map(seller_addr, curr, - nValue, true);
+    if (!update_tally_map(seller_addr, curr, - nValue, true))
+    {
+      ++InsufficientFunds;
+      return;
+    }
     update_tally_map(seller_addr, curr, nValue);
 
     // erase the offer from the map
@@ -447,8 +460,8 @@ private:
   switch(type)
   {
     case MSC_TYPE_SIMPLE_SEND:
-      if (!sender.empty()) update_tally_map(sender, currency, - nValue);
-      else ++InvalidCount_per_spec;
+      if (sender.empty()) ++InvalidCount_per_spec;
+      if (!update_tally_map(sender, currency, - nValue)) break;
       // special case: if can't find the receiver -- assume sending to itself !
       // may also be true for BTC payments........
       // TODO: think about this..........
@@ -500,8 +513,19 @@ private:
 
           break;
 
-        case MP_TX_PKT_V1:
+        case MP_TX_PKT_V1:  // same as default right now
         default:
+        {
+          if (offerExists(sender, currency))
+          {
+            if ((CANCEL != subaction) && (UPDATE != subaction))
+            {
+              printf("%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              ++InvalidCount_per_spec;
+              break;
+            }
+          }
+ 
           switch (subaction)
           {
             case NEW: bActionNew = true; break;
@@ -513,6 +537,7 @@ private:
           }
 
           break;
+        }
       };
 
       // my simple math is: UPDATE = CANCEL + NEW
@@ -525,15 +550,15 @@ private:
       if (bActionCancel)
       {
         offerCancel(sender, currency);  // tally is adjusted internally
-
-        // TODO: must delete from the map
       }
 
       if (bActionNew)
       {
-        update_tally_map(sender, currency, - nValue); // subtract from available
-        update_tally_map(sender, currency, nValue, true); // put in reserve
-        update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
+        if (update_tally_map(sender, currency, - nValue)) // subtract from available
+        {
+          update_tally_map(sender, currency, nValue, true); // put in reserve
+          update_offer_map(sender, currency, amount_desired, min_fee, blocktimelimit);
+        }
       }
       break;
     }
@@ -612,8 +637,12 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
         uint64_t target_currency_amount = offer.getCurrencyAmount(BTC_amount);
 
           // good, now adjust the amounts!!!
-          update_tally_map(seller, offer.getCurrency(), - target_currency_amount, true);  // remove from reserve of the seller
-          update_tally_map(customer, offer.getCurrency(), target_currency_amount);  // give to buyer
+          if (update_tally_map(seller, offer.getCurrency(), - target_currency_amount, true))  // remove from reserve of the seller
+          {
+            update_tally_map(customer, offer.getCurrency(), target_currency_amount);  // give to buyer
+            // update the amount available in the offer
+            offer.reduceOfferAmount(target_currency_amount);
+          }
 
           printf("#######################################################\n");
       }
@@ -1271,44 +1300,6 @@ string strAddress = vstr[0];
 
   return 1;
 }
-
-#if 0
-int input_msc_balances_string_old_decimals(const string &s)
-{
-int64_t  iValue, iReserved = 0;
-std::vector<std::string> vstr;
-boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
-
-  switch (vstr.size())
-  {
-    case 3: // RESERVED column was optional in the earlier prototype code...
-      if (!ParseMoney(vstr[2], iReserved))
-      {
-      }
-      ///////////////////// fall-through
-    case 2:
-      if (!ParseMoney(vstr[1], iValue))
-      {
-      }
-      break;
-
-    default:
-      // parse error
-      // TODO: add an error handler...
-      ++InvalidCount_per_spec;
-    return -1;
-  }
-
-  // want to bypass 0-value addresses...
-  if ((0 == iValue) && (0 == iReserved)) return 0;
-
-  // ignoring TMSC for now...
-  update_tally_map(vstr[0], MASTERCOIN_CURRENCY_MSC, iValue);
-  update_tally_map(vstr[0], MASTERCOIN_CURRENCY_MSC, iReserved, true);
-
-  return 1;
-}
-#endif
 
 // seller-address, offer_block, amount, currency, desired BTC , fee, blocktimelimit
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,10000,6

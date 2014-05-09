@@ -65,11 +65,13 @@ public:
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
-      // TODO: check here if enough money is available for this address prior to update !!!
+      // check here if enough money is available for this address prior to update !!!
+      if (0>(moneys[which] + amount)) return false;
       moneys[which] += amount;
+      return true;
     }
 
-    return true;  // is everything ok? hard-coded for now
+    return false;
   }
 
   bool msc_update_reserved(unsigned char which, int64_t amount)  
@@ -78,11 +80,13 @@ public:
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
-      // TODO: check here if enough money is available for this address prior to update !!!
+      // check here if enough money is available for this address prior to update !!!
+      if (0>(reserved[which] + amount)) return false;
       reserved[which] += amount;
+      return true;
     }
 
-    return true;  // is everything ok? hard-coded for now
+    return false;
   }
 
   // the constructor
