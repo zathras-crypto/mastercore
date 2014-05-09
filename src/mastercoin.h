@@ -66,7 +66,11 @@ public:
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
       // check here if enough money is available for this address prior to update !!!
-      if (0>(moneys[which] + amount)) return false;
+      if (0>(moneys[which] + amount))
+      {
+        printf("%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, moneys[which], __LINE__, __FILE__);
+        return false;
+      }
       moneys[which] += amount;
       return true;
     }
@@ -81,7 +85,11 @@ public:
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
       // check here if enough money is available for this address prior to update !!!
-      if (0>(reserved[which] + amount)) return false;
+      if (0>(reserved[which] + amount))
+      {
+        printf("%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, reserved[which], __LINE__, __FILE__);
+        return false;
+      }
       reserved[which] += amount;
       return true;
     }

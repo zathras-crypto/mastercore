@@ -146,22 +146,33 @@ private:
   class msc_accept
   {
   private:
-    uint64_t amount;    // amount of MSC/TMSC being purchased
+    uint64_t accept_amount;          // amount of MSC/TMSC remaining to be purchased
+    uint64_t original_accept_amount; // amount of MSC/TMSC being desired to purchased
     uint64_t fee_paid;  //
 
   public:
     int block;          // 'accept' message sent in this block
 
-    msc_accept(uint64_t a, uint64_t f, int b):amount(a),fee_paid(f),block(b)
+    msc_accept(uint64_t a, uint64_t f, int b):accept_amount(a),fee_paid(f),block(b)
     {
-      printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+      original_accept_amount = accept_amount;
+      printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
     }
 
     void print()
     {
       // hm, can't access the outer class' map member to get the currency unit label... do we care?
-      printf("buying: %12.8lf units in block# %d, fee: %2.8lf\n", (double)amount/(double)COIN, block, (double)fee_paid/(double)COIN);
+      printf("buying: %12.8lf (originally= %12.8lf) units in block# %d, fee: %2.8lf\n",
+       (double)accept_amount/(double)COIN, (double)original_accept_amount/(double)COIN, block, (double)fee_paid/(double)COIN);
     }
+
+    uint64_t getAcceptAmount() const
+    { 
+      printf("%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount, __LINE__, __FILE__);
+
+      return accept_amount;
+    }
+    void reduceAcceptAmount(uint64_t really_purchased) { accept_amount -= really_purchased; } // TODO: check for negatives ? assert ?
   };
 
   map<string, msc_accept> my_accepts;
@@ -172,22 +183,54 @@ public:
   void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; } // TODO: check for negatives ? assert ?
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
-  uint64_t getCurrencyAmount(uint64_t BTC_paid) const
+  uint64_t getCurrencyAmount(uint64_t BTC_paid, const string &buyer)
   {
   double X;
   double P;
   uint64_t purchased;
+  uint64_t actual_amount = 0;
+  map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
-    if (BTC_paid >= BTC_desired) return (offer_amount);
+    // did the buyer pay enough or more than the seller wanted?
+    if (BTC_paid >= BTC_desired)
+    {
+      purchased = offer_amount; // this is how much the seller has offered
+    }
+    else
+    {
+      if (0==(double)BTC_desired) return 0;  // divide by 0 protection
 
-    if (0==(double)BTC_desired) return 0;  // divide by 0 protection
+      X = (double)BTC_paid/(double)BTC_desired;
+      P = (double)original_offer_amount * X;
 
-    X = (double)BTC_paid/(double)BTC_desired;
-    P = (double)original_offer_amount * X;
+      purchased = rounduint64(P); // buyer paid for less than the seller has, that's OK, he'll get what he paid for
+    }
 
-    purchased = rounduint64(P);
+    // now check that the buyer had actually ACCEPTed this much...
+    {
+      if (my_it != my_accepts.end())
+      {
+        // did the customer pay for less than he wanted? adjust downward
+        if (purchased < (my_it->second).getAcceptAmount()) actual_amount = purchased;
+        // otherwise he paid just enough or even more -- he gets what he wanted (ACCEPTed)
+        else actual_amount = (my_it->second).getAcceptAmount();
+      }
+    }
 
-    return purchased;
+    printf("%s();BTC_paid= %lu, BTC_desired= %lu, purchased= %lu, accept_amount= %lu, actual_amount= %lu\n",
+     __FUNCTION__, BTC_paid, BTC_desired, purchased, (my_it->second).getAcceptAmount(), actual_amount);
+
+    return actual_amount;
+  }
+
+  void reduceAcceptAmount(uint64_t purchased, const string &buyer)
+  {
+  map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
+
+    if (my_it != my_accepts.end())
+    {
+      (my_it->second).reduceAcceptAmount(purchased);
+    }
   }
 
   msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
@@ -218,7 +261,7 @@ public:
   }
 
   // the offer is accepted by a buyer, add this purchase to the accepted list or replace an old one from this buyer
-  void offer_accept(string buyer, uint64_t desired, int block, uint64_t fee)
+  void offer_accept(const string &buyer, uint64_t desired, int block, uint64_t fee)
   {
     printf("%s(buyer:%s, desired=%2.8lf, block # %d), line %d, file: %s\n",
      __FUNCTION__, buyer.c_str(), (double)desired/(double)COIN, block, __LINE__, __FILE__);
@@ -411,6 +454,7 @@ private:
       if (my_it != my_offers.end())
       {
         printf("%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+        (my_it->second).print((my_it->first));
         // offer found -- update
         (my_it->second).offer_accept(sender, nValue, block, tx_fee_paid);
       }
@@ -485,6 +529,7 @@ private:
     case MSC_TYPE_TRADE_OFFER:
     {
     enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
+    const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
     bool bActionNew = false;
     bool bActionUpdate = false;
     bool bActionCancel = false;
@@ -501,7 +546,7 @@ private:
     printf("\t  amount desired: %lu.%08lu\n", amount_desired / COIN, amount_desired % COIN);
     printf("\tblock time limit: %u\n", blocktimelimit);
     printf("\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
-    printf("\t      sub-action: %u\n", subaction);
+    printf("\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
 
       // figure out which Action this is based on amount for sale, version & etc.
       switch (version)
@@ -644,7 +689,7 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
       // if he is -- he will be removed by the periodic cleanup, upon every new block received as the spec says
       if (offer.IsCustomerOnTheAcceptanceListAndWithinBlockTimeLimit(customer, blockNow))
       {
-        uint64_t target_currency_amount = offer.getCurrencyAmount(BTC_amount);
+        uint64_t target_currency_amount = offer.getCurrencyAmount(BTC_amount, customer);
 
           // good, now adjust the amounts!!!
           if (update_tally_map(seller, offer.getCurrency(), - target_currency_amount, true))  // remove from reserve of the seller
@@ -652,8 +697,12 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
             update_tally_map(customer, offer.getCurrency(), target_currency_amount);  // give to buyer
             // update the amount available in the offer
             offer.reduceOfferAmount(target_currency_amount);
+
+            // must also adjust the amount the buyer still wants after this payment
+            offer.reduceAcceptAmount(target_currency_amount, customer);
           }
 
+          offer.print((my_it->first));
           printf("#######################################################\n");
       }
     }
