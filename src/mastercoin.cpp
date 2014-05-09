@@ -53,7 +53,7 @@ static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice
 static int InsufficientFunds = 0;      // consolidate error messages
 
 // disable TMSC handling for now, has more legacy corner cases
-static int ignoreTMSC = 0;
+static int ignore_all_but_MSC = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -139,6 +139,7 @@ private:
   uint64_t BTC_desired; // amount desired, in BTC
   uint64_t min_fee;
   unsigned char blocktimelimit;
+  double price; // for display purposes only
 
   // do a map of buyers, primary key is buyer+currency
   // MUST account for many possible accepts and EACH currency offer
@@ -196,6 +197,8 @@ public:
 
     original_offer_amount = a;
 
+    if (original_offer_amount) price = (double)BTC_desired/(double)original_offer_amount;
+
     my_accepts.clear();
   }
 
@@ -210,6 +213,8 @@ public:
     BTC_desired = d;
     min_fee = fee;
     blocktimelimit = btl;
+
+    if (original_offer_amount) price = (double)BTC_desired/(double)original_offer_amount;
   }
 
   // the offer is accepted by a buyer, add this purchase to the accepted list or replace an old one from this buyer
@@ -428,7 +433,7 @@ private:
 //  if (PACKET_SIZE-1 > pkt_size)
   if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
   {
-    printf("%s(); size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
+    printf("%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
     return -1;
   }
 
@@ -443,12 +448,6 @@ private:
   memcpy(&currency, &pkt[4], 4);
   memcpy(&nValue, &pkt[8], 8);
 
-  if (ignoreTMSC)
-  if (currency != MASTERCOIN_CURRENCY_MSC)
-  {
-    return -2;
-  }
-
   printf("version: %d, Class %s\n", version, !multi ? "A":"B");
 
   // FIXME: only do swaps for little-endian system(s) !
@@ -456,9 +455,15 @@ private:
   swapByteOrder32(currency);
   swapByteOrder64(nValue);
 
-    printf("\t            type: %u (%s)\n", type, c_strMastercoinType(type));
-    printf("\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
-    printf("\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+  if (ignore_all_but_MSC)
+  if (currency != MASTERCOIN_CURRENCY_MSC)
+  {
+    return -2;
+  }
+
+  printf("\t            type: %u (%s)\n", type, c_strMastercoinType(type));
+  printf("\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
+  printf("\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -685,8 +690,10 @@ int MSC_periodic_function()
 }
 
 // called once per block
-int mastercoin_block_handler(int nBlock)
+int mastercoin_handler_block(int nBlock)
 {
+  printf("%s(%d), line %d, file: %s\n", __FUNCTION__, nBlock, __LINE__, __FILE__);
+
   return 0;
 }
 
@@ -746,7 +753,7 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            if (msc_debug4 || msc_debug2 || msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            if (msc_debug4 || msc_debug2 || msc_debug3) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -1468,7 +1475,7 @@ unsigned int msc_zero = 0;
 unsigned int msc_total = 0; // position within the block, when available, 0-based
 
 // this is called for every new transaction that comes in (actually in block parsing loop)
-int mastercoin_tx_handler(const CTransaction &tx, int nBlock, unsigned int idx)
+int mastercoin_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
 {
 int rc = 0;
 
