@@ -167,7 +167,7 @@ private:
 
 public:
   unsigned int getCurrency() const { return currency; }
-  uint64_t getOriginalOfferAmount() const { return original_offer_amount; }
+  uint64_t getOfferAmount() const { return offer_amount; }
   void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; } // TODO: check for negatives ? assert ?
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
@@ -381,7 +381,7 @@ private:
     if (my_offers.end() == my_it) return; // offer not found
 
 //    string sellerAddr = (my_it->first).substr(0, strLine.find("-"));  // redundant
-    nValue = (my_it->second).getOriginalOfferAmount();
+    nValue = (my_it->second).getOfferAmount();
 
     // take from RESERVED, give to REAL
     if (!update_tally_map(seller_addr, curr, - nValue, true))
