@@ -623,8 +623,21 @@ private:
 
       if (bActionNew)
       {
-        // if offering more than available -- put everythig up on sale
-        if (nValue > getMPbalance(sender, currency)) nValue = getMPbalance(sender, currency);
+      const uint64_t balanceReallyAvailable = getMPbalance(sender, currency);
+
+        // if offering more than available -- put everything up on sale
+        if (nValue > balanceReallyAvailable)
+        {
+        double BTC;
+
+          // BUT.. we must also re-adjust the BTC desired in this case...
+          // TODO: check with Zathras
+          BTC = amount_desired * balanceReallyAvailable;
+          BTC /= (double)nValue;
+          amount_desired = rounduint64(BTC);
+
+          nValue = balanceReallyAvailable;
+        }
 
         if (update_tally_map(sender, currency, - nValue)) // subtract from what's available
         {
@@ -633,7 +646,7 @@ private:
         }
       }
       break;
-    }
+    } // end of TRADE_OFFER
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
       // the min fee spec requirement is checked in the following function
