@@ -535,6 +535,7 @@ private:
   if (ignore_all_but_MSC)
   if (currency != MASTERCOIN_CURRENCY_MSC)
   {
+    printf("IGNORING NON-MSC packet for NOW, for this PoC !!!!!!!!!!!!!!!\n");
     return -2;
   }
 
@@ -749,9 +750,17 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
 
             // must also adjust the amount the buyer still wants after this payment
             offer.reduceAcceptAmount(target_currency_amount, customer);
+
+            offer.print((my_it->first));
+
+            // now, erase the offer if there is nothing left in Reserve (or offer_amount for this offer)
+            if (0 == getMPbalance(seller, offer.getCurrency(), true))
+            {
+              printf("%s(%s) ALL SOLD - wiping out the offer, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+              my_offers.erase(my_it);
+            }
           }
 
-          offer.print((my_it->first));
           printf("#######################################################\n");
       }
     }
