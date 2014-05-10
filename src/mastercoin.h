@@ -13,6 +13,9 @@
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
 
+// Maximum outputs per BTC Transaction
+#define MAX_BTC_OUTPUTS 16
+
 // TODO: clean up is needed for pre-production #DEFINEs , consts & alike belong in header files (classes)
 #define MAX_SHA256_OBFUSCATION_TIMES  255
 

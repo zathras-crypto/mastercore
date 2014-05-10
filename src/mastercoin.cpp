@@ -41,9 +41,28 @@ using namespace json_spirit;
 const string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 // const string exodusHash = "946cb2e08075bcbaf157e47bcb67eb2b2339d242";
 
+/*
+int msc_debug0 = 0;
 int msc_debug  = 0;
 int msc_debug2 = 1;
 int msc_debug3 = 0;
+int msc_debug4 = 1;
+int msc_debug5 = 0;
+int msc_debug6 = 0;
+*/
+/*
+int msc_debug0 = 0;
+int msc_debug  = 1;
+int msc_debug2 = 1;
+int msc_debug3 = 1;
+int msc_debug4 = 1;
+int msc_debug5 = 1;
+int msc_debug6 = 1;
+*/
+int msc_debug0 = 0;
+int msc_debug  = 0;
+int msc_debug2 = 1;
+int msc_debug3 = 1;
 int msc_debug4 = 1;
 int msc_debug5 = 0;
 int msc_debug6 = 0;
@@ -786,7 +805,7 @@ uint64_t nMax = 0;
 vector<string>script_data;
 vector<string>address_data;
 vector<uint64_t>value_data;
-uint64_t nExodusValue = 0;
+uint64_t ExodusValues[MAX_BTC_OUTPUTS];
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
 unsigned int packet_size = 0;
@@ -812,9 +831,8 @@ uint64_t txFee = 0;
 
                 if (exodus == strAddress)
                 {
-                  ++marker_count;
                   // TODO: add other checks to verify a mastercoin tx !!!
-                  nExodusValue = wtx.vout[i].nValue;
+                  ExodusValues[marker_count++] = wtx.vout[i].nValue;
                 }
               }
             }
@@ -1022,14 +1040,20 @@ uint64_t txFee = 0;
                 {
                   if (strData.empty()) strData = script_data[k].substr(2*1,2*PACKET_SIZE_CLASS_A);
   
-                  if (msc_debug3) printf("strData #1:%s, seq = %x\n", strData.c_str(), seq);
+                  if (msc_debug3) printf("strData #1:%s, seq = %x, value_data[%d]=%lu, marker_count= %d\n",
+                   strData.c_str(), seq, k, value_data[k], marker_count);
 
-                  if (value_data[k] == nExodusValue)
+                  for (int exodus_idx=0;exodus_idx<marker_count;exodus_idx++)
                   {
-                    if (msc_debug3) printf("strData #2:%s, seq = %x\n", strData.c_str(), seq);
-                    strData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
-                    break;
-            }
+                    if (msc_debug3) printf("%s(); ExodusValues[%d]=%lu\n", __FUNCTION__, exodus_idx, ExodusValues[exodus_idx]);
+                    if (value_data[k] == ExodusValues[exodus_idx])
+                    {
+                      if (msc_debug3) printf("strData(exodus_idx=%d) #2:%s, seq = %x\n", exodus_idx, strData.c_str(), seq);
+                      strData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
+                      break;
+                    }
+                  }
+                  if (!strData.empty()) break;
                 }
               }
             }
@@ -1126,19 +1150,19 @@ uint64_t txFee = 0;
 #endif
 
 
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
           for (unsigned k = 0; k<multisig_script_data.size();k++)
           {
 
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             CPubKey key(ParseHex(multisig_script_data[k]));
             CKeyID keyID = key.GetID();
             string strAddress = CBitcoinAddress(keyID).ToString();
             char *c_addr_type = (char *)"";
             string strPacket;
 
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             if (exodus == strAddress) c_addr_type = (char *)" (EXODUS)";
             else
             if (strAddress == strSender)
@@ -1167,21 +1191,21 @@ uint64_t txFee = 0;
               }
             }
 
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             if (msc_debug2)
             printf("multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
             if (!strPacket.empty())
             {
               if (msc_debug) printf("packet #%d: %s\n", mdata_count, strPacket.c_str());
             }
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
 
             packet_size = mdata_count * (PACKET_SIZE - 1);
 
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
-          if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
             // now decode mastercoin packets
             for (int m=0;m<mdata_count;m++)
@@ -1284,17 +1308,17 @@ int max_block = chainActive.Height();
   for (int blockNum = nHeight;blockNum<=max_block;blockNum++)
   {
     CBlockIndex* pblockindex = chainActive[blockNum];
-    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
-    if (msc_debug) printf("%s(%d,%d; max=%d):%s, line %d, file: %s\n",
+    if (msc_debug0) printf("%s(%d,%d; max=%d):%s, line %d, file: %s\n",
      __FUNCTION__, blockNum, nParam2, chainActive.Height(), strBlockHash.c_str(), __LINE__, __FILE__);
 
     ReadBlockFromDisk(block, pblockindex);
 
-    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
-    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
     int tx_count = 0;
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
@@ -1308,7 +1332,7 @@ int max_block = chainActive.Height();
     }
 
     n_total += tx_count;
-    if (msc_debug) printf("%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
+    if (msc_debug0) printf("%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
     {
 
@@ -1323,7 +1347,7 @@ int max_block = chainActive.Height();
 */
         while (!txq.empty()) msc_tx_pop();
     }
-    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
   }
 
         for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
