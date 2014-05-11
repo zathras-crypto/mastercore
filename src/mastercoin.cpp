@@ -62,7 +62,7 @@ int msc_debug6 = 1;
 int msc_debug0 = 0;
 int msc_debug  = 0;
 int msc_debug2 = 1;
-int msc_debug3 = 1;
+int msc_debug3 = 0;
 int msc_debug4 = 1;
 int msc_debug5 = 0;
 int msc_debug6 = 0;
@@ -151,22 +151,23 @@ class msc_offer
 {
 private:
   int offerBlock;
-  string offerHash; // tx of the offer
-  uint64_t offer_amount;
-  uint64_t original_offer_amount;
+  uint64_t offer_amount;  // amount still available (should probably = original_offer_amount - reserved_accepted_amount - amount_bought)
+  uint64_t original_offer_amount; // the amount of MSC for sale specified when the offer was placed
+  uint64_t reserved_accepted_amount; // as accepts come in this amount grows, as accepts expire, this amount shrinks
   unsigned int currency;
   uint64_t BTC_desired; // amount desired, in BTC
   uint64_t min_fee;
   unsigned char blocktimelimit;
-  double price; // for display purposes only
 
   // do a map of buyers, primary key is buyer+currency
   // MUST account for many possible accepts and EACH currency offer
   class msc_accept
   {
   private:
-    uint64_t accept_amount;          // amount of MSC/TMSC remaining to be purchased
-    uint64_t original_accept_amount; // amount of MSC/TMSC being desired to purchased
+    uint64_t accept_amount;             // amount of MSC/TMSC remaining to be purchased
+    uint64_t original_accept_amount;    // amount of MSC/TMSC being desired to purchased
+// once accept is seen on the network the amount of MSC being purchased is taken out of seller's Reserve and put into this Buyer's
+    uint64_t reserved_for_this_accept;
     uint64_t fee_paid;  //
 
   public:
@@ -175,14 +176,16 @@ private:
     msc_accept(uint64_t a, uint64_t f, int b):accept_amount(a),fee_paid(f),block(b)
     {
       original_accept_amount = accept_amount;
+      reserved_for_this_accept = 0;
       printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
     }
 
     void print()
     {
       // hm, can't access the outer class' map member to get the currency unit label... do we care?
-      printf("buying: %12.8lf (originally= %12.8lf) units in block# %d, fee: %2.8lf\n",
-       (double)accept_amount/(double)COIN, (double)original_accept_amount/(double)COIN, block, (double)fee_paid/(double)COIN);
+      printf("buying: %12.8lf (originally= %12.8lf) reserved_for_it= %12.8lf in block# %d, fee: %2.8lf\n",
+       (double)accept_amount/(double)COIN, (double)original_accept_amount/(double)COIN, (double)reserved_for_this_accept/(double)COIN,
+       block, (double)fee_paid/(double)COIN);
     }
 
     uint64_t getAcceptAmount() const
@@ -200,6 +203,32 @@ public:
   unsigned int getCurrency() const { return currency; }
   uint64_t getOfferAmount() const { return offer_amount; }
   void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; } // TODO: check for negatives ? assert ?
+
+  unsigned int eraseExpiredAccepts(int blockNow)
+  {
+  unsigned int how_many_erased = 0;
+
+    for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
+    {
+      // my_it->first = key
+      // my_it->second = value
+
+      if ((blockNow - (my_it->second).block) > (int) blocktimelimit)
+      {
+        printf("%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
+         __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit);
+
+        printf("\t%35s ", (my_it->first).c_str());
+        (my_it->second).print();
+
+        my_accepts.erase(my_it);
+
+        ++how_many_erased;
+      }
+    }
+
+    return how_many_erased;
+  }
 
   // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
   uint64_t getCurrencyAmount(uint64_t BTC_paid, const string &buyer)
@@ -255,17 +284,21 @@ public:
     {
       (my_it->second).print();
       (my_it->second).reduceAcceptAmount(purchased);
+
+      // if accept has been fully paid -- erase it
+      if (0 == (my_it->second).getAcceptAmount())
+      {
+        my_accepts.erase(my_it);
+      }
     }
   }
 
   msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
-   :offerBlock(b),offer_amount(a),currency(cu),BTC_desired(d),min_fee(fee),blocktimelimit(btl)
+   :offerBlock(b),offer_amount(a),original_offer_amount(a),currency(cu),BTC_desired(d),min_fee(fee),blocktimelimit(btl)
   {
     if (msc_debug4) printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
-    original_offer_amount = a;
-
-    if (original_offer_amount) price = (double)BTC_desired/(double)original_offer_amount;
+    reserved_accepted_amount = 0;
 
     my_accepts.clear();
   }
@@ -281,8 +314,6 @@ public:
     BTC_desired = d;
     min_fee = fee;
     blocktimelimit = btl;
-
-    if (original_offer_amount) price = (double)BTC_desired/(double)original_offer_amount;
   }
 
   // the offer is accepted by a buyer, add this purchase to the accepted list or replace an old one from this buyer
@@ -301,15 +332,18 @@ public:
 
     map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-
     // if an accept by this same buyer is found -- erase it and replace with the new one
     // TODO: determine if that's the correct course of action per Mastercoin protocol : consensus question
     // FIXIME: Zathras said the older accepts is the valid one !!!!!!!!
-    if (my_it != my_accepts.end()) my_accepts.erase(my_it);
-    my_accepts.insert(std::make_pair(buyer,msc_accept(desired, fee, block)));
+    if (my_it != my_accepts.end())
+    {
+      my_accepts.erase(my_it);
 
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+      // protocol error, an accept from this same seller for this same offer is already open
+      printf("%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
+      ++InvalidCount_per_spec;
+    }
+    else my_accepts.insert(std::make_pair(buyer,msc_accept(desired, fee, block)));
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
@@ -317,13 +351,13 @@ public:
   const double coins = (double)offer_amount/(double)COIN;
   const double original_coins = (double)original_offer_amount/(double)COIN;
   const double wants_total = (double)BTC_desired/(double)COIN;
-  const double price = coins ? wants_total/coins : 0;
+  const double price = coins*wants_total ? wants_total/coins : 0;
 
     printf("%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
      address.c_str(), original_coins, coins, c_strMastercoinCurrency(currency), wants_total, price, offerBlock, blocktimelimit,(double)min_fee/(double)COIN);
 
         if (bPrintAcceptsToo)
-        for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); my_it++)
+        for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
@@ -550,7 +584,7 @@ private:
   if (ignore_all_but_MSC)
   if (currency != MASTERCOIN_CURRENCY_MSC)
   {
-    printf("IGNORING NON-MSC packet for NOW, for this PoC !!!!!!!!!!!!!!!\n");
+    printf("IGNORING NON-MSC packet for NOW, for this PoC !!!\n");
     return -2;
   }
 
@@ -665,8 +699,7 @@ private:
         {
         double BTC;
 
-          // BUT.. we must also re-adjust the BTC desired in this case...
-          // TODO: check with Zathras
+          // AND we must also re-adjust the BTC desired in this case...
           BTC = amount_desired * balanceReallyAvailable;
           BTC /= (double)nValue;
           amount_desired = rounduint64(BTC);
@@ -800,22 +833,37 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
 // 10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
 //
 
+unsigned int cleanup_expired_accepts(int nBlockNow)
+{
+unsigned int how_many_erased = 0;
 
-// MSC_periodic_function() will be called upon every new block received
+  // go over all offers
+  for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
+  {
+    // my_it->first = key
+    // my_it->second = value
+
+//    (my_it->second).print((my_it->first), false);
+
+    how_many_erased += (my_it->second).eraseExpiredAccepts(nBlockNow);
+  }
+
+  return how_many_erased;
+}
+
+// called once per block
 // it performs cleanup and other functions
-int MSC_periodic_function()
+int mastercoin_handler_block(int nBlockNow)
 {
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
 // 2) update the amount in the Exodus address
+unsigned int how_many_erased = 0;
 
-  return 0;
-}
+  how_many_erased = cleanup_expired_accepts(nBlockNow);
 
-// called once per block
-int mastercoin_handler_block(int nBlock)
-{
-  printf("%s(%d), line %d, file: %s\n", __FUNCTION__, nBlock, __LINE__, __FILE__);
+  if (how_many_erased) printf("%s(%d); erased %u accepts this block, line %d, file: %s\n",
+   __FUNCTION__, how_many_erased, nBlockNow, __LINE__, __FILE__);
 
   return 0;
 }
@@ -875,7 +923,7 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            if (msc_debug4 || msc_debug2 || msc_debug3) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            if (msc_debug3) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -1119,6 +1167,7 @@ uint64_t txFee = 0;
             // this must be the BTC payment - validate (?)
             // TODO
             // ...
+              if (msc_debug2 || msc_debug4) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
               printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
               printf("sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
               printf("!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -1278,7 +1327,7 @@ Value mscrpc(const Array& params, bool fHelp)
             + HelpExampleRpc("getblockcount", "")
         );
 
-        for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); my_it++)
+        for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
@@ -1289,7 +1338,7 @@ Value mscrpc(const Array& params, bool fHelp)
   printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__); int count = 0;
 
 
-        for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
+        for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
@@ -1323,9 +1372,6 @@ int max_block = chainActive.Height();
 
   int nParam2 = 0;
 
-//    nParam2 = params[1].get_int();
-
-//  msc_tally_map.clear();
   my_offers.clear();
   printf("starting block= %d, max_block= %d\n", nHeight, max_block);
 
@@ -1333,7 +1379,6 @@ int max_block = chainActive.Height();
   for (int blockNum = nHeight;blockNum<=max_block;blockNum++)
   {
     CBlockIndex* pblockindex = chainActive[blockNum];
-//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
     if (msc_debug0) printf("%s(%d,%d; max=%d):%s, line %d, file: %s\n",
@@ -1341,16 +1386,9 @@ int max_block = chainActive.Height();
 
     ReadBlockFromDisk(block, pblockindex);
 
-//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
     int tx_count = 0;
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
-
-//      if (msc_debug) printf("%4d:txid:%s\n", tx_count, tx.GetHash().GetHex().c_str());
-
       if (0 < msc_tx_push((const CTransaction) tx, blockNum, tx_count)) ++n_found;
 
       ++tx_count;
@@ -1359,36 +1397,23 @@ int max_block = chainActive.Height();
     n_total += tx_count;
     if (msc_debug0) printf("%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
-    {
+    while (!txq.empty()) msc_tx_pop();
 
-/*
-        msc tx_top;
-        while (!txq.empty())
-        {
-          tx_top = txq.top();
-          tx_top.print();
-          txq.pop();
-        }
-*/
-        while (!txq.empty()) msc_tx_pop();
-    }
-//    if (msc_debug) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    mastercoin_handler_block(blockNum);
   }
 
-        for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
-        {
-          // my_it->first = key
-          // my_it->second = value
+  for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
+  {
+    // my_it->first = key
+    // my_it->second = value
 
-          printf("%34s =>> ", (my_it->first).c_str());
-          (my_it->second).print();
-        }
+    printf("%34s =>> ", (my_it->first).c_str());
+    (my_it->second).print();
+  }
 
   printf("starting block= %d, max_block= %d\n", nHeight, max_block);
   printf("n_total= %d, n_found= %d\n", n_total, n_found);
 
-//  return my_blockToJSON(block, pblockindex);
-//  return strBlockHash;
   return 0;
 }
 

@@ -26,7 +26,7 @@
 using namespace std;
 using namespace boost;
 
-int mastercoin_handler_block(int nBlock);
+int mastercoin_handler_block(int nBlockNow);
 int mastercoin_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx);
 
 #if defined(NDEBUG)
