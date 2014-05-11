@@ -210,6 +210,8 @@ public:
   uint64_t actual_amount = 0;
   map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+
     // did the buyer pay enough or more than the seller wanted?
     if (BTC_paid >= BTC_desired)
     {
@@ -246,8 +248,12 @@ public:
   {
   map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+    printf("%s(%s, purchased= %lu), line %d, file: %s\n", __FUNCTION__, buyer.c_str(), purchased, __LINE__, __FILE__);
+
     if (my_it != my_accepts.end())
     {
+      (my_it->second).print();
       (my_it->second).reduceAcceptAmount(purchased);
     }
   }
@@ -295,10 +301,15 @@ public:
 
     map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+
     // if an accept by this same buyer is found -- erase it and replace with the new one
     // TODO: determine if that's the correct course of action per Mastercoin protocol : consensus question
+    // FIXIME: Zathras said the older accepts is the valid one !!!!!!!!
     if (my_it != my_accepts.end()) my_accepts.erase(my_it);
     my_accepts.insert(std::make_pair(buyer,msc_accept(desired, fee, block)));
+
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
@@ -327,6 +338,10 @@ public:
   int problem = 0;
 
     const map<string, msc_accept>::iterator my_it = my_accepts.find(customer);
+
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+
+    printf("%s(%s), line %d, file: %s\n", __FUNCTION__, customer.c_str(), __LINE__, __FILE__);
 
     if (my_it != my_accepts.end())
     {
@@ -453,7 +468,8 @@ private:
     return !(my_it == my_offers.end());
   }
 
-  void offerCancel(string seller_addr, unsigned int curr) const
+  // undo the Offer - return the funds, optionally to Cancel, or just undo to get ready for an update
+  void offerUndo(string seller_addr, unsigned int curr, bool bCancel = false) const
   {
   const string combo = STR_ADDR_CURR_COMBO(seller_addr);
   map<string, msc_offer>::iterator my_it = my_offers.find(combo);
@@ -461,7 +477,6 @@ private:
 
     if (my_offers.end() == my_it) return; // offer not found
 
-//    string sellerAddr = (my_it->first).substr(0, strLine.find("-"));  // redundant
     nValue = (my_it->second).getOfferAmount();
 
     // take from RESERVED, give to REAL
@@ -473,7 +488,7 @@ private:
     update_tally_map(seller_addr, curr, nValue);
 
     // erase the offer from the map
-    my_offers.erase(my_it);
+    if (bCancel) my_offers.erase(my_it);
   }
 
   // will replace the previous accept for a specific item from this buyer
@@ -487,7 +502,7 @@ private:
       if (my_it != my_offers.end())
       {
         printf("%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
-        (my_it->second).print((my_it->first));
+        (my_it->second).print((my_it->first), true);
         // offer found -- update
         (my_it->second).offer_accept(sender, nValue, block, tx_fee_paid);
       }
@@ -632,13 +647,13 @@ private:
       // my simple math is: UPDATE = CANCEL + NEW
       if (bActionUpdate)
       {
-        bActionCancel = true;
+        offerUndo(sender, currency);  // tally is adjusted internally
         bActionNew = true;
       }
       
       if (bActionCancel)
       {
-        offerCancel(sender, currency);  // tally is adjusted internally
+        offerUndo(sender, currency, true);  // tally is adjusted internally
       }
 
       if (bActionNew)
@@ -734,6 +749,7 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
       msc_offer &offer = (my_it->second);
 
       offer.print((my_it->first));
+      offer.print((my_it->first), true);
 
       // must now check if the customer is in the accept list
       // if he is -- he will be removed by the periodic cleanup, upon every new block received as the spec says
