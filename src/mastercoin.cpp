@@ -213,7 +213,7 @@ public:
       // my_it->first = key
       // my_it->second = value
 
-      if ((blockNow - (my_it->second).block) > (int) blocktimelimit)
+      if ((blockNow - (my_it->second).block) >= (int) blocktimelimit)
       {
         printf("%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
          __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit);
@@ -288,9 +288,11 @@ public:
       // if accept has been fully paid -- erase it
       if (0 == (my_it->second).getAcceptAmount())
       {
+        printf("%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n", __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
         my_accepts.erase(my_it);
       }
     }
+    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
   }
 
   msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
@@ -332,13 +334,9 @@ public:
 
     map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
 
-    // if an accept by this same buyer is found -- erase it and replace with the new one
-    // TODO: determine if that's the correct course of action per Mastercoin protocol : consensus question
-    // FIXIME: Zathras said the older accepts is the valid one !!!!!!!!
+    // Zathras said the older accept is the valid one !!!!!!!! do not accept any new ones!
     if (my_it != my_accepts.end())
     {
-      my_accepts.erase(my_it);
-
       // protocol error, an accept from this same seller for this same offer is already open
       printf("%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
       ++InvalidCount_per_spec;
@@ -539,6 +537,7 @@ private:
         (my_it->second).print((my_it->first), true);
         // offer found -- update
         (my_it->second).offer_accept(sender, nValue, block, tx_fee_paid);
+        (my_it->second).print((my_it->first), true);
       }
       else
       {
@@ -800,7 +799,7 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
             // must also adjust the amount the buyer still wants after this payment
             offer.reduceAcceptAmount(target_currency_amount, customer);
 
-            offer.print((my_it->first));
+            offer.print((my_it->first), true);
 
             // now, erase the offer if there is nothing left in Reserve (or offer_amount for this offer)
             if (0 == getMPbalance(seller, offer.getCurrency(), true))
@@ -923,7 +922,8 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            if (msc_debug3) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            printf("\n");
+            if (msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -1002,7 +1002,8 @@ uint64_t txFee = 0;
 
             if (!strSender.empty())
             {
-              if (msc_debug2) printf("The Sender: %s : Value= %lu.%08lu ; fee= %lu.%08lu\n", strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
+              if (msc_debug2) printf("The Sender: %s : His Input Value= %lu.%08lu ; fee= %lu.%08lu\n",
+               strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
             }
             else
             {
