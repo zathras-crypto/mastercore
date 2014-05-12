@@ -50,7 +50,6 @@ int msc_debug4 = 1;
 int msc_debug5 = 0;
 int msc_debug6 = 0;
 */
-/*
 int msc_debug0 = 0;
 int msc_debug  = 1;
 int msc_debug2 = 1;
@@ -58,7 +57,7 @@ int msc_debug3 = 1;
 int msc_debug4 = 1;
 int msc_debug5 = 1;
 int msc_debug6 = 1;
-*/
+/*
 int msc_debug0 = 0;
 int msc_debug  = 0;
 int msc_debug2 = 1;
@@ -66,6 +65,7 @@ int msc_debug3 = 0;
 int msc_debug4 = 1;
 int msc_debug5 = 0;
 int msc_debug6 = 0;
+*/
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice log, for now just keep a count
@@ -597,14 +597,17 @@ private:
   {
     case MSC_TYPE_SIMPLE_SEND:
       if (sender.empty()) ++InvalidCount_per_spec;
-      if (!update_tally_map(sender, currency, - nValue)) break;
       // special case: if can't find the receiver -- assume sending to itself !
       // may also be true for BTC payments........
       // TODO: think about this..........
+/*
       if (receiver.empty())
       {
         receiver = sender;
       }
+*/
+      if (receiver.empty()) ++InvalidCount_per_spec;
+      if (!update_tally_map(sender, currency, - nValue)) break;
       update_tally_map(receiver, currency, nValue);
       break;
 
@@ -878,6 +881,7 @@ vector<string>script_data;
 vector<string>address_data;
 vector<uint64_t>value_data;
 uint64_t ExodusValues[MAX_BTC_OUTPUTS];
+int64_t ExodusHighestValue = 0;
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
 unsigned int packet_size = 0;
@@ -905,6 +909,8 @@ uint64_t txFee = 0;
                 {
                   // TODO: add other checks to verify a mastercoin tx !!!
                   ExodusValues[marker_count++] = wtx.vout[i].nValue;
+
+                  if (ExodusHighestValue < wtx.vout[i].nValue) ExodusHighestValue = wtx.vout[i].nValue;
                 }
               }
             }
@@ -1136,34 +1142,51 @@ uint64_t txFee = 0;
             {
               ++seq;
               // look for reference using the seq #
-              for (unsigned k = 0; k<script_data.size();k++)
+              for (unsigned r = 0; r<script_data.size();r++)
               {
-                if ((address_data[k] != strData) && (address_data[k] != exodus))
+                if ((address_data[r] != strData) && (address_data[r] != exodus))
                 {
-                  if (seq == ParseHex(script_data[k].substr(0,2))[0])
+                  if (seq == ParseHex(script_data[r].substr(0,2))[0])
                   {
-                    strReference = address_data[k];
-            }
+                    strReference = address_data[r];
+                  }
                 }
               }
 
-              // TODO:     # on failure with 3 outputs case, take non data/exodus to be the recipient
+              // TODO: # on failure with 3 (non Exodus) outputs case, take non data/exodus to be the recipient
               if (strReference.empty())
               {
-                if (3 == script_data.size())
+              int count = 0;
+
+                printf("%s() REF STILL EMPTY, data.size=%lu, line %d, file: %s\n", __FUNCTION__, script_data.size(), __LINE__, __FILE__);
+
+//                if (4 == script_data.size())
                 {
                   for (unsigned k = 0; k<script_data.size();k++)
                   {
+                    printf("%s():%s, line %d, file: %s\n", __FUNCTION__, address_data[k].c_str(), __LINE__, __FILE__);
+
+                    // BUG HERE, FIXME
+                    // strData is the script, not address !!!!!!!!!!!!!!!!!!!!
                     if ((address_data[k] != strData) && (address_data[k] != exodus))
                     {
-                      strReference = address_data[k];
+                      if (ExodusHighestValue == value_data[k])
+                      {
+                        strReference = address_data[k];
+                        ++count;
+                      }
                     }
                   }
+                }
+                if (1 != count)
+                {
+                  printf("%s() ERROR: MUST INVALIDATE HERE per Zathras 12 step algorithm, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
                 }
               }
             }
 
             if (strData.empty() || strReference.empty())
+
             {
             // this must be the BTC payment - validate (?)
             // TODO
