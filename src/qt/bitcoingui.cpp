@@ -72,7 +72,7 @@ BitcoinGUI::BitcoinGUI(bool fIsTestnet, QWidget *parent) :
 {
     GUIUtil::restoreWindowGeometry("nWindow", QSize(850, 550), this);
 
-    QString windowTitle = tr("Bitcoin Core") + " - ";
+    QString windowTitle = tr("Master Core") + " - ";
 #ifdef ENABLE_WALLET
     /* if compiled with wallet support, -disablewallet can still disable the wallet */
     bool enableWallet = !GetBoolArg("-disablewallet", false);
@@ -226,6 +226,14 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
+    //temporary action placeholder for balances tab
+    balancesAction = new QAction(QIcon(":/icons/overview"), tr("&Balances"), this);
+    balancesAction->setStatusTip(tr("Show balances for addresses in the wallet"));
+    balancesAction->setToolTip(overviewAction->statusTip());
+    balancesAction->setCheckable(true);
+    balancesAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
+    tabGroup->addAction(balancesAction);
+
     sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
     sendCoinsAction->setStatusTip(tr("Send coins to a Bitcoin address"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
@@ -251,6 +259,9 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     // can be triggered from the tray menu, and need to show the GUI to be useful.
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
+    // Temporary signal for balances tab, switch to overview page for now
+    connect(balancesAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(balancesAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -383,6 +394,7 @@ void BitcoinGUI::createToolBars()
         QToolBar *toolbar = addToolBar(tr("Tabs toolbar"));
         toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         toolbar->addAction(overviewAction);
+        toolbar->addAction(balancesAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
@@ -447,6 +459,7 @@ void BitcoinGUI::removeAllWallets()
 void BitcoinGUI::setWalletActionsEnabled(bool enabled)
 {
     overviewAction->setEnabled(enabled);
+    balancesAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
