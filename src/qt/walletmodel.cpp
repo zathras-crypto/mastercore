@@ -24,6 +24,8 @@
 #include <QSet>
 #include <QTimer>
 
+extern uint64_t totalMSC;
+
 WalletModel::WalletModel(CWallet *wallet, OptionsModel *optionsModel, QObject *parent) :
     QObject(parent), wallet(wallet), optionsModel(optionsModel), addressTableModel(0),
     transactionTableModel(0),
@@ -111,13 +113,13 @@ void WalletModel::checkBalanceChanged()
     qint64 newBalance = getBalance();
     qint64 newUnconfirmedBalance = getUnconfirmedBalance();
     qint64 newImmatureBalance = getImmatureBalance();
-
     if(cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance)
     {
         cachedBalance = newBalance;
         cachedUnconfirmedBalance = newUnconfirmedBalance;
         cachedImmatureBalance = newImmatureBalance;
         emit balanceChanged(newBalance, newUnconfirmedBalance, newImmatureBalance);
+	emit MSCbalanceChanged(1,2,3);
     }
 }
 
@@ -426,7 +428,9 @@ static void NotifyTransactionChanged(WalletModel *walletmodel, CWallet *wallet, 
     qDebug() << "NotifyTransactionChanged : " + strHash + " status= " + QString::number(status);
     QMetaObject::invokeMethod(walletmodel, "updateTransaction", Qt::QueuedConnection,
                               Q_ARG(QString, strHash),
+
                               Q_ARG(int, status));
+
 }
 
 void WalletModel::subscribeToCoreSignals()

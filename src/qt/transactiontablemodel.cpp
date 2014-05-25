@@ -628,3 +628,237 @@ void TransactionTableModel::updateDisplayUnit()
     // emit dataChanged to update Amount column with the current unit
     emit dataChanged(index(0, Amount), index(priv->size()-1, Amount));
 }
+
+
+//////
+// Private implementation
+class msc_AddressTablePriv
+{
+public:
+    CWallet *wallet;
+    QList<msc_AddressTableEntry> msc_cachedAddressTable;
+    MatrixModel *parent;
+
+    msc_AddressTablePriv(CWallet *wallet, MatrixModel *parent):
+        wallet(wallet), parent(parent) {}
+
+    void refreshAddressTable()
+    {
+    int my_count = 0;
+
+      qDebug() << "msc_AddressTablePriv::refreshAddressTable()";
+      qDebug() << __FUNCTION__ << __LINE__ << __FILE__;
+        msc_cachedAddressTable.clear();
+        {
+            LOCK(wallet->cs_wallet);
+            BOOST_FOREACH(const PAIRTYPE(CTxDestination, CAddressBookData)& item, wallet->mapAddressBook)
+            {
+              ++my_count;
+                const CBitcoinAddress& address = item.first;
+                bool fMine = IsMine(*wallet, address.Get());
+                const std::string& strName = item.second.name;
+                msc_cachedAddressTable.append(msc_AddressTableEntry(
+                                  QString::fromStdString(strName),
+                                  QString::fromStdString(address.ToString())));
+            }
+
+            qDebug() << __FUNCTION__ << " found " << my_count << " entries for the cachedAddressTable !!!";
+        }
+        // qLowerBound() and qUpperBound() require our cachedAddressTable list to be sorted in asc order
+        // Even though the map is already sorted this re-sorting step is needed because the originating map
+        // is sorted by binary address, not by base58() address.
+        qSort(msc_cachedAddressTable.begin(), msc_cachedAddressTable.end(), msc_AddressTableEntryLessThan());
+    }
+
+    void updateEntry(const QString &address, const QString &label, bool isMine, const QString &purpose, int status)
+    {
+          qDebug() << "msc_AddressTablePriv::updateEntry()";
+
+        // Find address / label in model
+        QList<msc_AddressTableEntry>::iterator lower = qLowerBound(
+            msc_cachedAddressTable.begin(), msc_cachedAddressTable.end(), address, msc_AddressTableEntryLessThan());
+        QList<msc_AddressTableEntry>::iterator upper = qUpperBound(
+            msc_cachedAddressTable.begin(), msc_cachedAddressTable.end(), address, msc_AddressTableEntryLessThan());
+        int lowerIndex = (lower - msc_cachedAddressTable.begin());
+        int upperIndex = (upper - msc_cachedAddressTable.begin());
+        bool inModel = (lower != upper);
+
+        switch(status)
+        {
+        case CT_NEW:
+            if(inModel)
+            {
+                qDebug() << "msc_AddressTablePriv::updateEntry : Warning: Got CT_NOW, but entry is already in model";
+                break;
+            }
+            parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex);
+            msc_cachedAddressTable.insert(lowerIndex, msc_AddressTableEntry(label, address));
+            parent->endInsertRows();
+            break;
+        case CT_UPDATED:
+            if(!inModel)
+            {
+                qDebug() << "msc_AddressTablePriv::updateEntry : Warning: Got CT_UPDATED, but entry is not in model";
+                break;
+            }
+            lower->label = label;
+            parent->emitDataChanged(lowerIndex);
+            break;
+        case CT_DELETED:
+            if(!inModel)
+            {
+                qDebug() << "msc_AddressTablePriv::updateEntry : Warning: Got CT_DELETED, but entry is not in model";
+                break;
+            }
+            parent->beginRemoveRows(QModelIndex(), lowerIndex, upperIndex-1);
+            msc_cachedAddressTable.erase(lower, upper);
+            parent->endRemoveRows();
+            break;
+        }
+    }
+
+    int size()
+    {
+        return msc_cachedAddressTable.size();
+    }
+
+    msc_AddressTableEntry *index(int idx)
+    {
+        if(idx >= 0 && idx < msc_cachedAddressTable.size())
+        {
+            return &msc_cachedAddressTable[idx];
+        }
+        else
+        {
+            return 0;
+        }
+    }
+};
+
+// Return the data to which index points.
+QVariant MatrixModel::data(const QModelIndex& index, int role) const
+{
+        if (!index.isValid() || role != Qt::DisplayRole)
+            return QVariant();
+
+//        qDebug() << __FUNCTION__ << "row=" << index.row() << "column=" << index.column();
+
+    switch(index.column())
+    {
+      case 0: return (ql_lab[index.row()]);
+      case 1: return (ql_addr[index.row()]);
+      case 2: return (ql_msc[index.row()]);
+      case 3: return (ql_tmsc[index.row()]);
+      default:
+//        return m_data[index.row() * m_numColumns + index.column()];
+        return QString("*NONE*");
+    }
+}
+
+void MatrixModel::updateConfirmations(void)
+{
+}
+
+
+
+    MatrixModel::MatrixModel(CWallet* wallet, WalletModel *parent)
+        : m_numRows(3),
+          m_numColumns(5)
+    {
+      qDebug() << "CONSTRUCTOR-wallet" << __FILE__ << __FUNCTION__ << __LINE__;
+      priv = new msc_AddressTablePriv(wallet, this);
+      priv->refreshAddressTable();
+    }
+
+    MatrixModel::MatrixModel(int numRows, int numColumns, uint* data)
+        : m_numRows(numRows),
+          m_numColumns(numColumns),
+          m_data(data)
+    {
+      qDebug() << "CONSTRUCTOR-Mastercoin" << __FILE__ << __FUNCTION__ << __LINE__;
+      columns << tr("Label") << tr("Address") << tr("MSC Balance") << tr("TMSC Balance");
+  
+      m_numRows=fillin();
+      m_numColumns=4;
+
+      qDebug() << "numRows=" << m_numRows << "numColumns=" << m_numColumns;
+    }
+
+MatrixModel::~MatrixModel()
+{
+  qDebug() << "DESTRUCTOR" << __FILE__ << __FUNCTION__ << __LINE__;
+  // QList is a RAII container and automatically frees all resources upon destruction
+}
+
+    int MatrixModel::rowCount(const QModelIndex& parent) const
+    {
+        return m_numRows;
+    }
+
+    int MatrixModel::columnCount(const QModelIndex& parent) const
+    {
+        return m_numColumns;
+    }
+
+void MatrixModel::emitDataChanged(int idx)
+{
+    emit dataChanged(index(idx, 0, QModelIndex()), index(idx, columns.length()-1, QModelIndex()));
+}
+
+QVariant MatrixModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if(orientation == Qt::Horizontal)
+    {
+        if(role == Qt::DisplayRole && section < columns.size())
+        {
+            return columns[section];
+        }
+    }
+
+    if(orientation == Qt::Vertical)
+    {
+        if(role == Qt::DisplayRole)
+        {
+            return 1+section;
+        }
+    }
+
+    return QVariant();
+}
+
+int MatrixModel::fillin()
+{
+int count = 0;
+
+////    LOCK(cs_tally);
+
+////     for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
+////      {
+          // my_it->first = key
+          // my_it->second = value
+
+//          LogPrintf("%s\n", my_it->first);
+//          LogPrintf("%s\n", (my_it->second).getMSC());
+
+          ////ql_addr.append((my_it->first).c_str());
+          ////ql_msc.append(QString::fromStdString((my_it->second).getMSC()));
+          ////ql_tmsc.append(QString::fromStdString((my_it->second).getTMSC()));
+
+	  ql_lab.append("Test Address Label");
+          ql_addr.append("1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P");
+          ql_msc.append("12345.12345678");
+          ql_tmsc.append("54321.87654321");
+
+
+
+//          printf("%34s =>> ", (my_it->first).c_str());
+//          (my_it->second).print();
+
+          ++count;
+////        }
+
+    qDebug() << "fillin()=" << count;
+
+  return count;
+}
+

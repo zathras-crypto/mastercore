@@ -226,12 +226,12 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
-    //temporary action placeholder for balances tab
-    balancesAction = new QAction(QIcon(":/icons/overview"), tr("&Balances"), this);
-    balancesAction->setStatusTip(tr("Show balances for addresses in the wallet"));
-    balancesAction->setToolTip(overviewAction->statusTip());
+    balancesAction = new QAction(QIcon(":/icons/balances"), tr("&Balances"), this);
+    balancesAction->setStatusTip(tr("Show Master Protocol balances"));
+    balancesAction->setToolTip(balancesAction->statusTip());
     balancesAction->setCheckable(true);
-    balancesAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
+    //any poorly coded stuff sending input to a ui instead of rpc? don't change existing shortcut key order for now
+    //balancesAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(balancesAction);
 
     sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
@@ -259,9 +259,8 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     // can be triggered from the tray menu, and need to show the GUI to be useful.
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
-    // Temporary signal for balances tab, switch to overview page for now
     connect(balancesAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(balancesAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
+    connect(balancesAction, SIGNAL(triggered()), this, SLOT(gotoBalancesPage()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -394,7 +393,7 @@ void BitcoinGUI::createToolBars()
         QToolBar *toolbar = addToolBar(tr("Tabs toolbar"));
         toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         toolbar->addAction(overviewAction);
-        toolbar->addAction(balancesAction);
+	toolbar->addAction(balancesAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
@@ -584,6 +583,12 @@ void BitcoinGUI::gotoOverviewPage()
 {
     overviewAction->setChecked(true);
     if (walletFrame) walletFrame->gotoOverviewPage();
+}
+
+void BitcoinGUI::gotoBalancesPage()
+{
+    balancesAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoBalancesPage();
 }
 
 void BitcoinGUI::gotoHistoryPage()

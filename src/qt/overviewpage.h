@@ -35,6 +35,7 @@ public:
 
 public slots:
     void setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance);
+    void setMSCBalance(qint64 MSCavailablebalance, qint64 MSCpendingBalance, qint64 MSCreservedBalance);
 
 signals:
     void transactionClicked(const QModelIndex &index);

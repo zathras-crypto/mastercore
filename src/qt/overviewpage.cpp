@@ -119,7 +119,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
     // init "out of sync" warning labels
     ui->labelWalletStatus->setText("(" + tr("out of sync") + ")");
     ui->labelTransactionsStatus->setText("(" + tr("out of sync") + ")");
-
+    ui->proclabel->setText("(" + tr("processing") + ")");
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 }
@@ -133,6 +133,13 @@ void OverviewPage::handleTransactionClicked(const QModelIndex &index)
 OverviewPage::~OverviewPage()
 {
     delete ui;
+}
+
+void OverviewPage::setMSCBalance(qint64 MSCavailableBalance, qint64 MSCpendingBalance, qint64 MSCreservedBalance)
+{
+//    ui->MSClabelavailable->setText(QString::number(MSCavailableBalance).append("MSC"));
+//    ui->MSClabelpending->setText(QString::number(MSCpendingBalance).append("MSC"));
+//    ui->MSClabelreserved->setText(QString::number(MSCreservedBalance).append("MSC"));
 }
 
 void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)
@@ -184,6 +191,7 @@ void OverviewPage::setWalletModel(WalletModel *model)
         // Keep up to date with wallet
         setBalance(model->getBalance(), model->getUnconfirmedBalance(), model->getImmatureBalance());
         connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64)));
+        connect(model, SIGNAL(MSCbalanceChanged(qint64, qint64, qint64)), this, SLOT(setMSCBalance(qint64, qint64, qint64)));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }
@@ -216,4 +224,5 @@ void OverviewPage::showOutOfSyncWarning(bool fShow)
 {
     ui->labelWalletStatus->setVisible(fShow);
     ui->labelTransactionsStatus->setVisible(fShow);
+    ui->proclabel->setVisible(fShow);
 }

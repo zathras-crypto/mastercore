@@ -50,6 +50,8 @@ private:
 public slots:
     /** Switch to overview (home) page */
     void gotoOverviewPage();
+    /** Switch to balances page */
+    void gotoBalancesPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
     /** Switch to receive coins page */

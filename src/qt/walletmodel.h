@@ -219,6 +219,7 @@ private:
 signals:
     // Signal that balance in wallet changed
     void balanceChanged(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance);
+    void MSCbalanceChanged(qint64 MSCavailableBalance, qint64 MSCpendingBalance, qint64 MSCreservedBalance);
 
     // Number of transactions in wallet changed
     void numTransactionsChanged(int count);
