@@ -245,6 +245,9 @@ public:
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);
     void ReacceptWalletTransactions();
     void ResendWalletTransactions();
+    int64_t GetMSCBalance() const;
+    int64_t GetUnconfirmedMSCBalance() const;
+    int64_t GetImmatureMSCBalance() const;
     int64_t GetBalance() const;
     int64_t GetUnconfirmedBalance() const;
     int64_t GetImmatureBalance() const;

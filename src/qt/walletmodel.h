@@ -125,6 +125,10 @@ public:
     TransactionTableModel *getTransactionTableModel();
     RecentRequestsTableModel *getRecentRequestsTableModel();
 
+    qint64 getMSCBalance() const;
+    qint64 getUnconfirmedMSCBalance() const;
+    qint64 getImmatureMSCBalance() const;
+
     qint64 getBalance(const CCoinControl *coinControl = NULL) const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;
