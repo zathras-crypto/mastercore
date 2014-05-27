@@ -135,6 +135,7 @@ public:
   }
 };
 
+uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved);
 extern map<string, msc_tally> msc_tally_map;
 
 #endif
