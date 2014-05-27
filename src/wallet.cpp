@@ -10,6 +10,7 @@
 #include "net.h"
 #include "checkpoints.h"
 
+
 #include <boost/algorithm/string/replace.hpp>
 #include <openssl/rand.h>
 
@@ -997,6 +998,39 @@ int64_t CWallet::GetImmatureBalance() const
             nTotal += pcoin->GetImmatureCredit();
         }
     }
+    return nTotal;
+}
+
+int64_t CWallet::GetMSCBalance()
+{
+
+    map<CTxDestination, int64_t> balances = GetAddressBalances();
+    uint64_t nTotal = 0;
+    {
+        LOCK(cs_wallet);
+        for (map<CTxDestination, int64_t>::iterator it = balances.begin(); it != balances.end(); ++it)
+        {
+          string addr = CBitcoinAddress(it->first).ToString();
+
+          uint64_t addrBal = getMPbalance(addr, MASTERCOIN_CURRENCY_MSC, false);
+          
+          printf("key: %s\n value: %ld\n", addr.c_str(), addrBal);
+          nTotal += addrBal;
+        }
+    }
+
+    return nTotal;
+}
+
+int64_t CWallet::GetUnconfirmedMSCBalance() const
+{
+    int64_t nTotal = 0;
+    return nTotal;
+}
+
+int64_t CWallet::GetImmatureMSCBalance() const
+{
+    int64_t nTotal = 0;
     return nTotal;
 }
 

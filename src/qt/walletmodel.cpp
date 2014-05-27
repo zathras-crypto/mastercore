@@ -24,8 +24,6 @@
 #include <QSet>
 #include <QTimer>
 
-extern uint64_t totalMSC;
-
 WalletModel::WalletModel(CWallet *wallet, OptionsModel *optionsModel, QObject *parent) :
     QObject(parent), wallet(wallet), optionsModel(optionsModel), addressTableModel(0),
     transactionTableModel(0),
@@ -78,6 +76,21 @@ qint64 WalletModel::getImmatureBalance() const
     return wallet->GetImmatureBalance();
 }
 
+qint64 WalletModel::getMSCBalance() const
+{
+    return wallet->GetMSCBalance();
+}
+
+qint64 WalletModel::getUnconfirmedMSCBalance() const
+{
+    return wallet->GetUnconfirmedMSCBalance();
+}
+
+qint64 WalletModel::getImmatureMSCBalance() const
+{
+    return wallet->GetImmatureMSCBalance();
+}
+
 int WalletModel::getNumTransactions() const
 {
     int numTransactions = 0;
@@ -113,13 +126,17 @@ void WalletModel::checkBalanceChanged()
     qint64 newBalance = getBalance();
     qint64 newUnconfirmedBalance = getUnconfirmedBalance();
     qint64 newImmatureBalance = getImmatureBalance();
+
+    qint64 newMSCBalance = getMSCBalance();
+    qint64 newUnconfirmedMSCBalance = getUnconfirmedMSCBalance();
+    qint64 newImmatureMSCBalance = getImmatureMSCBalance();
     if(cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance)
     {
         cachedBalance = newBalance;
         cachedUnconfirmedBalance = newUnconfirmedBalance;
         cachedImmatureBalance = newImmatureBalance;
         emit balanceChanged(newBalance, newUnconfirmedBalance, newImmatureBalance);
-	emit MSCbalanceChanged(1,2,3);
+        emit MSCbalanceChanged(newMSCBalance, newUnconfirmedMSCBalance, newImmatureMSCBalance);
     }
 }
 

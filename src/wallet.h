@@ -13,6 +13,7 @@
 #include "ui_interface.h"
 #include "util.h"
 #include "walletdb.h"
+#include "mastercoin.h"
 
 #include <algorithm>
 #include <map>
@@ -248,6 +249,9 @@ public:
     int64_t GetBalance() const;
     int64_t GetUnconfirmedBalance() const;
     int64_t GetImmatureBalance() const;
+    int64_t GetMSCBalance();
+    int64_t GetUnconfirmedMSCBalance() const;
+    int64_t GetImmatureMSCBalance() const;
     bool CreateTransaction(const std::vector<std::pair<CScript, int64_t> >& vecSend,
                            CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, std::string& strFailReason, const CCoinControl *coinControl = NULL);
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue,
