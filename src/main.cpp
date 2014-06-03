@@ -26,7 +26,7 @@
 using namespace std;
 using namespace boost;
 
-int mastercoin_handler_block(int nBlockNow);
+int mastercoin_handler_block(int nBlockNow, unsigned int nTime);
 int mastercoin_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx);
 
 #if defined(NDEBUG)
@@ -1936,7 +1936,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew) {
         SyncWithWallets(tx.GetHash(), tx, &block);
         (void) mastercoin_handler_tx(tx, GetHeight(), tx_idx++);
     }
-    (void) mastercoin_handler_block(GetHeight());
+    (void) mastercoin_handler_block(GetHeight(), pindexNew->GetBlockTime());
     return true;
 }
 
@@ -2874,7 +2874,7 @@ bool InitBlockIndex() {
         return true;
 
     // Use the provided setting for -txindex in the new database
-    fTxIndex = GetBoolArg("-txindex", true);
+    fTxIndex = GetBoolArg("-txindex", false);
     pblocktree->WriteFlag("txindex", fTxIndex);
     LogPrintf("Initializing databases...\n");
 

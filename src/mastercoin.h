@@ -9,6 +9,9 @@
 #include "netbase.h"
 #include "protocol.h"
 
+// what should've been in the Exodus address for this block if none were spent
+#define DEV_MSC_BLOCK_290629 (1743358325718)
+
 // Master Protocol Transaction (Packet) Version
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
@@ -59,15 +62,23 @@ class msc_tally
 private:
   int64_t moneys[MSC_MAX_KNOWN_CURRENCIES];
   int64_t reserved[MSC_MAX_KNOWN_CURRENCIES];
+	bool		divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
 public:
 
-  bool msc_update_moneys(unsigned char which, int64_t amount)  
+  // when bSet is true -- overwrite the amount in the address, not just adjust it (+/-)
+  bool msc_update_moneys(unsigned char which, int64_t amount, bool bSet = false)
   {
   LOCK(cs_tally);
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
+      if (bSet)
+      {
+        moneys[which] = amount;
+        return true;
+      }
+
       // check here if enough money is available for this address prior to update !!!
       if (0>(moneys[which] + amount))
       {
@@ -107,6 +118,7 @@ public:
     {
       moneys[i] = 0;
       reserved[i] = 0;
+			divisible = true;
     }
 
     (void) msc_update_moneys(which, amount);
@@ -126,7 +138,7 @@ public:
   string getMSC();  // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
   string getTMSC(); // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
 
-  uint64_t getMoney(unsigned which_currency, bool bReserved) const
+  uint64_t getMoney(unsigned int which_currency, bool bReserved) const
   {
     if (MSC_MAX_KNOWN_CURRENCIES <= which_currency) return 0;
 
@@ -136,6 +148,13 @@ public:
 };
 
 extern map<string, msc_tally> msc_tally_map;
+extern uint64_t global_MSC_total;
+extern uint64_t global_MSC_RESERVED_total;
+
+uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved = false);
+bool myAddress(const std::string &address);
+
+string getLabel(const string &address);
 
 #endif
 

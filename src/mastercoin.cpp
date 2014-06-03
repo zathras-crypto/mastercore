@@ -17,6 +17,7 @@
 #include "util.h"
 #include "wallet.h"
 #include "walletdb.h"
+#include "coincontrol.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -38,8 +39,13 @@ using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 
-const string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
+uint64_t global_MSC_total = 0;
+uint64_t global_MSC_RESERVED_total = 0;
+
+static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 // const string exodusHash = "946cb2e08075bcbaf157e47bcb67eb2b2339d242";
+static uint64_t exodus_prev = DEV_MSC_BLOCK_290629;
+static uint64_t exodus_balance;
 
 /*
 int msc_debug0 = 0;
@@ -403,7 +409,7 @@ CCriticalSection cs_tally;
 map<string, msc_tally> msc_tally_map;
 
 // look at balance for an address
-uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved = false)
+uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved)
 {
 uint64_t balance = 0;
 const map<string, msc_tally>::iterator my_it = msc_tally_map.find(Address);
@@ -417,7 +423,8 @@ const map<string, msc_tally>::iterator my_it = msc_tally_map.find(Address);
 }
 
 // TODO: when HardFail is true -- do not transfer any funds if only a partial transfer would succeed
-bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false)
+// bSet will SET the amount into the address, instead of just updating it
+bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false, bool bSet = false)
 {
 bool bReturn = true;
 
@@ -430,7 +437,7 @@ bool bReturn = true;
       if (my_it != msc_tally_map.end())
       {
         // element found -- update
-        if (!bReserved) bReturn = (my_it->second).msc_update_moneys(which, amount);
+        if (!bReserved) bReturn = (my_it->second).msc_update_moneys(which, amount, bSet);
         else bReturn = (my_it->second).msc_update_reserved(which, amount);
       }
       else
@@ -555,7 +562,6 @@ private:
  uint64_t amount_desired, min_fee;
  unsigned char blocktimelimit, subaction = 0;
 
-//  if (PACKET_SIZE-1 > pkt_size)
   if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
   {
     printf("%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
@@ -600,12 +606,10 @@ private:
       // special case: if can't find the receiver -- assume sending to itself !
       // may also be true for BTC payments........
       // TODO: think about this..........
-/*
       if (receiver.empty())
       {
         receiver = sender;
       }
-*/
       if (receiver.empty()) ++InvalidCount_per_spec;
       if (!update_tally_map(sender, currency, - nValue)) break;
       update_tally_map(receiver, currency, nValue);
@@ -853,21 +857,108 @@ unsigned int how_many_erased = 0;
   return how_many_erased;
 }
 
+uint64_t calculate_and_update_devmsc(unsigned int nTime)
+{
+// taken mainly from msc_validate.py: def get_available_reward(height, c)
+uint64_t devmsc = 0;
+int64_t exodus_delta;
+// spec constants:
+const uint64_t all_reward = 5631623576222;
+const double seconds_in_one_year = 31556926;
+const double seconds_passed = nTime - 1377993874; // exodus bootstrap deadline
+const double years = seconds_passed/seconds_in_one_year;
+const double part_available = 1 - pow(0.5, years); // do I need 'long double' ? powl()
+const double available_reward=all_reward * part_available;
+
+  devmsc = rounduint64(available_reward);
+  exodus_delta = devmsc - exodus_prev;
+
+  printf("devmsc=%lu, exodus_prev=%lu, exodus_delta=%ld\n", devmsc, exodus_prev, exodus_delta);
+
+  // per Zathras -- skip if a block's timestamp is older than that of a previous one!
+  if (0>exodus_delta) return 0;
+
+  update_tally_map(exodus, MASTERCOIN_CURRENCY_MSC, exodus_delta);
+  exodus_prev = devmsc;
+
+  return devmsc;
+}
+
+// TODO: optimize efficiency -- iterate only over wallet's addresses in the future
+int set_wallet_totals()
+{
+int my_addresses_count = 0;
+const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for MSC only, for PoC
+
+  global_MSC_total = 0;
+  global_MSC_RESERVED_total = 0;
+
+  for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
+  {
+    // my_it->first = key
+    // my_it->second = value
+
+    if (myAddress(my_it->first))
+    {
+      ++my_addresses_count;
+
+      global_MSC_total += (my_it->second).getMoney(currency, false);
+      global_MSC_RESERVED_total += (my_it->second).getMoney(currency, true);
+    }
+  }
+
+  return (my_addresses_count);
+}
+
 // called once per block
 // it performs cleanup and other functions
-int mastercoin_handler_block(int nBlockNow)
+int mastercoin_handler_block(int nBlockNow, unsigned int nTime)
 {
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
 // 2) update the amount in the Exodus address
 unsigned int how_many_erased = 0;
+uint64_t devmsc = 0;
 
   how_many_erased = cleanup_expired_accepts(nBlockNow);
-
   if (how_many_erased) printf("%s(%d); erased %u accepts this block, line %d, file: %s\n",
    __FUNCTION__, how_many_erased, nBlockNow, __LINE__, __FILE__);
 
+  // calculate devmsc as of this block and update the Exodus' balance
+  devmsc = calculate_and_update_devmsc(nTime);
+
+  printf("devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow, devmsc, getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC));
+
+  // get the total MSC for this wallet, for QT display
+  (void) set_wallet_totals();
+  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+
   return 0;
+}
+
+static void prepareObfuscatedHashes(const string &address, string (&ObfsHashes)[1+MAX_SHA256_OBFUSCATION_TIMES])
+{
+unsigned char sha_input[128];
+unsigned char sha_result[128];
+vector<unsigned char> vec_chars;
+
+  strcpy((char *)sha_input, address.c_str());
+  // do only as many re-hashes as there are mastercoin packets, per spec, 255 per Zathras
+  // TODO -- verify what he meant:
+  // Zahtras: "We no longer need to brute force this though, since the location of the packet is fixed in order of the multisigs/vouts
+  // we can now determine sequence (and thus number of times to hash to deobfuscate) easily."
+  for (unsigned int j = 1; j<=MAX_SHA256_OBFUSCATION_TIMES;j++)
+  {
+    SHA256(sha_input, strlen((const char *)sha_input), sha_result);
+
+      vec_chars.resize(32);
+      memcpy(&vec_chars[0], &sha_result[0], 32);
+      ObfsHashes[j] = HexStr(vec_chars);
+      boost::to_upper(ObfsHashes[j]); // uppercase per spec
+
+      if (msc_debug6) if (5>j) printf("%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      strcpy((char *)sha_input, ObfsHashes[j].c_str());
+  }
 }
 
 static priority_queue<msc>txq;
@@ -879,8 +970,9 @@ uint64_t nMax = 0;
 // class A: data & address storage -- combine them into a structure or something
 vector<string>script_data;
 vector<string>address_data;
-vector<uint64_t>value_data;
-uint64_t ExodusValues[MAX_BTC_OUTPUTS];
+// vector<uint64_t>value_data;
+vector<int64_t>value_data;
+int64_t ExodusValues[MAX_BTC_OUTPUTS];
 int64_t ExodusHighestValue = 0;
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
@@ -928,7 +1020,7 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+            printf("____________________________________________________________________________________________________________________________________\n");
             if (msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
@@ -1034,7 +1126,7 @@ uint64_t txFee = 0;
         std::vector<CTxDestination> vDest;
         int nRequired;
 
-        // CScript is a std::vector -- see what else is available for vector !!!
+        // CScript is a std::vector
         if (msc_debug) printf("scriptPubKey: %s\n", wtx.vout[i].scriptPubKey.getHex().c_str());
 
         if (ExtractDestinations(wtx.vout[i].scriptPubKey, type, vDest, nRequired))
@@ -1065,34 +1157,15 @@ uint64_t txFee = 0;
               }
             } // end of the outputs' for loop
 
-              unsigned char sha_input[128];
-              unsigned char sha_result[128];
-              string strObfuscatedHash[1+MAX_SHA256_OBFUSCATION_TIMES];
-              vector<unsigned char> vec_chars;
-
-              strcpy((char *)sha_input, strSender.c_str());
-              // do only as many re-hashes as there are mastercoin packets, per spec, 255 per Zathras
-              // TODO -- verify what he meant:
-              // Zahtras: "We no longer need to brute force this though, since the location of the packet is fixed in order of the multisigs/vouts
-              // we can now determine sequence (and thus number of times to hash to deobfuscate) easily."
-              for (unsigned int j = 1; j<=MAX_SHA256_OBFUSCATION_TIMES;j++)
-              {
-                SHA256(sha_input, strlen((const char *)sha_input), sha_result);
-
-                  vec_chars.resize(32);
-                  memcpy(&vec_chars[0], &sha_result[0], 32);
-                  strObfuscatedHash[j] = HexStr(vec_chars);
-                  boost::to_upper(strObfuscatedHash[j]); // uppercase per spec
-
-                  if (msc_debug6) if (10>j) printf("%d: sha256 hex: %s\n", j, strObfuscatedHash[j].c_str());
-                  strcpy((char *)sha_input, strObfuscatedHash[j].c_str());
-              }
+          string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
+          prepareObfuscatedHashes(strSender, strObfuscatedHashes);
 
           unsigned char packets[MAX_PACKETS][32];
           int mdata_count = 0;  // multisig data count
           if (!fMultisig)
           {
-          string strData;
+          string strScriptData;
+          string strDataAddress;
           unsigned char seq = 0xFF;
 
           // non-multisig data packets from this tx may be found here...
@@ -1118,33 +1191,38 @@ uint64_t txFee = 0;
   
                 if (("0000000000000001" == strSub) || ("0000000000000002" == strSub))
                 {
-                  if (strData.empty()) strData = script_data[k].substr(2*1,2*PACKET_SIZE_CLASS_A);
+                  if (strScriptData.empty())
+                  {
+                    strScriptData = script_data[k].substr(2*1,2*PACKET_SIZE_CLASS_A);
+                    strDataAddress = address_data[k];
+                  }
   
-                  if (msc_debug3) printf("strData #1:%s, seq = %x, value_data[%d]=%lu, marker_count= %d\n",
-                   strData.c_str(), seq, k, value_data[k], marker_count);
+                  if (msc_debug3) printf("strScriptData #1:%s, seq = %x, value_data[%d]=%lu, %s marker_count= %d\n",
+                   strScriptData.c_str(), seq, k, value_data[k], strDataAddress.c_str(), marker_count);
 
                   for (int exodus_idx=0;exodus_idx<marker_count;exodus_idx++)
                   {
                     if (msc_debug3) printf("%s(); ExodusValues[%d]=%lu\n", __FUNCTION__, exodus_idx, ExodusValues[exodus_idx]);
                     if (value_data[k] == ExodusValues[exodus_idx])
                     {
-                      if (msc_debug3) printf("strData(exodus_idx=%d) #2:%s, seq = %x\n", exodus_idx, strData.c_str(), seq);
-                      strData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
+                      if (msc_debug3) printf("strScriptData(exodus_idx=%d) #2:%s, seq = %x\n", exodus_idx, strScriptData.c_str(), seq);
+                      strScriptData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
+                      strDataAddress = address_data[k];
                       break;
                     }
                   }
-                  if (!strData.empty()) break;
+                  if (!strScriptData.empty()) break;
                 }
               }
             }
 
-            if (!strData.empty())
+            if (!strScriptData.empty())
             {
               ++seq;
               // look for reference using the seq #
               for (unsigned r = 0; r<script_data.size();r++)
               {
-                if ((address_data[r] != strData) && (address_data[r] != exodus))
+                if ((address_data[r] != strDataAddress) && (address_data[r] != exodus))
                 {
                   if (seq == ParseHex(script_data[r].substr(0,2))[0])
                   {
@@ -1168,7 +1246,7 @@ uint64_t txFee = 0;
 
                     // BUG HERE, FIXME
                     // strData is the script, not address !!!!!!!!!!!!!!!!!!!!
-                    if ((address_data[k] != strData) && (address_data[k] != exodus))
+                    if ((address_data[k] != strDataAddress) && (address_data[k] != exodus))
                     {
                       if (ExodusHighestValue == value_data[k])
                       {
@@ -1185,8 +1263,7 @@ uint64_t txFee = 0;
               }
             }
 
-            if (strData.empty() || strReference.empty())
-
+            if (strDataAddress.empty() || strReference.empty())
             {
             // this must be the BTC payment - validate (?)
             // TODO
@@ -1222,9 +1299,9 @@ uint64_t txFee = 0;
             else
             {
             // valid Class A packet almost ready
-              if (msc_debug3) printf("valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strData.c_str());
+              if (msc_debug3) printf("valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
               packet_size = PACKET_SIZE_CLASS_A;
-              memcpy(single_pkt, &ParseHex(strData)[0], packet_size);
+              memcpy(single_pkt, &ParseHex(strScriptData)[0], packet_size);
             }
           }
           else // if (fMultisig)
@@ -1272,7 +1349,7 @@ uint64_t txFee = 0;
             else
             {
               // this is a data packet, must deobfuscate now
-              vector<unsigned char>hash = ParseHex(strObfuscatedHash[mdata_count+1]);      
+              vector<unsigned char>hash = ParseHex(strObfuscatedHashes[mdata_count+1]);      
               vector<unsigned char>packet = ParseHex(multisig_script_data[k].substr(2*1,2*PACKET_SIZE));
 
               for (unsigned int i=0;i<packet.size();i++)
@@ -1337,18 +1414,19 @@ int msc_tx_pop()
   return 0;
 }
 
+
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getblockcount\n"
+            "mscrpc\n"
             "\nReturns the number of blocks in the longest block chain.\n"
             "\nResult:\n"
             "n    (numeric) The current block count\n"
             "\nExamples:\n"
-            + HelpExampleCli("getblockcount", "")
-            + HelpExampleRpc("getblockcount", "")
+            + HelpExampleCli("mscrpc", "")
+            + HelpExampleRpc("mscrpc", "")
         );
 
         for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
@@ -1367,13 +1445,20 @@ Value mscrpc(const Array& params, bool fHelp)
           // my_it->first = key
           // my_it->second = value
 
-          printf("%34s : ", (my_it->first).c_str());
+          printf("%34s => ", (my_it->first).c_str());
           (my_it->second).print();
 
           ++count;
         }
 
   printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+// label tests
+
+  printf("label test: %s\n", getLabel("151TVVYVJseRg7RWC2WPpCMTAGvwPJrRLH").c_str());
+  printf("label test: %s\n", getLabel("1CJdoLYBbNoWC2NpL6fYc5JsSQVEVPu4oD").c_str());
+  printf("label test: %s\n", getLabel("1HLsY8fpmzxiz5mH9y2bFX8nddyNLsU8uA").c_str());
+  printf("label test: %s\n", getLabel("1H9eYMVGJ9cUt63Xh6qTStfHo5xWBbwNSw").c_str());
 
     return chainActive.Height();
 }
@@ -1423,7 +1508,7 @@ int max_block = chainActive.Height();
 
     while (!txq.empty()) msc_tx_pop();
 
-    mastercoin_handler_block(blockNum);
+    mastercoin_handler_block(blockNum, pblockindex->GetBlockTime());
   }
 
   for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
@@ -1431,7 +1516,7 @@ int max_block = chainActive.Height();
     // my_it->first = key
     // my_it->second = value
 
-    printf("%34s =>> ", (my_it->first).c_str());
+    printf("%34s => ", (my_it->first).c_str());
     (my_it->second).print();
   }
 
@@ -1632,8 +1717,16 @@ const string filename = GetDataDir().string() + "/" + string(mastercoin_filename
 // called from init.cpp of Bitcoin Core
 int mastercoin_init()
 {
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+const bool bTestnet = TestNet();
+
+  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, bTestnet ? "TESTNET":"", __LINE__, __FILE__);
 //  (void) load_checkpoint();
+
+  if (bTestnet)
+  {
+    exodus = "n1eXodd53V4eQP96QmJPYTG2oBuFwbq6kL";
+    ignore_all_but_MSC = 0;
+  }
 
   (void) msc_file_load(FILETYPE_BALANCES);
   (void) msc_file_load(FILETYPE_OFFERS);
@@ -1642,11 +1735,26 @@ int mastercoin_init()
 //  (void) msc_post_preseed(292421);  // scan new blocks after the checkpoint above
 //  (void) msc_post_preseed(249497);  // Exodus block, dump for Zathras
 
-  (void) msc_post_preseed(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+  // collect the real Exodus balances available at the snapshot time
+  exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC);
+  printf("Exodus balance: %lu\n", exodus_balance);
 
-  // dump a few random addresses & balances
+  if (!bTestnet)
+  {
+    (void) msc_post_preseed(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+  }
+  else
+  {
+    // testnet
+    (void) msc_post_preseed(chainActive.Height()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
+  }
+
+  // dump few more random addresses & balances
   printf("balance: %lu\n", getMPbalance("13rpJ1r4onYA7RJfya3P8S3AaEqgXEkM8n", MASTERCOIN_CURRENCY_MSC));
   printf("balance: %lu\n", getMPbalance("1MnW3JgujMavTzBCiZyfxigDhu9pnDE7dU", MASTERCOIN_CURRENCY_MSC));
+
+  exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC);
+  printf("Exodus balance: %lu\n", exodus_balance);
 
   return 0;
 }
@@ -1688,5 +1796,283 @@ string msc_tally::getTMSC()
 {
     // FIXME: negative numbers -- do they work here?
     return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_TMSC]/COIN, moneys[MASTERCOIN_CURRENCY_TMSC]%COIN);
+}
+
+// IsMine wrapper to determine whether the address is in our local wallet
+bool myAddress(const std::string &address) 
+{
+  if (!pwalletMain) return false;
+
+  const CBitcoinAddress& mscaddress = address;
+
+  CTxDestination lookupaddress = mscaddress.Get(); 
+
+  return (IsMine(*pwalletMain, lookupaddress));
+}
+
+string getLabel(const string &address)
+{
+CWallet *wallet = pwalletMain;
+
+  if (wallet)
+   {
+        LOCK(wallet->cs_wallet);
+        CBitcoinAddress address_parsed(address);
+        std::map<CTxDestination, CAddressBookData>::iterator mi = wallet->mapAddressBook.find(address_parsed.Get());
+        if (mi != wallet->mapAddressBook.end())
+        {
+            return (mi->second.name);
+        }
+    }
+
+  return string();
+}
+
+//
+// Do we care if this is true: pubkeys[i].IsCompressed() ???
+//
+static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &data_packet, CCoinControl &coinControl, uint256 & txid)
+{
+const int n_keys = 2;
+int i = 0;
+std::vector<CPubKey> pubkeys;
+pubkeys.resize(n_keys);
+CWallet *wallet = pwalletMain;
+
+  txid = 0;
+
+  // partially copied from _createmultisig()
+
+        CBitcoinAddress address(senderAddress);
+        if (wallet && address.IsValid())
+        {
+            CKeyID keyID;
+            if (!address.GetKeyID(keyID))
+                throw runtime_error(
+                    strprintf("%s does not refer to a key",senderAddress));
+            CPubKey vchPubKey;
+            if (!wallet->GetPubKey(keyID, vchPubKey))
+                throw runtime_error(
+                    strprintf("no full public key for address %s",senderAddress));
+            if (!vchPubKey.IsFullyValid())
+                throw runtime_error(" Invalid public key: "+senderAddress);
+            pubkeys[i++] = vchPubKey;
+        }
+
+  pubkeys[i] = ParseHex(data_packet);
+
+  // 2nd (& 3rd) is the data packet(s)
+  if (!pubkeys[i].IsFullyValid()) return -1;
+
+    CScript multisig_output;
+    multisig_output.SetMultisig(1, pubkeys);
+    printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, multisig_output.ToString().c_str(), __LINE__, __FILE__);
+
+  CWalletTx wtxNew;
+  int64_t nFeeRet = 0;
+  vector< pair<CScript, int64_t> > vecSend;
+  std::string strFailReason;
+  int64_t nValue = 4567;
+  CReserveKey reserveKey(wallet);
+
+  CBitcoinAddress addr = CBitcoinAddress(senderAddress);  // change goes back to us
+  coinControl.destChange = addr.Get();
+
+  if (!wallet) return -5;
+
+  CScript scriptPubKey;
+
+  // the 1-multisig-2 Class B with data & sender
+  vecSend.push_back(make_pair(multisig_output, nValue));
+
+  // the reference/recepient/receiver
+  scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
+  vecSend.push_back(make_pair(scriptPubKey, nValue));
+
+  // the marker output
+  scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
+  vecSend.push_back(make_pair(scriptPubKey, nValue));
+
+  // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
+  if (!coinControl.HasSelected()) return -6;
+
+  LOCK(wallet->cs_wallet);  // TODO: is this needed?
+
+  // the fee will be computed by Bitcoin Core, need an override (?)
+  // TODO: look at Bitcoin Core's global: nTransactionFee (?)
+  if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl)) return -11;
+
+  printf("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
+
+  if (!wallet->CommitTransaction(wtxNew, reserveKey)) return -13;
+
+  txid = wtxNew.GetHash();
+
+  return 0;
+}
+
+//
+uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+{
+const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID);
+CWallet *wallet = pwalletMain;
+CCoinControl coinControl; // I am using coin control to send from
+int rc = 0;
+int max_key_check = 32;
+uint256 txid = 0;
+
+  printf("%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n", __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
+
+  LOCK(wallet->cs_wallet);
+
+  // make sure this address has enough MP currency available!
+  if (nAvailable < Amount)
+  {
+    LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
+    printf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
+    ++InvalidCount_per_spec;
+
+    return 0;
+  }
+
+    {
+    string sAddress="";
+
+        for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
+        {
+        const uint256& wtxid = it->first;
+        const CWalletTx* pcoin = &(*it).second;
+        bool bIsMine;
+        bool bIsSpent;
+
+            if (pcoin->IsTrusted())
+            {
+            const int64_t nAvailable = pcoin->GetAvailableCredit();
+
+              if (!nAvailable) continue;
+              printf("----------------------------------------\n");
+
+     for (unsigned int i = 0; i < pcoin->vout.size(); i++)
+        {
+                CTxDestination dest;
+
+                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
+                    continue;
+
+                bIsMine = IsMine(*wallet, dest);
+                bIsSpent = wallet->IsSpent(wtxid, i);
+
+                if (!bIsMine || bIsSpent) continue;
+
+                int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
+
+                sAddress = CBitcoinAddress(dest).ToString();
+                printf("%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n", sAddress.c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", wtxid.ToString().c_str(), i, n);
+
+            // only use funds from the Sender's address for our MP transaction
+            // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
+            if (FromAddress == sAddress)
+            {
+              COutPoint outpt(wtxid, i);
+              coinControl.Select(outpt);
+            }
+        }
+            }
+        }
+    }
+
+  string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
+  prepareObfuscatedHashes(FromAddress, strObfuscatedHashes);
+
+  unsigned char packet[128];
+  memset(&packet, 0, sizeof(packet));
+
+  swapByteOrder32(CurrencyID);
+  swapByteOrder64(Amount);
+
+  // TODO: beautify later
+  packet[0] = 0x01; // seq
+  memcpy(&packet[5], &CurrencyID, 4);
+  memcpy(&packet[9], &Amount, 8);
+
+  printf("pkt : %s\n", HexStr(packet, PACKET_SIZE + packet, false).c_str());
+
+  vector<unsigned char>hash = ParseHex(strObfuscatedHashes[1]);
+  for (unsigned int i=0;i<hash.size();i++)
+  {
+    packet[i] ^= hash[i];
+  }
+
+  printf("     hash   :   %s\n", HexStr(hash).c_str());
+  printf("     packet :   %s\n", HexStr(packet, PACKET_SIZE + packet, false).c_str());
+
+  vector<unsigned char> vec_pkt;
+  vec_pkt.resize(2+PACKET_SIZE);
+  vec_pkt[0]=0x02;
+  memcpy(&vec_pkt[1], &packet, PACKET_SIZE);
+
+  CPubKey pubKey;
+  do
+  {
+    vec_pkt[1+PACKET_SIZE]=(unsigned char)(GetRand(256));
+    pubKey = CPubKey(vec_pkt);
+
+    printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+  }
+  while (!pubKey.IsFullyValid() && (max_key_check--));
+
+  rc = ClassB_send(FromAddress, ToAddress, HexStr(vec_pkt), coinControl, txid);
+  printf("ClassB_send returned %d\n", rc);
+
+  return txid;
+}
+
+// send a MP transaction via RPC - simple send
+Value send_MP(const Array& params, bool fHelp)
+{
+if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "send_MP\n"
+            "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
+            "\nResult:\n"
+            "txid    (string) The transaction ID of the sent transaction\n"
+            "\nExamples:\n"
+            ">mastercored send_MP 1FromAddress 1ToAddress CurrencyID Amount\n"
+        );
+
+  std::string FromAddress = (params[0].get_str());
+  std::string ToAddress = (params[1].get_str());
+
+  int64_t Amount = 0;
+  if (!ParseMoney(params[3].get_str(), Amount)) {};
+
+  uint32_t CurrencyID = boost::lexical_cast<boost::uint32_t>(params[2].get_str());
+
+  //some sanity checking of the data supplied?
+
+  //currencyID will need to be checked for divisibility - handle here or in function?
+  uint256 newTX = send_MP(FromAddress, ToAddress, CurrencyID, Amount);
+
+//bitcoin returns a transaction ID or error here for equivalent function (sendtoaddress)
+//trap errors, if successful return transaction ID
+    return newTX.GetHex();
+}
+
+// display an MP balance via RPC
+Value getbalance_MP(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getbalance_MP\n"
+            "\nReturns the Master Protocol balance for a given address and currency/property.\n"
+            "\nResult:\n"
+            "n    (numeric) The applicable balance for address:currency/propertyID pair\n"
+            "\nExamples:\n"
+            ">mastercored getbalance_MP 1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1\n"
+        );
+    std::string address = (params[0].get_str());
+    //assume MSC for PoC, force currencyID to 1
+    int64_t tmpbal = getMPbalance(address, MASTERCOIN_CURRENCY_MSC);
+    return ValueFromAmount(tmpbal);
 }
 
