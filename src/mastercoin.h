@@ -12,6 +12,12 @@
 // what should've been in the Exodus address for this block if none were spent
 #define DEV_MSC_BLOCK_290629 (1743358325718)
 
+// the min amount to send to marker, reference, data outputs, used in send_MP() & related functions
+#define MP_DUST_LIMIT 5678
+
+// must # of random tries we take to find a valid COutPoint
+#define ECDSA_MAX_KEY_CHECKS  8196
+
 // Master Protocol Transaction (Packet) Version
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
@@ -62,7 +68,7 @@ class msc_tally
 private:
   int64_t moneys[MSC_MAX_KNOWN_CURRENCIES];
   int64_t reserved[MSC_MAX_KNOWN_CURRENCIES];
-	bool		divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
+  bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
 public:
 
@@ -118,7 +124,7 @@ public:
     {
       moneys[i] = 0;
       reserved[i] = 0;
-			divisible = true;
+      divisible = true;
     }
 
     (void) msc_update_moneys(which, amount);

@@ -944,9 +944,6 @@ vector<unsigned char> vec_chars;
 
   strcpy((char *)sha_input, address.c_str());
   // do only as many re-hashes as there are mastercoin packets, per spec, 255 per Zathras
-  // TODO -- verify what he meant:
-  // Zahtras: "We no longer need to brute force this though, since the location of the packet is fixed in order of the multisigs/vouts
-  // we can now determine sequence (and thus number of times to hash to deobfuscate) easily."
   for (unsigned int j = 1; j<=MAX_SHA256_OBFUSCATION_TIMES;j++)
   {
     SHA256(sha_input, strlen((const char *)sha_input), sha_result);
@@ -1838,41 +1835,40 @@ int i = 0;
 std::vector<CPubKey> pubkeys;
 pubkeys.resize(n_keys);
 CWallet *wallet = pwalletMain;
+const int64_t nDustLimit = MP_DUST_LIMIT;
 
   txid = 0;
 
   // partially copied from _createmultisig()
 
-        CBitcoinAddress address(senderAddress);
-        if (wallet && address.IsValid())
-        {
-            CKeyID keyID;
-            if (!address.GetKeyID(keyID))
-                throw runtime_error(
-                    strprintf("%s does not refer to a key",senderAddress));
-            CPubKey vchPubKey;
-            if (!wallet->GetPubKey(keyID, vchPubKey))
-                throw runtime_error(
-                    strprintf("no full public key for address %s",senderAddress));
-            if (!vchPubKey.IsFullyValid())
-                throw runtime_error(" Invalid public key: "+senderAddress);
-            pubkeys[i++] = vchPubKey;
-        }
+  CBitcoinAddress address(senderAddress);
+  if (wallet && address.IsValid())
+  {
+  CKeyID keyID;
+
+    if (!address.GetKeyID(keyID)) return -20;
+
+    CPubKey vchPubKey;
+    if (!wallet->GetPubKey(keyID, vchPubKey)) return -21;
+    if (!vchPubKey.IsFullyValid()) return -22;
+
+    pubkeys[i++] = vchPubKey;
+  }
+  else return -23;
 
   pubkeys[i] = ParseHex(data_packet);
 
   // 2nd (& 3rd) is the data packet(s)
   if (!pubkeys[i].IsFullyValid()) return -1;
 
-    CScript multisig_output;
-    multisig_output.SetMultisig(1, pubkeys);
-    printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, multisig_output.ToString().c_str(), __LINE__, __FILE__);
+  CScript multisig_output;
+  multisig_output.SetMultisig(1, pubkeys);
+  printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, multisig_output.ToString().c_str(), __LINE__, __FILE__);
 
   CWalletTx wtxNew;
   int64_t nFeeRet = 0;
   vector< pair<CScript, int64_t> > vecSend;
   std::string strFailReason;
-  int64_t nValue = 4567;
   CReserveKey reserveKey(wallet);
 
   CBitcoinAddress addr = CBitcoinAddress(senderAddress);  // change goes back to us
@@ -1883,15 +1879,15 @@ CWallet *wallet = pwalletMain;
   CScript scriptPubKey;
 
   // the 1-multisig-2 Class B with data & sender
-  vecSend.push_back(make_pair(multisig_output, nValue));
+  vecSend.push_back(make_pair(multisig_output, nDustLimit));
 
   // the reference/recepient/receiver
   scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nValue));
+  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
 
   // the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nValue));
+  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
 
   // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
   if (!coinControl.HasSelected()) return -6;
@@ -1918,7 +1914,7 @@ const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID);
 CWallet *wallet = pwalletMain;
 CCoinControl coinControl; // I am using coin control to send from
 int rc = 0;
-int max_key_check = 32;
+int max_key_check = ECDSA_MAX_KEY_CHECKS;
 uint256 txid = 0;
 
   printf("%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n", __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
@@ -2049,6 +2045,9 @@ if (fHelp || params.size() != 4)
   uint32_t CurrencyID = boost::lexical_cast<boost::uint32_t>(params[2].get_str());
 
   //some sanity checking of the data supplied?
+
+  if (0 >= Amount) throw runtime_error("invalid parameter: Amount");
+  if (0 == CurrencyID) throw runtime_error("invalid parameter: CurrencyID");
 
   //currencyID will need to be checked for divisibility - handle here or in function?
   uint256 newTX = send_MP(FromAddress, ToAddress, CurrencyID, Amount);
