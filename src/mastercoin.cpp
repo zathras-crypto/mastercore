@@ -1452,12 +1452,9 @@ Value mscrpc(const Array& params, bool fHelp)
 
 // label tests
 
-  printf("label test: %s\n", getLabel("151TVVYVJseRg7RWC2WPpCMTAGvwPJrRLH").c_str());
-  printf("label test: %s\n", getLabel("1CJdoLYBbNoWC2NpL6fYc5JsSQVEVPu4oD").c_str());
-  printf("label test: %s\n", getLabel("1HLsY8fpmzxiz5mH9y2bFX8nddyNLsU8uA").c_str());
-  printf("label test: %s\n", getLabel("1H9eYMVGJ9cUt63Xh6qTStfHo5xWBbwNSw").c_str());
+//  printf("label test: %s\n", getLabel("12345AdressGoesHerePlease987654321").c_str());
 
-    return chainActive.Height();
+  return chainActive.Height();
 }
 
 
@@ -1474,9 +1471,10 @@ Value mgetbalance(const Array& params, bool fHelp)
 int msc_post_preseed(int nHeight)
 {
 int n_total = 0, n_found = 0;
-int max_block = chainActive.Height();
+const int max_block = chainActive.Height();
 
-  int nParam2 = 0;
+  // this function is useless if there are not enough blocks in the blockchain yet!
+  if ((0 >= nHeight) || (max_block < nHeight)) return -1;
 
   my_offers.clear();
   printf("starting block= %d, max_block= %d\n", nHeight, max_block);
@@ -1487,8 +1485,8 @@ int max_block = chainActive.Height();
     CBlockIndex* pblockindex = chainActive[blockNum];
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
-    if (msc_debug0) printf("%s(%d,%d; max=%d):%s, line %d, file: %s\n",
-     __FUNCTION__, blockNum, nParam2, chainActive.Height(), strBlockHash.c_str(), __LINE__, __FILE__);
+    if (msc_debug0) printf("%s(%d; max=%d):%s, line %d, file: %s\n",
+     __FUNCTION__, blockNum, max_block, strBlockHash.c_str(), __LINE__, __FILE__);
 
     ReadBlockFromDisk(block, pblockindex);
 
@@ -1521,31 +1519,6 @@ int max_block = chainActive.Height();
   printf("n_total= %d, n_found= %d\n", n_total, n_found);
 
   return 0;
-}
-
-Value mscm(const Array& params, bool fHelp)
-{
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "getblockhash index\n"
-            "\nReturns hash of block in best-block-chain at index provided.\n"
-            "\nArguments:\n"
-            "1. index         (numeric, required) The block index\n"
-            "\nResult:\n"
-            "\"hash\"         (string) The block hash\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getblockhash", "1000")
-            + HelpExampleRpc("getblockhash", "1000")
-        );
-
-    int nHeight = params[0].get_int();
-    if (nHeight < 0 || nHeight > chainActive.Height())
-        throw runtime_error("Block number out of range.");
-
-  msc_post_preseed(nHeight);
-  return (string("done"));
 }
 
 int input_msc_balances_string(const string &s)
@@ -1807,6 +1780,7 @@ bool myAddress(const std::string &address)
   return (IsMine(*pwalletMain, lookupaddress));
 }
 
+// gets a label for a Bitcoin address from the wallet, mainly to the UI (used in demo)
 string getLabel(const string &address)
 {
 CWallet *wallet = pwalletMain;
@@ -1922,7 +1896,7 @@ uint256 txid = 0;
   LOCK(wallet->cs_wallet);
 
   // make sure this address has enough MP currency available!
-  if (nAvailable < Amount)
+  if ((nAvailable < Amount) || (0 == Amount))
   {
     LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
     printf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
