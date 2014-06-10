@@ -60,6 +60,7 @@ enum BindFlags {
 };
 
 int mastercoin_init(void);
+int mastercoin_shutdown(void);
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -133,6 +134,7 @@ void Shutdown()
         if (pcoinsTip)
             pcoinsTip->Flush();
         delete pcoinsTip; pcoinsTip = NULL;
+        (void) mastercoin_shutdown();
         delete pcoinsdbview; pcoinsdbview = NULL;
         delete pblocktree; pblocktree = NULL;
     }

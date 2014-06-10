@@ -32,30 +32,23 @@
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
 
+#include "leveldb/db.h"
+
 #include "mastercoin.h"
 
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
+using namespace leveldb;
 
 uint64_t global_MSC_total = 0;
 uint64_t global_MSC_RESERVED_total = 0;
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
-// const string exodusHash = "946cb2e08075bcbaf157e47bcb67eb2b2339d242";
 static uint64_t exodus_prev = DEV_MSC_BLOCK_290629;
 static uint64_t exodus_balance;
 
-/*
-int msc_debug0 = 0;
-int msc_debug  = 0;
-int msc_debug2 = 1;
-int msc_debug3 = 0;
-int msc_debug4 = 1;
-int msc_debug5 = 0;
-int msc_debug6 = 0;
-*/
 int msc_debug0 = 0;
 int msc_debug  = 1;
 int msc_debug2 = 1;
@@ -63,15 +56,6 @@ int msc_debug3 = 1;
 int msc_debug4 = 1;
 int msc_debug5 = 1;
 int msc_debug6 = 1;
-/*
-int msc_debug0 = 0;
-int msc_debug  = 0;
-int msc_debug2 = 1;
-int msc_debug3 = 0;
-int msc_debug4 = 1;
-int msc_debug5 = 0;
-int msc_debug6 = 0;
-*/
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice log, for now just keep a count
@@ -82,6 +66,8 @@ static int ignore_all_but_MSC = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
+
+static MP_txlist *p_txlistdb;
 
 char *c_strMastercoinCurrency(unsigned int i)
 {
@@ -898,7 +884,7 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
     // my_it->first = key
     // my_it->second = value
 
-    if (myAddress(my_it->first))
+    if (IsMyAddress(my_it->first))
     {
       ++my_addresses_count;
 
@@ -1415,7 +1401,9 @@ int msc_tx_pop()
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+int extra = 0;
+
+    if (fHelp || params.size() > 1)
         throw runtime_error(
             "mscrpc\n"
             "\nReturns the number of blocks in the longest block chain.\n"
@@ -1426,6 +1414,13 @@ Value mscrpc(const Array& params, bool fHelp)
             + HelpExampleRpc("mscrpc", "")
         );
 
+  if (0 < params.size()) extra = atoi(params[0].get_str());
+
+  // various extra tests
+  switch (extra)
+  {
+    case 0: // the old output
+        // display all offers with accepts
         for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
         {
           // my_it->first = key
@@ -1433,10 +1428,9 @@ Value mscrpc(const Array& params, bool fHelp)
           (my_it->second).print((my_it->first), true);
         }
 
+        printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__); int count = 0;
-
-
+        // display all balances
         for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
         {
           // my_it->first = key
@@ -1444,27 +1438,17 @@ Value mscrpc(const Array& params, bool fHelp)
 
           printf("%34s => ", (my_it->first).c_str());
           (my_it->second).print();
-
-          ++count;
         }
+      break;
 
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-// label tests
-
-//  printf("label test: %s\n", getLabel("12345AdressGoesHerePlease987654321").c_str());
+    case 1:
+      // display the whole MP_txlist (leveldb)
+      p_txlistdb->printAll();
+      p_txlistdb->printStats();
+      break;
+  }
 
   return chainActive.Height();
-}
-
-
-Value mgetbalance(const Array& params, bool fHelp)
-{
-  LogPrintf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-  fprintf(stderr, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-        int64_t nBalance = 0;
-        return  ValueFromAmount(nBalance);
 }
 
 // parse blocks, starting right after the preseed
@@ -1690,7 +1674,6 @@ int mastercoin_init()
 const bool bTestnet = TestNet();
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, bTestnet ? "TESTNET":"", __LINE__, __FILE__);
-//  (void) load_checkpoint();
 
   if (bTestnet)
   {
@@ -1698,11 +1681,12 @@ const bool bTestnet = TestNet();
     ignore_all_but_MSC = 0;
   }
 
+  p_txlistdb = new MP_txlist(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
+
   (void) msc_file_load(FILETYPE_BALANCES);
   (void) msc_file_load(FILETYPE_OFFERS);
 //  (void) msc_file_load(FILETYPE_ACCEPTS); // not needed per Zathras -- we are capturing blocks for which there are no outstanding accepts!
 
-//  (void) msc_post_preseed(292421);  // scan new blocks after the checkpoint above
 //  (void) msc_post_preseed(249497);  // Exodus block, dump for Zathras
 
   // collect the real Exodus balances available at the snapshot time
@@ -1711,7 +1695,7 @@ const bool bTestnet = TestNet();
 
   if (!bTestnet)
   {
-    (void) msc_post_preseed(290630);  // the DEX block, using Zathras msc_balances_290629.txt , md5: f275c5a17bd2d36da8c686f2a4337e06
+    (void) msc_post_preseed(290630);  // the DEX block, using Zathras' msc_balances_290629.txt
   }
   else
   {
@@ -1719,12 +1703,18 @@ const bool bTestnet = TestNet();
     (void) msc_post_preseed(chainActive.Height()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
   }
 
-  // dump few more random addresses & balances
-  printf("balance: %lu\n", getMPbalance("13rpJ1r4onYA7RJfya3P8S3AaEqgXEkM8n", MASTERCOIN_CURRENCY_MSC));
-  printf("balance: %lu\n", getMPbalance("1MnW3JgujMavTzBCiZyfxigDhu9pnDE7dU", MASTERCOIN_CURRENCY_MSC));
-
+  // display Exodus balance
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC);
   printf("Exodus balance: %lu\n", exodus_balance);
+
+  return 0;
+}
+
+int mastercoin_shutdown()
+{
+  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+  delete p_txlistdb; p_txlistdb = NULL;
 
   return 0;
 }
@@ -1739,6 +1729,7 @@ int mastercoin_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
 {
 int rc = 0;
 
+  // FIXME: major refactoring needed !
       {
         rc = msc_tx_push(tx, nBlock, idx);
 
@@ -1751,15 +1742,17 @@ int rc = 0;
         (void) msc_tx_pop();
       }
 
-  // display by the end of the block or something:  LogPrintf("%s()msc_tx()=%lu: +=%lu , 0=%lu , -=%lu ,  END, line %d, file: %s\n", __FUNCTION__, msc_total, msc_neg, msc_zero, msc_pos, __LINE__, __FILE__);
+  // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
+  // FIXME: and of course only MP-related TXs will be recorded...
+  p_txlistdb->recordTX(tx.GetHash(), false, nBlock);
 
   return 0;
 }
 
 string msc_tally::getMSC()
 {
-    // FIXME: negative numbers -- do they work here?
-    return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_MSC]/COIN, moneys[MASTERCOIN_CURRENCY_MSC]%COIN);
+  // FIXME: negative numbers -- do they work here?
+  return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_MSC]/COIN, moneys[MASTERCOIN_CURRENCY_MSC]%COIN);
 }
 
 string msc_tally::getTMSC()
@@ -1769,7 +1762,7 @@ string msc_tally::getTMSC()
 }
 
 // IsMine wrapper to determine whether the address is in our local wallet
-bool myAddress(const std::string &address) 
+bool IsMyAddress(const std::string &address) 
 {
   if (!pwalletMain) return false;
 
@@ -1888,7 +1881,6 @@ const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID);
 CWallet *wallet = pwalletMain;
 CCoinControl coinControl; // I am using coin control to send from
 int rc = 0;
-int max_key_check = ECDSA_MAX_KEY_CHECKS;
 uint256 txid = 0;
 
   printf("%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n", __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
@@ -1982,14 +1974,18 @@ uint256 txid = 0;
   memcpy(&vec_pkt[1], &packet, PACKET_SIZE);
 
   CPubKey pubKey;
-  do
+  unsigned char random_byte = (unsigned char)(GetRand(256));
+  for (unsigned int i = 0; i < 0xFF ; i++)
   {
-    vec_pkt[1+PACKET_SIZE]=(unsigned char)(GetRand(256));
-    pubKey = CPubKey(vec_pkt);
+    vec_pkt[1+PACKET_SIZE] = random_byte;
 
+    pubKey = CPubKey(vec_pkt);
     printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+
+    if (pubKey.IsFullyValid()) break;
+
+    ++random_byte; // cycle 256 times, if we must to find a valid ECDSA point
   }
-  while (!pubKey.IsFullyValid() && (max_key_check--));
 
   rc = ClassB_send(FromAddress, ToAddress, HexStr(vec_pkt), coinControl, txid);
   printf("ClassB_send returned %d\n", rc);
@@ -2047,5 +2043,240 @@ Value getbalance_MP(const Array& params, bool fHelp)
     //assume MSC for PoC, force currencyID to 1
     int64_t tmpbal = getMPbalance(address, MASTERCOIN_CURRENCY_MSC);
     return ValueFromAmount(tmpbal);
+}
+
+void MP_txlist::recordTX(const uint256 &txid, bool fValid, int nBlock)
+{
+  if (!pdb) return;
+
+const string key = txid.ToString();
+const string value = strprintf("%u:%d", fValid ? 1:0, nBlock);
+Status status;
+
+  printf("%s(%s, valid=%s, block= %d), line %d, file: %s\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, __LINE__, __FILE__);
+
+  if (pdb)
+  {
+    status = pdb->Put(writeoptions, key, value);
+    ++nWritten;
+    printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+  }
+}
+
+bool MP_txlist::exists(const uint256 &txid)
+{
+  if (!pdb) return false;
+
+string strValue;
+Status status = pdb->Get(readoptions, txid.ToString(), &strValue);
+
+  if (!status.ok())
+  {
+    if (status.IsNotFound()) return false;
+  }
+
+  return true;
+}
+
+bool MP_txlist::getTX(const uint256 &txid, string &value)
+{
+Status status = pdb->Get(readoptions, txid.ToString(), &value);
+
+  ++nRead;
+
+  if (status.ok())
+  {
+    return true;
+  }
+
+  return false;
+}
+
+void MP_txlist::printAll()
+{
+int count = 0;
+Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+Iterator* it = pdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
+bool IsMPTXvalid(const uint256 &txid)
+{
+string result;
+
+  if (!p_txlistdb->getTX(txid, result)) return false;
+
+  // parse the string returned, find the validity flag/bit
+std::vector<std::string> vstr;
+boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
+int validity = atoi(vstr[0]);
+int block = atoi(vstr[1]);
+
+  printf("%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
+  p_txlistdb->printStats();
+
+  if (0 == validity) return false;
+
+  return true;
+}
+
+Value gettransaction_MP(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "gettransaction_MP \"txid\"\n"
+            "\nGet detailed information about in-wallet transaction <txid>\n"
+            "\nArguments:\n"
+            "1. \"txid\"    (string, required) The transaction id\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"amount\" : x.xxx,        (numeric) The transaction amount in btc\n"
+            "  \"confirmations\" : n,     (numeric) The number of confirmations\n"
+            "  \"blockhash\" : \"hash\",  (string) The block hash\n"
+            "  \"blockindex\" : xx,       (numeric) The block index\n"
+            "  \"blocktime\" : ttt,       (numeric) The time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id, see also https://blockchain.info/tx/[transactionid]\n"
+            "  \"time\" : ttt,            (numeric) The transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"timereceived\" : ttt,    (numeric) The time received in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"details\" : [\n"
+            "    {\n"
+            "      \"account\" : \"accountname\",  (string) The account name involved in the transaction, can be \"\" for the default account.\n"
+            "      \"address\" : \"bitcoinaddress\",   (string) The bitcoin address involved in the transaction\n"
+            "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
+            "      \"amount\" : x.xxx                  (numeric) The amount in btc\n"
+            "    }\n"
+            "    ,...\n"
+            "  ],\n"
+            "  \"hex\" : \"data\"         (string) Raw data for transaction\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("gettransaction_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+            + HelpExampleRpc("gettransaction_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+        );
+
+    uint256 hash;
+    hash.SetHex(params[0].get_str());
+
+    Object entry;
+    if (!pwalletMain->mapWallet.count(hash))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
+    const CWalletTx& wtx = pwalletMain->mapWallet[hash];
+
+/*
+    int64_t nCredit = wtx.GetCredit();
+    int64_t nDebit = wtx.GetDebit();
+    int64_t nNet = nCredit - nDebit;
+    int64_t nFee = (wtx.IsFromMe() ? wtx.GetValueOut() - nDebit : 0);
+*/
+
+    int64_t MP_Amount = 1337;
+
+    entry.push_back(Pair("amount", ValueFromAmount(MP_Amount)));
+
+    if (wtx.IsFromMe())
+    {
+//      entry.push_back(Pair("fee", ValueFromAmount(nFee)));
+      // TODO: what here?
+    }
+
+    // check out leveldb KV store to see if the transaction is found and is valid per Master Protocol rules
+    // perhaps I need to distinguish whether it is not found or not valid at this level and report via JSON (?)
+    if (IsMPTXvalid(hash))
+    {
+      // TODO: JSON error - MP transaction is invalid !
+      printf("%s() MP TX is VALID ! line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    }
+    else
+    {
+      printf("%s() MP TX is NOT valid ! line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    }
+
+//    WalletTxToJSON(wtx, entry); // TODO: need MP JSON here
+
+    Array details;
+//    ListTransactions(wtx, "*", 0, false, details);  // TODO: need MP JSON here
+    entry.push_back(Pair("details", details));
+
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << static_cast<CTransaction>(wtx);
+    string strHex = HexStr(ssTx.begin(), ssTx.end());
+    entry.push_back(Pair("hex", strHex));
+
+    return entry;
+}
+
+// TODO: rename this function and the corresponding RPC call, once I understand better what it's supposed to do with Zathras' help
+Value history_MP(const Array& params, bool fHelp)
+{
+CWallet *wallet = pwalletMain;
+string sAddress = "";
+
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "*** SOME *** HELP *** GOES *** HERE ***\n"
+            + HelpExampleCli("*************_MP", "\"-------------\"")
+            + HelpExampleRpc("*****************_MP", "\"-----------------\"")
+        );
+
+const string AddressGiven = params[0].get_str();
+
+  LOCK(wallet->cs_wallet);
+
+        // partially lifted from my send_MP function above -- perhaps refactor & merge common code
+        for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
+        {
+        const uint256& wtxid = it->first;
+        const CWalletTx* pcoin = &(*it).second;
+        bool bIsMine;
+        bool bIsSpent;
+
+//            if (pcoin->IsTrusted())
+            {
+            const int64_t nAvailable = pcoin->GetAvailableCredit();
+
+              if (!nAvailable) continue;
+              printf("----------------------------------------\n");
+
+     for (unsigned int i = 0; i < pcoin->vout.size(); i++)
+        {
+                CTxDestination dest;
+
+                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
+                    continue;
+
+                bIsMine = IsMine(*wallet, dest);
+                bIsSpent = wallet->IsSpent(wtxid, i);
+
+//                if (!bIsMine || bIsSpent) continue;
+
+                int64_t nSatoshis = bIsSpent ? 0 : pcoin->vout[i].nValue;
+
+                sAddress = CBitcoinAddress(dest).ToString();
+
+                printf("%s ; txid= %s ; IsMine()=%s:IsSpent()=%s:i=%d, nValue= %lu\n",
+                 sAddress.c_str(), wtxid.ToString().c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", i, nSatoshis);
+
+            if (AddressGiven == sAddress)
+            {
+              printf(">>> MATCHES: %s\n", AddressGiven.c_str());
+            }
+        }
+            }
+        }
+
+  return Value::null;   // TODO: what are we returning here??? Zathras?
 }
 

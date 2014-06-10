@@ -303,9 +303,11 @@ static const CRPCCommand vRPCCommands[] =
     { "gethashespersec",        &gethashespersec,        true,      false,      false },
     { "getwork",                &getwork,                true,      false,      true },
     /* Master Protocol specific calls */
-    { "mscrpc",                 &mscrpc,                 true,       false,      false },
-    { "getbalance_MP",          &getbalance_MP,          false,      false,      true },
-    { "send_MP",                &send_MP,                false,      false,      true },
+    { "mscrpc",                 &mscrpc,                 true,      false,      false },
+    { "getbalance_MP",          &getbalance_MP,          false,     false,      true },
+    { "send_MP",                &send_MP,                false,     false,      true },
+    { "gettransaction_MP",      &gettransaction_MP,      false,     false,      true },
+    { "history_MP",             &history_MP,             false,     false,      true },
 #endif // ENABLE_WALLET
 };
 

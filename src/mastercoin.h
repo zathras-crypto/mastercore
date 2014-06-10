@@ -15,9 +15,6 @@
 // the min amount to send to marker, reference, data outputs, used in send_MP() & related functions
 #define MP_DUST_LIMIT 5678
 
-// must # of random tries we take to find a valid COutPoint
-#define ECDSA_MAX_KEY_CHECKS  8196
-
 // Master Protocol Transaction (Packet) Version
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
@@ -153,12 +150,72 @@ public:
   }
 };
 
+/* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
+class MP_txlist
+{
+protected:
+    // database options used
+    leveldb::Options options;
+
+    // options used when reading from the database
+    leveldb::ReadOptions readoptions;
+
+    // options used when iterating over values of the database
+    leveldb::ReadOptions iteroptions;
+
+    // options used when writing to the database
+    leveldb::WriteOptions writeoptions;
+
+    // options used when sync writing to the database
+    leveldb::WriteOptions syncoptions;
+
+    // the database itself
+    leveldb::DB *pdb;
+
+    // statistics
+    unsigned int nWritten;
+    unsigned int nRead;
+
+public:
+    MP_txlist(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)
+    {
+      options.paranoid_checks = true;
+      options.create_if_missing = true;
+
+      readoptions.verify_checksums = true;
+      iteroptions.verify_checksums = true;
+      iteroptions.fill_cache = false;
+      syncoptions.sync = true;
+
+      leveldb::Status status = leveldb::DB::Open(options, path.string(), &pdb);
+
+      printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    }
+
+    ~MP_txlist()
+    {
+      delete pdb;
+      pdb = NULL;
+    }
+
+    void recordTX(const uint256 &txid, bool fValid, int nBlock);
+    bool exists(const uint256 &txid);
+    bool getTX(const uint256 &txid, string &value);
+
+    void printStats()
+    {
+      printf("MP_txlist stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+    }
+
+    void printAll();
+};
+
 extern map<string, msc_tally> msc_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 
 uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved = false);
-bool myAddress(const std::string &address);
+bool IsMyAddress(const std::string &address);
 
 string getLabel(const string &address);
 
