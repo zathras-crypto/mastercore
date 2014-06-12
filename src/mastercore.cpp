@@ -3,7 +3,7 @@
 // WARNING: Work In Progress -- major refactoring will be occurring often
 //
 // I am adding comments to aid with navigation and overall understanding of the design.
-// this is the 'core' portion of the node+wallet: mastercoind
+// this is the 'core' portion of the node+wallet: mastercored
 // see 'qt' subdirectory for UI files
 //
 // for the Sprint -- search for: TODO, FIXME, consensus
@@ -49,7 +49,18 @@ static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static uint64_t exodus_prev = DEV_MSC_BLOCK_290629;
 static uint64_t exodus_balance;
 
+static FILE *mp_fp = NULL;
+
+/*
 int msc_debug0 = 0;
+int msc_debug  = 1;
+int msc_debug2 = 1;
+int msc_debug3 = 1;
+int msc_debug4 = 1;
+int msc_debug5 = 1;
+int msc_debug6 = 1;
+*/
+int msc_debug0 = 1;
 int msc_debug  = 1;
 int msc_debug2 = 1;
 int msc_debug3 = 1;
@@ -68,6 +79,13 @@ static int ignore_all_but_MSC = 1;
 #define STR_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
 
 static MP_txlist *p_txlistdb;
+
+// a copy from main.cpp -- unfortunately that one is in a private namespace
+static int GetHeight()
+{
+    LOCK(cs_main);
+    return chainActive.Height();
+}
 
 char *c_strMastercoinCurrency(unsigned int i)
 {
@@ -139,7 +157,7 @@ void swapByteOrder64(uint64_t& ull)
 }
 
 // a single outstanding offer -- from one seller of one currency, internally may have many accepts
-class msc_offer
+class CMPOffer
 {
 private:
   int offerBlock;
@@ -153,7 +171,7 @@ private:
 
   // do a map of buyers, primary key is buyer+currency
   // MUST account for many possible accepts and EACH currency offer
-  class msc_accept
+  class CMPAccept
   {
   private:
     uint64_t accept_amount;             // amount of MSC/TMSC remaining to be purchased
@@ -165,31 +183,31 @@ private:
   public:
     int block;          // 'accept' message sent in this block
 
-    msc_accept(uint64_t a, uint64_t f, int b):accept_amount(a),fee_paid(f),block(b)
+    CMPAccept(uint64_t a, uint64_t f, int b):accept_amount(a),fee_paid(f),block(b)
     {
       original_accept_amount = accept_amount;
       reserved_for_this_accept = 0;
-      printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+      fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
     }
 
     void print()
     {
       // hm, can't access the outer class' map member to get the currency unit label... do we care?
-      printf("buying: %12.8lf (originally= %12.8lf) reserved_for_it= %12.8lf in block# %d, fee: %2.8lf\n",
+      fprintf(mp_fp, "buying: %12.8lf (originally= %12.8lf) reserved_for_it= %12.8lf in block# %d, fee: %2.8lf\n",
        (double)accept_amount/(double)COIN, (double)original_accept_amount/(double)COIN, (double)reserved_for_this_accept/(double)COIN,
        block, (double)fee_paid/(double)COIN);
     }
 
     uint64_t getAcceptAmount() const
     { 
-      printf("%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount, __LINE__, __FILE__);
+      fprintf(mp_fp, "%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount, __LINE__, __FILE__);
 
       return accept_amount;
     }
     void reduceAcceptAmount(uint64_t really_purchased) { accept_amount -= really_purchased; } // TODO: check for negatives ? assert ?
   };
 
-  map<string, msc_accept> my_accepts;
+  map<string, CMPAccept> my_accepts;
 
 public:
   unsigned int getCurrency() const { return currency; }
@@ -200,17 +218,17 @@ public:
   {
   unsigned int how_many_erased = 0;
 
-    for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
+    for(map<string, CMPAccept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
     {
       // my_it->first = key
       // my_it->second = value
 
       if ((blockNow - (my_it->second).block) >= (int) blocktimelimit)
       {
-        printf("%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
+        fprintf(mp_fp, "%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
          __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit);
 
-        printf("\t%35s ", (my_it->first).c_str());
+        fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
         (my_it->second).print();
 
         my_accepts.erase(my_it);
@@ -229,9 +247,9 @@ public:
   double P;
   uint64_t purchased;
   uint64_t actual_amount = 0;
-  map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
+  map<string, CMPAccept>::iterator my_it = my_accepts.find(buyer);
 
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
 
     // did the buyer pay enough or more than the seller wanted?
     if (BTC_paid >= BTC_desired)
@@ -259,7 +277,7 @@ public:
       }
     }
 
-    printf("%s();BTC_paid= %lu, BTC_desired= %lu, purchased= %lu, accept_amount= %lu, actual_amount= %lu\n",
+    fprintf(mp_fp, "%s();BTC_paid= %lu, BTC_desired= %lu, purchased= %lu, accept_amount= %lu, actual_amount= %lu\n",
      __FUNCTION__, BTC_paid, BTC_desired, purchased, (my_it->second).getAcceptAmount(), actual_amount);
 
     return actual_amount;
@@ -267,10 +285,10 @@ public:
 
   void reduceAcceptAmount(uint64_t purchased, const string &buyer)
   {
-  map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
+  map<string, CMPAccept>::iterator my_it = my_accepts.find(buyer);
 
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-    printf("%s(%s, purchased= %lu), line %d, file: %s\n", __FUNCTION__, buyer.c_str(), purchased, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s(%s, purchased= %lu), line %d, file: %s\n", __FUNCTION__, buyer.c_str(), purchased, __LINE__, __FILE__);
 
     if (my_it != my_accepts.end())
     {
@@ -280,17 +298,17 @@ public:
       // if accept has been fully paid -- erase it
       if (0 == (my_it->second).getAcceptAmount())
       {
-        printf("%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n", __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
+        fprintf(mp_fp, "%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n", __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
         my_accepts.erase(my_it);
       }
     }
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
   }
 
-  msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
+  CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
    :offerBlock(b),offer_amount(a),original_offer_amount(a),currency(cu),BTC_desired(d),min_fee(fee),blocktimelimit(btl)
   {
-    if (msc_debug4) printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    if (msc_debug4) fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
     reserved_accepted_amount = 0;
 
@@ -299,7 +317,7 @@ public:
 
   void offer_update(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
   {
-    printf("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
     offerBlock = b;
     offer_amount = a;
@@ -313,27 +331,27 @@ public:
   // the offer is accepted by a buyer, add this purchase to the accepted list or replace an old one from this buyer
   void offer_accept(const string &buyer, uint64_t desired, int block, uint64_t fee)
   {
-    printf("%s(buyer:%s, desired=%2.8lf, block # %d), line %d, file: %s\n",
+    fprintf(mp_fp, "%s(buyer:%s, desired=%2.8lf, block # %d), line %d, file: %s\n",
      __FUNCTION__, buyer.c_str(), (double)desired/(double)COIN, block, __LINE__, __FILE__);
 
     // here we ensure the correct BTC fee was paid in this acceptance message, per spec
     if (fee < min_fee)
     {
-      printf("ERROR: fee too small -- the ACCEPT is rejected! (%lu is smaller than %lu)\n", fee, min_fee);
+      fprintf(mp_fp, "ERROR: fee too small -- the ACCEPT is rejected! (%lu is smaller than %lu)\n", fee, min_fee);
       ++InvalidCount_per_spec;
       return;
     }
 
-    map<string, msc_accept>::iterator my_it = my_accepts.find(buyer);
+    map<string, CMPAccept>::iterator my_it = my_accepts.find(buyer);
 
     // Zathras said the older accept is the valid one !!!!!!!! do not accept any new ones!
     if (my_it != my_accepts.end())
     {
       // protocol error, an accept from this same seller for this same offer is already open
-      printf("%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
+      fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
       ++InvalidCount_per_spec;
     }
-    else my_accepts.insert(std::make_pair(buyer,msc_accept(desired, fee, block)));
+    else my_accepts.insert(std::make_pair(buyer, CMPAccept(desired, fee, block)));
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
@@ -343,16 +361,16 @@ public:
   const double wants_total = (double)BTC_desired/(double)COIN;
   const double price = coins*wants_total ? wants_total/coins : 0;
 
-    printf("%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
+    fprintf(mp_fp, "%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
      address.c_str(), original_coins, coins, c_strMastercoinCurrency(currency), wants_total, price, offerBlock, blocktimelimit,(double)min_fee/(double)COIN);
 
         if (bPrintAcceptsToo)
-        for(map<string, msc_accept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
+        for(map<string, CMPAccept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
 
-          printf("\t%35s ", (my_it->first).c_str());
+          fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
           (my_it->second).print();
         }
   }
@@ -361,15 +379,15 @@ public:
   {
   int problem = 0;
 
-    const map<string, msc_accept>::iterator my_it = my_accepts.find(customer);
+    const map<string, CMPAccept>::iterator my_it = my_accepts.find(customer);
 
-    printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
 
-    printf("%s(%s), line %d, file: %s\n", __FUNCTION__, customer.c_str(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s(%s), line %d, file: %s\n", __FUNCTION__, customer.c_str(), __LINE__, __FILE__);
 
     if (my_it != my_accepts.end())
     {
-      printf("%s()now: %d, class: %d, limit: %d, line %d, file: %s\n",
+      fprintf(mp_fp, "%s()now: %d, class: %d, limit: %d, line %d, file: %s\n",
        __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit, __LINE__, __FILE__);
 
       if ((blockNow - (my_it->second).block) > (int) blocktimelimit)
@@ -380,27 +398,27 @@ public:
     }
     else problem+=10;
 
-    printf("%s(%s):problem=%d, line %d, file: %s\n", __FUNCTION__, customer.c_str(), problem, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s(%s):problem=%d, line %d, file: %s\n", __FUNCTION__, customer.c_str(), problem, __LINE__, __FILE__);
 
     return (!problem);
   }
 
 };
 
-static map<string, msc_offer> my_offers;
+static map<string, CMPOffer> my_offers;
 
 CCriticalSection cs_tally;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
-map<string, msc_tally> msc_tally_map;
+map<string, mp_tally> mp_tally_map;
 
 // look at balance for an address
 uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved)
 {
 uint64_t balance = 0;
-const map<string, msc_tally>::iterator my_it = msc_tally_map.find(Address);
+const map<string, mp_tally>::iterator my_it = mp_tally_map.find(Address);
 
-  if (my_it != msc_tally_map.end())
+  if (my_it != mp_tally_map.end())
   {
     balance = (my_it->second).getMoney(currency, bReserved);
   }
@@ -415,12 +433,12 @@ bool update_tally_map(string who, unsigned int which, int64_t amount, bool bRese
 bool bReturn = true;
 
   if (msc_debug2)
-   printf("%s(%s, %d, %+ld%s), line %d, file: %s\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"", __LINE__, __FILE__);
+   fprintf(mp_fp, "%s(%s, %d, %+ld%s), line %d, file: %s\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"", __LINE__, __FILE__);
 
   LOCK(cs_tally);
 
-      const map<string, msc_tally>::iterator my_it = msc_tally_map.find(who);
-      if (my_it != msc_tally_map.end())
+      const map<string, mp_tally>::iterator my_it = mp_tally_map.find(who);
+      if (my_it != mp_tally_map.end())
       {
         // element found -- update
         if (!bReserved) bReturn = (my_it->second).msc_update_moneys(which, amount, bSet);
@@ -429,11 +447,11 @@ bool bReturn = true;
       else
       {
         // not found -- insert
-        if (0<=amount) msc_tally_map.insert(std::make_pair(who,msc_tally(which, amount)));
+        if (0<=amount) mp_tally_map.insert(std::make_pair(who,mp_tally(which, amount)));
         else bReturn = false;
       }
 
-  if (!bReturn) printf("%s(%s, %d, %+ld%s) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"");
+  if (!bReturn) fprintf(mp_fp, "%s(%s, %d, %+ld%s) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, bReserved ? " RESERVED":"");
 
   return bReturn;
 }
@@ -444,7 +462,7 @@ bool bReturn = true;
 // Also used as new block are received.
 //
 // It invokes other classes & methods: offers, accepts, tallies (balances).
-class msc
+class CMPTransaction
 {
 private:
   string sender;
@@ -461,11 +479,11 @@ private:
   void update_offer_map(string seller_addr, unsigned int curr, uint64_t desired, uint64_t fee, unsigned char btl) const
   {
   // handle the offer
-  map<string, msc_offer>::iterator my_it;
+  map<string, CMPOffer>::iterator my_it;
   const string combo = STR_ADDR_CURR_COMBO(seller_addr);
 
     if (msc_debug4)
-    printf("%s(%s|%s), nValue=%lu), line %d, file: %s\n",
+    fprintf(mp_fp, "%s(%s|%s), nValue=%lu), line %d, file: %s\n",
      __FUNCTION__, seller_addr.c_str(), combo.c_str(), nValue, __LINE__, __FILE__);
 
       my_it = my_offers.find(combo);
@@ -473,22 +491,22 @@ private:
       // TODO: handle an existing offer (cancel, or update or what?) consensus question
       if (my_it != my_offers.end())
       {
-        printf("%s() OFFER FOUND - UPDATING, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+        fprintf(mp_fp, "%s() OFFER FOUND - UPDATING, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
         // element found -- update
         (my_it->second).offer_update(block, nValue, curr, desired, fee, btl);
       }
       else
       {
-        printf("%s() NEW OFFER - INSERTING, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+        fprintf(mp_fp, "%s() NEW OFFER - INSERTING, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
         // not found -- insert
-        my_offers.insert(std::make_pair(combo, msc_offer(block, nValue, curr, desired, fee, btl)));
+        my_offers.insert(std::make_pair(combo, CMPOffer(block, nValue, curr, desired, fee, btl)));
       }
   }
 
   bool offerExists(string seller_addr, unsigned int curr) const
   {
   const string combo = STR_ADDR_CURR_COMBO(seller_addr);
-  map<string, msc_offer>::iterator my_it = my_offers.find(combo);
+  map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 
     return !(my_it == my_offers.end());
   }
@@ -497,7 +515,7 @@ private:
   void offerUndo(string seller_addr, unsigned int curr, bool bCancel = false) const
   {
   const string combo = STR_ADDR_CURR_COMBO(seller_addr);
-  map<string, msc_offer>::iterator my_it = my_offers.find(combo);
+  map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
   uint64_t nValue;
 
     if (my_offers.end() == my_it) return; // offer not found
@@ -520,13 +538,13 @@ private:
   void update_offer_accepts(int curr)
   {
   // find the offer
-  map<string, msc_offer>::iterator my_it;
+  map<string, CMPOffer>::iterator my_it;
   const string combo = STR_ADDR_CURR_COMBO(receiver);
 
       my_it = my_offers.find(combo);
       if (my_it != my_offers.end())
       {
-        printf("%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+        fprintf(mp_fp, "%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
         (my_it->second).print((my_it->first), true);
         // offer found -- update
         (my_it->second).offer_accept(sender, nValue, block, tx_fee_paid);
@@ -534,7 +552,7 @@ private:
       }
       else
       {
-        printf("SELL OFFER NOT FOUND %s !!!\n", combo.c_str());
+        fprintf(mp_fp, "SELL OFFER NOT FOUND %s !!!\n", combo.c_str());
       }
   }
 
@@ -550,7 +568,7 @@ private:
 
   if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
   {
-    printf("%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
     return -1;
   }
 
@@ -565,7 +583,7 @@ private:
   memcpy(&currency, &pkt[4], 4);
   memcpy(&nValue, &pkt[8], 8);
 
-  printf("version: %d, Class %s\n", version, !multi ? "A":"B");
+  fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
 
   // FIXME: only do swaps for little-endian system(s) !
   swapByteOrder32(type);
@@ -575,13 +593,13 @@ private:
   if (ignore_all_but_MSC)
   if (currency != MASTERCOIN_CURRENCY_MSC)
   {
-    printf("IGNORING NON-MSC packet for NOW, for this PoC !!!\n");
+    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW, for this PoC !!!\n");
     return -2;
   }
 
-  printf("\t            type: %u (%s)\n", type, c_strMastercoinType(type));
-  printf("\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
-  printf("\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+  fprintf(mp_fp, "\t            type: %u (%s)\n", type, c_strMastercoinType(type));
+  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
+  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -618,10 +636,10 @@ private:
       swapByteOrder64(amount_desired);
       swapByteOrder64(min_fee);
 
-    printf("\t  amount desired: %lu.%08lu\n", amount_desired / COIN, amount_desired % COIN);
-    printf("\tblock time limit: %u\n", blocktimelimit);
-    printf("\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
-    printf("\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
+    fprintf(mp_fp, "\t  amount desired: %lu.%08lu\n", amount_desired / COIN, amount_desired % COIN);
+    fprintf(mp_fp, "\tblock time limit: %u\n", blocktimelimit);
+    fprintf(mp_fp, "\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
+    fprintf(mp_fp, "\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
 
       // figure out which Action this is based on amount for sale, version & etc.
       switch (version)
@@ -650,7 +668,7 @@ private:
           {
             if ((CANCEL != subaction) && (UPDATE != subaction))
             {
-              printf("%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              fprintf(mp_fp, "%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
               ++InvalidCount_per_spec;
               break;
             }
@@ -720,17 +738,33 @@ private:
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
-  msc() : block(-1), pkt_size(0), tx_fee_paid(0)
+  CMPTransaction() : block(-1), pkt_size(0), tx_fee_paid(0)
   {
   }
 
-  msc(string s, string r, uint64_t n, string t, int b, unsigned int idx, unsigned char p[], unsigned int size, int fMultisig, uint64_t txf) :
-   sender(s), receiver(r), txid(t), block(b), tx_idx(idx), pkt_size(size), nValue(n), multi(fMultisig), tx_fee_paid(txf)
+  void set(const string &t, int b, unsigned int idx, uint64_t txf = 0)
   {
+    txid = t;
+    block = b;
+    tx_idx = idx;
+  }
+
+  void set(string s, string r, uint64_t n, string t, int b, unsigned int idx, unsigned char p[], unsigned int size, int fMultisig, uint64_t txf)
+  {
+    sender = s;
+    receiver = r;
+    txid = t;
+    block = b;
+    tx_idx = idx;
+    pkt_size = size;
+    nValue = n;
+    multi= fMultisig;
+    tx_fee_paid = txf;
+
     memcpy(pkt, p, size < sizeof(pkt) ? size : sizeof(pkt));
   }
 
-  bool operator<(const msc& other) const
+  bool operator<(const CMPTransaction& other) const
   {
     // sort by block # & additionally the tx index within the block
     if (block != other.block) return block > other.block;
@@ -739,12 +773,12 @@ public:
 
   void print()
   {
-    printf("===BLOCK: %d =txid: %s =fee: %1.8lf ====\n", block, txid.c_str(), (double)tx_fee_paid/(double)COIN);
-    printf("sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
+    fprintf(mp_fp, "===BLOCK: %d =txid: %s =fee: %1.8lf ====\n", block, txid.c_str(), (double)tx_fee_paid/(double)COIN);
+    fprintf(mp_fp, "sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
 
     if (0<pkt_size)
     {
-      printf("pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
+      fprintf(mp_fp, "pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
       (void) interpretPacket();
     }
     else
@@ -762,16 +796,16 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
   {
   const string combo = STR_ADDR_CURR_COMBO(seller);
 
-  if (msc_debug4) printf("%s(looking for: %s), line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+  if (msc_debug4) fprintf(mp_fp, "%s(looking for: %s), line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
 
-  const map<string, msc_offer>::iterator my_it = my_offers.find(combo);
+  const map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 
     if (my_it != my_offers.end())
     {
-      printf("%s(%s) FOUND the SELL OFFER, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+      fprintf(mp_fp, "%s(%s) FOUND the SELL OFFER, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
 
       // element found
-      msc_offer &offer = (my_it->second);
+      CMPOffer &offer = (my_it->second);
 
       offer.print((my_it->first));
       offer.print((my_it->first), true);
@@ -797,12 +831,12 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
             // now, erase the offer if there is nothing left in Reserve (or offer_amount for this offer)
             if (0 == getMPbalance(seller, offer.getCurrency(), true))
             {
-              printf("%s(%s) ALL SOLD - wiping out the offer, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
+              fprintf(mp_fp, "%s(%s) ALL SOLD - wiping out the offer, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
               my_offers.erase(my_it);
             }
           }
 
-          printf("#######################################################\n");
+          fprintf(mp_fp, "#######################################################\n");
       }
     }
   }
@@ -830,7 +864,7 @@ unsigned int cleanup_expired_accepts(int nBlockNow)
 unsigned int how_many_erased = 0;
 
   // go over all offers
-  for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
+  for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
   {
     // my_it->first = key
     // my_it->second = value
@@ -859,7 +893,7 @@ const double available_reward=all_reward * part_available;
   devmsc = rounduint64(available_reward);
   exodus_delta = devmsc - exodus_prev;
 
-  printf("devmsc=%lu, exodus_prev=%lu, exodus_delta=%ld\n", devmsc, exodus_prev, exodus_delta);
+  fprintf(mp_fp, "devmsc=%lu, exodus_prev=%lu, exodus_delta=%ld\n", devmsc, exodus_prev, exodus_delta);
 
   // per Zathras -- skip if a block's timestamp is older than that of a previous one!
   if (0>exodus_delta) return 0;
@@ -879,7 +913,7 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
   global_MSC_total = 0;
   global_MSC_RESERVED_total = 0;
 
-  for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
+  for(map<string, mp_tally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
     // my_it->first = key
     // my_it->second = value
@@ -898,7 +932,7 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
 
 // called once per block
 // it performs cleanup and other functions
-int mastercoin_handler_block(int nBlockNow, unsigned int nTime)
+int mastercore_handler_block(int nBlockNow, unsigned int nTime)
 {
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
@@ -907,17 +941,17 @@ unsigned int how_many_erased = 0;
 uint64_t devmsc = 0;
 
   how_many_erased = cleanup_expired_accepts(nBlockNow);
-  if (how_many_erased) printf("%s(%d); erased %u accepts this block, line %d, file: %s\n",
+  if (how_many_erased) fprintf(mp_fp, "%s(%d); erased %u accepts this block, line %d, file: %s\n",
    __FUNCTION__, how_many_erased, nBlockNow, __LINE__, __FILE__);
 
   // calculate devmsc as of this block and update the Exodus' balance
   devmsc = calculate_and_update_devmsc(nTime);
 
-  printf("devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow, devmsc, getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC));
+  fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow, devmsc, getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
-  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+//  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
 
   return 0;
 }
@@ -939,14 +973,14 @@ vector<unsigned char> vec_chars;
       ObfsHashes[j] = HexStr(vec_chars);
       boost::to_upper(ObfsHashes[j]); // uppercase per spec
 
-      if (msc_debug6) if (5>j) printf("%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      if (msc_debug6) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
       strcpy((char *)sha_input, ObfsHashes[j].c_str());
   }
 }
 
-static priority_queue<msc>txq;
 // idx is position within the block, 0-based
-int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
+// int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
+bool msc_tx_populate(const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx)
 {
 string strSender;
 uint64_t nMax = 0;
@@ -967,6 +1001,8 @@ vector<string>multisig_script_data;
 uint64_t inAll = 0;
 uint64_t outAll = 0;
 uint64_t txFee = 0;
+
+            mp_tx->set(wtx.GetHash().GetHex(), nBlock, idx);
 
             // quickly go through the outputs & ensure there is a marker (a send to the Exodus address)
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -1003,8 +1039,9 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            printf("____________________________________________________________________________________________________________________________________\n");
-            if (msc_debug3) printf("================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            fprintf(mp_fp, "%s(block=%d, idx= %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
+            fprintf(mp_fp, "____________________________________________________________________________________________________________________________________\n");
+            if (msc_debug3) fprintf(mp_fp, "================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -1019,7 +1056,7 @@ uint64_t txFee = 0;
 
                 if (exodus != strAddress)
                 {
-                  if (msc_debug3) printf("saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
+                  if (msc_debug3) fprintf(mp_fp, "saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
 
                   // saving for Class A processing or reference
                   wtx.vout[i].scriptPubKey.msc_parse(script_data);
@@ -1043,9 +1080,9 @@ uint64_t txFee = 0;
 
             if (msc_debug3)
             {
-              printf("address_data.size=%lu\n", address_data.size());
-              printf("script_data.size=%lu\n", script_data.size());
-              printf("value_data.size=%lu\n", value_data.size());
+              fprintf(mp_fp, "address_data.size=%lu\n", address_data.size());
+              fprintf(mp_fp, "script_data.size=%lu\n", script_data.size());
+              fprintf(mp_fp, "value_data.size=%lu\n", value_data.size());
             }
 
             // now go through inputs & identify the sender, collect input amounts
@@ -1054,7 +1091,7 @@ uint64_t txFee = 0;
             {
             CTxDestination address;
 
-            if (msc_debug) printf("vin=%d:%s\n", i, wtx.vin[i].scriptSig.ToString().c_str());
+            if (msc_debug) fprintf(mp_fp, "vin=%d:%s\n", i, wtx.vin[i].scriptSig.ToString().c_str());
 
             CTransaction txPrev;
             uint256 hashBlock;
@@ -1076,19 +1113,19 @@ uint64_t txFee = 0;
                   strSender = addressSource.ToString();
                 }
              }
-              if (msc_debug) printf("vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
+              if (msc_debug) fprintf(mp_fp, "vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
             }
 
             txFee = inAll - outAll; // this is the fee paid to miners for this TX
 
             if (!strSender.empty())
             {
-              if (msc_debug2) printf("The Sender: %s : His Input Value= %lu.%08lu ; fee= %lu.%08lu\n",
+              if (msc_debug2) fprintf(mp_fp, "The Sender: %s : His Input Value= %lu.%08lu ; fee= %lu.%08lu\n",
                strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
             }
             else
             {
-              printf("The sender is EMPTY !!! txid: %s\n", wtx.GetHash().GetHex().c_str());
+              fprintf(mp_fp, "The sender is EMPTY !!! txid: %s\n", wtx.GetHash().GetHex().c_str());
               return -5;
             }
 
@@ -1110,11 +1147,11 @@ uint64_t txFee = 0;
         int nRequired;
 
         // CScript is a std::vector
-        if (msc_debug) printf("scriptPubKey: %s\n", wtx.vout[i].scriptPubKey.getHex().c_str());
+        if (msc_debug) fprintf(mp_fp, "scriptPubKey: %s\n", wtx.vout[i].scriptPubKey.getHex().c_str());
 
         if (ExtractDestinations(wtx.vout[i].scriptPubKey, type, vDest, nRequired))
         {
-          if (msc_debug) printf(" >> multisig: ");
+          if (msc_debug) fprintf(mp_fp, " >> multisig: ");
             BOOST_FOREACH(const CTxDestination &dest, vDest)
             {
             CBitcoinAddress address = CBitcoinAddress(dest);
@@ -1126,11 +1163,11 @@ uint64_t txFee = 0;
             }
 
               // base_uint is a superclass of dest, size(), GetHex() is the same as ToString()
-//              printf("%s size=%d (%s); ", address.ToString().c_str(), keyID.size(), keyID.GetHex().c_str());
-              if (msc_debug) printf("%s ; ", address.ToString().c_str());
+//              fprintf(mp_fp, "%s size=%d (%s); ", address.ToString().c_str(), keyID.size(), keyID.GetHex().c_str());
+              if (msc_debug) fprintf(mp_fp, "%s ; ", address.ToString().c_str());
 
             }
-          if (msc_debug) printf("\n");
+          if (msc_debug) fprintf(mp_fp, "\n");
 
           // TODO: verify that we can handle multiple multisigs per tx
           wtx.vout[i].scriptPubKey.msc_parse(multisig_script_data);
@@ -1166,7 +1203,7 @@ uint64_t txFee = 0;
             // find data
           for (unsigned k = 0; k<script_data.size();k++)
           {
-            if (msc_debug3) printf("data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+            if (msc_debug3) fprintf(mp_fp, "data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
 
             {
               string strSub = script_data[k].substr(2,16);
@@ -1180,15 +1217,15 @@ uint64_t txFee = 0;
                     strDataAddress = address_data[k];
                   }
   
-                  if (msc_debug3) printf("strScriptData #1:%s, seq = %x, value_data[%d]=%lu, %s marker_count= %d\n",
+                  if (msc_debug3) fprintf(mp_fp, "strScriptData #1:%s, seq = %x, value_data[%d]=%lu, %s marker_count= %d\n",
                    strScriptData.c_str(), seq, k, value_data[k], strDataAddress.c_str(), marker_count);
 
                   for (int exodus_idx=0;exodus_idx<marker_count;exodus_idx++)
                   {
-                    if (msc_debug3) printf("%s(); ExodusValues[%d]=%lu\n", __FUNCTION__, exodus_idx, ExodusValues[exodus_idx]);
+                    if (msc_debug3) fprintf(mp_fp, "%s(); ExodusValues[%d]=%lu\n", __FUNCTION__, exodus_idx, ExodusValues[exodus_idx]);
                     if (value_data[k] == ExodusValues[exodus_idx])
                     {
-                      if (msc_debug3) printf("strScriptData(exodus_idx=%d) #2:%s, seq = %x\n", exodus_idx, strScriptData.c_str(), seq);
+                      if (msc_debug3) fprintf(mp_fp, "strScriptData(exodus_idx=%d) #2:%s, seq = %x\n", exodus_idx, strScriptData.c_str(), seq);
                       strScriptData = script_data[k].substr(2,2*PACKET_SIZE_CLASS_A);
                       strDataAddress = address_data[k];
                       break;
@@ -1219,13 +1256,13 @@ uint64_t txFee = 0;
               {
               int count = 0;
 
-                printf("%s() REF STILL EMPTY, data.size=%lu, line %d, file: %s\n", __FUNCTION__, script_data.size(), __LINE__, __FILE__);
+                fprintf(mp_fp, "%s() REF STILL EMPTY, data.size=%lu, line %d, file: %s\n", __FUNCTION__, script_data.size(), __LINE__, __FILE__);
 
 //                if (4 == script_data.size())
                 {
                   for (unsigned k = 0; k<script_data.size();k++)
                   {
-                    printf("%s():%s, line %d, file: %s\n", __FUNCTION__, address_data[k].c_str(), __LINE__, __FILE__);
+                    fprintf(mp_fp, "%s():%s, line %d, file: %s\n", __FUNCTION__, address_data[k].c_str(), __LINE__, __FILE__);
 
                     // BUG HERE, FIXME
                     // strData is the script, not address !!!!!!!!!!!!!!!!!!!!
@@ -1241,7 +1278,7 @@ uint64_t txFee = 0;
                 }
                 if (1 != count)
                 {
-                  printf("%s() ERROR: MUST INVALIDATE HERE per Zathras 12 step algorithm, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+                  fprintf(mp_fp, "%s() ERROR: MUST INVALIDATE HERE per Zathras 12 step algorithm, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
                 }
               }
             }
@@ -1251,10 +1288,10 @@ uint64_t txFee = 0;
             // this must be the BTC payment - validate (?)
             // TODO
             // ...
-              if (msc_debug2 || msc_debug4) printf("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
-              printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-              printf("sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
-              printf("!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
+              if (msc_debug2 || msc_debug4) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+              fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+              fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
+              fprintf(mp_fp, "!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
 
             // TODO collect all payments made to non-itself & non-exodus and their amounts -- these may be purchases!!!
 
@@ -1270,7 +1307,7 @@ uint64_t txFee = 0;
 
                     if (exodus == strAddress) continue;
                     if (strSender == strAddress) continue;
-                    printf("payment? %s %11.8lf\n", strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
+                    fprintf(mp_fp, "payment? %s %11.8lf\n", strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
                     // check everything & pay BTC for the currency we are buying here...
                     matchBTCpayment(strAddress, strSender, wtx.vout[i].nValue, nBlock);
@@ -1282,7 +1319,7 @@ uint64_t txFee = 0;
             else
             {
             // valid Class A packet almost ready
-              if (msc_debug3) printf("valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
+              if (msc_debug3) fprintf(mp_fp, "valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
               packet_size = PACKET_SIZE_CLASS_A;
               memcpy(single_pkt, &ParseHex(strScriptData)[0], packet_size);
             }
@@ -1293,7 +1330,7 @@ uint64_t txFee = 0;
             // gotta find the Reference
             BOOST_FOREACH(const string &addr, address_data)
             {
-              if (msc_debug3) printf("ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
+              if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
               ++k;
               if ((addr != exodus) && (addr != strSender))
               {
@@ -1308,19 +1345,19 @@ uint64_t txFee = 0;
 #endif
 
 
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
           for (unsigned k = 0; k<multisig_script_data.size();k++)
           {
 
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             CPubKey key(ParseHex(multisig_script_data[k]));
             CKeyID keyID = key.GetID();
             string strAddress = CBitcoinAddress(keyID).ToString();
             char *c_addr_type = (char *)"";
             string strPacket;
 
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             if (exodus == strAddress) c_addr_type = (char *)" (EXODUS)";
             else
             if (strAddress == strSender)
@@ -1349,54 +1386,38 @@ uint64_t txFee = 0;
               }
             }
 
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             if (msc_debug2)
-            printf("multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
+            fprintf(mp_fp, "multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
             if (!strPacket.empty())
             {
-              if (msc_debug) printf("packet #%d: %s\n", mdata_count, strPacket.c_str());
+              if (msc_debug) fprintf(mp_fp, "packet #%d: %s\n", mdata_count, strPacket.c_str());
             }
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
 
             packet_size = mdata_count * (PACKET_SIZE - 1);
 
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
-          if (msc_debug0) printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
             // now decode mastercoin packets
             for (int m=0;m<mdata_count;m++)
             {
               if (msc_debug2)
-              printf("m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
+              fprintf(mp_fp, "m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
 
               // ignoring sequence numbers for Class B packets -- TODO: revisit this
               memcpy(m*(PACKET_SIZE-1)+single_pkt, 1+packets[m], PACKET_SIZE-1);
             }
 
-            if (msc_debug2) printf("single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
+            if (msc_debug2) fprintf(mp_fp, "single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
 
-            txq.push(msc(strSender, strReference, 0, wtx.GetHash().GetHex(), nBlock, idx, single_pkt, packet_size, fMultisig, (inAll-outAll)));  
+            mp_tx->set(strSender, strReference, 0, wtx.GetHash().GetHex(), nBlock, idx, single_pkt, packet_size, fMultisig, (inAll-outAll));  
 
-  return (fMultisig ? 2:1);
+  return true;
 }
-
-int msc_tx_pop()
-{
-  if (txq.empty()) return -1;
-
-  {
-  msc tx_top;
-
-    tx_top = txq.top();
-    tx_top.print();
-    txq.pop();
-  }
-
-  return 0;
-}
-
 
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
@@ -1421,22 +1442,22 @@ int extra = 0;
   {
     case 0: // the old output
         // display all offers with accepts
-        for(map<string, msc_offer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
+        for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
           (my_it->second).print((my_it->first), true);
         }
 
-        printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+        fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
         // display all balances
-        for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
+        for(map<string, mp_tally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
 
-          printf("%34s => ", (my_it->first).c_str());
+          fprintf(mp_fp, "%34s => ", (my_it->first).c_str());
           (my_it->second).print();
         }
       break;
@@ -1448,14 +1469,14 @@ int extra = 0;
       break;
   }
 
-  return chainActive.Height();
+  return ::GetHeight();
 }
 
 // parse blocks, starting right after the preseed
 int msc_post_preseed(int nHeight)
 {
 int n_total = 0, n_found = 0;
-const int max_block = chainActive.Height();
+const int max_block = ::GetHeight();
 
   // this function is useless if there are not enough blocks in the blockchain yet!
   if ((0 >= nHeight) || (max_block < nHeight)) return -1;
@@ -1469,7 +1490,7 @@ const int max_block = chainActive.Height();
     CBlockIndex* pblockindex = chainActive[blockNum];
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
-    if (msc_debug0) printf("%s(%d; max=%d):%s, line %d, file: %s\n",
+    if (msc_debug0) fprintf(mp_fp, "%s(%d; max=%d):%s, line %d, file: %s\n",
      __FUNCTION__, blockNum, max_block, strBlockHash.c_str(), __LINE__, __FILE__);
 
     ReadBlockFromDisk(block, pblockindex);
@@ -1477,20 +1498,18 @@ const int max_block = chainActive.Height();
     int tx_count = 0;
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
-      if (0 < msc_tx_push((const CTransaction) tx, blockNum, tx_count)) ++n_found;
+      mastercore_handler_tx(tx, blockNum, tx_count);
 
       ++tx_count;
     }
 
     n_total += tx_count;
-    if (msc_debug0) printf("%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
+    if (msc_debug0) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
-    while (!txq.empty()) msc_tx_pop();
-
-    mastercoin_handler_block(blockNum, pblockindex->GetBlockTime());
+    mastercore_handler_block(blockNum, pblockindex->GetBlockTime());
   }
 
-  for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
+  for(map<string, mp_tally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
     // my_it->first = key
     // my_it->second = value
@@ -1532,7 +1551,7 @@ string strAddress = vstr[0];
 
 // seller-address, offer_block, amount, currency, desired BTC , fee, blocktimelimit
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,10000,6
-int input_msc_offers_string(const string &s)
+int input_mp_offers_string(const string &s)
 {
 int offerBlock;
 uint64_t Amount, Desired_BTC;
@@ -1556,7 +1575,7 @@ int i = 0;
   min_fee = boost::lexical_cast<uint64_t>(vstr[i++]);
   blocktimelimit = atoi(vstr[i++]);
 
-  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
+  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) fprintf(mp_fp, "%s\n", debug_str.c_str()); }
 
   const string combo = STR_ADDR_CURR_COMBO(sellerAddr);
 
@@ -1569,7 +1588,7 @@ int i = 0;
 // seller-address, currency, buyer-address, amount, fee, block
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1, 148EFCFXbk2LrUhEHDfs9y3A5dJ4tttKVd,100000,11000,299126
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1,1Md8GwMtWpiobRnjRabMT98EW6Jh4rEUNy,50000000,11000,299132
-int input_msc_accepts_string(const string &s)
+int input_mp_accepts_string(const string &s)
 {
 int nBlock;
 std::vector<std::string> vstr;
@@ -1591,7 +1610,7 @@ int i = 0;
   fee = boost::lexical_cast<uint64_t>(vstr[i++]);
   nBlock = atoi(vstr[i++]);
 
-  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) printf("%s\n", debug_str.c_str()); }
+  if (msc_debug4) { BOOST_FOREACH(const string &debug_str, vstr) fprintf(mp_fp, "%s\n", debug_str.c_str()); }
 
   const string combo = STR_ADDR_CURR_COMBO(sellerAddr);
 
@@ -1605,7 +1624,7 @@ int msc_file_load(int what)
 {
 int lines = 0;
 int (*inputLineFunc)(const string &) = NULL;
-const string filename = GetDataDir().string() + "/" + string(mastercoin_filenames[what]);
+const string filename = GetDataDir().string() + "/" + string(mastercore_filenames[what]);
 
 #ifdef  WIN32
 // FIXME -- switch to boost:path for Windows compatibility !
@@ -1619,17 +1638,17 @@ const string filename = GetDataDir().string() + "/" + string(mastercoin_filename
   switch (what)
   {
     case FILETYPE_BALANCES:
-      msc_tally_map.clear();
+      mp_tally_map.clear();
       inputLineFunc = input_msc_balances_string;
       break;
 
     case FILETYPE_OFFERS:
       my_offers.clear();
-      inputLineFunc = input_msc_offers_string;
+      inputLineFunc = input_mp_offers_string;
       break;
 
     case FILETYPE_ACCEPTS:
-      inputLineFunc = input_msc_accepts_string;
+      inputLineFunc = input_mp_accepts_string;
       break;
 
     default:
@@ -1669,11 +1688,13 @@ const string filename = GetDataDir().string() + "/" + string(mastercoin_filename
 }
 
 // called from init.cpp of Bitcoin Core
-int mastercoin_init()
+int mastercore_init()
 {
 const bool bTestnet = TestNet();
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, bTestnet ? "TESTNET":"", __LINE__, __FILE__);
+  mp_fp = fopen ("/tmp/mastercore.log", "a");
+  fprintf(mp_fp, "\n%s MASTERCORE INIT\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (bTestnet)
   {
@@ -1700,7 +1721,7 @@ const bool bTestnet = TestNet();
   else
   {
     // testnet
-    (void) msc_post_preseed(chainActive.Height()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
+    (void) msc_post_preseed(::GetHeight()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
   }
 
   // display Exodus balance
@@ -1710,11 +1731,14 @@ const bool bTestnet = TestNet();
   return 0;
 }
 
-int mastercoin_shutdown()
+int mastercore_shutdown()
 {
   printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
   delete p_txlistdb; p_txlistdb = NULL;
+
+  fprintf(mp_fp, "%s MASTERCORE SHUTDOWN\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  if (mp_fp) { fclose(mp_fp); mp_fp = NULL; }
 
   return 0;
 }
@@ -1725,22 +1749,19 @@ unsigned int msc_zero = 0;
 unsigned int msc_total = 0; // position within the block, when available, 0-based
 
 // this is called for every new transaction that comes in (actually in block parsing loop)
-int mastercoin_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
+int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
 {
 int rc = 0;
+CMPTransaction mp_obj;
 
-  // FIXME: major refactoring needed !
-      {
-        rc = msc_tx_push(tx, nBlock, idx);
+  if (msc_tx_populate(tx, nBlock, idx, &mp_obj))
+  {
+  // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
-        if (0>rc) ++msc_neg;
-        if (0<rc) ++msc_pos;
-        if (0==rc) ++msc_zero;
+    mp_obj.print();
 
-        ++msc_total;
-
-        (void) msc_tx_pop();
-      }
+    fprintf(mp_fp, "%s(); rc = %d, line %d, file: %s\n", __FUNCTION__, rc, __LINE__, __FILE__);
+  }
 
   // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
   // FIXME: and of course only MP-related TXs will be recorded...
@@ -1749,13 +1770,13 @@ int rc = 0;
   return 0;
 }
 
-string msc_tally::getMSC()
+string mp_tally::getMSC()
 {
   // FIXME: negative numbers -- do they work here?
   return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_MSC]/COIN, moneys[MASTERCOIN_CURRENCY_MSC]%COIN);
 }
 
-string msc_tally::getTMSC()
+string mp_tally::getTMSC()
 {
     // FIXME: negative numbers -- do they work here?
     return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_TMSC]/COIN, moneys[MASTERCOIN_CURRENCY_TMSC]%COIN);
@@ -2053,13 +2074,13 @@ const string key = txid.ToString();
 const string value = strprintf("%u:%d", fValid ? 1:0, nBlock);
 Status status;
 
-  printf("%s(%s, valid=%s, block= %d), line %d, file: %s\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s(%s, valid=%s, block= %d), line %d, file: %s\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, __LINE__, __FILE__);
 
   if (pdb)
   {
     status = pdb->Put(writeoptions, key, value);
     ++nWritten;
-    printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
   }
 }
 
@@ -2219,7 +2240,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 }
 
 // TODO: rename this function and the corresponding RPC call, once I understand better what it's supposed to do with Zathras' help
-Value history_MP(const Array& params, bool fHelp)
+Value listtransactions_MP(const Array& params, bool fHelp)
 {
 CWallet *wallet = pwalletMain;
 string sAddress = "";
