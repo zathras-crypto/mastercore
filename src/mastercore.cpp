@@ -29,10 +29,13 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
 
 #include "leveldb/db.h"
+
+#include <openssl/sha.h>
 
 #include "mastercore.h"
 
@@ -48,6 +51,8 @@ uint64_t global_MSC_RESERVED_total = 0;
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static uint64_t exodus_prev = DEV_MSC_BLOCK_290629;
 static uint64_t exodus_balance;
+
+static boost::filesystem::path MPPersistencePath;
 
 int msc_debug0 = 0;
 int msc_debug  = 1;
@@ -187,6 +192,25 @@ private:
       return accept_amount;
     }
     void reduceAcceptAmount(uint64_t really_purchased) { accept_amount -= really_purchased; } // TODO: check for negatives ? assert ?
+
+    void saveAccept(ofstream &file, SHA256_CTX *shaCtx, string const &addr, unsigned int currency, string const &buyer ) const {
+      // compose the outputline
+      // seller-address, currency, buyer-address, amount, fee, block
+      string lineOut = boost::format("%s,%d,%s,%d,%d,%d",
+        addr,
+        currency,
+        buyer,
+        original_accept_amount,
+        fee_paid,
+        block
+      );
+
+      // add the line to the hash
+      SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+      // write the line
+      file << lineOut << endl;
+    }
   };
 
   map<string, msc_accept> my_accepts;
@@ -286,6 +310,35 @@ public:
     }
     printf("%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
   }
+
+  void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
+    // compose the outputline
+    // seller-address, ...
+    string lineOut = boost::format("%s,%d,%d,%d,%d,%d,%d",
+      addr,
+      offerBlock,
+      offer_amount,
+      currency,
+      BTC_desired,
+      min_fee,
+      blocktimelimit
+    );
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
+  }
+
+  void saveAccepts( ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
+    const map<string, msc_offer::msc_accept>::iterator iter;
+    for (iter = my_accepts; iter != my_accepts.end(); ++iter) {
+      (*iter).second.saveAccept(file, shaCtx, addr, currency, (*iter).first);
+    }
+  }
+
+
 
   msc_offer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
    :offerBlock(b),offer_amount(a),original_offer_amount(a),currency(cu),BTC_desired(d),min_fee(fee),blocktimelimit(btl)
@@ -1668,6 +1721,110 @@ const string filename = GetDataDir().string() + "/" + string(mastercoin_filename
   return 0;
 }
 
+static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
+{
+  LOCK(cs_tally);
+
+  const map<string, msc_tally>::iterator iter;
+  for (iter = msc_tally_map.begin(); iter != msc_tally_map.end(); ++iter) {
+    string lineOut = boost::format("%s,%d,%d", (*iter).first,
+        (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false),
+        (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, true));
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
+  }
+
+  return 0;
+}
+
+static int write_msc_offers(ofstream &file, SHA256_CTX *shaCtx)
+{
+  const map<string, msc_offer>::iterator iter;
+  for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
+    // decompose the key for address
+    std::vector<std::string> vstr;
+    boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
+    msc_offer const &offer = (*iter).second;
+    offer.saveOffer(file, shaCtx, vstr[0]);
+  }
+
+
+  return 0;
+}
+
+static int write_msc_accepts(ofstream &file, SHA256_CTX *shaCtx)
+{
+  const map<string, msc_offer>::iterator iter;
+   for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
+     // decompose the key for address
+     std::vector<std::string> vstr;
+     boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
+     msc_offer const &offer = (*iter).second;
+     offer.saveAccepts(file, shaCtx, vstr[0]);
+   }
+
+  return 0;
+}
+
+static int write_state_file( const CBlock &block, int what )
+{
+  static char const * const prefix[NUM_FILETYPES] = {
+      "balances",
+      "offers",
+      "accepts",
+  };
+
+  const char *blockHash = block.GetHash().ToString().c_str();
+  boost::filesystem::path balancePath = MPPersistencePath / strprintf("%s-%s.dat", prefix[what], blockHash);
+  ofstream file;
+  file.open(balancePath.c_str());
+
+  SHA256_CTX shaCtx;
+  SHA256_Init(&shaCtx);
+
+  int result = 0;
+
+  switch(what) {
+  case FILETYPE_BALANCES:
+    result = write_msc_balances(file, &shaCtx);
+    break;
+
+  case FILETYPE_OFFERS:
+    result = write_msc_offers(file, &shaCtx);
+    break;
+
+  case FILETYPE_ACCEPTS:
+    result = write_msc_accepts(file, &shaCtx);
+    break;
+  }
+
+  // generate and wite the double hash of all the contents written
+  uint256 hash1;
+  SHA256_Final((unsigned char*)&hash1, &shaCtx);
+  uint256 hash2;
+  SHA256((unsigned char*)&hash1, sizeof(hash1), (unsigned char*)&hash2);
+  file << "#" << hash2.ToString() << endl;
+
+  file.flush();
+  file.close();
+  return result;
+}
+
+int msc_finalize_block( const CBlock &block ) {
+  write_state_file(block, FILETYPE_BALANCES);
+  write_state_file(block, FILETYPE_OFFERS);
+  write_state_file(block, FILETYPE_ACCEPTS);
+  return 0;
+}
+
+int msc_revert_block( const CBlock &block) {
+  return 0;
+}
+
 // called from init.cpp of Bitcoin Core
 int mastercoin_init()
 {
@@ -1682,6 +1839,8 @@ const bool bTestnet = TestNet();
   }
 
   p_txlistdb = new MP_txlist(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
+  MPPersistencePath = GetDataDir() / "MP_persist";
+  boost::filesystem::create_directories(MPPersistencePath);
 
   (void) msc_file_load(FILETYPE_BALANCES);
   (void) msc_file_load(FILETYPE_OFFERS);

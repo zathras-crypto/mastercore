@@ -36,10 +36,14 @@
 #define MSC_TYPE_CREATE_PROPERTY_VARIABLE 51
 #define MSC_TYPE_PROMOTE_PROPERTY         52
 
-#define FILETYPE_BALANCES 0
-#define FILETYPE_OFFERS   1
-#define FILETYPE_ACCEPTS  2
-const char mastercoin_filenames[][128]={
+enum FILETYPE_BALANCES {
+  FILETYPE_BALANCES = 0,
+  FILETYPE_OFFERS,
+  FILETYPE_ACCEPTS,
+  NUM_FILETYPES
+};
+
+const char *mastercoin_filenames[NUM_FILETYPES]={
 "mastercoin_balances.txt",
 "mastercoin_offers.txt",
 "mastercoin_accepts.txt"
