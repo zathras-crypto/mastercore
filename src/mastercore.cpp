@@ -34,7 +34,7 @@
 
 #include "leveldb/db.h"
 
-#include "mastercoin.h"
+#include "mastercore.h"
 
 using namespace std;
 using namespace boost;

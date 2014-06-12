@@ -38,7 +38,7 @@ BITCOIN_CORE_H = \
   coins.h \
   compat.h \
   core.h \
-  mastercoin.h \
+  mastercore.h \
   crypter.h \
   db.h \
   hash.h \
@@ -126,7 +126,7 @@ libbitcoin_common_a_SOURCES = \
   allocators.cpp \
   chainparams.cpp \
   core.cpp \
-  mastercoin.cpp \
+  mastercore.cpp \
   hash.cpp \
   key.cpp \
   netbase.cpp \
