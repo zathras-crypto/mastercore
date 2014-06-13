@@ -951,7 +951,7 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
 
 // called once per block
 // it performs cleanup and other functions
-int mastercoin_handler_block(int nBlockNow, unsigned int nTime)
+int mastercoin_handler_block(int nBlockNow, CBlockIndex const * pBlockIndex)
 {
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
@@ -964,13 +964,16 @@ uint64_t devmsc = 0;
    __FUNCTION__, how_many_erased, nBlockNow, __LINE__, __FILE__);
 
   // calculate devmsc as of this block and update the Exodus' balance
-  devmsc = calculate_and_update_devmsc(nTime);
+  devmsc = calculate_and_update_devmsc(pBlockIndex->GetBlockTime());
 
   printf("devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow, devmsc, getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
   printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+
+  // save out the state after this block
+  mastercoin_save_state(pBlockIndex);
 
   return 0;
 }
@@ -1540,7 +1543,7 @@ const int max_block = chainActive.Height();
 
     while (!txq.empty()) msc_tx_pop();
 
-    mastercoin_handler_block(blockNum, pblockindex->GetBlockTime());
+    mastercoin_handler_block(blockNum, pblockindex);
   }
 
   for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); ++my_it)
@@ -1770,7 +1773,7 @@ static int write_msc_accepts(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
-static int write_state_file( const CBlock &block, int what )
+static int write_state_file( CBlockIndex const *pBlockIndex, int what )
 {
   static char const * const prefix[NUM_FILETYPES] = {
       "balances",
@@ -1778,7 +1781,7 @@ static int write_state_file( const CBlock &block, int what )
       "accepts",
   };
 
-  const char *blockHash = block.GetHash().ToString().c_str();
+  const char *blockHash = pBlockIndex->GetBlockHash().ToString().c_str();
   boost::filesystem::path balancePath = MPPersistencePath / strprintf("%s-%s.dat", prefix[what], blockHash);
   ofstream file;
   file.open(balancePath.c_str());
@@ -1814,14 +1817,10 @@ static int write_state_file( const CBlock &block, int what )
   return result;
 }
 
-int msc_finalize_block( const CBlock &block ) {
-  write_state_file(block, FILETYPE_BALANCES);
-  write_state_file(block, FILETYPE_OFFERS);
-  write_state_file(block, FILETYPE_ACCEPTS);
-  return 0;
-}
-
-int msc_revert_block( const CBlock &block) {
+int mastercoin_save_state( CBlockIndex const *pBlockIndex ) {
+  write_state_file(pBlockIndex, FILETYPE_BALANCES);
+  write_state_file(pBlockIndex, FILETYPE_OFFERS);
+  write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
   return 0;
 }
 

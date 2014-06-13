@@ -223,5 +223,7 @@ bool IsMyAddress(const std::string &address);
 
 string getLabel(const string &address);
 
+int mastercoin_save_state( CBlockIndex const *pBlockIndex );
+
 #endif
 
