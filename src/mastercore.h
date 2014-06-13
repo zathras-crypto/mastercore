@@ -43,7 +43,7 @@ enum FILETYPE_BALANCES {
   NUM_FILETYPES
 };
 
-const char *mastercoin_filenames[NUM_FILETYPES]={
+const char *mastercore_filenames[NUM_FILETYPES]={
 "mastercoin_balances.txt",
 "mastercoin_offers.txt",
 "mastercoin_accepts.txt"
@@ -63,7 +63,7 @@ inline uint64_t rounduint64(double d)
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
-class msc_tally
+class mp_tally
 {
 
 private:
@@ -119,7 +119,7 @@ public:
   }
 
   // the constructor
-  msc_tally(unsigned char which, int64_t amount)
+  mp_tally(unsigned char which, int64_t amount)
   {
     for (unsigned int i=0;i<MSC_MAX_KNOWN_CURRENCIES;i++)
     {
@@ -214,7 +214,7 @@ public:
     void printAll();
 };
 
-extern map<string, msc_tally> msc_tally_map;
+extern map<string, mp_tally> mp_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 
@@ -223,7 +223,8 @@ bool IsMyAddress(const std::string &address);
 
 string getLabel(const string &address);
 
-int mastercoin_save_state( CBlockIndex const *pBlockIndex );
+int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx);
+int mastercore_save_state( CBlockIndex const *pBlockIndex );
 
 #endif
 

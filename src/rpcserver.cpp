@@ -307,7 +307,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getbalance_MP",          &getbalance_MP,          false,     false,      true },
     { "send_MP",                &send_MP,                false,     false,      true },
     { "gettransaction_MP",      &gettransaction_MP,      false,     false,      true },
-    { "history_MP",             &history_MP,             false,     false,      true },
+    { "listtransactions_MP",    &listtransactions_MP,    false,     false,      true },
 #endif // ENABLE_WALLET
 };
 
