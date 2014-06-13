@@ -30,6 +30,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
 
@@ -196,14 +197,13 @@ private:
     void saveAccept(ofstream &file, SHA256_CTX *shaCtx, string const &addr, unsigned int currency, string const &buyer ) const {
       // compose the outputline
       // seller-address, currency, buyer-address, amount, fee, block
-      string lineOut = boost::format("%s,%d,%s,%d,%d,%d",
-        addr,
-        currency,
-        buyer,
-        original_accept_amount,
-        fee_paid,
-        block
-      );
+      string lineOut = (boost::format("%s,%d,%s,%d,%d,%d")
+        % addr
+        % currency
+        % buyer
+        % original_accept_amount
+        % fee_paid
+        % block).str();
 
       // add the line to the hash
       SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -314,15 +314,14 @@ public:
   void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
     // compose the outputline
     // seller-address, ...
-    string lineOut = boost::format("%s,%d,%d,%d,%d,%d,%d",
-      addr,
-      offerBlock,
-      offer_amount,
-      currency,
-      BTC_desired,
-      min_fee,
-      blocktimelimit
-    );
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d")
+      % addr
+      % offerBlock
+      % offer_amount
+      % currency
+      % BTC_desired
+      % min_fee
+      % blocktimelimit).str();
 
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -332,8 +331,8 @@ public:
   }
 
   void saveAccepts( ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
-    const map<string, msc_offer::msc_accept>::iterator iter;
-    for (iter = my_accepts; iter != my_accepts.end(); ++iter) {
+    map<string, msc_offer::msc_accept>::const_iterator iter;
+    for (iter = my_accepts.begin(); iter != my_accepts.end(); ++iter) {
       (*iter).second.saveAccept(file, shaCtx, addr, currency, (*iter).first);
     }
   }
@@ -1728,11 +1727,12 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 {
   LOCK(cs_tally);
 
-  const map<string, msc_tally>::iterator iter;
+  map<string, msc_tally>::const_iterator iter;
   for (iter = msc_tally_map.begin(); iter != msc_tally_map.end(); ++iter) {
-    string lineOut = boost::format("%s,%d,%d", (*iter).first,
-        (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false),
-        (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, true));
+    string lineOut = (boost::format("%s,%d,%d")
+        % (*iter).first
+        % (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false)
+        % (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, true)).str();
 
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -1746,7 +1746,7 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_msc_offers(ofstream &file, SHA256_CTX *shaCtx)
 {
-  const map<string, msc_offer>::iterator iter;
+  map<string, msc_offer>::const_iterator iter;
   for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
     // decompose the key for address
     std::vector<std::string> vstr;
@@ -1761,7 +1761,7 @@ static int write_msc_offers(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_msc_accepts(ofstream &file, SHA256_CTX *shaCtx)
 {
-  const map<string, msc_offer>::iterator iter;
+  map<string, msc_offer>::const_iterator iter;
    for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
      // decompose the key for address
      std::vector<std::string> vstr;
