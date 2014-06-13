@@ -211,13 +211,14 @@ private:
     void saveAccept(ofstream &file, SHA256_CTX *shaCtx, string const &addr, unsigned int currency, string const &buyer ) const {
       // compose the outputline
       // seller-address, currency, buyer-address, amount, fee, block
-      string lineOut = (boost::format("%s,%d,%s,%d,%d,%d")
+      string lineOut = (boost::format("%s,%d,%s,%d,%d,%d,%d")
         % addr
         % currency
         % buyer
-        % original_accept_amount
+        % accept_amount_remaining
+        % accept_amount_original
         % fee_paid
-        % block).str();
+        % block).str;
 
       // add the line to the hash
       SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -348,12 +349,14 @@ public:
   void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
     // compose the outputline
     // seller-address, ...
-    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d")
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%d")
       % addr
       % offerBlock
-      % offer_amount
+      % offer_amount_remaining
+      % offer_amount_original
+      % reserved_accepted_amount
       % currency
-      % BTC_desired
+      % BTC_desired_original
       % min_fee
       % blocktimelimit).str();
 
@@ -365,7 +368,7 @@ public:
   }
 
   void saveAccepts( ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
-    map<string, msc_offer::msc_accept>::const_iterator iter;
+    map<string, CMPOffer::CMPAccept>::const_iterator iter;
     for (iter = my_accepts.begin(); iter != my_accepts.end(); ++iter) {
       (*iter).second.saveAccept(file, shaCtx, addr, currency, (*iter).first);
     }
@@ -1781,8 +1784,8 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 {
   LOCK(cs_tally);
 
-  map<string, msc_tally>::const_iterator iter;
-  for (iter = msc_tally_map.begin(); iter != msc_tally_map.end(); ++iter) {
+  map<string, mp_tally>::const_iterator iter;
+  for (iter = mp_tally_map.begin(); iter != mp_tally_map.end(); ++iter) {
     string lineOut = (boost::format("%s,%d,%d")
         % (*iter).first
         % (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false)
@@ -1798,14 +1801,14 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
-static int write_msc_offers(ofstream &file, SHA256_CTX *shaCtx)
+static int write_mp_offers(ofstream &file, SHA256_CTX *shaCtx)
 {
-  map<string, msc_offer>::const_iterator iter;
+  map<string, CMPOffer>::const_iterator iter;
   for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
     // decompose the key for address
     std::vector<std::string> vstr;
     boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
-    msc_offer const &offer = (*iter).second;
+    CMPOffer const &offer = (*iter).second;
     offer.saveOffer(file, shaCtx, vstr[0]);
   }
 
@@ -1813,14 +1816,14 @@ static int write_msc_offers(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
-static int write_msc_accepts(ofstream &file, SHA256_CTX *shaCtx)
+static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 {
-  map<string, msc_offer>::const_iterator iter;
+  map<string, CMPOffer>::const_iterator iter;
    for (iter = my_offers.begin(); iter != my_offers.end(); ++iter) {
      // decompose the key for address
      std::vector<std::string> vstr;
      boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
-     msc_offer const &offer = (*iter).second;
+     CMPOffer const &offer = (*iter).second;
      offer.saveAccepts(file, shaCtx, vstr[0]);
    }
 
@@ -1851,11 +1854,11 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
     break;
 
   case FILETYPE_OFFERS:
-    result = write_msc_offers(file, &shaCtx);
+    result = write_mp_offers(file, &shaCtx);
     break;
 
   case FILETYPE_ACCEPTS:
-    result = write_msc_accepts(file, &shaCtx);
+    result = write_mp_accepts(file, &shaCtx);
     break;
   }
 
