@@ -218,7 +218,7 @@ private:
         % accept_amount_remaining
         % accept_amount_original
         % fee_paid
-        % block).str;
+        % block).str();
 
       // add the line to the hash
       SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -1041,7 +1041,7 @@ uint64_t devmsc = 0;
 //  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
 
   // save out the state after this block
-  mastercoin_save_state(pBlockIndex);
+  mastercore_save_state(pBlockIndex);
 
   return 0;
 }
@@ -1874,7 +1874,7 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
   return result;
 }
 
-int mastercoin_save_state( CBlockIndex const *pBlockIndex ) {
+int mastercore_save_state( CBlockIndex const *pBlockIndex ) {
   write_state_file(pBlockIndex, FILETYPE_BALANCES);
   write_state_file(pBlockIndex, FILETYPE_OFFERS);
   write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
