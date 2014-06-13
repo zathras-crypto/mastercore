@@ -51,16 +51,7 @@ static uint64_t exodus_balance;
 
 static FILE *mp_fp = NULL;
 
-/*
 int msc_debug0 = 0;
-int msc_debug  = 1;
-int msc_debug2 = 1;
-int msc_debug3 = 1;
-int msc_debug4 = 1;
-int msc_debug5 = 1;
-int msc_debug6 = 1;
-*/
-int msc_debug0 = 1;
 int msc_debug  = 1;
 int msc_debug2 = 1;
 int msc_debug3 = 1;
@@ -73,7 +64,8 @@ static int InvalidCount_per_spec = 0;  // consolidate error messages into a nice
 static int InsufficientFunds = 0;      // consolidate error messages
 
 // disable TMSC handling for now, has more legacy corner cases
-static int ignore_all_but_MSC = 1;
+// static int ignore_all_but_MSC = 1;
+static int ignore_all_but_MSC = 0;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -249,7 +241,7 @@ public:
         fprintf(mp_fp, "%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
          __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit);
 
-        fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
+        printf("\t%35s ", (my_it->first).c_str());
         (my_it->second).print();
   
         increaseOfferAmount((my_it->second).getAcceptAmount());
@@ -399,7 +391,7 @@ public:
           // my_it->first = key
           // my_it->second = value
 
-          fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
+          printf("\t%35s ", (my_it->first).c_str());
           (my_it->second).print();
         }
   }
@@ -1021,7 +1013,10 @@ vector<unsigned char> vec_chars;
 
 // idx is position within the block, 0-based
 // int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
-bool msc_tx_populate(const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx)
+
+// RETURNS: 0 if parsed a MP TX
+
+int msc_tx_populate(const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx)
 {
 string strSender;
 uint64_t nMax = 0;
@@ -1457,7 +1452,7 @@ uint64_t txFee = 0;
 
             mp_tx->set(strSender, strReference, 0, wtx.GetHash().GetHex(), nBlock, idx, single_pkt, packet_size, fMultisig, (inAll-outAll));  
 
-  return true;
+  return 0;
 }
 
 // display the tally map & the offer/accept list(s)
@@ -1498,7 +1493,7 @@ int extra = 0;
           // my_it->first = key
           // my_it->second = value
 
-          fprintf(mp_fp, "%34s => ", (my_it->first).c_str());
+          printf("%34s => ", (my_it->first).c_str());
           (my_it->second).print();
         }
       break;
@@ -1510,14 +1505,14 @@ int extra = 0;
       break;
   }
 
-  return ::GetHeight();
+  return GetHeight();
 }
 
 // parse blocks, starting right after the preseed
 int msc_post_preseed(int nHeight)
 {
 int n_total = 0, n_found = 0;
-const int max_block = ::GetHeight();
+const int max_block = GetHeight();
 
   // this function is useless if there are not enough blocks in the blockchain yet!
   if ((0 >= nHeight) || (max_block < nHeight)) return -1;
@@ -1735,7 +1730,7 @@ const bool bTestnet = TestNet();
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, bTestnet ? "TESTNET":"", __LINE__, __FILE__);
   mp_fp = fopen ("/tmp/mastercore.log", "a");
-  fprintf(mp_fp, "\n%s MASTERCORE INIT\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  fprintf(mp_fp, "\n%s MASTERCORE INIT\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (bTestnet)
   {
@@ -1757,12 +1752,16 @@ const bool bTestnet = TestNet();
 
   if (!bTestnet)
   {
+//    (void) msc_post_preseed(290630);  // the DEX block, using Zathras' msc_balances_290629.txt
+//    (void) msc_post_preseed(282083);  // Bart had an issue with this block
+//    (void) msc_post_preseed(282080);  // Bart had an issue with this block
+
     (void) msc_post_preseed(290630);  // the DEX block, using Zathras' msc_balances_290629.txt
   }
   else
   {
     // testnet
-    (void) msc_post_preseed(::GetHeight()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
+    (void) msc_post_preseed(GetHeight()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
   }
 
   // display Exodus balance
@@ -1778,7 +1777,7 @@ int mastercore_shutdown()
 
   delete p_txlistdb; p_txlistdb = NULL;
 
-  fprintf(mp_fp, "%s MASTERCORE SHUTDOWN\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  fprintf(mp_fp, "\n%s MASTERCORE SHUTDOWN\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
   if (mp_fp) { fclose(mp_fp); mp_fp = NULL; }
 
   return 0;
@@ -1795,18 +1794,18 @@ int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
 int rc = 0;
 CMPTransaction mp_obj;
 
-  if (msc_tx_populate(tx, nBlock, idx, &mp_obj))
+  if (0 == msc_tx_populate(tx, nBlock, idx, &mp_obj))
   {
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
     mp_obj.print();
 
     fprintf(mp_fp, "%s(); rc = %d, line %d, file: %s\n", __FUNCTION__, rc, __LINE__, __FILE__);
-  }
 
-  // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
-  // FIXME: and of course only MP-related TXs will be recorded...
-  p_txlistdb->recordTX(tx.GetHash(), false, nBlock);
+    // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
+    // FIXME: and of course only MP-related TXs will be recorded...
+    p_txlistdb->recordTX(tx.GetHash(), false, nBlock);
+  }
 
   return 0;
 }
