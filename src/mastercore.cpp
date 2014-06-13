@@ -161,11 +161,11 @@ class CMPOffer
 {
 private:
   int offerBlock;
-  uint64_t offer_amount;  // amount still available (should probably = original_offer_amount - reserved_accepted_amount - amount_bought)
-  uint64_t original_offer_amount; // the amount of MSC for sale specified when the offer was placed
+  uint64_t offer_amount_remaining;  // amount still available (should probably = offer_amount_original - reserved_accepted_amount - amount_bought)
+  uint64_t offer_amount_original; // the amount of MSC for sale specified when the offer was placed
   uint64_t reserved_accepted_amount; // as accepts come in this amount grows, as accepts expire, this amount shrinks
   unsigned int currency;
-  uint64_t BTC_desired; // amount desired, in BTC
+  uint64_t BTC_desired_original; // amount desired, in BTC
   uint64_t min_fee;
   unsigned char blocktimelimit;
 
@@ -174,45 +174,66 @@ private:
   class CMPAccept
   {
   private:
-    uint64_t accept_amount;             // amount of MSC/TMSC remaining to be purchased
-    uint64_t original_accept_amount;    // amount of MSC/TMSC being desired to purchased
+    uint64_t accept_amount_remaining;             // amount of MSC/TMSC remaining to be purchased
+    uint64_t accept_amount_original;    // amount of MSC/TMSC being desired to purchased
 // once accept is seen on the network the amount of MSC being purchased is taken out of seller's Reserve and put into this Buyer's
-    uint64_t reserved_for_this_accept;
     uint64_t fee_paid;  //
 
   public:
     int block;          // 'accept' message sent in this block
 
-    CMPAccept(uint64_t a, uint64_t f, int b):accept_amount(a),fee_paid(f),block(b)
+    CMPAccept(uint64_t a, uint64_t f, int b):accept_amount_remaining(a),fee_paid(f),block(b)
     {
-      original_accept_amount = accept_amount;
-      reserved_for_this_accept = 0;
+      accept_amount_original = accept_amount_remaining;
       fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    }
+
+    ~CMPAccept()
+    {
     }
 
     void print()
     {
       // hm, can't access the outer class' map member to get the currency unit label... do we care?
-      fprintf(mp_fp, "buying: %12.8lf (originally= %12.8lf) reserved_for_it= %12.8lf in block# %d, fee: %2.8lf\n",
-       (double)accept_amount/(double)COIN, (double)original_accept_amount/(double)COIN, (double)reserved_for_this_accept/(double)COIN,
-       block, (double)fee_paid/(double)COIN);
+      fprintf(mp_fp, "buying: %12.8lf (originally= %12.8lf) in block# %d, fee: %2.8lf\n",
+       (double)accept_amount_remaining/(double)COIN, (double)accept_amount_original/(double)COIN, block, (double)fee_paid/(double)COIN);
     }
 
     uint64_t getAcceptAmount() const
     { 
-      fprintf(mp_fp, "%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount, __LINE__, __FILE__);
+      fprintf(mp_fp, "%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount_remaining, __LINE__, __FILE__);
 
-      return accept_amount;
+      return accept_amount_remaining;
     }
-    void reduceAcceptAmount(uint64_t really_purchased) { accept_amount -= really_purchased; } // TODO: check for negatives ? assert ?
+
+    void reduceAcceptAmount(uint64_t really_purchased)
+    {
+      accept_amount_remaining -= really_purchased;
+    } // TODO: check for negatives ? assert ?
   };
 
   map<string, CMPAccept> my_accepts;
 
 public:
   unsigned int getCurrency() const { return currency; }
-  uint64_t getOfferAmount() const { return offer_amount; }
-  void reduceOfferAmount(uint64_t purchased) { offer_amount -= purchased; } // TODO: check for negatives ? assert ?
+  uint64_t getOfferAmount() const { return offer_amount_remaining; }
+
+  void reduceOfferAmount(uint64_t accepted)
+  {
+    offer_amount_remaining -= accepted;
+    reserved_accepted_amount += accepted;
+  } // TODO: check for negatives ? assert ?
+
+  void increaseOfferAmount(uint64_t accepted)
+  {
+    offer_amount_remaining += accepted;
+    reserved_accepted_amount -= accepted;
+  } // TODO: check for negatives ? assert ?
+
+  void reduceReservedAcceptedAmount(uint64_t purchased)
+  {
+    reserved_accepted_amount -= purchased;
+  }
 
   unsigned int eraseExpiredAccepts(int blockNow)
   {
@@ -230,6 +251,8 @@ public:
 
         fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
         (my_it->second).print();
+  
+        increaseOfferAmount((my_it->second).getAcceptAmount());
 
         my_accepts.erase(my_it);
 
@@ -252,16 +275,16 @@ public:
     fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
 
     // did the buyer pay enough or more than the seller wanted?
-    if (BTC_paid >= BTC_desired)
+    if (BTC_paid >= BTC_desired_original)
     {
-      purchased = offer_amount; // this is how much the seller has offered
+      purchased = offer_amount_remaining; // this is how much the seller has offered
     }
     else
     {
-      if (0==(double)BTC_desired) return 0;  // divide by 0 protection
+      if (0==(double)BTC_desired_original) return 0;  // divide by 0 protection
 
-      X = (double)BTC_paid/(double)BTC_desired;
-      P = (double)original_offer_amount * X;
+      X = (double)BTC_paid/(double)BTC_desired_original;
+      P = (double)offer_amount_original * X;
 
       purchased = rounduint64(P); // buyer paid for less than the seller has, that's OK, he'll get what he paid for
     }
@@ -277,8 +300,8 @@ public:
       }
     }
 
-    fprintf(mp_fp, "%s();BTC_paid= %lu, BTC_desired= %lu, purchased= %lu, accept_amount= %lu, actual_amount= %lu\n",
-     __FUNCTION__, BTC_paid, BTC_desired, purchased, (my_it->second).getAcceptAmount(), actual_amount);
+    fprintf(mp_fp, "%s();BTC_paid= %lu, BTC_desired_original= %lu, purchased= %lu, accept_amount_remaining= %lu, actual_amount= %lu\n",
+     __FUNCTION__, BTC_paid, BTC_desired_original, purchased, (my_it->second).getAcceptAmount(), actual_amount);
 
     return actual_amount;
   }
@@ -298,7 +321,9 @@ public:
       // if accept has been fully paid -- erase it
       if (0 == (my_it->second).getAcceptAmount())
       {
-        fprintf(mp_fp, "%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n", __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
+        fprintf(mp_fp, "%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n",
+         __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
+
         my_accepts.erase(my_it);
       }
     }
@@ -306,7 +331,7 @@ public:
   }
 
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl)
-   :offerBlock(b),offer_amount(a),original_offer_amount(a),currency(cu),BTC_desired(d),min_fee(fee),blocktimelimit(btl)
+   :offerBlock(b),offer_amount_remaining(a),offer_amount_original(a),currency(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl)
   {
     if (msc_debug4) fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
@@ -320,15 +345,15 @@ public:
     fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
 
     offerBlock = b;
-    offer_amount = a;
-    original_offer_amount = a;
+    offer_amount_remaining = a;
+    offer_amount_original = a;
     currency = cu;
-    BTC_desired = d;
+    BTC_desired_original = d;
     min_fee = fee;
     blocktimelimit = btl;
   }
 
-  // the offer is accepted by a buyer, add this purchase to the accepted list or replace an old one from this buyer
+  // the offer is accepted by a buyer, add this purchase to the accepted list
   void offer_accept(const string &buyer, uint64_t desired, int block, uint64_t fee)
   {
     fprintf(mp_fp, "%s(buyer:%s, desired=%2.8lf, block # %d), line %d, file: %s\n",
@@ -351,14 +376,18 @@ public:
       fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
       ++InvalidCount_per_spec;
     }
-    else my_accepts.insert(std::make_pair(buyer, CMPAccept(desired, fee, block)));
+    else
+    {
+      reduceOfferAmount(desired);
+      my_accepts.insert(std::make_pair(buyer, CMPAccept(desired, fee, block)));
+    }
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
   {
-  const double coins = (double)offer_amount/(double)COIN;
-  const double original_coins = (double)original_offer_amount/(double)COIN;
-  const double wants_total = (double)BTC_desired/(double)COIN;
+  const double coins = (double)offer_amount_remaining/(double)COIN;
+  const double original_coins = (double)offer_amount_original/(double)COIN;
+  const double wants_total = (double)BTC_desired_original/(double)COIN;
   const double price = coins*wants_total ? wants_total/coins : 0;
 
     fprintf(mp_fp, "%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
@@ -534,7 +563,7 @@ private:
     if (bCancel) my_offers.erase(my_it);
   }
 
-  // will replace the previous accept for a specific item from this buyer
+  // will record an 'accept' for a specific item from this buyer
   void update_offer_accepts(int curr)
   {
   // find the offer
@@ -738,6 +767,9 @@ private:
       // the min fee spec requirement is checked in the following function
       update_offer_accepts(currency);
       break;
+
+    default:
+      return -100;
   }
 
   return 0;
@@ -828,15 +860,16 @@ int matchBTCpayment(string seller, string customer, uint64_t BTC_amount, int blo
           if (update_tally_map(seller, offer.getCurrency(), - target_currency_amount, true))  // remove from reserve of the seller
           {
             update_tally_map(customer, offer.getCurrency(), target_currency_amount);  // give to buyer
+
             // update the amount available in the offer
-            offer.reduceOfferAmount(target_currency_amount);
+            offer.reduceReservedAcceptedAmount(target_currency_amount);
 
             // must also adjust the amount the buyer still wants after this payment
             offer.reduceAcceptAmount(target_currency_amount, customer);
 
             offer.print((my_it->first), true);
 
-            // now, erase the offer if there is nothing left in Reserve (or offer_amount for this offer)
+            // now, erase the offer if there is nothing left in Reserve (or offer_amount_remaining for this offer)
             if (0 == getMPbalance(seller, offer.getCurrency(), true))
             {
               fprintf(mp_fp, "%s(%s) ALL SOLD - wiping out the offer, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
