@@ -1729,6 +1729,21 @@ int input_mp_accepts_string(const string &s)
   return (*iter).second.loadAccept(buyerAddr, amountRemaining, amountOriginal, fee, nBlock);
 }
 
+// exodus_prev
+int input_devmsc_state_string(const string &s)
+{
+  uint64_t exodusPrev;
+  std::vector<std::string> vstr;
+  boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
+  if (1 != vstr.size()) return -1;
+
+  int i = 0;
+  exodusPrev = boost::lexical_cast<uint64_t>(vstr[i++]);
+  exodus_prev = exodusPrev;
+
+  return 0;
+}
+
 static int msc_file_load(const string &filename, int what, bool verifyHash = false)
 {
   int lines = 0;
@@ -1755,6 +1770,10 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 
     case FILETYPE_ACCEPTS:
       inputLineFunc = input_mp_accepts_string;
+      break;
+
+    case FILETYPE_DEVMSC:
+      inputLineFunc = input_devmsc_state_string;
       break;
 
     default:
@@ -1836,6 +1855,7 @@ static char const * const statePrefix[NUM_FILETYPES] = {
     "balances",
     "offers",
     "accepts",
+    "devmsc",
 };
 
 // returns the height of the state loaded
@@ -1919,6 +1939,19 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
+static int write_devmsc_state(ofstream &file, SHA256_CTX *shaCtx)
+{
+  string lineOut = (boost::format("%d") % exodus_prev).str();
+
+  // add the line to the hash
+  SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+  // write the line
+  file << lineOut << endl;
+
+  return 0;
+}
+
 
 static int write_state_file( CBlockIndex const *pBlockIndex, int what )
 {
@@ -1943,6 +1976,10 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
 
   case FILETYPE_ACCEPTS:
     result = write_mp_accepts(file, &shaCtx);
+    break;
+
+  case FILETYPE_DEVMSC:
+    result = write_devmsc_state(file, &shaCtx);
     break;
   }
 
@@ -2031,6 +2068,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
   write_state_file(pBlockIndex, FILETYPE_BALANCES);
   write_state_file(pBlockIndex, FILETYPE_OFFERS);
   write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
+  write_state_file(pBlockIndex, FILETYPE_DEVMSC);
 
   // clean-up the directory
   prune_state_files(pBlockIndex);
@@ -2068,10 +2106,8 @@ const bool bTestnet = TestNet();
     (void) msc_preseed_file_load(FILETYPE_OFFERS);
     loadedStateHeight = snapshotHeight;
     exodus_prev=snapshotDevMSC;
-  } else {
-    // get the exodus balance for the dev MSC calc
-    exodus_prev=getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC);
   }
+
 //  (void) msc_file_load(FILETYPE_ACCEPTS); // not needed per Zathras -- we are capturing blocks for which there are no outstanding accepts!
 
 //  (void) msc_post_preseed(249497);  // Exodus block, dump for Zathras
