@@ -1872,7 +1872,7 @@ static int load_most_relevant_state()
   while (NULL != curTip) {
     int success = -1;
     for (int i = 0; i < NUM_FILETYPES; ++i) {
-      const string filename = (MPPersistencePath / (boost::format("%s-%s.dat") % statePrefix[i] % curTip->GetBlockHash().ToString()).str().c_str()).c_str();
+      const string filename = (MPPersistencePath / (boost::format("%s-%s.dat") % statePrefix[i] % curTip->GetBlockHash().ToString()).str().c_str()).string();
       success = msc_file_load(filename, i, true);
       if (success < 0) {
         break;
@@ -1970,7 +1970,7 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
   const char *blockHash = pBlockIndex->GetBlockHash().ToString().c_str();
   boost::filesystem::path balancePath = MPPersistencePath / (boost::format("%s-%s.dat") % statePrefix[what] % blockHash).str();
   ofstream file;
-  file.open(balancePath.c_str());
+  file.open(balancePath.string().c_str());
 
   SHA256_CTX shaCtx;
   SHA256_Init(&shaCtx);
