@@ -49,22 +49,25 @@ const char mastercore_filenames[][128]={
 #define MASTERCOIN_CURRENCY_TMSC  2
 #define MASTERCOIN_CURRENCY_SP1   3
 
-#define MSC_MAX_KNOWN_CURRENCIES  4
+// #define MSC_MAX_KNOWN_CURRENCIES  4
+#define MSC_MAX_KNOWN_CURRENCIES  3
 
 inline uint64_t rounduint64(double d)
 {
-    return (uint64_t)(abs(0.5 + d));
+  return (uint64_t)(abs(0.5 + d));
 }
 
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
-class mp_tally
-{
+enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2 };
 
+class CMPTally
+{
 private:
   int64_t moneys[MSC_MAX_KNOWN_CURRENCIES];
-  int64_t reserved[MSC_MAX_KNOWN_CURRENCIES];
+  int64_t reserved[MSC_MAX_KNOWN_CURRENCIES];   // selloffer-reserved
+  int64_t raccepted[MSC_MAX_KNOWN_CURRENCIES];  // accepted-reserved
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
 public:
@@ -82,10 +85,12 @@ public:
         return true;
       }
 
+      fprintf(mp_fp, "%s(); FUNDS AVAILABLE= %lu\n", __FUNCTION__, moneys[which]);
+
       // check here if enough money is available for this address prior to update !!!
       if (0>(moneys[which] + amount))
       {
-        printf("%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, moneys[which], __LINE__, __FILE__);
+        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, moneys[which], __LINE__, __FILE__);
         return false;
       }
       moneys[which] += amount;
@@ -101,10 +106,12 @@ public:
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
+      fprintf(mp_fp, "%s(); SELLOFFER-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
+
       // check here if enough money is available for this address prior to update !!!
       if (0>(reserved[which] + amount))
       {
-        printf("%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, reserved[which], __LINE__, __FILE__);
+        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, reserved[which], __LINE__, __FILE__);
         return false;
       }
       reserved[which] += amount;
@@ -114,17 +121,37 @@ public:
     return false;
   }
 
-  // the constructor
-  mp_tally(unsigned char which, int64_t amount)
+  bool msc_update_raccepted(unsigned char which, int64_t amount)  
+  {
+  LOCK(cs_tally);
+
+    if (MSC_MAX_KNOWN_CURRENCIES > which)
+    {
+      fprintf(mp_fp, "%s(); ACCEPT-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
+
+      // check here if enough money is available for this address prior to update !!!
+      if (0>(raccepted[which] + amount))
+      {
+        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT), line %d, file: %s\n", __FUNCTION__, reserved[which], __LINE__, __FILE__);
+        return false;
+      }
+      raccepted[which] += amount;
+      return true;
+    }
+
+    return false;
+  }
+
+  // the constructor -- create an empty tally for an address
+  CMPTally(unsigned char which)
   {
     for (unsigned int i=0;i<MSC_MAX_KNOWN_CURRENCIES;i++)
     {
       moneys[i] = 0;
       reserved[i] = 0;
+      raccepted[i] = 0;
       divisible = true;
     }
-
-    (void) msc_update_moneys(which, amount);
   }
 
   void print()
@@ -141,17 +168,23 @@ public:
   string getMSC();  // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
   string getTMSC(); // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
 
-  uint64_t getMoney(unsigned int which_currency, bool bReserved) const
+  uint64_t getMoney(unsigned int which_currency, TallyType ttype) const
   {
     if (MSC_MAX_KNOWN_CURRENCIES <= which_currency) return 0;
 
-    if (!bReserved) return moneys[which_currency];
-    return reserved[which_currency];
+    switch (ttype)
+    {
+      case MONEY:             return moneys[which_currency];
+      case SELLOFFER_RESERVE: return reserved[which_currency];
+      case ACCEPT_RESERVE:    return raccepted[which_currency];
+    }
+
+    return 0;
   }
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
-class MP_txlist
+class CMPTxList
 {
 protected:
     // database options used
@@ -177,7 +210,7 @@ protected:
     unsigned int nRead;
 
 public:
-    MP_txlist(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)
+    CMPTxList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)
     {
       options.paranoid_checks = true;
       options.create_if_missing = true;
@@ -192,7 +225,7 @@ public:
       printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
     }
 
-    ~MP_txlist()
+    ~CMPTxList()
     {
       delete pdb;
       pdb = NULL;
@@ -204,17 +237,17 @@ public:
 
     void printStats()
     {
-      printf("MP_txlist stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+      printf("CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
     }
 
     void printAll();
 };
 
-extern map<string, mp_tally> mp_tally_map;
+extern map<string, CMPTally> mp_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 
-uint64_t getMPbalance(const string &Address, unsigned int currency, bool bReserved = false);
+uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype);
 bool IsMyAddress(const std::string &address);
 
 string getLabel(const string &address);
