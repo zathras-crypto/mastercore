@@ -338,10 +338,6 @@ public:
     fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
   }
 
-  ~CMPAccept()
-  {
-  }
-
   void print()
   {
       // hm, can't access the outer class' map member to get the currency unit label... do we care?
@@ -368,7 +364,6 @@ CCriticalSection cs_tally;
 
 static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
-
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
