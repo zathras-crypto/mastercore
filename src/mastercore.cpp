@@ -1594,7 +1594,6 @@ const int max_block = GetHeight();
   // this function is useless if there are not enough blocks in the blockchain yet!
   if ((0 >= nHeight) || (max_block < nHeight)) return -1;
 
-  my_offers.clear();
   printf("starting block= %d, max_block= %d\n", nHeight, max_block);
 
   CBlock block;
@@ -1690,7 +1689,11 @@ int input_mp_offers_string(const string &s)
 
   const string combo = STR_ADDR_CURR_COMBO(sellerAddr);
   CMPOffer newOffer(offerBlock, amountOriginal, amountRemaining, amountReserved, curr, btcDesired, minFee, blocktimelimit);
-  my_offers.insert(std::make_pair(combo, newOffer));
+  if (my_offers.insert(std::make_pair(combo, newOffer)).second) {
+    return 0;
+  } else {
+    return -1;
+  }
 
   return 0;
 }
@@ -1895,10 +1898,19 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
   map<string, mp_tally>::const_iterator iter;
   for (iter = mp_tally_map.begin(); iter != mp_tally_map.end(); ++iter) {
+    uint64_t mscBalance = (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false);
+    uint64_t mscReserved = (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, true);
+
+    // we don't allow 0 balances to read in, so if we don't write them
+    // it makes things match up better between peristed state and processed state
+    if ( 0 == mscBalance && 0 == mscReserved ) {
+      continue;
+    }
+
     string lineOut = (boost::format("%s,%d,%d")
         % (*iter).first
-        % (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, false)
-        % (*iter).second.getMoney(MASTERCOIN_CURRENCY_MSC, true)).str();
+        % mscBalance
+        % mscReserved).str();
 
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
