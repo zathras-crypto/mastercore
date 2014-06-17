@@ -45,4 +45,19 @@ From my older TODO list -- will be updating to reflect today's reality:
  10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
 
 
+DISCLAIMER - PLEASE READ - TEST ONLY: 
+============================ 
 
+This software is EXPERIMENTAL software for TESTING only." 
+
+"ALL USE OF THIS SOFTWARE IS ENTIRELY AT YOUR OWN RISK." 
+
+"The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future." 
+
+"DO NOT USE IT WITH A LARGE AMOUNT OF MASTERCOINS AND/OR BITCOINS.  IT IS ENTIRELY POSSIBLE YOU MAY LOSE ALL YOUR COINS.  INFORMATION DISPLAYED MAY BE INCORRECT.  MASTERCORE OFFERS ABSOLUTELY NO GUARANTEES OF ANY KIND." 
+
+"A fraction of a bitcoin and a fraction of a mastercoin are the suggested testing amounts.  Preferably use a fresh bitcoin wallet.dat." 
+
+"DO *NOT* USE THIS SOFTWARE WITH WALLETS CONTAINING, OR TRANSACT WITH, SIGNIFICANT AMOUNTS - IT IS FOR TESTING ONLY." 
+
+"This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws."
