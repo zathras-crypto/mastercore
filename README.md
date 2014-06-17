@@ -1,5 +1,9 @@
 mscd
 
+Mastercore should be considered an alpha-level product, and you use it at your own risk.  Neither the Mastercoin Foundation nor the Mastercore developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
+
+Further, please note that this particular installation of Mastercore should be viewed as experimental.  Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
+
 You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!!!
 
 May 3rd change -- unzip this (txt file) into your bitcoin data directory, i.e. ~/.bitcoin:  
