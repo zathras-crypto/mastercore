@@ -69,7 +69,8 @@ int msc_debug6 = 0;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
-static int InsufficientFunds = 0;     // consolidate error messages
+// BHW commenting out as this fails with --enable-debug due to -Wunused-variable
+//static int InsufficientFunds = 0;     // consolidate error messages
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 // disable TMSC handling for now, has more legacy corner cases
@@ -1737,7 +1738,7 @@ string strAddress = vstr[0];
   }
   
   // want to bypass 0-value addresses...
-  if ((0 == uValue) && (0 == uSellReserved) && (0 == && (0 == uSellReserved))) return 0;
+  if ((0 == uValue) && (0 == uSellReserved) && (0 == uAcceptReserved)) return 0;
 
   // ignoring TMSC for now...
   update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uValue, MONEY);
@@ -1752,7 +1753,7 @@ string strAddress = vstr[0];
 int input_mp_offers_string(const string &s)
 {
   int offerBlock;
-  uint64_t amountRemaining, amountOriginal, amountReserved, btcDesired, minFee;
+  uint64_t amountOriginal, btcDesired, minFee;
   unsigned int curr;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
@@ -1792,7 +1793,6 @@ int input_mp_accepts_string(const string &s)
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
   uint64_t amountRemaining, amountOriginal;
-  uint64_t fee;
   unsigned int curr;
   string sellerAddr, buyerAddr;
   int i = 0;
