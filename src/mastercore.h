@@ -231,7 +231,7 @@ public:
       pdb = NULL;
     }
 
-    void recordTX(const uint256 &txid, bool fValid, int nBlock);
+    void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 
