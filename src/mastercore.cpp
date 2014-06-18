@@ -748,10 +748,7 @@ CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
   // reduce the amount of units still desired by the buyer and if 0 must destroy the Accept
   if (p_accept->reduceAcceptAmountRemaining_andIsZero(units_purchased))
   {
-
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
     DEx_acceptDestroy(buyer, seller, curr, true);
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
   }
 
   return rc;
@@ -1946,7 +1943,8 @@ const bool bTestnet = TestNet();
 
   if (bTestnet)
   {
-    exodus = "n1eXodd53V4eQP96QmJPYTG2oBuFwbq6kL";
+//    exodus = "n1eXodd53V4eQP96QmJPYTG2oBuFwbq6kL";
+    exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
     ignore_all_but_MSC = 0;
     nWaterlineBlock = 250000; // testnet3
   }
