@@ -1721,7 +1721,7 @@ const int max_block = GetHeight();
 
 int input_msc_balances_string(const string &s)
 {
-uint64_t  uValue = 0, uSellReserved = 0, uAcceptReserved = 55555555555555; // FIXME: need to add accepted reserve in here from preseed !
+uint64_t  uValue = 0, uSellReserved = 0, uAcceptReserved = 0;
 std::vector<std::string> vstr;
 boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
 int i = 0;
@@ -1733,7 +1733,7 @@ string strAddress = vstr[0];
 
   uValue = boost::lexical_cast<boost::uint64_t>(vstr[i++]);
   uSellReserved = boost::lexical_cast<boost::uint64_t>(vstr[i++]);
-  if (vstr.size() > 2) {
+  if (vstr.size() > 3) { // FIXME: need to add accepted reserve in here from preseed !
     uAcceptReserved = boost::lexical_cast<boost::uint64_t>(vstr[i++]);
   }
   
@@ -1761,7 +1761,7 @@ int input_mp_offers_string(const string &s)
   string sellerAddr;
   int i = 0;
 
-  if (9 != vstr.size()) return -1;
+  if (7 != vstr.size()) return -1;
 
 
   sellerAddr = vstr[i++];
@@ -1856,6 +1856,7 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       break;
 
     case FILETYPE_ACCEPTS:
+      my_accepts.clear();
       inputLineFunc = input_mp_accepts_string;
       break;
 
