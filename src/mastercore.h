@@ -90,7 +90,7 @@ public:
         return true;
       }
 
-      fprintf(mp_fp, "%s(); FUNDS AVAILABLE= %lu\n", __FUNCTION__, moneys[which]);
+//      fprintf(mp_fp, "%s(); FUNDS AVAILABLE= %lu\n", __FUNCTION__, moneys[which]);
 
       // check here if enough money is available for this address prior to update !!!
       if (0>(moneys[which] + amount))
@@ -111,7 +111,7 @@ public:
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
-      fprintf(mp_fp, "%s(); SELLOFFER-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
+//      fprintf(mp_fp, "%s(); SELLOFFER-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
 
       // check here if enough money is available for this address prior to update !!!
       if (0>(reserved[which] + amount))
@@ -132,7 +132,7 @@ public:
 
     if (MSC_MAX_KNOWN_CURRENCIES > which)
     {
-      fprintf(mp_fp, "%s(); ACCEPT-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
+//      fprintf(mp_fp, "%s(); ACCEPT-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
 
       // check here if enough money is available for this address prior to update !!!
       if (0>(raccepted[which] + amount))

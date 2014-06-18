@@ -397,6 +397,9 @@ map<string, CMPTally> mp_tally_map;
 uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
 {
 uint64_t balance = 0;
+
+  LOCK(cs_tally);
+
 const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
 
   if (my_it != mp_tally_map.end())
@@ -414,10 +417,13 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
 bool update_tally_map(string who, unsigned int which, int64_t amount, TallyType ttype, bool bSet = false)
 {
 bool bRet = false;
+uint64_t before, after;
 
   if (msc_debug2) fprintf(mp_fp, "%s(%s, %d, %+ld, ttype=%d)\n", __FUNCTION__, who.c_str(), which, amount, ttype);
 
   LOCK(cs_tally);
+
+  before = getMPbalance(who, which, ttype);
 
   map<string, CMPTally>::iterator my_it = mp_tally_map.find(who);
   if (my_it == mp_tally_map.end())
@@ -443,7 +449,10 @@ bool bRet = false;
       break;
   }
 
+  after = getMPbalance(who, which, ttype);
   if (!bRet) fprintf(mp_fp, "%s(%s, %d, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, ttype);
+
+  if (msc_debug_dex) fprintf(mp_fp, "%s(); before=%lu, after=%lu)\n", __FUNCTION__, before, after);
 
   return bRet;
 }
@@ -667,6 +676,9 @@ const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
   }
   else
   {
+    fprintf(mp_fp, "%s() HASHES: offer=%s, accept=%s, line %d, file: %s\n", __FUNCTION__,
+     p_offer->getHash().GetHex().c_str(), p_accept->getHash().GetHex().c_str(), __LINE__, __FILE__);
+
     // offer exists, determine whether it's the original offer or some random new one
     if (p_offer->getHash() == p_accept->getHash())
     {
