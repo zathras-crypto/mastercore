@@ -191,7 +191,7 @@ public:
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),currency(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
-    if (msc_debug4) fprintf(mp_fp, "%s(%lu):%s, line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
+    if (msc_debug4) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
@@ -282,7 +282,7 @@ public:
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
   {
     accept_amount_original = accept_amount_remaining;
-    if (msc_debug4) fprintf(mp_fp, "%s(%lu):%s, line %d, file: %s\n", __FUNCTION__, a, offer_txid.GetHex().c_str(), __LINE__, __FILE__);
+    if (msc_debug4) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, offer_txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
   void print()
@@ -519,7 +519,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, const uint256 &txid)
+int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_ACCEPT;
@@ -561,7 +561,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
     {
       // insert into the map !
       my_accepts.insert(std::make_pair(accept_combo, CMPAccept(nActualAmount, block,
-       offer.getBlockTimeLimit(), offer.getCurrency(), offer.getOfferAmountOriginal(), offer.getBTCDesiredOriginal(), txid )));
+       offer.getBlockTimeLimit(), offer.getCurrency(), offer.getOfferAmountOriginal(), offer.getBTCDesiredOriginal(), offer.getHash() )));
 
       rc = 0;
     }
@@ -966,7 +966,7 @@ private:
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
       // the min fee spec requirement is checked in the following function
-      rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, txid);
+      rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid);
       break;
 
     default:
