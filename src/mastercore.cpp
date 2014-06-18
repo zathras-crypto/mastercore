@@ -188,81 +188,10 @@ public:
   uint64_t getOfferAmountOriginal() { return offer_amount_original; }
   uint64_t getBTCDesiredOriginal() { return BTC_desired_original; }
 
-  // this is used during payment, given the amount of BTC paid this function returns the amount of currency transacted
-  uint64_t getCurrencyAmount(uint64_t BTC_paid, const string &buyer)
-  {
-  uint64_t actual_amount = 0;
-/*
-  double X;
-  double P;
-  uint64_t purchased;
-  map<string, CMPAccept>::iterator my_it = my_accepts.find(buyer);
-
-    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-
-    // did the buyer pay enough or more than the seller wanted?
-    if (BTC_paid >= BTC_desired_original)
-    {
-      purchased = offer_amount_remaining; // this is how much the seller has offered
-    }
-    else
-    {
-      if (0==(double)BTC_desired_original) return 0;  // divide by 0 protection
-
-      X = (double)BTC_paid/(double)BTC_desired_original;
-      P = (double)offer_amount_original * X;
-
-      purchased = rounduint64(P); // buyer paid for less than the seller has, that's OK, he'll get what he paid for
-    }
-
-    // now check that the buyer had actually ACCEPTed this much...
-    {
-      if (my_it != my_accepts.end())
-      {
-        // did the customer pay for less than he wanted? adjust downward
-        if (purchased < (my_it->second).getAcceptAmount()) actual_amount = purchased;
-        // otherwise he paid just enough or even more -- he gets what he wanted (ACCEPTed)
-        else actual_amount = (my_it->second).getAcceptAmount();
-      }
-    }
-
-    fprintf(mp_fp, "%s();BTC_paid= %lu, BTC_desired_original= %lu, purchased= %lu, accept_amount_remaining= %lu, actual_amount= %lu\n",
-     __FUNCTION__, BTC_paid, BTC_desired_original, purchased, (my_it->second).getAcceptAmount(), actual_amount);
-*/
-
-    return actual_amount;
-  }
-
-  void reduceAcceptAmount(uint64_t purchased, const string &buyer)
-  {
-/*
-  map<string, CMPAccept>::iterator my_it = my_accepts.find(buyer);
-
-    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-    fprintf(mp_fp, "%s(%s, purchased= %lu), line %d, file: %s\n", __FUNCTION__, buyer.c_str(), purchased, __LINE__, __FILE__);
-
-    if (my_it != my_accepts.end())
-    {
-      (my_it->second).print();
-      (my_it->second).reduceAcceptAmount(purchased);
-
-      // if accept has been fully paid -- erase it
-      if (0 == (my_it->second).getAcceptAmount())
-      {
-        fprintf(mp_fp, "%s(buyer %s:%s purchased= %lu); DONE -- erasing his accept\n",
-         __FUNCTION__, buyer.c_str(), (my_it->first).c_str(), purchased);
-
-        my_accepts.erase(my_it);
-      }
-    }
-    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-*/
-  }
-
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),currency(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
-    if (msc_debug4) fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    if (msc_debug4) fprintf(mp_fp, "%s(%lu):%s, line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
   void print(string address, bool bPrintAcceptsToo = false)
@@ -353,7 +282,7 @@ public:
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
   {
     accept_amount_original = accept_amount_remaining;
-    fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    if (msc_debug4) fprintf(mp_fp, "%s(%lu):%s, line %d, file: %s\n", __FUNCTION__, a, offer_txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
   void print()
