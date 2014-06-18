@@ -45,6 +45,11 @@ const char mastercore_filenames[][128]={
 "mastercoin_accepts.txt"
 };
 
+#define PKT_ERROR           ( -9000)
+#define DEX_ERROR_SELLOFFER (-10000)
+#define DEX_ERROR_ACCEPT    (-20000)
+#define DEX_ERROR_PAYMENT   (-30000)
+
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
 #define MASTERCOIN_CURRENCY_SP1   3
