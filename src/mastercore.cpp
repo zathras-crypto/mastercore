@@ -1506,7 +1506,7 @@ uint64_t txFee = 0;
             unsigned int k = 0;
             // gotta find the Reference - Z rewrite - scrappy & inefficient, can be optimized
 
-            fprintf(mp_fp, "Beginning reference identification\n");
+            if (msc_debug3) fprintf(mp_fp, "Beginning reference identification\n");
 
             bool referenceFound = false; // bool to hold whether we've found the reference yet
             bool changeRemoved = false; // bool to hold whether we've ignored the first output to sender as change
@@ -1526,13 +1526,13 @@ uint64_t txFee = 0;
                         {
                                 strReference = addr;
                                 referenceFound = true;
-                                fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
+                                if (msc_debug3) fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
                         }
                         else //as soon as potentialReferenceOutputs > 1 we need to go fishing
                         {
                                 strReference = ""; // avoid leaving strReference populated for sanity
                                 referenceFound = false;
-                                fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
+                                if (msc_debug3) fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
                         }
                 }
             }
@@ -1540,7 +1540,7 @@ uint64_t txFee = 0;
             // do we have a reference now? or do we need to dig deeper
             if (!referenceFound) // multiple possible reference addresses
             {
-                fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
+                if (msc_debug3) fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
 
                 BOOST_FOREACH(const string &addr, address_data)
                 {
@@ -1551,20 +1551,20 @@ uint64_t txFee = 0;
                                 {
                                         // per spec ignore first output to sender as change if multiple possible ref addresses
                                         changeRemoved = true;
-                                        fprintf(mp_fp, "Removed change\n");
+                                        if (msc_debug3) fprintf(mp_fp, "Removed change\n");
                                 }
                                 else
                                 {
                                         // this may be set several times, but last time will be highest vout
                                         strReference = addr;
-                                        fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
+                                        if (msc_debug3) fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
                                 }
                         }
                 }
             }
 
-          fprintf(mp_fp, "Ending reference identification\n");
-          fprintf(mp_fp, "Final decision on reference identification is: %s \n ", strReference.c_str());
+          if (msc_debug3) fprintf(mp_fp, "Ending reference identification\n");
+          if (msc_debug3) fprintf(mp_fp, "Final decision on reference identification is: %s \n ", strReference.c_str());
 
           if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
