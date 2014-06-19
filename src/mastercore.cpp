@@ -2215,7 +2215,7 @@ const bool bTestnet = TestNet();
   else
   {
     // testnet
-    (void) msc_post_preseed(GetHeight()-1000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
+    (void) msc_post_preseed(GetHeight()-10000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
   }
 
   if (mp_fp) fflush(mp_fp);
