@@ -348,8 +348,6 @@ bool update_tally_map(string who, unsigned int which, int64_t amount, TallyType 
 bool bRet = false;
 uint64_t before, after;
 
-  if (msc_debug2) fprintf(mp_fp, "%s(%s, %d, %+ld, ttype=%d)\n", __FUNCTION__, who.c_str(), which, amount, ttype);
-
   LOCK(cs_tally);
 
   before = getMPbalance(who, which, ttype);
@@ -381,7 +379,8 @@ uint64_t before, after;
   after = getMPbalance(who, which, ttype);
   if (!bRet) fprintf(mp_fp, "%s(%s, %d, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, ttype);
 
-  if (msc_debug_dex) fprintf(mp_fp, "%s(); before=%lu, after=%lu)\n", __FUNCTION__, before, after);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %d, %+ld, ttype=%d); before=%lu, after=%lu\n",
+   __FUNCTION__, who.c_str(), which, amount, ttype, before, after);
 
   return bRet;
 }
@@ -1741,8 +1740,8 @@ string strAddress = vstr[0];
 
   // ignoring TMSC for now...
   update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uValue, MONEY);
-  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uReserved, SELLOFFER_RESERVE);
-  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, 55555555555555, ACCEPT_RESERVE);  // FIXME: need to add accepted reserve in here from preseed !
+//  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, uReserved, SELLOFFER_RESERVE);
+//  update_tally_map(strAddress, MASTERCOIN_CURRENCY_MSC, 55555555555555, ACCEPT_RESERVE);  // FIXME: need to add accepted reserve in here from preseed !
 
   return 1;
 }
