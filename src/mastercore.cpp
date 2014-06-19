@@ -1503,14 +1503,8 @@ uint64_t txFee = 0;
                 }
             }
 
-fprintf(mp_fp, "(Zathras) temp logging - ending reference identification\n");
-fprintf(mp_fp, "(Zathras) temp logging - final decision on reference identification is: %s \n ", strReference.c_str());
-
-if (strReference.empty())
-{
-        fprintf(mp_fp, "(Zathras) temp logging - no reference found, exiting function\n");
-        return -12345;
-}
+          fprintf(mp_fp, "(Zathras) temp logging - ending reference identification\n");
+          fprintf(mp_fp, "(Zathras) temp logging - final decision on reference identification is: %s \n ", strReference.c_str());
 
           if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
