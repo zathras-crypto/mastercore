@@ -59,7 +59,7 @@ int nWaterlineBlock = 290630;  // the DEX block, using Zathras' msc_balances_290
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static uint64_t exodus_prev = DEV_MSC_BLOCK_290629;
-static uint64_t exodus_prev = 0;
+// static uint64_t exodus_prev = 0; // Bart has 0 for some reason ???
 static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
@@ -90,6 +90,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 1;
 static int disableLevelDB = 1;
+static int disable_BartsPersistence = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_SELLOFFER_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -200,6 +201,26 @@ public:
     if (msc_debug4) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
+  void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
+    // compose the outputline
+    // seller-address, ...
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%s")
+      % addr
+      % offerBlock
+      % offer_amount_original
+      % currency
+      % BTC_desired_original
+      % min_fee
+      % (int)blocktimelimit
+      % txid.ToString()).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
+  }
+
   void print(string address, bool bPrintAcceptsToo = false)
   {
 /*
@@ -224,7 +245,7 @@ public:
         }
 */
   }
-};
+};  // end of CMPOffer class
 
 // do a map of buyers, primary key is buyer+currency
 // MUST account for many possible accepts and EACH currency offer
@@ -289,6 +310,12 @@ public:
   bool bRet = false;
 
     if (really_purchased >= accept_amount_remaining) bRet = true;
+
+    accept_amount_remaining -= really_purchased;
+
+    return bRet;
+  }
+
   void saveAccept(ofstream &file, SHA256_CTX *shaCtx, string const &addr, string const &buyer ) const {
     // compose the outputline
     // seller-address, currency, buyer-address, amount, fee, block
@@ -304,16 +331,14 @@ public:
       % BTC_desired_original
       % offer_txid.ToString()).str();
 
-    accept_amount_remaining -= really_purchased;
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
 
-    return bRet;
     // write the line
     file << lineOut << endl;
   }
 
-};
+};  // end of CMPAccept class
 
 CCriticalSection cs_tally;
 
@@ -1094,7 +1119,7 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
 
   if (mp_fp) fflush(mp_fp);
   // save out the state after this block
-  mastercore_save_state(pBlockIndex);
+  if (!disable_BartsPersistence) mastercore_save_state(pBlockIndex);
 
   return 0;
 }
@@ -1726,7 +1751,7 @@ int input_mp_offers_string(const string &s)
   blocktimelimit = atoi(vstr[i++]);
   txidStr = vstr[i++];
 
-  const string combo = STR_SELLOFER_ADDR_CURR_COMBO(sellerAddr);
+  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sellerAddr);
   CMPOffer newOffer(offerBlock, amountOriginal, curr, btcDesired, minFee, blocktimelimit, uint256(txidStr));
   if (my_offers.insert(std::make_pair(combo, newOffer)).second) {
     return 0;
@@ -2160,7 +2185,8 @@ const bool bTestnet = TestNet();
   static const int snapshotHeight = 290629;
   static const uint64_t snapshotDevMSC = 1743358325718;
 
-  nWaterlineBlock = load_most_relevant_state();
+  if (!disable_BartsPersistence) nWaterlineBlock = load_most_relevant_state();
+
   if (nWaterlineBlock < snapshotHeight) {
     // the DEX block, using Zathras' msc_balances_290629.txt
     (void) msc_preseed_file_load(FILETYPE_BALANCES);

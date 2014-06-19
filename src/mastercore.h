@@ -9,6 +9,9 @@
 #include "netbase.h"
 #include "protocol.h"
 
+// what should've been in the Exodus address for this block if none were spent
+#define DEV_MSC_BLOCK_290629 (1743358325718)
+
 // the min amount to send to marker, reference, data outputs, used in send_MP() & related functions
 #define MP_DUST_LIMIT 5678
 
