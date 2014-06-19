@@ -218,37 +218,6 @@ public:
         }
 */
   }
-
-  bool IsCustomerOnTheAcceptanceListAndWithinBlockTimeLimit(string customer, int blockNow)
-  {
-  int problem = 0;
-
-/*
-    const map<string, CMPAccept>::iterator my_it = my_accepts.find(customer);
-
-    fprintf(mp_fp, "%s();my_accepts.size= %lu, line %d, file: %s\n", __FUNCTION__, my_accepts.size(), __LINE__, __FILE__);
-
-    fprintf(mp_fp, "%s(%s), line %d, file: %s\n", __FUNCTION__, customer.c_str(), __LINE__, __FILE__);
-
-    if (my_it != my_accepts.end())
-    {
-      fprintf(mp_fp, "%s()now: %d, class: %d, limit: %d, line %d, file: %s\n",
-       __FUNCTION__, blockNow, (my_it->second).block, blocktimelimit, __LINE__, __FILE__);
-
-      if ((blockNow - (my_it->second).block) > (int) blocktimelimit)
-      {
-        problem+=1;
-        ++InvalidCount_per_spec;
-      }
-    }
-    else problem+=10;
-
-    fprintf(mp_fp, "%s(%s):problem=%d, line %d, file: %s\n", __FUNCTION__, customer.c_str(), problem, __LINE__, __FILE__);
-*/
-
-    return (!problem);
-  }
-
 };
 
 // do a map of buyers, primary key is buyer+currency
@@ -746,55 +715,6 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
 
   return how_many_erased;
 }
-
-// undo the Offer - return the funds, optionally to Cancel, or just undo to get ready for an update
-/*
-void offerUndo(string seller_addr, unsigned int curr, bool bCancel = false) 
-{
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
-  map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
-  uint64_t nValue;
-
-    if (my_offers.end() == my_it) return; // offer not found
-
-    nValue = (my_it->second).getOfferAmount();
-
-    // take from RESERVED, give to REAL
-    if (!update_tally_map(seller_addr, curr, - nValue, true))
-    {
-      ++InsufficientFunds;
-      return;
-    }
-    update_tally_map(seller_addr, curr, nValue);
-
-    // erase the offer from the map
-    if (bCancel) my_offers.erase(my_it);
-}
-*/
-
-// will record an 'accept' for a specific item from this buyer
-/*
-void update_offer_accepts(const string &sender, const string &receiver, int curr, uint64_t nValue, int block, uint64_t fee_paid)
-{
-  // find the offer
-  map<string, CMPOffer>::iterator my_it;
-  const string combo = STR_ACCEPT_ADDR_CURR_COMBO(receiver);
-
-      my_it = my_offers.find(combo);
-      if (my_it != my_offers.end())
-      {
-        fprintf(mp_fp, "%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, combo.c_str(), __LINE__, __FILE__);
-        (my_it->second).print((my_it->first), true);
-        // offer found -- update
-        (my_it->second).offer_accept(sender, nValue, block, fee_paid);
-        (my_it->second).print((my_it->first), true);
-      }
-      else
-      {
-        fprintf(mp_fp, "SELL OFFER NOT FOUND %s !!!\n", combo.c_str());
-      }
-}
-*/
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
@@ -1311,7 +1231,7 @@ uint64_t txFee = 0;
                 }
              }
               if (msc_debug) fprintf(mp_fp, "vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
-            }
+            } // end of inputs for loop
 
             txFee = inAll - outAll; // this is the fee paid to miners for this TX
 
@@ -1529,7 +1449,7 @@ uint64_t txFee = 0;
             {
               if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
               ++k;
-              if ((addr != exodus) && (addr != strSender))
+              if ((addr != exodus) && (addr != strSender))  // can't just remove strSender
               {
                 strReference = addr;
                 break;
@@ -1583,7 +1503,6 @@ uint64_t txFee = 0;
               }
             }
 
-          if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           if (msc_debug3) fprintf(mp_fp, "multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
 
             if (!strPacket.empty())
@@ -1899,7 +1818,6 @@ const bool bTestnet = TestNet();
 
   if (bTestnet)
   {
-//    exodus = "n1eXodd53V4eQP96QmJPYTG2oBuFwbq6kL";
     exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
     ignore_all_but_MSC = 0;
     nWaterlineBlock = 250000; // testnet3
@@ -1920,8 +1838,6 @@ const bool bTestnet = TestNet();
   if (!bTestnet)
   {
 //    (void) msc_post_preseed(290630);  // the DEX block, using Zathras' msc_balances_290629.txt
-//    (void) msc_post_preseed(282083);  // Bart had an issue with this block
-//    (void) msc_post_preseed(282080);  // Bart had an issue with this block
 
     (void) msc_post_preseed(nWaterlineBlock);  // the DEX block, using Zathras' msc_balances_290629.txt
   }

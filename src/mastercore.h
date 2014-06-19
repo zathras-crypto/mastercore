@@ -75,6 +75,17 @@ private:
   int64_t raccepted[MSC_MAX_KNOWN_CURRENCIES];  // accepted-reserved
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
+  void print_old()
+  {
+    for (unsigned int i=1;i<MSC_MAX_KNOWN_CURRENCIES;i++) // not keeping track of BTC amounts, index=0.. for now?
+    {
+//      printf("%s = %+15.8lf [reserved= %+15.8lf] ", c_strMastercoinCurrency(i), (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
+      // just print the money, not the name, getting too wide for my screen
+      printf("%+15.8lf [reserved= %+15.8lf] ", (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
+    }
+    printf("\n");
+  }
+
 public:
 
   // when bSet is true -- overwrite the amount in the address, not just adjust it (+/-)
@@ -157,17 +168,6 @@ public:
       raccepted[i] = 0;
       divisible = true;
     }
-  }
-
-  void print_old()
-  {
-    for (unsigned int i=1;i<MSC_MAX_KNOWN_CURRENCIES;i++) // not keeping track of BTC amounts, index=0.. for now?
-    {
-//      printf("%s = %+15.8lf [reserved= %+15.8lf] ", c_strMastercoinCurrency(i), (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
-      // just print the money, not the name, getting too wide for my screen
-      printf("%+15.8lf [reserved= %+15.8lf] ", (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
-    }
-    printf("\n");
   }
 
   void print()
