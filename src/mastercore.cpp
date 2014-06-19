@@ -1444,21 +1444,84 @@ uint64_t txFee = 0;
           else // if (fMultisig)
           {
             unsigned int k = 0;
-            // gotta find the Reference
-            BOOST_FOREACH(const string &addr, address_data)
-            {
-              if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
-              ++k;
-              if ((addr != exodus) && (addr != strSender))  // can't just remove strSender
-              {
-                strReference = addr;
-                break;
-              }
-            }
+            // gotta find the Reference - Z rewrite - scrappy & inefficient, can be optimized
 
+	    fprintf(mp_fp, "(Zathras) temp logging - beginning reference identification");
+	    fprintf(mp_fp, "\n");
+
+	    bool referenceFound = false; // bool to hold whether we've found the reference yet
+	    bool changeRemoved = false; // bool to hold whether we've ignored the first output to sender as change
+	    unsigned int potentialReferenceOutputs = 0; // int to hold number of potential reference outputs
+
+	    // how many potential reference outputs do we have, if just one select it right here
+     	    BOOST_FOREACH(const string &addr, address_data)
+            {
+		// keep Michael's original debug info & k int as used elsewhere
+		if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
+		++k;
+
+	    	if (addr != exodus)
+		{
+			++potentialReferenceOutputs;
+			if (1 == potentialReferenceOutputs)
+			{
+				strReference = addr;
+				referenceFound = true;
+				fprintf(mp_fp, "(Zathras) temp logging - single reference potentially id'd as follows: ");
+				fprintf(mp_fp, strReference.c_str());
+				fprintf(mp_fp, "\n");
+			}
+			else //as soon as potentialReferenceOutputs > 1 we need to go fishing
+			{
+				strReference = ""; // avoid leaving strReference populated for sanity
+				referenceFound = false;
+				fprintf(mp_fp, "(Zathras) temp logging - more than one potential reference candidate, blanking strReference, need to go fishing");
+				fprintf(mp_fp, "\n");
+			}
+		}
+	    }
+
+	    // do we have a reference now? or do we need to dig deeper
+	    if (!referenceFound) // multiple possible reference addresses
+	    {
+		fprintf(mp_fp, "(Zathras) temp logging - reference has not been found yet, going fishing");
+		fprintf(mp_fp, "\n");
+
+                BOOST_FOREACH(const string &addr, address_data)
+                {
+			// !!!! address_data is ordered by vout (i think - please confirm that's correct analysis?)
+                        if (addr != exodus) // removed strSender restriction, not to spec
+                        {
+				if ((addr == strSender) && (!changeRemoved))
+				{
+					// per spec ignore first output to sender as change if multiple possible ref addresses
+					changeRemoved = true;
+					fprintf(mp_fp, "(Zathras) temp logging - removed change");
+					fprintf(mp_fp, "\n");
+				}
+				else
+				{
+					// this may be set several times, but last time will be highest vout
+					strReference = addr;
+					fprintf(mp_fp, "(Zathras) temp logging - resetting strReference as follows: ");
+					fprintf(mp_fp, strReference.c_str());
+					fprintf(mp_fp, "\n");
+				}
+			}
+		}
+	    }
+
+fprintf(mp_fp, "(Zathras) temp logging - ending reference identification");
+fprintf(mp_fp, "\n");
+fprintf(mp_fp, "(Zathras) temp logging - final decision on reference identification is: ");
+fprintf(mp_fp, strReference.c_str());
+fprintf(mp_fp, "\n");
+
+// this should be removed, not a valid method - not removing straight away  as there needs to be a clean exit from this func if empty
+// example, host tx only has a single output to exodus and nothing else - this is invalid, not a send to self
 #if 0
             // if can't find the reference for a multisig tx -- assume the sender is sending MSC to itself !
-            if (strReference.empty()) strReference = strSender;
+          if (strReference.empty()) strReference = strSender;
 #endif
 
 
