@@ -1520,8 +1520,6 @@ uint64_t txFee = 0;
             // if can't find the reference for a multisig tx -- assume the sender is sending MSC to itself !
             if (strReference.empty()) strReference = strSender;
 #endif
-            if (strReference.empty()) return -12345;
-
 
           if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
