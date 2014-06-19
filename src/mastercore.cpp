@@ -52,7 +52,7 @@ using namespace boost::assign;
 using namespace json_spirit;
 using namespace leveldb;
 
-int nWaterlineBlock = 290630;  // the DEX block, using Zathras' msc_balances_290629.txt
+int nWaterlineBlock = 0;  // the DEX block, using Zathras' msc_balances_290629.txt
 
 // uint64_t global_MSC_total = 0;
 // uint64_t global_MSC_RESERVED_total = 0;
@@ -83,6 +83,8 @@ int msc_debug6 = 1;
 
 int msc_debug_dex = 1;
 
+int msc_debug_b = 1;
+
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
@@ -90,7 +92,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 1;
 static int disableLevelDB = 1;
-static int disable_BartsPersistence = 1;
+static int disable_Persistence = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_SELLOFFER_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -1118,8 +1120,9 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
 //  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
 
   if (mp_fp) fflush(mp_fp);
+
   // save out the state after this block
-  if (!disable_BartsPersistence) mastercore_save_state(pBlockIndex);
+  if (!disable_Persistence) mastercore_save_state(pBlockIndex);
 
   return 0;
 }
@@ -1519,6 +1522,7 @@ uint64_t txFee = 0;
             // if can't find the reference for a multisig tx -- assume the sender is sending MSC to itself !
             if (strReference.empty()) strReference = strSender;
 #endif
+            if (strReference.empty()) return -12345;
 
 
           if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
@@ -1651,6 +1655,8 @@ int msc_post_preseed(int nHeight)
 {
 int n_total = 0, n_found = 0;
 const int max_block = GetHeight();
+
+  if (msc_debug_b) printf("%s(%d), line %d, file: %s\n", __FUNCTION__, nHeight, __LINE__, __FILE__);
 
   // this function is useless if there are not enough blocks in the blockchain yet!
   if ((0 >= nHeight) || (max_block < nHeight)) return -1;
@@ -2174,7 +2180,6 @@ const bool bTestnet = TestNet();
   {
     exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
     ignore_all_but_MSC = 0;
-    nWaterlineBlock = 250000; // testnet3
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
@@ -2185,22 +2190,32 @@ const bool bTestnet = TestNet();
   static const int snapshotHeight = 290629;
   static const uint64_t snapshotDevMSC = 1743358325718;
 
-  if (!disable_BartsPersistence) nWaterlineBlock = load_most_relevant_state();
+  if (!disable_Persistence)
+  {
+    nWaterlineBlock = load_most_relevant_state();
 
-  if (nWaterlineBlock < snapshotHeight) {
-    // the DEX block, using Zathras' msc_balances_290629.txt
-    (void) msc_preseed_file_load(FILETYPE_BALANCES);
-    (void) msc_preseed_file_load(FILETYPE_OFFERS);
-    nWaterlineBlock = snapshotHeight;
-    exodus_prev=snapshotDevMSC;
+    if (nWaterlineBlock < snapshotHeight)
+    {
+      // the DEX block, using Zathras' msc_balances_290629.txt
+      (void) msc_preseed_file_load(FILETYPE_BALANCES);
+      (void) msc_preseed_file_load(FILETYPE_OFFERS);
+      nWaterlineBlock = snapshotHeight;
+      exodus_prev=snapshotDevMSC;
+    }
+
+    // advance the waterline so that we start on the next unaccounted for block
+    nWaterlineBlock += 1;
   }
+  else
+  {
+  // my old preseed way
 
-  // advance the waterline so that we start on the next unaccounted for block
-  nWaterlineBlock += 1;
+    nWaterlineBlock = 290630;  // the DEX block, using Zathras' msc_balances_290629.txt
 
-//  (void) msc_file_load(FILETYPE_ACCEPTS); // not needed per Zathras -- we are capturing blocks for which there are no outstanding accepts!
+    if (bTestnet) nWaterlineBlock = 250000; //testnet3
 
-//  (void) msc_post_preseed(249497);  // Exodus block, dump for Zathras
+    (void) msc_preseed_file_load(FILETYPE_BALANCES);
+  }
 
   // collect the real Exodus balances available at the snapshot time
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY);
@@ -2208,8 +2223,6 @@ const bool bTestnet = TestNet();
 
   if (!bTestnet)
   {
-//    (void) msc_post_preseed(290630);  // the DEX block, using Zathras' msc_balances_290629.txt
-
     (void) msc_post_preseed(nWaterlineBlock);
   }
   else
@@ -2252,6 +2265,8 @@ CMPTransaction mp_obj;
 // save the augmented offer or accept amount into the database as well (expecting them to be numerically lower than that in the blockchain)
 unsigned int type = 0;
 uint64_t nValue = 0;
+
+  if (msc_debug_b) printf("%s(%d, %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
 
   if (nBlock < nWaterlineBlock) return -1;  // we do not care about parsing blocks prior to our waterline (empty blockchain defense)
 
