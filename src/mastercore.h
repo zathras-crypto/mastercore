@@ -159,7 +159,7 @@ public:
     }
   }
 
-  void print()
+  void print_old()
   {
     for (unsigned int i=1;i<MSC_MAX_KNOWN_CURRENCIES;i++) // not keeping track of BTC amounts, index=0.. for now?
     {
@@ -168,6 +168,14 @@ public:
       printf("%+15.8lf [reserved= %+15.8lf] ", (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
     }
     printf("\n");
+  }
+
+  void print()
+  {
+  int i = MASTERCOIN_CURRENCY_MSC;  // Hard-coded for MSC
+
+    printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
+     (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN, (double)raccepted[i]/(double)COIN);
   }
 
   string getMSC();  // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
