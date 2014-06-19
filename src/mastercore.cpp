@@ -83,8 +83,6 @@ int msc_debug6 = 1;
 
 int msc_debug_dex = 1;
 
-int msc_debug_b = 1;
-
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
@@ -1656,8 +1654,6 @@ int msc_post_preseed(int nHeight)
 int n_total = 0, n_found = 0;
 const int max_block = GetHeight();
 
-  if (msc_debug_b) printf("%s(%d), line %d, file: %s\n", __FUNCTION__, nHeight, __LINE__, __FILE__);
-
   // this function is useless if there are not enough blocks in the blockchain yet!
   if ((0 >= nHeight) || (max_block < nHeight)) return -1;
 
@@ -2265,8 +2261,6 @@ CMPTransaction mp_obj;
 // save the augmented offer or accept amount into the database as well (expecting them to be numerically lower than that in the blockchain)
 unsigned int type = 0;
 uint64_t nValue = 0;
-
-  if (msc_debug_b) printf("%s(%d, %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
 
   if (nBlock < nWaterlineBlock) return -1;  // we do not care about parsing blocks prior to our waterline (empty blockchain defense)
 
