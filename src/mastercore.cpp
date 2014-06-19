@@ -1504,22 +1504,67 @@ uint64_t txFee = 0;
           else // if (fMultisig)
           {
             unsigned int k = 0;
-            // gotta find the Reference
+            // gotta find the Reference - Z rewrite - scrappy & inefficient, can be optimized
+
+            if (msc_debug3) fprintf(mp_fp, "Beginning reference identification\n");
+
+            bool referenceFound = false; // bool to hold whether we've found the reference yet
+            bool changeRemoved = false; // bool to hold whether we've ignored the first output to sender as change
+            unsigned int potentialReferenceOutputs = 0; // int to hold number of potential reference outputs
+
+            // how many potential reference outputs do we have, if just one select it right here
             BOOST_FOREACH(const string &addr, address_data)
             {
-              if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
-              ++k;
-              if ((addr != exodus) && (addr != strSender))  // can't just remove strSender
-              {
-                strReference = addr;
-                break;
-              }
+                // keep Michael's original debug info & k int as used elsewhere
+                if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                ++k;
+
+                if (addr != exodus)
+                {
+                        ++potentialReferenceOutputs;
+                        if (1 == potentialReferenceOutputs)
+                        {
+                                strReference = addr;
+                                referenceFound = true;
+                                if (msc_debug3) fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
+                        }
+                        else //as soon as potentialReferenceOutputs > 1 we need to go fishing
+                        {
+                                strReference = ""; // avoid leaving strReference populated for sanity
+                                referenceFound = false;
+                                if (msc_debug3) fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
+                        }
+                }
             }
 
-#if 0
-            // if can't find the reference for a multisig tx -- assume the sender is sending MSC to itself !
-            if (strReference.empty()) strReference = strSender;
-#endif
+            // do we have a reference now? or do we need to dig deeper
+            if (!referenceFound) // multiple possible reference addresses
+            {
+                if (msc_debug3) fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
+
+                BOOST_FOREACH(const string &addr, address_data)
+                {
+                        // !!!! address_data is ordered by vout (i think - please confirm that's correct analysis?)
+                        if (addr != exodus) // removed strSender restriction, not to spec
+                        {
+                                if ((addr == strSender) && (!changeRemoved))
+                                {
+                                        // per spec ignore first output to sender as change if multiple possible ref addresses
+                                        changeRemoved = true;
+                                        if (msc_debug3) fprintf(mp_fp, "Removed change\n");
+                                }
+                                else
+                                {
+                                        // this may be set several times, but last time will be highest vout
+                                        strReference = addr;
+                                        if (msc_debug3) fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
+                                }
+                        }
+                }
+            }
+
+          if (msc_debug3) fprintf(mp_fp, "Ending reference identification\n");
+          if (msc_debug3) fprintf(mp_fp, "Final decision on reference identification is: %s \n ", strReference.c_str());
 
           if (msc_debug0) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets can be found here...
