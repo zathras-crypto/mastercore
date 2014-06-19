@@ -463,7 +463,7 @@ int rc = DEX_ERROR_SELLOFFER;
 }
 
 // returns 0 if everything is OK
-int DEx_offerCancel(string seller_addr, unsigned int curr)
+int DEx_offerDestroy(const string &seller_addr, unsigned int curr)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
@@ -476,8 +476,11 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 
   my_it = my_offers.find(combo);
 
-  update_tally_map(seller_addr, curr, amount, MONEY);   // give money back to the seller from SellOffer-Reserve
-  update_tally_map(seller_addr, curr, - amount, SELLOFFER_RESERVE);
+  if (amount)
+  {
+    update_tally_map(seller_addr, curr, amount, MONEY);   // give money back to the seller from SellOffer-Reserve
+    update_tally_map(seller_addr, curr, - amount, SELLOFFER_RESERVE);
+  }
 
   // delete the offer
   my_offers.erase(my_it);
@@ -498,7 +501,7 @@ int rc = DEX_ERROR_SELLOFFER;
 
   if (!DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -12); // offer does not exist
 
-  rc = DEx_offerCancel(seller_addr, curr);
+  rc = DEx_offerDestroy(seller_addr, curr);
 
   if (!rc)
   {
@@ -663,24 +666,28 @@ CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
 
   if (!p_accept) return (DEX_ERROR_PAYMENT -1);  // there must be an active Accept for this payment
 
-  const uint64_t BTC_desired_original = p_accept->getBTCDesiredOriginal();
-  const uint64_t offer_amount_original = p_accept->getOfferAmountOriginal();
+  const double BTC_desired_original = p_accept->getBTCDesiredOriginal();
+  const double offer_amount_original = p_accept->getOfferAmountOriginal();
 
   if (0==(double)BTC_desired_original) return (DEX_ERROR_PAYMENT -2);  // divide by 0 protection
 
-  double perc_X = (double)BTC_paid/(double)BTC_desired_original;
-  double Purchased = (double)offer_amount_original * perc_X;
+  double perc_X = (double)BTC_paid/BTC_desired_original;
+  double Purchased = offer_amount_original * perc_X;
 
   uint64_t units_purchased = rounduint64(Purchased);
 
   const uint64_t nActualAmount = p_accept->getAcceptAmountRemaining();  // actual amount desired, in the Accept
 
+  if (msc_debug_dex)
+   fprintf(mp_fp, "BTC_desired= %30.20lf , offer_amount=%30.20lf , perc_X= %30.20lf , Purchased= %30.20lf , units_purchased= %lu\n",
+   BTC_desired_original, offer_amount_original, perc_X, Purchased, units_purchased);
+
   // if units_purchased is greater than what's in the Accept, the buyer gets only what's in the Accept
   if (nActualAmount < units_purchased) units_purchased = nActualAmount;
 
-  if (update_tally_map(seller, curr, - nActualAmount, ACCEPT_RESERVE))
+  if (update_tally_map(seller, curr, - units_purchased, ACCEPT_RESERVE))
   {
-      update_tally_map(buyer, curr, nActualAmount, MONEY);
+      update_tally_map(buyer, curr, units_purchased, MONEY);
       rc = 0;
 
       fprintf(mp_fp, "#######################################################\n");
@@ -689,7 +696,16 @@ CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
   // reduce the amount of units still desired by the buyer and if 0 must destroy the Accept
   if (p_accept->reduceAcceptAmountRemaining_andIsZero(units_purchased))
   {
+  const uint64_t selloffer_reserve = getMPbalance(seller, curr, SELLOFFER_RESERVE);
+  const uint64_t accept_reserve = getMPbalance(seller, curr, ACCEPT_RESERVE);
+
     DEx_acceptDestroy(buyer, seller, curr, true);
+
+    // delete the Offer object if there is nothing in its Reserves -- everything got puchased and paid for
+    if ((0 == selloffer_reserve) && (0 == accept_reserve))
+    {
+      DEx_offerDestroy(seller, curr);
+    }
   }
 
   return rc;
@@ -905,7 +921,7 @@ private:
           {
             if (DEx_offerExists(sender, currency))
             {
-              rc = DEx_offerCancel(sender, currency);
+              rc = DEx_offerDestroy(sender, currency);
             }
           }
 
@@ -944,7 +960,7 @@ private:
               break;
 
             case CANCEL:
-              rc = DEx_offerCancel(sender, currency);
+              rc = DEx_offerDestroy(sender, currency);
               break;
 
             default:
