@@ -1460,7 +1460,8 @@ uint64_t txFee = 0;
               }
             }
 
-            if (strDataAddress.empty() || strReference.empty())
+//            if (strDataAddress.empty() || strReference.empty())
+            if (strDataAddress.empty()) // Jun 19 
             {
             // this must be the BTC payment - validate (?)
             // TODO
@@ -1472,6 +1473,7 @@ uint64_t txFee = 0;
 
             // TODO collect all payments made to non-itself & non-exodus and their amounts -- these may be purchases!!!
 
+              int count = 0;
               // go through the outputs, once again...
               {
                 for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -1483,15 +1485,16 @@ uint64_t txFee = 0;
                   const string strAddress = CBitcoinAddress(dest).ToString();
 
                     if (exodus == strAddress) continue;
-                    if (strSender == strAddress) continue;
-                    fprintf(mp_fp, "payment? %s %11.8lf\n", strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
+//                    if (strSender == strAddress) continue;
+                    fprintf(mp_fp, "payment #%d %s %11.8lf\n", ++count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
                     // check everything & pay BTC for the currency we are buying here...
                     DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock);
-                    return 0;
+//                    return 0;
                   }
                 }
               }
+              return count;
             }
             else
             {
@@ -1516,7 +1519,8 @@ uint64_t txFee = 0;
             BOOST_FOREACH(const string &addr, address_data)
             {
                 // keep Michael's original debug info & k int as used elsewhere
-                if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n",
+                 k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
                 ++k;
 
                 if (addr != exodus)
@@ -1727,6 +1731,7 @@ const int max_block = GetHeight();
     mastercore_handler_block(blockNum, pblockindex);
   }
 
+  printf("\n");
   for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
     // my_it->first = key
