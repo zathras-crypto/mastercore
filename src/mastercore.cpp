@@ -448,7 +448,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid) 
+int DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAugmented = NULL) 
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_SELLOFFER;
@@ -473,6 +473,8 @@ int rc = DEX_ERROR_SELLOFFER;
     amount_desired = rounduint64(BTC);
 
     nValue = balanceReallyAvailable;
+
+    if (nAugmented) *nAugmented = nValue;
   }
 
   if (update_tally_map(seller_addr, curr, - nValue, MONEY)) // subtract from what's available
@@ -517,7 +519,7 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 }
 
 // returns 0 if everything is OK
-int DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid) 
+int DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAugmented = NULL) 
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_SELLOFFER;
@@ -530,7 +532,7 @@ int rc = DEX_ERROR_SELLOFFER;
 
   if (!rc)
   {
-    rc = DEx_offerCreate(seller_addr, curr, nValue, block, desired, fee, btl, txid);
+    rc = DEx_offerCreate(seller_addr, curr, nValue, block, desired, fee, btl, txid, nAugmented);
   }
 
   return rc;
@@ -547,7 +549,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid)
+int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAugmented = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_ACCEPT;
@@ -580,7 +582,12 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
     return -205;
   }
 
-  if (nActualAmount > nValue) nActualAmount = nValue;
+  if (nActualAmount > nValue)
+  {
+    nActualAmount = nValue;
+
+    if (nAugmented) *nAugmented = nActualAmount;
+  }
 
   // TODO: think if we want to save nValue -- as the amount coming off the wire into the object or not
   if (update_tally_map(seller, curr, - nActualAmount, SELLOFFER_RESERVE))
@@ -680,7 +687,7 @@ const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
 
 // incoming BTC payment for the offer
 // TODO: verify proper partial payment handling
-int DEx_payment(string seller, string buyer, uint64_t BTC_paid, int blockNow)
+int DEx_payment(string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAugmented = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_PAYMENT;
@@ -708,7 +715,12 @@ CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
    BTC_desired_original, offer_amount_original, perc_X, Purchased, units_purchased);
 
   // if units_purchased is greater than what's in the Accept, the buyer gets only what's in the Accept
-  if (nActualAmount < units_purchased) units_purchased = nActualAmount;
+  if (nActualAmount < units_purchased)
+  {
+    units_purchased = nActualAmount;
+
+    if (nAugmented) *nAugmented = units_purchased;
+  }
 
   if (update_tally_map(seller, curr, - units_purchased, ACCEPT_RESERVE))
   {
@@ -794,10 +806,37 @@ private:
   uint64_t tx_fee_paid;
   unsigned int type, currency;
   unsigned short version; // = MP_TX_PKT_V0;
+  uint64_t nNewValue;
+
+public:
+//  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
+
+  unsigned int getType() const { return type; }
+  const string getTypeString() const { return string(c_strMastercoinType(getType())); }
+  unsigned int getCurrency() const { return currency; }
+
+  const string & getSender() const { return sender; }
+  const string & getReceiver() const { return receiver; }
+
+  uint64_t getAmount() const { return nValue; }
+  uint64_t getNewAmount() const { return nNewValue; }
 
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  // NOTE: TMSC is ignored for now...
+ //
+ // RETURNS:  0 if the packet is fully valid
+ // RETURNS: <0 if the packet is invalid
+ // RETURNS: >0 if the packet is valid, BUT nValue was augmented into nNewValue (funds adjusted up or down, use getNewAmount())
+ //
+ // 
+ // TODO: verify with Zathras & Faiz !!!
+ // the following functions may augment the amount in question (nValue):
+ // DEx_offerCreate()
+ // DEx_offerUpdate()
+ // DEx_acceptCreate()
+ // DEx_payment() -- DOES NOT fit nicely into the model, as it currently is NOT a MP TX (not even in leveldb) -- gotta rethink
+ //
  int interpretPacket()
  {
  uint64_t amount_desired, min_fee;
@@ -852,11 +891,11 @@ private:
           {
             if (!DEx_offerExists(sender, currency))
             {
-              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid);
+              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
             }
             else
             {
-              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid);
+              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
             }
           }
           else
@@ -895,11 +934,11 @@ private:
           switch (subaction)
           {
             case NEW:
-              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid);
+              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
               break;
 
             case UPDATE:
-              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid);
+              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
               break;
 
             case CANCEL:
@@ -925,7 +964,7 @@ private:
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
       // the min fee spec requirement is checked in the following function
-      rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid);
+      rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, &nNewValue);
       break;
 
     default:
@@ -934,18 +973,6 @@ private:
 
   return rc;
  }
-
-public:
-//  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
-
-  unsigned int getType() const { return type; }
-  const string getTypeString() const { return string(c_strMastercoinType(type)); }
-  unsigned int getCurrency() const { return currency; }
-
-  const string & getSender() const { return sender; }
-  const string & getReceiver() const { return receiver; }
-
-  uint64_t getAmount() const { return nValue; }
 
  int parse()
  {
@@ -994,6 +1021,7 @@ public:
     txid = 0;
     tx_idx = 0;  // tx # within the block, 0-based
     nValue = 0;
+    nNewValue = 0;
     tx_fee_paid = 0;
     block = -1;
     pkt_size = 0;
@@ -1002,7 +1030,7 @@ public:
     memset(&pkt, 0, sizeof(pkt));
   }
 
-  CMPTransaction() : block(-1), pkt_size(0), tx_fee_paid(0)
+  CMPTransaction()
   {
     SetNull();
   }
@@ -1023,6 +1051,7 @@ public:
     tx_idx = idx;
     pkt_size = size;
     nValue = n;
+    nNewValue = n;
     multi= fMultisig;
     tx_fee_paid = txf;
 
@@ -1038,16 +1067,12 @@ public:
 
   void print()
   {
-  int rc = - 31337;
-
     fprintf(mp_fp, "===BLOCK: %d =txid: %s =fee: %1.8lf ====\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
     fprintf(mp_fp, "sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
 
     if (0<pkt_size)
     {
       fprintf(mp_fp, "pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
-      rc = interpretPacket();
-      if (rc) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!!!!!!!!!!!!!!!!!!!!\n", rc);
     }
     else
     {
@@ -2339,8 +2364,7 @@ int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx)
 {
 CMPTransaction mp_obj;
 // save the augmented offer or accept amount into the database as well (expecting them to be numerically lower than that in the blockchain)
-unsigned int type = 0;
-uint64_t nValue = 0;
+int rc;
 
   if (nBlock < nWaterlineBlock) return -1;  // we do not care about parsing blocks prior to our waterline (empty blockchain defense)
 
@@ -2348,11 +2372,25 @@ uint64_t nValue = 0;
   {
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
+    rc = mp_obj.interpretPacket();
+    if (rc) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!!!!!!!!!!!!!!!!!!!!\n", rc);
+
     mp_obj.print();
 
     // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
     // FIXME: and of course only MP-related TXs will be recorded...
-    if (!disableLevelDB) p_txlistdb->recordTX(tx.GetHash(), false, nBlock, type, nValue);
+    if (!disableLevelDB)
+    {
+    bool bValid = (0 <= rc);
+    bool bValueAugmented = (0 < rc);
+
+
+      if (bValueAugmented)  // testing...
+      {
+      }
+
+      p_txlistdb->recordTX(tx.GetHash(), bValid, nBlock, mp_obj.getType(), mp_obj.getNewAmount());
+    }
   }
 
   return 0;
@@ -2659,10 +2697,11 @@ void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned 
   if (!pdb) return;
 
 const string key = txid.ToString();
-const string value = strprintf("%u:%d:%u%:lu", fValid ? 1:0, nBlock, type, nValue);
+const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, nValue);
 Status status;
 
-  fprintf(mp_fp, "%s(%s, valid=%s, block= %d), line %d, file: %s\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s(%s, valid=%s, block= %d, type= %d, value= %lu)\n",
+   __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, nValue);
 
   if (pdb)
   {
