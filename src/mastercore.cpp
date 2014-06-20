@@ -89,7 +89,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 1;
-static int disableLevelDB = 1;
+static int disableLevelDB = 0;
 static int disable_Persistence = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
@@ -792,52 +792,19 @@ private:
   uint64_t nValue;
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
+  unsigned int type, currency;
+  unsigned short version; // = MP_TX_PKT_V0;
 
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  // NOTE: TMSC is ignored for now...
  int interpretPacket()
  {
- unsigned short version = MP_TX_PKT_V0;
- unsigned int type, currency;
  uint64_t amount_desired, min_fee;
  unsigned char blocktimelimit, subaction = 0;
  int rc = PKT_ERROR;
 
-  if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
-  {
-    fprintf(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
-    return -(PKT_ERROR -1);
-  }
-
-  // collect version
-  memcpy(&version, &pkt[0], 2);
-  swapByteOrder16(version);
-
-  // blank out version bytes in the packet
-  pkt[0]=0; pkt[1]=0;
-  
-  memcpy(&type, &pkt[0], 4);
-  memcpy(&currency, &pkt[4], 4);
-  memcpy(&nValue, &pkt[8], 8);
-
-  // FIXME: only do swaps for little-endian system(s) !
-  swapByteOrder32(type);
-  swapByteOrder32(currency);
-  swapByteOrder64(nValue);
-
-  if (ignore_all_but_MSC)
-  if (currency != MASTERCOIN_CURRENCY_MSC)
-  {
-    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
-    return (PKT_ERROR -2);
-  }
-
-  fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
-
-  fprintf(mp_fp, "\t            type: %u (%s)\n", type, c_strMastercoinType(type));
-  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
-  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+  if (0>parse()) return -98765;
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -971,8 +938,73 @@ private:
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
+  unsigned int getType() const { return type; }
+  const string getTypeString() const { return string(c_strMastercoinType(type)); }
+  unsigned int getCurrency() const { return currency; }
+
+  const string & getSender() const { return sender; }
+  const string & getReceiver() const { return receiver; }
+
+  uint64_t getAmount() const { return nValue; }
+
+ int parse()
+ {
+  if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
+  {
+    fprintf(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
+    return -(PKT_ERROR -1);
+  }
+
+  // collect version
+  memcpy(&version, &pkt[0], 2);
+  swapByteOrder16(version);
+
+  // blank out version bytes in the packet
+  pkt[0]=0; pkt[1]=0;
+  
+  memcpy(&type, &pkt[0], 4);
+  memcpy(&currency, &pkt[4], 4);
+  memcpy(&nValue, &pkt[8], 8);
+
+  // FIXME: only do swaps for little-endian system(s) !
+  swapByteOrder32(type);
+  swapByteOrder32(currency);
+  swapByteOrder64(nValue);
+
+  if (ignore_all_but_MSC)
+  if (currency != MASTERCOIN_CURRENCY_MSC)
+  {
+    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
+    return (PKT_ERROR -2);
+  }
+
+  fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
+
+  fprintf(mp_fp, "\t            type: %u (%s)\n", type, c_strMastercoinType(type));
+  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
+  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+
+  return (type);
+ }
+
+  void SetNull()
+  {
+    currency = 0;
+    type = 0;
+    txid = 0;
+    tx_idx = 0;  // tx # within the block, 0-based
+    nValue = 0;
+    tx_fee_paid = 0;
+    block = -1;
+    pkt_size = 0;
+    sender.erase();
+    receiver.erase();
+    memset(&pkt, 0, sizeof(pkt));
+  }
+
   CMPTransaction() : block(-1), pkt_size(0), tx_fee_paid(0)
   {
+    SetNull();
   }
 
   void set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0)
@@ -2701,7 +2733,7 @@ boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
 int validity = atoi(vstr[0]);
 int block = atoi(vstr[1]);
 
-  printf("%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
+  if (msc_debug6) fprintf(mp_fp, "%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
   p_txlistdb->printStats();
 
   if (0 == validity) return false;
@@ -2830,93 +2862,125 @@ bool addressFilter;
         	throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
 
 	Array response; //prep an array to hold our output
-
-	// get current chain height
-	int blockheight=GetHeight();
+        CMPTransaction mp_obj;
 
 	LOCK(wallet->cs_wallet);
+        // rewrite to use original listtransactions methodology from core
+        std::list<CAccountingEntry> acentries;
+        CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
-	// partially lifted from my send_MP function above -- perhaps refactor & merge common code
-        for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
+        // iterate backwards until we have nCount items to return:
+        for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
-        const uint256& wtxid = it->first;
-        const CWalletTx& wtx = it->second;
-        bool bIsMine;
-	string MPTxType;
-	string selectedAddress;
-	string senderAddress;
-	string refAddress;
-	bool valid;
-	uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
-	bool divisible;
-	uint64_t amount;
-	string result;
+            CWalletTx *const pwtx = (*it).second.first;
+            if (pwtx != 0)
+	    {
+                uint256 wtxid = pwtx->GetHash();
+                bool bIsMine;
+        	bool isMPTx = false;
+                string MPTxType;
+                string selectedAddress;
+                string senderAddress;
+                string refAddress;
+                bool valid;
+                uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+                bool divisible;
+                uint64_t amount;
+                string result;
+		bool outgoingTransaction = false;
 
-	// is this a MP transaction? (we only include MP messages here)
-	if (p_txlistdb->getTX(wtxid, result))
-	{
-		// note - moved lookups inside this condition, avoid wasted compute looking up stuff we won't display
-
-		// use bitcoin functions for host transaction
-		int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
-		int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime;
-		int blockIndex = wtx.nIndex;
-
-		// use master protocol functions for embedded MP message
-		valid=IsMPTXvalid(wtxid);
-
-	        // make a call to somefunction() passing TXID to parse mptxtype/senderaddress/refaddress/curid/amount
-	        // *dummy data*, replace once parsing available on demand
-        	MPTxType="";
-	        senderAddress="";
-        	refAddress="";
-	        curId=1;
-        	divisible=true;
-        	amount=1337; // here we need to check leveldb for amount if selloffer/accept as value may have been amended
-		// confirmations=blockheight-blocknum;
-
-		// test sender and reference against ismine to determine which address is ours
-		// if both ours (eg sending to another address in wallet) use reference
-		bIsMine = IsMyAddress(senderAddress);
-		if (bIsMine)
-		{
-			selectedAddress=senderAddress;
-		}
- 		bIsMine = IsMyAddress(refAddress);
-                if (bIsMine)
+                mp_obj.SetNull();
+                if (0 == msc_tx_populate(*pwtx, 0, 0, &mp_obj))
                 {
-                	selectedAddress=refAddress;
+                        // OK, a valid MP transaction so far
+                        if (0<=mp_obj.parse())
+                        {
+                                isMPTx = true;
+        	        	MPTxType = mp_obj.getTypeString();
+                                senderAddress = mp_obj.getSender();
+        	                refAddress = mp_obj.getReceiver();
+	                        curId = mp_obj.getCurrency();
+                                divisible = true; // hard coded for now until SP support
+                                amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
+                        }
                 }
 
-		// are we filtering by address, if so compare
-		if ((!addressFilter) || (selectedAddress == addressParam))
-		{
-			// add the transaction object to the array
-     	  		Object txobj;
-        		txobj.push_back(Pair("txid", wtxid.ToString().c_str()));
-        		txobj.push_back(Pair("address", selectedAddress));
-        		txobj.push_back(Pair("confirmations", confirmations));
-	       		txobj.push_back(Pair("blocktime", blockTime));
-			txobj.push_back(Pair("blockindex", blockIndex));
-	       		txobj.push_back(Pair("type", MPTxType));
-			txobj.push_back(Pair("currency", curId));
-			txobj.push_back(Pair("divisible", divisible));
-			if (divisible)
-			{
-				txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
-			}
-			else
-			{
-				txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
-			}
-      			txobj.push_back(Pair("valid", valid));
-	  		response.push_back(txobj);
-		}
-	}
-	}
+                // is this a MP transaction? switched to parsing rather than leveldb at Michael's request
+                if (isMPTx)
+                {
+                        // use bitcoin functions for host transaction
+                        int confirmations = pwtx->GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
+                        int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
+                        int blockIndex = pwtx->nIndex;
 
-  // sort array here and cut on nFrom and nCount
+                        // use master protocol functions for embedded MP message
+                        valid=IsMPTXvalid(wtxid);
 
-  return response;   // return response array for JSON serialization
+                        // test sender and reference against ismine to determine which address is ours
+                        // if both ours (eg sending to another address in wallet) use reference
+                        bIsMine = IsMyAddress(senderAddress);
+                        if (bIsMine)
+                        {
+                                selectedAddress=senderAddress;
+				outgoingTransaction=true;
+                        }
+                        bIsMine = IsMyAddress(refAddress);
+                        if (bIsMine)
+                        {
+                                selectedAddress=refAddress;
+                        }
+
+                        // are we filtering by address, if so compare
+                        if ((!addressFilter) || (selectedAddress == addressParam))
+                        {
+                                // add the transaction object to the array
+                                Object txobj;
+                                txobj.push_back(Pair("txid", wtxid.GetHex()));
+                                txobj.push_back(Pair("address", selectedAddress));
+                                if (outgoingTransaction)
+                                {
+                                        txobj.push_back(Pair("direction", "out"));
+                                }
+                                else
+                                {
+                                        txobj.push_back(Pair("direction", "in"));
+                                }
+                                txobj.push_back(Pair("confirmations", confirmations));
+                                txobj.push_back(Pair("blocktime", blockTime));
+                                txobj.push_back(Pair("blockindex", blockIndex));
+                                txobj.push_back(Pair("type", MPTxType));
+                                txobj.push_back(Pair("currency", curId));
+                                txobj.push_back(Pair("divisible", divisible));
+                                if (divisible)
+                                {
+                                        txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                }
+                                else
+                                {
+                                        txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                                }
+                                txobj.push_back(Pair("valid", valid));
+                                response.push_back(txobj);
+                        }
+                }
+            }
+            if ((int)response.size() >= (nCount+nFrom)) break; //don't burn time doing more work than we need to
+    }
+
+    // sort array here and cut on nFrom and nCount
+    if (nFrom > (int)response.size())
+        nFrom = response.size();
+    if ((nFrom + nCount) > (int)response.size())
+        nCount = response.size() - nFrom;
+    Array::iterator first = response.begin();
+    std::advance(first, nFrom);
+    Array::iterator last = response.begin();
+    std::advance(last, nFrom+nCount);
+
+    if (last != response.end()) response.erase(last, response.end());
+    if (first != response.begin()) response.erase(response.begin(), first);
+
+    std::reverse(response.begin(), response.end()); // Return oldest to newest
+    return response;   // return response array for JSON serialization
 }
 

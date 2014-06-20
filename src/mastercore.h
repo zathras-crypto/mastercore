@@ -256,7 +256,7 @@ public:
 
     void printStats()
     {
-      printf("CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+      fprintf(mp_fp, "CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
     }
 
     void printAll();
