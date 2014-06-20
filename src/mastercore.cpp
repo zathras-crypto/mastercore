@@ -2800,60 +2800,123 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 {
 CWallet *wallet = pwalletMain;
 string sAddress = "";
+string addressParam = "";
+bool addressFilter;
 
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() > 3)
         throw runtime_error(
             "*** SOME *** HELP *** GOES *** HERE ***\n"
             + HelpExampleCli("*************_MP", "\"-------------\"")
             + HelpExampleRpc("*****************_MP", "\"-----------------\"")
         );
 
-const string AddressGiven = params[0].get_str();
+	//if 0 params consider all addresses in wallet, otherwise first param is filter address
+	addressFilter = false;
+	if (params.size() > 0)
+	{
+        	addressParam = params[0].get_str();
+		addressFilter = true;
+	}
+	int nCount = 10;
+	if (params.size() > 1)
+        	nCount = params[1].get_int();
+	int nFrom = 0;
+	if (params.size() > 2)
+        	nFrom = params[2].get_int();
 
-  LOCK(wallet->cs_wallet);
+	if (nCount < 0)
+	        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+	if (nFrom < 0)
+        	throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
 
-        // partially lifted from my send_MP function above -- perhaps refactor & merge common code
+	Array response; //prep an array to hold our output
+
+	// get current chain height
+	int blockheight=GetHeight();
+
+	LOCK(wallet->cs_wallet);
+
+	// partially lifted from my send_MP function above -- perhaps refactor & merge common code
         for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
         {
         const uint256& wtxid = it->first;
-        const CWalletTx* pcoin = &(*it).second;
+        const CWalletTx& wtx = it->second;
         bool bIsMine;
-        bool bIsSpent;
+	string MPtxtype;
+	string selectedAddress;
+	string senderAddress;
+	string refAddress;
+	bool valid;
+	uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+	bool divisible;
+	uint64_t amount;
+	string result;
 
-//            if (pcoin->IsTrusted())
-            {
-            const int64_t nAvailable = pcoin->GetAvailableCredit();
+	// is this a MP transaction? (we only include MP messages here)
+	if (p_txlistdb->getTX(wtxid, result))
+	{
+		// note - moved lookups inside this condition, avoid wasted compute looking up stuff we won't display
 
-              if (!nAvailable) continue;
-              printf("----------------------------------------\n");
+		// use bitcoin functions for host transaction
+		int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
+		int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime
+		int blockIndex = wtx.nIndex;
 
-     for (unsigned int i = 0; i < pcoin->vout.size(); i++)
-        {
-                CTxDestination dest;
+		// use master protocol functions for embedded MP message
+		valid=IsMPTXvalid(wtxid);
 
-                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
-                    continue;
+	        // make a call to somefunction() passing TXID to parse mptxtype/senderaddress/refaddress/curid/amount
+	        // *dummy data*, replace once parsing available on demand
+        	MPTxType="";
+	        senderAddress="";
+        	refAddress="";
+	        curid=1;
+        	divisible=true;
+        	amount=1337; // here we need to check leveldb for amount if selloffer/accept as value may have been amended
+		// confirmations=blockheight-blocknum;
 
-                bIsMine = IsMine(*wallet, dest);
-                bIsSpent = wallet->IsSpent(wtxid, i);
+		// test sender and reference against ismine to determine which address is ours
+		// if both ours (eg sending to another address in wallet) use reference
+		bIsMine = IsMyAddress(senderAddress);
+		if (bIsMine)
+		{
+			selectedAddress=senderAddress;
+		}
+ 		bIsMine = IsMyAddress(refAddress);
+                if (bIsMine)
+                {
+                	selectedAddress=refAddress;
+                }
 
-//                if (!bIsMine || bIsSpent) continue;
+		// are we filtering by address, if so compare
+		if ((!addressFilter) || (selectedAddress == addressParam))
+		{
+			// add the transaction object to the array
+     	  		Object txobj;
+        		txobj.push_back(Pair("txid", wtxid.ToString().c_str()));
+        		txobj.push_back(Pair("address", selectedAddress));
+        		txobj.push_back(Pair("confirmations", confirmations));
+	       		txobj.push_back(Pair("blocktime", blockTime));
+			txobj.push_back(Pair("blockindex", blockIndex));
+	       		txobj.push_back(Pair("type", MPTxType));
+			txobj.push_back(Pair("currency", curId));
+			txobj.push_back(Pair("divisible", divisible));
+			if (divisible)
+			{
+				txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+			}
+			else
+			{
+				txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+			}
+      			txobj.push_back(Pair("valid", valid));
+	  		response.push_back(txobj);
+		}
+	}
+	}
 
-                int64_t nSatoshis = bIsSpent ? 0 : pcoin->vout[i].nValue;
+  // sort array here and cut on nFrom and nCount
 
-                sAddress = CBitcoinAddress(dest).ToString();
-
-                printf("%s ; txid= %s ; IsMine()=%s:IsSpent()=%s:i=%d, nValue= %lu\n",
-                 sAddress.c_str(), wtxid.ToString().c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", i, nSatoshis);
-
-            if (AddressGiven == sAddress)
-            {
-              printf(">>> MATCHES: %s\n", AddressGiven.c_str());
-            }
-        }
-            }
-        }
-
-  return Value::null;   // TODO: what are we returning here??? Zathras?
+  return response;   // return response array for JSON serialization
 }
 
