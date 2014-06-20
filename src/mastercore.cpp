@@ -89,7 +89,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 1;
-static int disableLevelDB = 1;
+static int disableLevelDB = 0;
 static int disable_Persistence = 1;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
@@ -792,52 +792,19 @@ private:
   uint64_t nValue;
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
+  unsigned int type, currency;
+  unsigned short version; // = MP_TX_PKT_V0;
 
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  // NOTE: TMSC is ignored for now...
  int interpretPacket()
  {
- unsigned short version = MP_TX_PKT_V0;
- unsigned int type, currency;
  uint64_t amount_desired, min_fee;
  unsigned char blocktimelimit, subaction = 0;
  int rc = PKT_ERROR;
 
-  if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
-  {
-    fprintf(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
-    return -(PKT_ERROR -1);
-  }
-
-  // collect version
-  memcpy(&version, &pkt[0], 2);
-  swapByteOrder16(version);
-
-  // blank out version bytes in the packet
-  pkt[0]=0; pkt[1]=0;
-  
-  memcpy(&type, &pkt[0], 4);
-  memcpy(&currency, &pkt[4], 4);
-  memcpy(&nValue, &pkt[8], 8);
-
-  // FIXME: only do swaps for little-endian system(s) !
-  swapByteOrder32(type);
-  swapByteOrder32(currency);
-  swapByteOrder64(nValue);
-
-  if (ignore_all_but_MSC)
-  if (currency != MASTERCOIN_CURRENCY_MSC)
-  {
-    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
-    return (PKT_ERROR -2);
-  }
-
-  fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
-
-  fprintf(mp_fp, "\t            type: %u (%s)\n", type, c_strMastercoinType(type));
-  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
-  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+  if (0>parse()) return -98765;
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -971,8 +938,73 @@ private:
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
+  unsigned int getType() const { return type; }
+  const string getTypeString() const { return string(c_strMastercoinType(type)); }
+  unsigned int getCurrency() const { return currency; }
+
+  const string & getSender() const { return sender; }
+  const string & getReceiver() const { return receiver; }
+
+  uint64_t getAmount() const { return nValue; }
+
+ int parse()
+ {
+  if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
+  {
+    fprintf(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
+    return -(PKT_ERROR -1);
+  }
+
+  // collect version
+  memcpy(&version, &pkt[0], 2);
+  swapByteOrder16(version);
+
+  // blank out version bytes in the packet
+  pkt[0]=0; pkt[1]=0;
+  
+  memcpy(&type, &pkt[0], 4);
+  memcpy(&currency, &pkt[4], 4);
+  memcpy(&nValue, &pkt[8], 8);
+
+  // FIXME: only do swaps for little-endian system(s) !
+  swapByteOrder32(type);
+  swapByteOrder32(currency);
+  swapByteOrder64(nValue);
+
+  if (ignore_all_but_MSC)
+  if (currency != MASTERCOIN_CURRENCY_MSC)
+  {
+    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
+    return (PKT_ERROR -2);
+  }
+
+  fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
+
+  fprintf(mp_fp, "\t            type: %u (%s)\n", type, c_strMastercoinType(type));
+  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, c_strMastercoinCurrency(currency));
+  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+
+  return (type);
+ }
+
+  void SetNull()
+  {
+    currency = 0;
+    type = 0;
+    txid = 0;
+    tx_idx = 0;  // tx # within the block, 0-based
+    nValue = 0;
+    tx_fee_paid = 0;
+    block = -1;
+    pkt_size = 0;
+    sender.erase();
+    receiver.erase();
+    memset(&pkt, 0, sizeof(pkt));
+  }
+
   CMPTransaction() : block(-1), pkt_size(0), tx_fee_paid(0)
   {
+    SetNull();
   }
 
   void set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0)
@@ -2701,7 +2733,7 @@ boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
 int validity = atoi(vstr[0]);
 int block = atoi(vstr[1]);
 
-  printf("%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
+  if (msc_debug6) fprintf(mp_fp, "%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
   p_txlistdb->printStats();
 
   if (0 == validity) return false;
@@ -2834,6 +2866,8 @@ bool addressFilter;
 	// get current chain height
 	int blockheight=GetHeight();
 
+  CMPTransaction mp_obj;
+
 	LOCK(wallet->cs_wallet);
 
 	// partially lifted from my send_MP function above -- perhaps refactor & merge common code
@@ -2847,10 +2881,25 @@ bool addressFilter;
 	string senderAddress;
 	string refAddress;
 	bool valid;
-	uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+	uint64_t curId = 0;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
 	bool divisible;
-	uint64_t amount;
+	uint64_t amount = 0;
 	string result;
+
+  mp_obj.SetNull();
+  if (0 == msc_tx_populate(wtx, 0, 0, &mp_obj))
+  {
+    // OK, a valid MP transaction so far
+
+    if (0<=mp_obj.parse())
+    {
+        	MPTxType = mp_obj.getTypeString();
+	        senderAddress = mp_obj.getSender();
+        	refAddress = mp_obj.getReceiver();
+	        curId = mp_obj.getCurrency();
+          amount = mp_obj.getAmount();
+    }
+  }
 
 	// is this a MP transaction? (we only include MP messages here)
 	if (p_txlistdb->getTX(wtxid, result))
@@ -2867,12 +2916,14 @@ bool addressFilter;
 
 	        // make a call to somefunction() passing TXID to parse mptxtype/senderaddress/refaddress/curid/amount
 	        // *dummy data*, replace once parsing available on demand
+/*
         	MPTxType="";
 	        senderAddress="";
         	refAddress="";
 	        curId=1;
-        	divisible=true;
         	amount=1337; // here we need to check leveldb for amount if selloffer/accept as value may have been amended
+*/
+        	divisible=true;
 		// confirmations=blockheight-blocknum;
 
 		// test sender and reference against ismine to determine which address is ours
