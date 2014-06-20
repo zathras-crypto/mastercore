@@ -2842,7 +2842,7 @@ bool addressFilter;
         const uint256& wtxid = it->first;
         const CWalletTx& wtx = it->second;
         bool bIsMine;
-	string MPtxtype;
+	string MPTxType;
 	string selectedAddress;
 	string senderAddress;
 	string refAddress;
@@ -2859,7 +2859,7 @@ bool addressFilter;
 
 		// use bitcoin functions for host transaction
 		int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
-		int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime
+		int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime;
 		int blockIndex = wtx.nIndex;
 
 		// use master protocol functions for embedded MP message
@@ -2870,7 +2870,7 @@ bool addressFilter;
         	MPTxType="";
 	        senderAddress="";
         	refAddress="";
-	        curid=1;
+	        curId=1;
         	divisible=true;
         	amount=1337; // here we need to check leveldb for amount if selloffer/accept as value may have been amended
 		// confirmations=blockheight-blocknum;
