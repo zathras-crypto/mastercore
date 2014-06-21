@@ -2762,9 +2762,17 @@ Iterator* it = pdb->NewIterator(readoptions);
   delete it;
 }
 
-bool IsMPTXvalid(const uint256 &txid)
+// call it like so (variable # of parameters):
+// int block = 0;
+// ...
+// uint64_t nNew = 0;
+//
+// if (getValidMPTX(txid, &block, &type, &nNew)) // if true -- the TX is a valid MP TX
+//
+bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAugmented = NULL)
 {
 string result;
+int validity = 0;
 
   if (msc_debug6) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 
@@ -2772,16 +2780,35 @@ string result;
 
   if (!p_txlistdb->getTX(txid, result)) return false;
 
-  // parse the string returned, find the validity flag/bit
-std::vector<std::string> vstr;
-boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
-int validity = atoi(vstr[0]);
-int block = atoi(vstr[1]);
+  // parse the string returned, find the validity flag/bit & other parameters
+  std::vector<std::string> vstr;
+  boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
 
-  if (msc_debug6) fprintf(mp_fp, "%s():%s;validity=%d, block= %d\n", __FUNCTION__, result.c_str(), validity, block);
+  printf("%s() size=%lu : %s\n", __FUNCTION__, vstr.size(), result.c_str());
+
+  if (1 <= vstr.size()) validity = atoi(vstr[0]);
+
+  if (block)
+  {
+    if (2 <= vstr.size()) *block = atoi(vstr[1]);
+    else *block = 0;
+  }
+
+  if (type)
+  {
+    if (3 <= vstr.size()) *type = atoi(vstr[2]);
+    else *type = 0;
+  }
+
+  if (nAugmented)
+  {
+    if (4 <= vstr.size()) *nAugmented = boost::lexical_cast<boost::uint64_t>(vstr[3]);
+    else nAugmented = 0;
+  }
+
   p_txlistdb->printStats();
 
-  if (0 == validity) return false;
+  if ((int)0 == validity) return false;
 
   return true;
 }
@@ -2848,7 +2875,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
     // check out leveldb KV store to see if the transaction is found and is valid per Master Protocol rules
     // perhaps I need to distinguish whether it is not found or not valid at this level and report via JSON (?)
-    if (IsMPTXvalid(hash))
+    if (getValidMPTX(hash))
     {
       // TODO: JSON error - MP transaction is invalid !
       printf("%s() MP TX is VALID ! line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
@@ -2959,7 +2986,7 @@ bool addressFilter;
                         int blockIndex = pwtx->nIndex;
 
                         // use master protocol functions for embedded MP message
-                        valid=IsMPTXvalid(wtxid);
+                        valid=getValidMPTX(wtxid);
 
                         // test sender and reference against ismine to determine which address is ours
                         // if both ours (eg sending to another address in wallet) use reference
