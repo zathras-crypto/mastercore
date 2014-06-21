@@ -91,7 +91,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 1;
 static int disableLevelDB = 0;
-static int disable_Persistence = 1;
+static int disable_Persistence = 0;
 
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_SELLOFFER_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
@@ -2791,7 +2791,7 @@ int validity = 0;
   std::vector<std::string> vstr;
   boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
 
-  printf("%s() size=%lu : %s\n", __FUNCTION__, vstr.size(), result.c_str());
+  fprintf(mp_fp, "%s() size=%lu : %s\n", __FUNCTION__, vstr.size(), result.c_str());
 
   if (1 <= vstr.size()) validity = atoi(vstr[0]);
 
@@ -2885,6 +2885,12 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 uint64_t amount;
                 string result;
                 bool outgoingTransaction = false;
+                bool selloffer = false;
+                uint64_t sell_minfee = 0;
+                unsigned char sell_timelimit = 0;
+                unsigned char sell_subaction = 0;
+                uint64_t sell_btcdesired = 0;
+
                 int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
                 uint256 blockHash = wtx.hashBlock;
                 if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash]))
@@ -2902,6 +2908,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
 
                 mp_obj.SetNull();
+                CMPOffer temp_offer;
                 if (0 == msc_tx_populate(wtx, 0, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
@@ -2914,6 +2921,15 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 curId = mp_obj.getCurrency();
                                 divisible = true; // hard coded for now until SP support
                                 amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
+
+           		        if ((0 < mp_obj.interpretPacket(&temp_offer)) && (MSC_TYPE_TRADE_OFFER == mp_obj.getType()))
+                                {
+                                           sell_minfee = temp_offer.getMinFee();
+                                           sell_timelimit = temp_offer.getBlockTimeLimit();
+                                           sell_subaction = temp_offer.getSubaction();
+                                           sell_btcdesired = temp_offer.getBTCDesiredOriginal();
+                                           selloffer = true;
+                                }
                         }
                 }
                 else
@@ -2922,7 +2938,6 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 }
                 if (isMPTx)
                 {
-
                         // use master protocol functions for embedded MP message
                         int tmpblock=0;
                         uint32_t tmptype=0;
@@ -2937,40 +2952,47 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         if (bIsMine)
                         {
                                 outgoingTransaction=true;
-                                txobj.push_back(Pair("txid", wtxid.GetHex()));
-                                txobj.push_back(Pair("sendingaddress", senderAddress));
-                                txobj.push_back(Pair("referenceaddress", refAddress));
-                                if (outgoingTransaction)
-                                {
-                                        txobj.push_back(Pair("direction", "out"));
-                                }
-                                else
-                                {
-                                        txobj.push_back(Pair("direction", "in"));
-                                }
-                                txobj.push_back(Pair("confirmations", confirmations));
-                                txobj.push_back(Pair("fee", ValueFromAmount(nFee)));
-                                txobj.push_back(Pair("blocktime", blockTime));
-                                txobj.push_back(Pair("blockindex", blockIndex));
-                                txobj.push_back(Pair("type", MPTxType));
-                                txobj.push_back(Pair("currency", curId));
-                                txobj.push_back(Pair("divisible", divisible));
-                                if (divisible)
-                                {
-                                        txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
-                                }
-                                else
-                                {
-                                        txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
-                                }
-                                txobj.push_back(Pair("valid", valid));
                         }
+                        txobj.push_back(Pair("txid", wtxid.GetHex()));
+                        txobj.push_back(Pair("sendingaddress", senderAddress));
+                        if (!selloffer) txobj.push_back(Pair("referenceaddress", refAddress));
+                        if (outgoingTransaction)
+                        {
+                                txobj.push_back(Pair("direction", "out"));
+                        }
+                        else
+                        {
+                                txobj.push_back(Pair("direction", "in"));
+                        }
+                        txobj.push_back(Pair("confirmations", confirmations));
+                        txobj.push_back(Pair("fee", ValueFromAmount(nFee)));
+                        txobj.push_back(Pair("blocktime", blockTime));
+                        txobj.push_back(Pair("blockindex", blockIndex));
+                        txobj.push_back(Pair("type", MPTxType));
+                        txobj.push_back(Pair("currency", curId));
+                        txobj.push_back(Pair("divisible", divisible));
+                        if (divisible)
+                        {
+                                txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                        }
+                        else
+                        {
+                                txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                        }
+			if (selloffer)
+                        {
+                        txobj.push_back(Pair("feerequired", ValueFromAmount(sell_minfee)));
+                        txobj.push_back(Pair("timelimit", sell_timelimit));
+                        if (1 == sell_subaction) txobj.push_back(Pair("subaction", "New"));
+			if (2 == sell_subaction) txobj.push_back(Pair("subaction", "Update"));
+			if (3 == sell_subaction) txobj.push_back(Pair("subaction", "Cancel"));
+                        txobj.push_back(Pair("bitcoindesired", ValueFromAmount(sell_btcdesired)));
+                        }
+                        txobj.push_back(Pair("valid", valid));
                 }
-    // here ends
     return txobj;
 }
 
-// TODO: rename this function and the corresponding RPC call, once I understand better what it's supposed to do with Zathras' help
 Value listtransactions_MP(const Array& params, bool fHelp)
 {
 CWallet *wallet = pwalletMain;
