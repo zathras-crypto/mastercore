@@ -3,6 +3,8 @@ Master Protocol Core integration/staging tree
 
 http://www.mastercoin.org
 
+The Master Protocol is a communications protocol that uses the Bitcoin block chain to enable features such as smart contracts, user currencies and decentralized peer-to-peer exchanges. A common analogy that is used to describe the relation of the Master Protocol to Bitcoin is that of HTTP to TCP/IP: HTTP, like the Master Protocol, is the application layer to the more fundamental transport and internet layer of TCP/IP, like Bitcoin.
+
 Warning
 --------------
 
@@ -10,23 +12,51 @@ Mastercore should be considered an alpha-level product, and you use it at your o
 
 Further, please note that this particular installation of Mastercore should be viewed as experimental.  Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
 
-You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!!!
+*You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!*
+
+Verified Preseed
+--------------------
+
+It contains my old balance snapshot preseed now an external text file, easy to inspect.  
+Post-preseed parsing starts from next block, right now hard-coded.
 
 May 3rd change -- unzip this (txt file) into your bitcoin data directory, i.e. ~/.bitcoin:  
 https://anonfiles.com/file/78dffbb28109366ee95ccd97276b96a7
 
-It contains my old balance snapshot preseed now an external text file, easy to inspect.  
-Post-preseed parsing starts from next block, right now hard-coded.
-=======================================================================================  
+Installation
+------------
 
-Michael's notes:
+```
+./autogen
+./configure
+make
+```
 
+Known Issues:
+----------------
+* Payments for DEx transactions not currently available in history
+
+* Transactions before preseed (290630) not currently available in history
+
+* Feel free to open more Github issues with other new bugs or improvement suggestions
+
+Pending additions:
+------------------
+
+* gettransaction_MP output should display matched sell offer txid
+
+Team/Michael's notes:
+------------------------
+
+```
 I'll be making a list of portions of the code I'd like to get reviewed soon -- with your deep protocol knowledge: logic, consensus, etc.
 
 I run on Linux -- in a terminal run: src/qt/bitcoin-qt and monitor the output on that terminal -- new Master messages will show up and be decoded.
+
 Another thing you want to monitor is the Core's debug file, like so: tail -f ~/.bitcoin/debug.log
 
 I've ripped out much stuff due to refactoring: RPC, QT -- all you can do is watch the terminal right now, but I'll be adding all that stuff back today.
+
 So, I'll be pushing updates up throughout the day & the weekend.
 
 ----------------------------------------------------------------
@@ -49,21 +79,23 @@ From my older TODO list -- will be updating to reflect today's reality:
   8) most important: figure out all the coins in existence and add all that prebuilt data  
   9) build in consesus checks with the masterchain.info & masterchest.info -- possibly run them automatically, daily (?)  
  10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
-
+```
 
 DISCLAIMER - PLEASE READ - TEST ONLY: 
 ============================ 
 
-This software is EXPERIMENTAL software for TESTING only." 
+By using this software you hereby agree to the full knowledge of the following:
 
-"ALL USE OF THIS SOFTWARE IS ENTIRELY AT YOUR OWN RISK." 
+This software is EXPERIMENTAL software for TESTING only. 
 
-"The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future." 
+ALL USE OF THIS SOFTWARE IS ENTIRELY AT YOUR OWN RISK. 
 
-"DO NOT USE IT WITH A LARGE AMOUNT OF MASTERCOINS AND/OR BITCOINS.  IT IS ENTIRELY POSSIBLE YOU MAY LOSE ALL YOUR COINS.  INFORMATION DISPLAYED MAY BE INCORRECT.  MASTERCORE OFFERS ABSOLUTELY NO GUARANTEES OF ANY KIND." 
+The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future. 
 
-"A fraction of a bitcoin and a fraction of a mastercoin are the suggested testing amounts.  Preferably use a fresh bitcoin wallet.dat." 
+DO NOT USE IT WITH A LARGE AMOUNT OF MASTERCOINS AND/OR BITCOINS.  IT IS ENTIRELY POSSIBLE YOU MAY LOSE ALL YOUR COINS.  INFORMATION DISPLAYED MAY BE INCORRECT.  MASTERCORE OFFERS ABSOLUTELY NO GUARANTEES OF ANY KIND.
 
-"DO *NOT* USE THIS SOFTWARE WITH WALLETS CONTAINING, OR TRANSACT WITH, SIGNIFICANT AMOUNTS - IT IS FOR TESTING ONLY." 
+A fraction of a bitcoin and a fraction of a mastercoin are the suggested testing amounts.  Preferably use a fresh bitcoin wallet.dat.
 
-"This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws."
+DO *NOT* USE THIS SOFTWARE WITH WALLETS CONTAINING, OR TRANSACT WITH, SIGNIFICANT AMOUNTS - IT IS FOR TESTING ONLY.
+
+This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws.
