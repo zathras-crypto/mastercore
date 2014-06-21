@@ -139,9 +139,9 @@ char *c_strMastercoinType(int i)
   {
     case MSC_TYPE_SIMPLE_SEND: return ((char *)"Simple Send");
     case 1: return ((char *)"Investment Send");
-    case MSC_TYPE_TRADE_OFFER: return ((char *)"Selling coins for BTC, trade offer");
+    case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
     case 21: return ((char *)"Offer/Accept one Master Protocol Coins for another");
-    case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"Accepting offer, buying coins with BTC");
+    case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
     case MSC_TYPE_PROMOTE_PROPERTY: return ((char *)"Promote Property");
