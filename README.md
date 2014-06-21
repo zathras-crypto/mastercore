@@ -1,63 +1,71 @@
-mscd
+Master Core integration/staging tree
+=================================================
 
-Mastercore should be considered an alpha-level product, and you use it at your own risk.  Neither the Mastercoin Foundation nor the Mastercore developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
+What is the Master Protocol
+----------------------------
+The Master Protocol is a communications protocol that uses the Bitcoin block chain to enable features such as smart contracts, user currencies and decentralized peer-to-peer exchanges. A common analogy that is used to describe the relation of the Master Protocol to Bitcoin is that of HTTP to TCP/IP: HTTP, like the Master Protocol, is the application layer to the more fundamental transport and internet layer of TCP/IP, like Bitcoin.
 
-Further, please note that this particular installation of Mastercore should be viewed as experimental.  Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
+http://www.mastercoin.org
 
-You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!!!
+What is Master Core
+---------------------------
 
-May 3rd change -- unzip this (txt file) into your bitcoin data directory, i.e. ~/.bitcoin:  
-https://anonfiles.com/file/78dffbb28109366ee95ccd97276b96a7
+Master Core is a fast, portable Master Protocol implementation that is based off the Bitcoin Core codebase (currently 0.9.1). This implementation requires no external dependencies extraneous to Bitcoin Core, and is native to the Bitcoin network just like other Bitcoin nodes. It currently has two modes, in its wallet form it will be seamlessly available on 3 platforms: Windows, Linux & Mac OS, and its node form exposes Master Protocol extensions via JSON-RPC. Development has been consolidated on the Master Core product, and once officially released it will become the reference client for the Master Protocol.
 
-It contains my old balance snapshot preseed now an external text file, easy to inspect.  
-Post-preseed parsing starts from next block, right now hard-coded.
-=======================================================================================  
+Disclaimer, Warning
+--------------
 
-Michael's notes:
+This software is EXPERIMENTAL software for **TESTNET TRANSACTIONS** only. *USE ON MAINNET AT YOUR OWN RISK.*
 
-I'll be making a list of portions of the code I'd like to get reviewed soon -- with your deep protocol knowledge: logic, consensus, etc.
+The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future. 
 
-I run on Linux -- in a terminal run: src/qt/bitcoin-qt and monitor the output on that terminal -- new Master messages will show up and be decoded.
-Another thing you want to monitor is the Core's debug file, like so: tail -f ~/.bitcoin/debug.log
+Master Core should be considered an alpha-level product, and you use it at your own risk.  Neither the Mastercoin Foundation nor the Master Core developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
 
-I've ripped out much stuff due to refactoring: RPC, QT -- all you can do is watch the terminal right now, but I'll be adding all that stuff back today.
-So, I'll be pushing updates up throughout the day & the weekend.
+Further, please note that this particular installation of Master Core should be viewed as experimental.  Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
 
-----------------------------------------------------------------
-Michael's questions -- anyone who knows please add a reply (add more questions as you like):
+This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws.
 
- Q1. Not major -- I don't handle Endianness in the code yet (easy, but on a TODO list), assume little-endian -- only applies to Master packet parsing -- do any of you?
- A1. answer here please.......
+*You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!*
 
-----------------------------------------------------------------
-From my older TODO list -- will be updating to reflect today's reality:
+Testnet
+-------------------
 
- THE TODO LIST, WHAT'S MISSING, NOT DONE YET:  
-  1) checks to ensure the seller has enough funds  
-  2) checks to ensure the sender has enough funds  
-  3) checks to ensure there are enough funds when the 'accept' message is received  
-  4) partial order fulfilment is not yet handled (spec says all is sold if larger than available is put on sale, etc.)  
-  5) return false as needed and check returns of msc_update_* functions  
-  6) verify large-number calculations (especially divisions & multiplications)  
-  7) need to detect cancelations & updates of sell offers -- and handle partially fullfilled offers...  
-  8) most important: figure out all the coins in existence and add all that prebuilt data  
-  9) build in consesus checks with the masterchain.info & masterchest.info -- possibly run them automatically, daily (?)  
- 10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
+1. To run Master Core in testnet mode, run mastercore with the following option in place: ``` -testnet ```.
+2. Add your address to the list of addresses in your Bitcoin data Testnet dir (usually: ~/.bitcoin/testnet3/mastercoin_balances.txt) to give yourself testnet MSC. 
+
+All functions in this mode will be TESTNET-ONLY (eg. send_MP).
+
+Preseeding
+--------------------
+
+During initial development balances have been pre-seeded up until block 290629 (the block prior to the Distributed Exchange launch).  Please copy the preseed file into your bitcoin data directory prior to first run. As persistence has been achieved pre-seeding will be removed during future development. 
+
+To install:
+
+* Add the mastercoin-balances.txt file in the Bitcoin data dir ( usually: ~/.bitcoin/ )
 
 
-DISCLAIMER - PLEASE READ - TEST ONLY: 
-============================ 
+Installation
+------------
 
-This software is EXPERIMENTAL software for TESTING only." 
+*NOTE: This will only build on Linux for now.*
 
-"ALL USE OF THIS SOFTWARE IS ENTIRELY AT YOUR OWN RISK." 
+```
+./autogen
+./configure
+make
+```
 
-"The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future." 
+Known Issues:
+----------------
+* Payments for DEx transactions not currently available in history
 
-"DO NOT USE IT WITH A LARGE AMOUNT OF MASTERCOINS AND/OR BITCOINS.  IT IS ENTIRELY POSSIBLE YOU MAY LOSE ALL YOUR COINS.  INFORMATION DISPLAYED MAY BE INCORRECT.  MASTERCORE OFFERS ABSOLUTELY NO GUARANTEES OF ANY KIND." 
+* Transactions before preseed (290630) not currently available in history
 
-"A fraction of a bitcoin and a fraction of a mastercoin are the suggested testing amounts.  Preferably use a fresh bitcoin wallet.dat." 
+* Feel free to open more Github issues with other new bugs or improvement suggestions
 
-"DO *NOT* USE THIS SOFTWARE WITH WALLETS CONTAINING, OR TRANSACT WITH, SIGNIFICANT AMOUNTS - IT IS FOR TESTING ONLY." 
+Pending additions:
+------------------
 
-"This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws."
+* gettransaction_MP output should display matched sell offer txid
+
