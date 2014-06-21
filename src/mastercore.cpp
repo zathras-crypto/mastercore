@@ -449,7 +449,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAugmented = NULL) 
+int DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL) 
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_SELLOFFER;
@@ -475,7 +475,7 @@ int rc = DEX_ERROR_SELLOFFER;
 
     nValue = balanceReallyAvailable;
 
-    if (nAugmented) *nAugmented = nValue;
+    if (nAmended) *nAmended = nValue;
   }
 
   if (update_tally_map(seller_addr, curr, - nValue, MONEY)) // subtract from what's available
@@ -520,7 +520,7 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 }
 
 // returns 0 if everything is OK
-int DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAugmented = NULL) 
+int DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL) 
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_SELLOFFER;
@@ -533,7 +533,7 @@ int rc = DEX_ERROR_SELLOFFER;
 
   if (!rc)
   {
-    rc = DEx_offerCreate(seller_addr, curr, nValue, block, desired, fee, btl, txid, nAugmented);
+    rc = DEx_offerCreate(seller_addr, curr, nValue, block, desired, fee, btl, txid, nAmended);
   }
 
   return rc;
@@ -550,7 +550,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAugmented = NULL)
+int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_ACCEPT;
@@ -587,7 +587,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   {
     nActualAmount = nValue;
 
-    if (nAugmented) *nAugmented = nActualAmount;
+    if (nAmended) *nAmended = nActualAmount;
   }
 
   // TODO: think if we want to save nValue -- as the amount coming off the wire into the object or not
@@ -688,7 +688,7 @@ const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
 
 // incoming BTC payment for the offer
 // TODO: verify proper partial payment handling
-int DEx_payment(string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAugmented = NULL)
+int DEx_payment(string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_PAYMENT;
@@ -720,7 +720,7 @@ CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
   {
     units_purchased = nActualAmount;
 
-    if (nAugmented) *nAugmented = units_purchased;
+    if (nAmended) *nAmended = units_purchased;
   }
 
   if (update_tally_map(seller, curr, - units_purchased, ACCEPT_RESERVE))
@@ -2769,7 +2769,7 @@ Iterator* it = pdb->NewIterator(readoptions);
 //
 // if (getValidMPTX(txid, &block, &type, &nNew)) // if true -- the TX is a valid MP TX
 //
-bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAugmented = NULL)
+bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL)
 {
 string result;
 int validity = 0;
@@ -2800,10 +2800,10 @@ int validity = 0;
     else *type = 0;
   }
 
-  if (nAugmented)
+  if (nAmended)
   {
-    if (4 <= vstr.size()) *nAugmented = boost::lexical_cast<boost::uint64_t>(vstr[3]);
-    else nAugmented = 0;
+    if (4 <= vstr.size()) *nAmended = boost::lexical_cast<boost::uint64_t>(vstr[3]);
+    else nAmended = 0;
   }
 
   p_txlistdb->printStats();
@@ -2850,53 +2850,117 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
     uint256 hash;
     hash.SetHex(params[0].get_str());
+    CWallet *wallet = pwalletMain;
 
-    Object entry;
+    Object txobj;
     if (!pwalletMain->mapWallet.count(hash))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
-/*
-    int64_t nCredit = wtx.GetCredit();
     int64_t nDebit = wtx.GetDebit();
-    int64_t nNet = nCredit - nDebit;
     int64_t nFee = (wtx.IsFromMe() ? wtx.GetValueOut() - nDebit : 0);
-*/
 
-    int64_t MP_Amount = 1337;
+    // here begins
+    CMPTransaction mp_obj;
 
-    entry.push_back(Pair("amount", ValueFromAmount(MP_Amount)));
+    LOCK(wallet->cs_wallet);
 
-    if (wtx.IsFromMe())
-    {
-//      entry.push_back(Pair("fee", ValueFromAmount(nFee)));
-      // TODO: what here?
-    }
+                uint256 wtxid = wtx.GetHash();
+                bool bIsMine;
+                bool isMPTx = false;
+                string MPTxType;
+                string selectedAddress;
+                string senderAddress;
+                string refAddress;
+                bool valid;
+                uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+                bool divisible;
+                uint64_t amount;
+                string result;
+                bool outgoingTransaction = false;
+                int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
+                uint256 blockHash = wtx.hashBlock;
+                if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash]))
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
+                CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
+                if (NULL == pBlockIndex)
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: pBlockIndex is NULL");
+                int blockHeight = pBlockIndex->nHeight;
+                int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime;
+                int blockIndex = wtx.nIndex;
 
-    // check out leveldb KV store to see if the transaction is found and is valid per Master Protocol rules
-    // perhaps I need to distinguish whether it is not found or not valid at this level and report via JSON (?)
-    if (getValidMPTX(hash))
-    {
-      // TODO: JSON error - MP transaction is invalid !
-      printf("%s() MP TX is VALID ! line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-    }
-    else
-    {
-      printf("%s() MP TX is NOT valid ! line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-    }
+                if ((!TestNet()) && (blockHeight < 290630)) 
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
+                if ((TestNet()) && (blockHeight < 253728))
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
 
-//    WalletTxToJSON(wtx, entry); // TODO: need MP JSON here
+                mp_obj.SetNull();
+                if (0 == msc_tx_populate(wtx, 0, 0, &mp_obj))
+                {
+                        // OK, a valid MP transaction so far
+                        if (0<=mp_obj.parse())
+                        {
+                                isMPTx = true;
+                                MPTxType = mp_obj.getTypeString();
+                                senderAddress = mp_obj.getSender();
+                                refAddress = mp_obj.getReceiver();
+                                curId = mp_obj.getCurrency();
+                                divisible = true; // hard coded for now until SP support
+                                amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
+                        }
+                }
+                else
+                {
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+                }
+                if (isMPTx)
+                {
 
-    Array details;
-//    ListTransactions(wtx, "*", 0, false, details);  // TODO: need MP JSON here
-    entry.push_back(Pair("details", details));
+                        // use master protocol functions for embedded MP message
+			int tmpblock=0;
+                        uint32_t tmptype=0;
+                        uint64_t amountNew=0;
 
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << static_cast<CTransaction>(wtx);
-    string strHex = HexStr(ssTx.begin(), ssTx.end());
-    entry.push_back(Pair("hex", strHex));
+                        valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
+                        if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
 
-    return entry;
+                        // test sender and reference against ismine to determine which address is ours
+                        // if both ours (eg sending to another address in wallet) use reference
+                        bIsMine = IsMyAddress(senderAddress);
+                        if (bIsMine)
+                        {
+                                outgoingTransaction=true;
+                                txobj.push_back(Pair("txid", wtxid.GetHex()));
+                                txobj.push_back(Pair("sendingaddress", senderAddress));
+                                txobj.push_back(Pair("referenceaddress", refAddress));
+                                if (outgoingTransaction)
+                                {
+                                        txobj.push_back(Pair("direction", "out"));
+                                }
+                                else
+                                {
+                                        txobj.push_back(Pair("direction", "in"));
+                                }
+                                txobj.push_back(Pair("confirmations", confirmations));
+                                txobj.push_back(Pair("fee", ValueFromAmount(nFee)));
+                                txobj.push_back(Pair("blocktime", blockTime));
+                                txobj.push_back(Pair("blockindex", blockIndex));
+                                txobj.push_back(Pair("type", MPTxType));
+                                txobj.push_back(Pair("currency", curId));
+                                txobj.push_back(Pair("divisible", divisible));
+                                if (divisible)
+                                {
+                                        txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                }
+                                else
+                                {
+                                        txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                                }
+                                txobj.push_back(Pair("valid", valid));
+                        }
+                }
+    // here ends
+    return txobj;
 }
 
 // TODO: rename this function and the corresponding RPC call, once I understand better what it's supposed to do with Zathras' help
@@ -2914,29 +2978,32 @@ bool addressFilter;
             + HelpExampleRpc("*****************_MP", "\"-----------------\"")
         );
 
-	//if 0 params consider all addresses in wallet, otherwise first param is filter address
-	addressFilter = false;
-	if (params.size() > 0)
-	{
-        	addressParam = params[0].get_str();
-		addressFilter = true;
-	}
-	int nCount = 10;
-	if (params.size() > 1)
-        	nCount = params[1].get_int();
-	int nFrom = 0;
-	if (params.size() > 2)
-        	nFrom = params[2].get_int();
+        //if 0 params consider all addresses in wallet, otherwise first param is filter address
+        addressFilter = false;
+        if (params.size() > 0)
+        {
+                  // allow setting "" or "*" to use nCount and nFrom params with all addresses in wallet
+                  if ( ("*" != params[0].get_str()) && ("" != params[0].get_str()) )
+                  {
+                  addressParam = params[0].get_str();
+                  addressFilter = true;
+                  }
+        }
+        int nCount = 10;
+        if (params.size() > 1)
+                nCount = boost::lexical_cast<boost::int32_t>(params[1].get_str());
+        int nFrom = 0;
+        if (params.size() > 2)
+                 nFrom = boost::lexical_cast<boost::int32_t>(params[2].get_str());
+        if (nCount < 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+        if (nFrom < 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
 
-	if (nCount < 0)
-	        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
-	if (nFrom < 0)
-        	throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
-
-	Array response; //prep an array to hold our output
+        Array response; //prep an array to hold our output
         CMPTransaction mp_obj;
 
-	LOCK(wallet->cs_wallet);
+        LOCK(wallet->cs_wallet);
         // rewrite to use original listtransactions methodology from core
         std::list<CAccountingEntry> acentries;
         CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
@@ -2946,10 +3013,10 @@ bool addressFilter;
         {
             CWalletTx *const pwtx = (*it).second.first;
             if (pwtx != 0)
-	    {
+            {
                 uint256 wtxid = pwtx->GetHash();
                 bool bIsMine;
-        	bool isMPTx = false;
+                bool isMPTx = false;
                 string MPTxType;
                 string selectedAddress;
                 string senderAddress;
@@ -2959,7 +3026,17 @@ bool addressFilter;
                 bool divisible;
                 uint64_t amount;
                 string result;
-		bool outgoingTransaction = false;
+                bool outgoingTransaction = false;
+                int confirmations = pwtx->GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
+                uint256 blockHash = pwtx->hashBlock;
+                if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) continue;
+                CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
+                if (NULL == pBlockIndex) continue;
+                int blockHeight = pBlockIndex->nHeight;
+                int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
+                int blockIndex = pwtx->nIndex;
+                if ((!TestNet()) && (blockHeight < 290630)) continue; //do not display transactions prior to preseed
+                if ((TestNet()) && (blockHeight < 253728)) continue;
 
                 mp_obj.SetNull();
                 if (0 == msc_tx_populate(*pwtx, 0, 0, &mp_obj))
@@ -2968,10 +3045,10 @@ bool addressFilter;
                         if (0<=mp_obj.parse())
                         {
                                 isMPTx = true;
-        	        	MPTxType = mp_obj.getTypeString();
+                                MPTxType = mp_obj.getTypeString();
                                 senderAddress = mp_obj.getSender();
-        	                refAddress = mp_obj.getReceiver();
-	                        curId = mp_obj.getCurrency();
+                                refAddress = mp_obj.getReceiver();
+                                curId = mp_obj.getCurrency();
                                 divisible = true; // hard coded for now until SP support
                                 amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
                         }
@@ -2980,13 +3057,14 @@ bool addressFilter;
                 // is this a MP transaction? switched to parsing rather than leveldb at Michael's request
                 if (isMPTx)
                 {
-                        // use bitcoin functions for host transaction
-                        int confirmations = pwtx->GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
-                        int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
-                        int blockIndex = pwtx->nIndex;
 
                         // use master protocol functions for embedded MP message
-                        valid=getValidMPTX(wtxid);
+                        int tmpblock=0;
+                        uint32_t tmptype=0;
+                        uint64_t amountNew=0;
+
+                        valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
+                        if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
 
                         // test sender and reference against ismine to determine which address is ours
                         // if both ours (eg sending to another address in wallet) use reference
@@ -2994,7 +3072,7 @@ bool addressFilter;
                         if (bIsMine)
                         {
                                 selectedAddress=senderAddress;
-				outgoingTransaction=true;
+                                outgoingTransaction=true;
                         }
                         bIsMine = IsMyAddress(refAddress);
                         if (bIsMine)
