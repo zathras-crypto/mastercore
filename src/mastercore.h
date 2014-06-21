@@ -51,6 +51,9 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 "mastercoin_devmsc.txt"
 };
 
+#define PKT_RETURN_OFFER    (1000)
+#define PKT_RETURN_ACCEPT   (2000)
+
 #define PKT_ERROR           ( -9000)
 #define DEX_ERROR_SELLOFFER (-10000)
 #define DEX_ERROR_ACCEPT    (-20000)
