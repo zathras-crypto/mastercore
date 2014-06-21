@@ -58,7 +58,9 @@ Value getinfo(const Array& params, bool fHelp)
     proxyType proxy;
     GetProxy(NET_IPV4, proxy);
 
+    int mastercoreversion=10001;
     Object obj;
+    obj.push_back(Pair("mastercoreversion", mastercoreversion));
     obj.push_back(Pair("version",       (int)CLIENT_VERSION));
     obj.push_back(Pair("protocolversion",(int)PROTOCOL_VERSION));
 #ifdef ENABLE_WALLET
