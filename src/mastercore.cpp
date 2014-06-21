@@ -82,6 +82,7 @@ int msc_debug5 = 1;
 int msc_debug6 = 1;
 
 int msc_debug_dex = 1;
+int msc_debug_send = 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -2530,7 +2531,8 @@ CCoinControl coinControl; // I am using coin control to send from
 int rc = 0;
 uint256 txid = 0;
 
-  printf("%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n", __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
+  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
 
   LOCK(wallet->cs_wallet);
 
@@ -2538,7 +2540,7 @@ uint256 txid = 0;
   if ((nAvailable < Amount) || (0 == Amount))
   {
     LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
-    printf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
+    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
     ++InvalidCount_per_spec;
 
     return 0;
@@ -2559,7 +2561,6 @@ uint256 txid = 0;
             const int64_t nAvailable = pcoin->GetAvailableCredit();
 
               if (!nAvailable) continue;
-              printf("----------------------------------------\n");
 
      for (unsigned int i = 0; i < pcoin->vout.size(); i++)
         {
@@ -2576,7 +2577,8 @@ uint256 txid = 0;
                 int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
 
                 sAddress = CBitcoinAddress(dest).ToString();
-                printf("%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n", sAddress.c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", wtxid.ToString().c_str(), i, n);
+                if (msc_debug_send) fprintf(mp_fp, "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
+                 sAddress.c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", wtxid.ToString().c_str(), i, n);
 
             // only use funds from the Sender's address for our MP transaction
             // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
@@ -2635,7 +2637,7 @@ uint256 txid = 0;
   }
 
   rc = ClassB_send(FromAddress, ToAddress, HexStr(vec_pkt), coinControl, txid);
-  printf("ClassB_send returned %d\n", rc);
+  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   return txid;
 }
@@ -2763,6 +2765,10 @@ Iterator* it = pdb->NewIterator(readoptions);
 bool IsMPTXvalid(const uint256 &txid)
 {
 string result;
+
+  if (msc_debug6) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+
+  if (!p_txlistdb) return false;
 
   if (!p_txlistdb->getTX(txid, result)) return false;
 
