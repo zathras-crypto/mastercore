@@ -186,20 +186,34 @@ private:
   uint64_t min_fee;
   unsigned char blocktimelimit;
   uint256 txid;
+  unsigned char subaction;
 
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
   uint64_t getMinFee() const { return min_fee ; }
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
+  unsigned char getSubaction() { return subaction; }
 
   uint64_t getOfferAmountOriginal() { return offer_amount_original; }
   uint64_t getBTCDesiredOriginal() { return BTC_desired_original; }
+
+  CMPOffer():offerBlock(0),offer_amount_original(0),currency(0),BTC_desired_original(0),min_fee(0),blocktimelimit(0),txid(0)
+  {
+  }
 
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),currency(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
     if (msc_debug4) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
+  }
+
+  void set(uint64_t d, uint64_t fee, unsigned char btl, unsigned char suba)
+  {
+    BTC_desired_original = d;
+    min_fee = fee;
+    blocktimelimit = btl;
+    subaction = suba;
   }
 
   void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
@@ -222,30 +236,11 @@ public:
     file << lineOut << endl;
   }
 
-  void print(string address, bool bPrintAcceptsToo = false)
+  void print(const string &addr, bool bFlag = false)
   {
-/*
-  const double coins = (double)offer_amount_remaining/(double)COIN;
-  const double original_coins = (double)offer_amount_original/(double)COIN;
-  const double wants_total = (double)BTC_desired_original/(double)COIN;
-  const double price = coins*wants_total ? wants_total/coins : 0;
-
-    fprintf(mp_fp, "%36s selling %12.8lf (%12.8lf available) %4s for %12.8lf BTC (price: %1.8lf), in #%d blimit= %3u, minfee= %1.8lf\n",
-     address.c_str(), original_coins, coins, c_strMastercoinCurrency(currency), wants_total, price, offerBlock, blocktimelimit,(double)min_fee/(double)COIN);
-*/
-
-/*
-        if (bPrintAcceptsToo)
-        for(map<string, CMPAccept>::iterator my_it = my_accepts.begin(); my_it != my_accepts.end(); ++my_it)
-        {
-          // my_it->first = key
-          // my_it->second = value
-
-          fprintf(mp_fp, "\t%35s ", (my_it->first).c_str());
-          (my_it->second).print();
-        }
-*/
+    // placeholder
   }
+
 };  // end of CMPOffer class
 
 // do a map of buyers, primary key is buyer+currency
@@ -287,7 +282,6 @@ public:
   {
     fprintf(mp_fp, "%s(%lu[%lu]), line %d, file: %s\n", __FUNCTION__, remA, origA, __LINE__, __FILE__);
   }
-
 
   void print()
   {
@@ -815,6 +809,8 @@ public:
   unsigned int getType() const { return type; }
   const string getTypeString() const { return string(c_strMastercoinType(getType())); }
   unsigned int getCurrency() const { return currency; }
+  unsigned short getVersion() const { return version; }
+  uint64_t getFeePaid() const { return tx_fee_paid; }
 
   const string & getSender() const { return sender; }
   const string & getReceiver() const { return receiver; }
@@ -838,13 +834,18 @@ public:
  // DEx_acceptCreate()
  // DEx_payment() -- DOES NOT fit nicely into the model, as it currently is NOT a MP TX (not even in leveldb) -- gotta rethink
  //
- int interpretPacket()
+ // optional: provide the pointer to the CMPOffer object, it will get filled in
+ // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
+ //
+ int interpretPacket(CMPOffer *obj_o = NULL)
  {
  uint64_t amount_desired, min_fee;
  unsigned char blocktimelimit, subaction = 0;
  int rc = PKT_ERROR;
 
   if (0>parse()) return -98765;
+
+  if ((obj_o) && (MSC_TYPE_TRADE_OFFER != type)) return -777; // can't fill in the Offer object !
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -883,6 +884,12 @@ public:
     fprintf(mp_fp, "\tblock time limit: %u\n", blocktimelimit);
     fprintf(mp_fp, "\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
     fprintf(mp_fp, "\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
+
+      if (obj_o)
+      {
+        obj_o->set(amount_desired, min_fee, blocktimelimit, subaction);
+        return PKT_RETURN_OFFER;
+      }
 
       // figure out which Action this is based on amount for sale, version & etc.
       switch (version)
@@ -2917,7 +2924,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 {
 
                         // use master protocol functions for embedded MP message
-			int tmpblock=0;
+                        int tmpblock=0;
                         uint32_t tmptype=0;
                         uint64_t amountNew=0;
 
