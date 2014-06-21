@@ -1,4 +1,10 @@
-mscd
+Master Protocol Core integration/staging tree
+=================================================
+
+http://www.mastercoin.org
+
+Warning
+--------------
 
 Mastercore should be considered an alpha-level product, and you use it at your own risk.  Neither the Mastercoin Foundation nor the Mastercore developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
 
