@@ -2864,9 +2864,6 @@ Value gettransaction_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
-    int64_t nDebit = wtx.GetDebit();
-    int64_t nFee = (wtx.IsFromMe() ? wtx.GetValueOut() - nDebit : 0);
-
     // here begins
     CMPTransaction mp_obj;
 
@@ -2875,6 +2872,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 uint256 wtxid = wtx.GetHash();
                 bool bIsMine;
                 bool isMPTx = false;
+                int nFee;
                 string MPTxType;
                 string selectedAddress;
                 string senderAddress;
@@ -2921,6 +2919,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 curId = mp_obj.getCurrency();
                                 divisible = true; // hard coded for now until SP support
                                 amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
+                                nFee = mp_obj.getFeePaid();
 
            		        if ((0 < mp_obj.interpretPacket(&temp_offer)) && (MSC_TYPE_TRADE_OFFER == mp_obj.getType()))
                                 {
