@@ -60,6 +60,8 @@ enum BindFlags {
     BF_REPORT_ERROR = (1U << 1)
 };
 
+int mastercore_init(void);
+int mastercore_shutdown(void);
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -133,6 +135,7 @@ void Shutdown()
         if (pcoinsTip)
             pcoinsTip->Flush();
         delete pcoinsTip; pcoinsTip = NULL;
+        (void) mastercore_shutdown();
         delete pcoinsdbview; pcoinsdbview = NULL;
         delete pblocktree; pblocktree = NULL;
     }
@@ -928,6 +931,8 @@ bool AppInit2(boost::thread_group& threadGroup)
             LogPrintf("No blocks matching %s were found\n", strMatch);
         return false;
     }
+
+    (void) mastercore_init();
 
     // ********************************************************* Step 8: load wallet
 #ifdef ENABLE_WALLET

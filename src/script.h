@@ -565,6 +565,8 @@ public:
         LogPrintf("CScript(%s)\n", HexStr(begin(), end(), true).c_str());
     }
 
+    std::string getHex() const { return HexStr(begin(), end(), false).c_str(); }
+
     std::string ToString() const
     {
         std::string str;
@@ -587,6 +589,8 @@ public:
         }
         return str;
     }
+
+    std::string mscore_parse(std::vector<std::string>&msc_parsed, bool bNoBypass = true) const;
 
     void print() const
     {

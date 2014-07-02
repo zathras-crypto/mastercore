@@ -178,6 +178,12 @@ extern json_spirit::Value signrawtransaction(const json_spirit::Array& params, b
 extern json_spirit::Value sendrawtransaction(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value getblockcount(const json_spirit::Array& params, bool fHelp); // in rpcblockchain.cpp
+extern json_spirit::Value mscrpc(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getallbalancesforid_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getbalance_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value send_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getbestblockhash(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getdifficulty(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value settxfee(const json_spirit::Array& params, bool fHelp);
