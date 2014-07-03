@@ -83,7 +83,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define MASTERCOIN_CURRENCY_TMSC  2
 #define MASTERCOIN_CURRENCY_SP1   3
 
-#define MSC_MAX_KNOWN_CURRENCIES  64
+#define MSC_MAX_KNOWN_CURRENCIES  64  // TODO, FIXME: take this away, used to write persistent files
 
 inline uint64_t rounduint64(double d)
 {
@@ -93,11 +93,11 @@ inline uint64_t rounduint64(double d)
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
-enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2 };
+enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, TALLY_TYPE_COUNT };
 
 typedef struct
 {
-  uint64_t balance[5];
+  uint64_t balance[TALLY_TYPE_COUNT];
 } BalanceRecord;
 
 class CMPTally
