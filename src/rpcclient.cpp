@@ -178,6 +178,8 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "getrawmempool"          && n > 0) ConvertTo<bool>(params[0]);
     // master core conversions
     if (strMethod == "getbalance_MP"          && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "send_MP"                && n > 2) ConvertTo<int64_t>(params[2]);
+    if (strMethod == "send_MP"                && n > 3) ConvertTo<double>(params[3]);
 
     return params;
 }
