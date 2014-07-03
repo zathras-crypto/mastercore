@@ -176,6 +176,8 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "verifychain"            && n > 1) ConvertTo<int64_t>(params[1]);
     if (strMethod == "keypoolrefill"          && n > 0) ConvertTo<int64_t>(params[0]);
     if (strMethod == "getrawmempool"          && n > 0) ConvertTo<bool>(params[0]);
+    // master core conversions
+    if (strMethod == "getbalance_MP"          && n > 1) ConvertTo<int64_t>(params[1]);
 
     return params;
 }
