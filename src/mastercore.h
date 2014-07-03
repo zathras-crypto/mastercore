@@ -108,23 +108,37 @@ typedef struct
 
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
-  unsigned int idx[TALLY_TYPE_COUNT];
-
 public:
   unsigned int init()
   {
-    my_it = mp_token.begin();
+  unsigned int ret = 0;
 
-    return my_it->first;
+    printf("%s();size = %lu, line %d, file: %s\n", __FUNCTION__, mp_token.size(), __LINE__, __FILE__);
+    my_it = mp_token.begin();
+    if (my_it != mp_token.end()) ret = my_it->first;
+    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
+
+    {
+      for(map<unsigned int, BalanceRecord>::iterator it = mp_token.begin(); it != mp_token.end(); ++it)
+      {
+        printf("%s();first = %u, line %d, file: %s\n", __FUNCTION__, it->first, __LINE__, __FILE__);
+      }
+    }
+
+    return ret;
   }
 
   unsigned int next()
   {
   unsigned int ret;
 
+    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
     if (my_it == mp_token.end()) return 0;
 
     ret = my_it->first;
+
+    printf("%s();ret =%u, line %d, file: %s\n", __FUNCTION__, ret, __LINE__, __FILE__);
 
     ++my_it;
 
@@ -171,7 +185,6 @@ public:
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
-    for (unsigned int i = 0; i < TALLY_TYPE_COUNT; i++) idx[i] = 0;
     divisible = true; // TODO: re-think, but currently default
     my_it = mp_token.begin();
   }

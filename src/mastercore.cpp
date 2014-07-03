@@ -29,6 +29,7 @@
 #include <queue>
 
 #include <fstream>
+#include <algorithm>
 
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
@@ -94,7 +95,7 @@ int msc_debug6 = 0;
 int msc_debug_parser= 0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
-int msc_debug_dex   = 1;
+int msc_debug_dex   = 0;
 int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
 int msc_debug_exo   = 0;
@@ -2191,11 +2192,14 @@ int extra2 = 0;
           printf("%34s => ", (my_it->first).c_str());
           (my_it->second).print(extra2);
 
-          (void) (my_it->second).init();
-          while (0 != (id = (my_it->second).next()))
+          (my_it->second).init();
+
+          do
           {
+            id = (my_it->second).next();
             printf("Id: %u=0x%X ", id, id);
           }
+          while (id);
           printf("\n");
         }
       break;
@@ -2824,6 +2828,8 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = 292665;
     nWaterlineBlock = 303550;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
+    nWaterlineBlock = 303550;
+    nWaterlineBlock = 308500;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
