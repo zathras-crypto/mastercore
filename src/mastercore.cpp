@@ -3176,9 +3176,13 @@ Value getbalance_MP(const Array& params, bool fHelp)
             "\nExamples:\n"
             ">mastercored getbalance_MP 1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1\n"
         );
-    std::string address = (params[0].get_str());
-    //assume MSC for PoC, force currencyID to 1
-    int64_t tmpbal = getMPbalance(address, MASTERCOIN_CURRENCY_MSC, MONEY);
+    std::string address = params[0].get_str();
+    int64_t tmpPropertyId = params[1].get_int64();
+    if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
+    unsigned int propertyId = int(tmpPropertyId);
+    int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     return ValueFromAmount(tmpbal);
 }
 
@@ -3912,3 +3916,4 @@ std::string CScript::mscore_parse(std::vector<std::string>&msc_parsed, bool bNoB
     }
     return str;
 }
+
