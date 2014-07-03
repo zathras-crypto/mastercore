@@ -3206,7 +3206,6 @@ Value getbalance_MP(const Array& params, bool fHelp)
     unsigned int propertyId = int(tmpPropertyId);
     CMPSP *property = getSP(propertyId);
 
-    // ***@Michael - this test does not work - getSP returns NULL always, appears broken***
     if ((propertyId > 2) && (NULL == property)) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
