@@ -3146,22 +3146,44 @@ if (fHelp || params.size() != 4)
   std::string FromAddress = (params[0].get_str());
   std::string ToAddress = (params[1].get_str());
 
-  int64_t Amount = 0;
-  if (!ParseMoney(params[3].get_str(), Amount)) {};
+  int64_t tmpPropertyId = params[2].get_int64();
+  if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+  unsigned int propertyId = int(tmpPropertyId);
 
-  uint32_t CurrencyID = boost::lexical_cast<boost::uint32_t>(params[2].get_str());
+  CMPSP *property = getSP(propertyId);
+  if ((propertyId > 2) && (NULL == property)) // property ID does not exist
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+
+  // ***This test also disabled because getDivisible still needs to be implemented
+  // bool divisible = property.getDivisible();
+  bool divisible = true; // hard code to true temporarily
+
+  long double tmpAmount = params[3].get_real();
+  int64_t Amount = 0;
+
+  if (divisible)
+  {
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount1");
+
+      Amount = roundint64(tmpAmount * COIN);
+  }
+  else // indivisible
+  {
+      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount2");
+
+      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
+  }
+  if (0 >= Amount)
+           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount3");
 
   //some sanity checking of the data supplied?
+  uint256 newTX = send_MP(FromAddress, ToAddress, propertyId, Amount);
 
-  if (0 >= Amount) throw runtime_error("invalid parameter: Amount");
-  if (0 == CurrencyID) throw runtime_error("invalid parameter: CurrencyID");
-
-  //currencyID will need to be checked for divisibility - handle here or in function?
-  uint256 newTX = send_MP(FromAddress, ToAddress, CurrencyID, Amount);
-
-//bitcoin returns a transaction ID or error here for equivalent function (sendtoaddress)
-//trap errors, if successful return transaction ID
-    return newTX.GetHex();
+  //we need to do better than just returning a string of 0000000 here if we can't send the TX
+  return newTX.GetHex();
 }
 
 // display an MP balance via RPC
@@ -3184,6 +3206,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     unsigned int propertyId = int(tmpPropertyId);
     CMPSP *property = getSP(propertyId);
 
+    // ***@Michael - this test does not work - getSP returns NULL always, appears broken***
     if ((propertyId > 2) && (NULL == property)) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
