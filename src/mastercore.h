@@ -282,7 +282,7 @@ public:
     void printAll();
 };
 
-extern map<string, CMPTally> mp_tally_map;
+// extern map<string, CMPTally> mp_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 
