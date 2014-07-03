@@ -95,94 +95,51 @@ extern char *c_strMastercoinCurrency(int i);
 
 enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2 };
 
+typedef struct
+{
+  uint64_t balance[5];
+} BalanceRecord;
+
 class CMPTally
 {
 private:
-  int64_t moneys[MSC_MAX_KNOWN_CURRENCIES];
-  int64_t reserved[MSC_MAX_KNOWN_CURRENCIES];   // selloffer-reserved
-  int64_t raccepted[MSC_MAX_KNOWN_CURRENCIES];  // accepted-reserved
+  map <unsigned int, BalanceRecord> mp_token;
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
-
-  void print_old()
-  {
-    for (unsigned int i=1;i<MSC_MAX_KNOWN_CURRENCIES;i++) // not keeping track of BTC amounts, index=0.. for now?
-    {
-//      printf("%s = %+15.8lf [reserved= %+15.8lf] ", c_strMastercoinCurrency(i), (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
-      // just print the money, not the name, getting too wide for my screen
-      printf("%+15.8lf [reserved= %+15.8lf] ", (double)moneys[i]/(double)COIN, (double)reserved[i]/(double)COIN);
-    }
-    printf("\n");
-  }
 
 public:
 
   // when bSet is true -- overwrite the amount in the address, not just adjust it (+/-)
-  bool msc_update_moneys(unsigned char which, int64_t amount)
+  bool updateMoney(unsigned int which_currency, int64_t amount, TallyType ttype)
   {
+  bool bRet = false;
+  int64_t now64;
+
   LOCK(cs_tally);
 
-    if (MSC_MAX_KNOWN_CURRENCIES > which)
-    {
-//      fprintf(mp_fp, "%s(%u, %lu); FUNDS AVAILABLE= %lu\n", __FUNCTION__, which, amount, moneys[which]);
+    now64 = mp_token[which_currency].balance[ttype];
 
-      // check here if enough money is available for this address prior to update !!!
-      if (0>(moneys[which] + amount))
-      {
-        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT)\n", __FUNCTION__, moneys[which]);
-        return false;
-      }
-      moneys[which] += amount;
-      return true;
+//    fprintf(mp_fp, "%s(%u, %lu, %u); FUNDS AVAILABLE before= %lu\n", __FUNCTION__, which_currency, amount, ttype, now64);
+
+    if (0>(now64 + amount))
+    {
+    }
+    else
+    {
+      now64 += amount;
+      mp_token[which_currency].balance[ttype] = now64;
+
+      bRet = true;
     }
 
-    return false;
-  }
+//    fprintf(mp_fp, "%s(%u, %lu, %u); FUNDS AVAILABLE  after= %lu\n", __FUNCTION__, which_currency, amount, ttype, now64);
 
-  bool msc_update_reserved(unsigned char which, int64_t amount)  
-  {
-  LOCK(cs_tally);
-
-    if (MSC_MAX_KNOWN_CURRENCIES > which)
-    {
-//      fprintf(mp_fp, "%s(); SELLOFFER-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
-
-      // check here if enough money is available for this address prior to update !!!
-      if (0>(reserved[which] + amount))
-      {
-        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT)\n", __FUNCTION__, reserved[which]);
-        return false;
-      }
-      reserved[which] += amount;
-      return true;
-    }
-
-    return false;
-  }
-
-  bool msc_update_raccepted(unsigned char which, int64_t amount)  
-  {
-  LOCK(cs_tally);
-
-    if (MSC_MAX_KNOWN_CURRENCIES > which)
-    {
-//      fprintf(mp_fp, "%s(); ACCEPT-RESERVED FUNDS AVAILABLE= %lu\n", __FUNCTION__, reserved[which]);
-
-      // check here if enough money is available for this address prior to update !!!
-      if (0>(raccepted[which] + amount))
-      {
-        fprintf(mp_fp, "%s(); FUNDS AVAILABLE: ONLY= %lu (INSUFFICIENT)\n", __FUNCTION__, reserved[which]);
-        return false;
-      }
-      raccepted[which] += amount;
-      return true;
-    }
-
-    return false;
+    return bRet;
   }
 
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
+/*
     for (unsigned int i=0;i<MSC_MAX_KNOWN_CURRENCIES;i++)
     {
       moneys[i] = 0;
@@ -190,35 +147,30 @@ public:
       raccepted[i] = 0;
       divisible = true;
     }
+*/
   }
 
-  void print(int curr = MASTERCOIN_CURRENCY_MSC)
+  void print(int which_currency = MASTERCOIN_CURRENCY_MSC)
   {
-    if (!(MSC_MAX_KNOWN_CURRENCIES > curr))
-    {
-      // limited
-      return;
-    }
+  const uint64_t money = mp_token[which_currency].balance[MONEY];
+  const uint64_t so_r = mp_token[which_currency].balance[SELLOFFER_RESERVE];
+  const uint64_t a_r = mp_token[which_currency].balance[ACCEPT_RESERVE];
 
     printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
-     (double)moneys[curr]/(double)COIN, (double)reserved[curr]/(double)COIN, (double)raccepted[curr]/(double)COIN);
+     (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
   }
 
-  string getMSC();  // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
-  string getTMSC(); // this function was created for QT only -- hard-coded internally, TODO: use getMoney()
-
-  uint64_t getMoney(unsigned int which_currency, TallyType ttype) const
+  uint64_t getMoney(unsigned int which_currency, TallyType ttype)
   {
-    if (MSC_MAX_KNOWN_CURRENCIES <= which_currency) return 0;
+  uint64_t ret64;
 
-    switch (ttype)
-    {
-      case MONEY:             return moneys[which_currency];
-      case SELLOFFER_RESERVE: return reserved[which_currency];
-      case ACCEPT_RESERVE:    return raccepted[which_currency];
-    }
+    LOCK(cs_tally);
 
-    return 0;
+    ret64 = mp_token[which_currency].balance[ttype];
+
+//    fprintf(mp_fp, "%s(%u, %u); FUNDS AVAILABLE= %lu\n", __FUNCTION__, which_currency, ttype, ret64);
+
+    return ret64;
   }
 };
 
@@ -282,7 +234,7 @@ public:
     void printAll();
 };
 
-extern map<string, CMPTally> mp_tally_map;
+// extern map<string, CMPTally> mp_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 

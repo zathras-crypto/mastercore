@@ -500,28 +500,18 @@ uint64_t before, after;
 
   CMPTally &tally = my_it->second;
 
-  switch (ttype)
-  {
-    case MONEY:
-      bRet = tally.msc_update_moneys(which, amount);
-      break;
-
-    case SELLOFFER_RESERVE:
-      bRet = tally.msc_update_reserved(which, amount);
-      break;
-
-    case ACCEPT_RESERVE:
-      bRet = tally.msc_update_raccepted(which, amount);
-      break;
-  }
+  bRet = tally.updateMoney(which, amount, ttype);
 
   after = getMPbalance(who, which, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, amount, ttype);
+  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, which, amount, ttype);
 
   if (msc_debug_tally)
   {
-    if ((exodus != who) || (exodus == who && msc_debug_exo)) fprintf(mp_fp, "%s(%s, %u, %+ld, ttype=%d); before=%lu, after=%lu\n",
-     __FUNCTION__, who.c_str(), which, amount, ttype, before, after);
+    if ((exodus != who) || (exodus == who && msc_debug_exo))
+    {
+      fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
+       __FUNCTION__, who.c_str(), which, which, amount, ttype, before, after);
+    }
   }
 
   return bRet;
@@ -1179,7 +1169,7 @@ public:
 
           my_sps.insert(std::make_pair(id, CMPSP(sender, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
 
-//          update_tally_map(sender, id, nValue, MONEY);  // TODO: re-enable soon......................
+          update_tally_map(sender, id, nValue, MONEY);  // TODO: check for test currencies
 
           global_NextPropertyId[ecosystem]++;
         }
@@ -1285,6 +1275,9 @@ public:
 
   // valid values are 1 & 2
   if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem)) return NULL;
+
+  // FIXME : remove !
+//  if ((MASTERCOIN_CURRENCY_MSC != ecosystem)) return NULL;
 
   id = global_NextPropertyId[ecosystem];
 
@@ -2226,7 +2219,7 @@ const int max_block = GetHeight();
 
     mastercore_handler_block(blockNum, pblockindex);
 #ifdef  MY_SP_HACK
-    if (20 < n_found) break;
+//    if (20 < n_found) break;
 #endif
   }
 
@@ -2541,7 +2534,8 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 {
   LOCK(cs_tally);
 
-  map<string, CMPTally>::const_iterator iter;
+//  map<string, CMPTally>::const_iterator iter;
+  map<string, CMPTally>::iterator iter;
   for (iter = mp_tally_map.begin(); iter != mp_tally_map.end(); ++iter) {
     bool emptyWallet = true;
 
@@ -2808,6 +2802,8 @@ const bool bTestnet = TestNet();
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = 292665;
+    nWaterlineBlock = 303550;
+    nWaterlineBlock = MSC_DEX_BLOCK-3;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
@@ -2899,18 +2895,6 @@ int interp_ret = -555555, pop_ret;
   }
 
   return interp_ret;
-}
-
-string CMPTally::getMSC()
-{
-  // FIXME: negative numbers -- do they work here?
-  return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_MSC]/COIN, moneys[MASTERCOIN_CURRENCY_MSC]%COIN);
-}
-
-string CMPTally::getTMSC()
-{
-    // FIXME: negative numbers -- do they work here?
-    return strprintf("%d.%08d", moneys[MASTERCOIN_CURRENCY_TMSC]/COIN, moneys[MASTERCOIN_CURRENCY_TMSC]%COIN);
 }
 
 // IsMine wrapper to determine whether the address is in our local wallet
@@ -3879,8 +3863,8 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         int64_t deadline;
         bool closedEarly = false;
         int64_t endedTime;
-        int8_t earlyBonus;
-        int8_t percentToIssuer;
+        int8_t earlyBonus = 0;
+        int8_t percentToIssuer = 0;
         string issuer;
 
         //populate those details from the map
