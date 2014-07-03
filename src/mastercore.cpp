@@ -3182,8 +3182,24 @@ Value getbalance_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
+    CMPSP *property = getSP(propertyId);
+
+    if ((propertyId > 2) && (NULL == property)) // property ID does not exist
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+
+    // ***This test also disabled because getDivisible still needs to be implemented
+    // bool divisible = property.getDivisible();
+    bool divisible = true; // hard code to true temporarily
+
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
-    return ValueFromAmount(tmpbal);
+    if (divisible)
+    {
+        return ValueFromAmount(tmpbal);
+    }
+    else
+    {
+        return tmpbal;
+    }
 }
 
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)
