@@ -3165,19 +3165,19 @@ if (fHelp || params.size() != 4)
   if (divisible)
   {
       if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount1");
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = roundint64(tmpAmount * COIN);
   }
   else // indivisible
   {
       if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount2");
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
   }
   if (0 >= Amount)
-           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount3");
+           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_MP(FromAddress, ToAddress, propertyId, Amount);
