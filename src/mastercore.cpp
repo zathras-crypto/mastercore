@@ -107,7 +107,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 0;
 static int disableLevelDB = 0;
-static int disable_Persistence = 0;
+static int disable_Persistence = 1;
 
 static int mastercoreInitialized = 0;
 
