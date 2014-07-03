@@ -3801,6 +3801,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         string propertySubCategory;
         string propertyData;
         string propertyURL;
+        string creationTXID;
         int64_t totalTokens;
         string issuer;
         string issuanceType; //fixed or variable
@@ -3814,6 +3815,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("url", propertyURL));
         response.push_back(Pair("divisible", divisible));
         response.push_back(Pair("issuer", issuer));
+        response.push_back(Pair("creationtxid", creationTXID));
         response.push_back(Pair("issuanceType", issuanceType));
         if (divisible)
         {
