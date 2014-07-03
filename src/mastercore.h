@@ -95,20 +95,52 @@ extern char *c_strMastercoinCurrency(int i);
 
 enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, TALLY_TYPE_COUNT };
 
+class CMPTally
+{
+private:
 typedef struct
 {
   uint64_t balance[TALLY_TYPE_COUNT];
 } BalanceRecord;
 
-class CMPTally
-{
-private:
-  map <unsigned int, BalanceRecord> mp_token;
+  std::map<unsigned int, BalanceRecord> mp_token;
+  std::map<unsigned int, BalanceRecord>::iterator my_it;
+
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
-public:
+  unsigned int idx[TALLY_TYPE_COUNT];
 
-  // when bSet is true -- overwrite the amount in the address, not just adjust it (+/-)
+public:
+  unsigned int init()
+  {
+    my_it = mp_token.begin();
+
+    return my_it->first;
+  }
+
+  unsigned int next()
+  {
+  unsigned int ret;
+
+    if (my_it == mp_token.end()) return 0;
+
+    ret = my_it->first;
+
+    ++my_it;
+
+    return ret;
+  }
+
+  unsigned int begin(TallyType ttype)
+  {
+    return mp_token[0].balance[ttype];
+  };
+
+  unsigned int end(TallyType ttype)
+  {
+    return 0;
+  };
+
   bool updateMoney(unsigned int which_currency, int64_t amount, TallyType ttype)
   {
   bool bRet = false;
@@ -139,15 +171,9 @@ public:
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
-/*
-    for (unsigned int i=0;i<MSC_MAX_KNOWN_CURRENCIES;i++)
-    {
-      moneys[i] = 0;
-      reserved[i] = 0;
-      raccepted[i] = 0;
-      divisible = true;
-    }
-*/
+    for (unsigned int i = 0; i < TALLY_TYPE_COUNT; i++) idx[i] = 0;
+    divisible = true; // TODO: re-think, but currently default
+    my_it = mp_token.begin();
   }
 
   void print(int which_currency = MASTERCOIN_CURRENCY_MSC)

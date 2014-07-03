@@ -43,7 +43,7 @@
 
 #include <openssl/sha.h>
 
-// #define MY_SP_HACK
+#define MY_SP_HACK
 
 /* copied from 0.9.2, the one in 0.9.1 crashes on bad nTime input */
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -2178,7 +2178,27 @@ int extra2 = 0;
           printf("%9u => ", (my_it->first));
           (my_it->second).print();
         }
-    break;
+      break;
+
+    case 3:
+        unsigned int id;
+        // display all balances
+        for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+        {
+          // my_it->first = key
+          // my_it->second = value
+
+          printf("%34s => ", (my_it->first).c_str());
+          (my_it->second).print(extra2);
+
+          (void) (my_it->second).init();
+          while (0 != (id = (my_it->second).next()))
+          {
+            printf("Id: %u=0x%X ", id, id);
+          }
+          printf("\n");
+        }
+      break;
   }
 
   return GetHeight();
