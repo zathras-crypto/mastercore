@@ -1179,7 +1179,7 @@ public:
 
           my_sps.insert(std::make_pair(id, CMPSP(sender, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
 
-//          update_tally_map(sender, id, nValue, MONEY);  // TODO: re-enable soon......................
+          update_tally_map(sender, id, nValue, MONEY);  // TODO: check for test currencies
 
           global_NextPropertyId[ecosystem]++;
         }
@@ -1285,6 +1285,9 @@ public:
 
   // valid values are 1 & 2
   if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem)) return NULL;
+
+  // FIXME : remove !
+  if ((MASTERCOIN_CURRENCY_MSC != ecosystem)) return NULL;
 
   id = global_NextPropertyId[ecosystem];
 
@@ -2226,7 +2229,7 @@ const int max_block = GetHeight();
 
     mastercore_handler_block(blockNum, pblockindex);
 #ifdef  MY_SP_HACK
-    if (20 < n_found) break;
+//    if (20 < n_found) break;
 #endif
   }
 
@@ -2808,6 +2811,7 @@ const bool bTestnet = TestNet();
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = 292665;
+    nWaterlineBlock = MSC_SP_BLOCK-3;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
