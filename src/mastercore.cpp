@@ -3709,6 +3709,197 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 return response;
 }
 
+Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
+{
+   string address;
+
+   if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getallbalancesforaddress_MP address\n"
+            "\nGet a list of all balances for a given address\n"
+            "\nArguments:\n"
+            "1. currencyID    (int, required) The currency/property ID\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"propertyid\" : x,        (numeric) the property id\n"
+            "  \"balance\" : x.xxx,     (numeric) The available balance of the address\n"
+            "  \"reservedbyselloffer\" : x.xxx,   (numeric) The amount reserved by sell offers\n"
+            "  \"reservedbyacceptoffer\" : x.xxx,   (numeric) The amount reserved by accepts\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getallbalancesforaddress_MP", "address")
+            + HelpExampleRpc("getallbalancesforaddress_MP", "address")
+        );
+
+    address = params[0].get_str();
+    if (address.empty())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid address");
+
+    Array response;
+
+    //non-functional placeholder code only
+
+    //change this iterator for one that goes over the properties held by an address
+//    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+//    {
+        Object propertybal;
+        bool divisible = false;
+        int64_t propertyId = 1; 
+
+        propertybal.push_back(Pair("propertyid", propertyId));
+        if (divisible)
+        {
+        propertybal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
+        propertybal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if (propertyId<3) propertybal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        }
+        else
+        {
+        propertybal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
+        propertybal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
+        if (propertyId<3) propertybal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
+        }
+        response.push_back(propertybal);
+//    }
+return response;
+}
+
+Value getproperty_MP(const Array& params, bool fHelp)
+{
+   int propertyId = 0;
+
+   if (params.size() > 0)
+        propertyId = boost::lexical_cast<boost::int32_t>(params[0].get_str());
+
+   if (fHelp || params.size() != 1 || !propertyId)
+        throw runtime_error(
+            "getproperty_MP propertyID\n"
+            "\nGet details for a property ID\n"
+            "\nArguments:\n"
+            "1. propertyID    (int, required) The property ID\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"name\" : \"PropertyName\",     (string) the property name\n"
+            "  \"category\" : \"PropertyCategory\",     (string) the property category\n"
+            "  \"subcategory\" : \"PropertySubCategory\",     (string) the property subcategory\n"
+            "  \"data\" : \"PropertyData\",     (string) the property data\n"
+            "  \"url\" : \"PropertyURL\",     (string) the property URL\n"
+            "  \"divisible\" : false,     (boolean) whether the property is divisible\n"
+            "  \"issuer\" : \"1Address\",     (string) the property issuer address\n"
+            "  \"issueancetype\" : \"Fixed\",     (string) the property method of issuance\n"
+            "  \"totaltokens\" : x     (numeric) the total number of tokens in existence\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getproperty_MP", "3")
+            + HelpExampleRpc("getproperty_MP", "3")
+        );
+
+    Object response;
+    //non-functional placeholder code only
+
+        bool divisible = false;
+        string propertyName;
+        string propertyCategory;
+        string propertySubCategory;
+        string propertyData;
+        string propertyURL;
+        string creationTXID;
+        int64_t totalTokens;
+        string issuer;
+        string issuanceType; //fixed or variable
+
+        //populate those details from the map
+
+        response.push_back(Pair("name", propertyName));
+        response.push_back(Pair("category", propertyCategory));
+        response.push_back(Pair("subcategory", propertySubCategory));
+        response.push_back(Pair("data", propertyData));
+        response.push_back(Pair("url", propertyURL));
+        response.push_back(Pair("divisible", divisible));
+        response.push_back(Pair("issuer", issuer));
+        response.push_back(Pair("creationtxid", creationTXID));
+        response.push_back(Pair("issuanceType", issuanceType));
+        if (divisible)
+        {
+            response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
+        }
+        else
+        {
+            response.push_back(Pair("totaltokens", totalTokens));
+        }
+
+return response;
+}
+
+Value getcrowdsale_MP(const Array& params, bool fHelp)
+{
+   int propertyId = 0;
+
+   if (params.size() > 0)
+        propertyId = boost::lexical_cast<boost::int32_t>(params[0].get_str());
+
+   if (fHelp || params.size() != 1 || !propertyId)
+        throw runtime_error(
+            "getcrowdsale_MP propertyID\n"
+            "\nGet crowdsale info for a property ID\n"
+            "\nArguments:\n"
+            "1. propertyID    (int, required) The property ID\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"name\" : \"PropertyName\",     (string) the property name\n"
+            "  \"active\" : false,     (boolean) whether the crowdsale is active\n"
+            "  \"issuer\" : \"1Address\",     (string) the issuer address\n"
+            "  \"creationtxid\" : \"txid\",     (string) the transaction that created the crowdsale\n"
+            "  \"propertyiddesired\" : x,     (numeric) the property ID desired\n"
+            "  \"tokensperunit\" : x,     (numeric) the number of tokens awarded per unit\n"
+            "  \"earlybonus\" : x,     (numeric) the percentage per week early bonus applied\n"
+            "  \"percenttoissuer\" : x,     (numeric) the percentage awarded to the issuer\n"
+            "  \"starttime\" : xxx,     (numeric) the start time of the crowdsale\n"
+            "  \"deadline\" : xxx,     (numeric) the time the crowdsale will automatically end\n"
+            "  \"closedearly\" : false,     (boolean) whether the crowdsale was ended early\n"
+            "  \"endedtime\" : xxx,     (numeric) the time the crowdsale ended\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getcrowdsale_MP", "3")
+            + HelpExampleRpc("getcrowdsale_MP", "3")
+        );
+
+    Object response;
+    //non-functional placeholder code only
+
+        bool active = false;
+        string propertyName;
+        string creationTXID;
+        int64_t propertyIdDesired;
+        int64_t tokensPerUnit;
+        int64_t startTime;
+        int64_t deadline;
+        bool closedEarly = false;
+        int64_t endedTime;
+        int8_t earlyBonus;
+        int8_t percentToIssuer;
+        string issuer;
+
+        //populate those details from the map
+
+        response.push_back(Pair("name", propertyName));
+        response.push_back(Pair("active", active));
+        response.push_back(Pair("issuer", issuer));
+        response.push_back(Pair("creationtxid", creationTXID));
+        response.push_back(Pair("propertyiddesired", propertyIdDesired));
+        response.push_back(Pair("tokensperunit", tokensPerUnit));
+        response.push_back(Pair("earlybonus", earlyBonus));
+        response.push_back(Pair("percenttoissuer", percentToIssuer));
+        response.push_back(Pair("starttime", startTime));
+        response.push_back(Pair("deadline", deadline));
+        if (!active) response.push_back(Pair("closedearly", closedEarly));
+        if (!active) response.push_back(Pair("endedtime", endedTime));
+
+return response;
+}
 
 std::string CScript::mscore_parse(std::vector<std::string>&msc_parsed, bool bNoBypass) const
 {
