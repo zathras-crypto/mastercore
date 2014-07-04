@@ -1722,6 +1722,61 @@ vector<vector<unsigned char> > vSolutions;
   return true;
 }
 
+// calculates and returns fundraiser bonus, issuer premine, and total tokens
+// propType : divisible/indiv
+// bonusPerc: bonus percentage
+// currentSecs: number of seconds of current tx
+// numProps: number of properties
+// issuerPerc: percentage of tokens to issuer
+
+
+
+#include <utility>
+#include <map>
+#include <string>
+#include <stdio.h>
+
+// need this
+std::pair < int64_t, int64_t> tokens;
+
+int calculateFundraiser(int propType, double amtTransfer, int bonusPerc, int64_t fundraiserSecs, int64_t currentSecs, int numProps, int issuerPerc, std::pair<int64_t, int64_t>& tokens  )
+{
+  int64_t bonusSeconds = fundraiserSecs - currentSecs;
+
+  //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+
+  long double weeks = bonusSeconds / (double) 604800;
+  double ebPercentage = weeks * bonusPerc;
+  long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+
+  //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
+
+  double issuerPercentage = (double) (issuerPerc * 0.01);
+
+  long double createdTokens;
+  long double issuerTokens;
+
+  //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", bonusSeconds, bonusPercentage, issuerPercentage);
+  
+  if( 2 == propType ) {
+    createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+    issuerTokens = createdTokens * issuerPercentage;
+    //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
+
+    tokens = std::make_pair(createdTokens,issuerTokens);
+
+  } else {
+    createdTokens = (int) (amtTransfer * (double) numProps * bonusPercentage);
+    issuerTokens = (int) (createdTokens * issuerPercentage) ;
+    //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
+
+    tokens = std::make_pair( (int64_t) createdTokens,issuerTokens);
+  }
+  
+  return -666;
+}
+
+
 int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
 {
   if (nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) { //Exodus Fundraiser start/end blocks
