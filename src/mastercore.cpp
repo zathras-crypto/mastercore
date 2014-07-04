@@ -44,7 +44,7 @@
 
 #include <openssl/sha.h>
 
-#define MY_SP_HACK
+// #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -1119,7 +1119,6 @@ public:
  // RETURNS: >0 NOT DONE TODAY: if the packet is valid, BUT nValue was augmented into nNewValue (funds adjusted up or down, use getNewAmount())
  //
  // 
- // TODO: verify with Zathras & Faiz !!!
  // the following functions may augment the amount in question (nValue):
  // DEx_offerCreate()
  // DEx_offerUpdate()
@@ -1170,9 +1169,9 @@ public:
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
 
           // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
-          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
-          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
-          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
+          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
       }
 
