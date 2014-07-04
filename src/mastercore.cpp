@@ -31,6 +31,10 @@
 #include <fstream>
 #include <algorithm>
 
+
+#include <utility>
+#include <string>
+
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/find.hpp>
@@ -1769,13 +1773,6 @@ vector<vector<unsigned char> > vSolutions;
 // currentSecs: number of seconds of current tx
 // numProps: number of properties
 // issuerPerc: percentage of tokens to issuer
-
-
-
-#include <utility>
-#include <map>
-#include <string>
-#include <stdio.h>
 
 // need this
 std::pair < int64_t, int64_t> tokens;
