@@ -3104,7 +3104,10 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
     string lineOut = (*iter).first;
     lineOut.append("=");
-    for (int curr = MASTERCOIN_CURRENCY_MSC; curr < MSC_MAX_KNOWN_CURRENCIES; curr ++) {
+    CMPTally &curAddr = (*iter).second;
+    curAddr.init();
+    unsigned int curr = 0;
+    while (0 != (curr = curAddr.next())) {
       uint64_t balance = (*iter).second.getMoney(curr, MONEY);
       uint64_t sellReserved = (*iter).second.getMoney(curr, SELLOFFER_RESERVE);
       uint64_t acceptReserved = (*iter).second.getMoney(curr, ACCEPT_RESERVE);
