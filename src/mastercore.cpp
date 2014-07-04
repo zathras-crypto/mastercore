@@ -44,7 +44,7 @@
 
 #include <openssl/sha.h>
 
-// #define MY_SP_HACK
+#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -1046,6 +1046,8 @@ private:
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
 
+  int64_t blockTime;
+
 // SP additions, perhaps a new class or a union is needed
   unsigned char ecosystem;
   unsigned short prop_type;
@@ -1091,6 +1093,8 @@ public:
     pkt_size = 0;
     sender.erase();
     receiver.erase();
+
+    blockTime = 0;
 
     ecosystem = 0;
     prop_type = 0;
@@ -1325,6 +1329,9 @@ public:
       // check if one exists for this address already !
       if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
 
+      // must check that the desired currency exists in our universe
+      if (NULL == getSP(currency)) return (PKT_SP_ERROR -30);
+
       if (0 == rc)
       {
       const unsigned int id = global_NextPropertyId[ecosystem];
@@ -1443,6 +1450,9 @@ public:
   fprintf(mp_fp, "\t   Property type: %u (%s)\n", prop_type, c_strPropertyType(prop_type));
   fprintf(mp_fp, "\tPrev Property ID: %u\n", prev_prop_id);
 
+  // only 1 & 2 are valid right now
+  if ((MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type) || (MSC_PROPERTY_TYPE_DIVISIBLE != prop_type)) return NULL;
+
   for (i = 0; i<5; i++)
   {
     spstr.push_back(std::string(p));
@@ -1519,6 +1529,11 @@ public:
   swapByteOrder64(deadline);
   p += 8;
   fprintf(mp_fp, "\t        Deadline: %s (%lX)\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
+
+  if (!deadline) return (PKT_SP_ERROR -203);  // deadline can not be 0
+
+  // deadline can not be smaller than the timestamp of the current block
+  // TODO: ...
 
   memcpy(&early_bird, p++, 1);
   fprintf(mp_fp, "\tEarly Bird Bonus: %u\n", early_bird);
