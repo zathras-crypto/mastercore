@@ -1046,7 +1046,7 @@ private:
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
 
-  int64_t blockTime;
+  int64_t blockTime;  // internally nTime is still an "unsigned int"
 
 // SP additions, perhaps a new class or a union is needed
   unsigned char ecosystem;
@@ -1299,7 +1299,8 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_FIXED:
     {
-      const char *p = step2_SmartProperty();
+      const char *p = step2_SmartProperty(rc);
+      if (0>rc) return rc;
       if (!p) return (PKT_SP_ERROR -11);
 
       rc = step3_sp_fixed(p);
@@ -1321,7 +1322,8 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
     {
-      const char *p = step2_SmartProperty();
+      const char *p = step2_SmartProperty(rc);
+      if (0>rc) return rc;
       if (!p) return (PKT_SP_ERROR -12);
 
       rc = step3_sp_variable(p);
@@ -1425,18 +1427,24 @@ public:
  }
 
  // extract Smart Property data
- const char *step2_SmartProperty()
+ const char *step2_SmartProperty(int &error_code)
  {
  const char *p = 11 + (char *)&pkt;
  std::vector<std::string>spstr;
  unsigned int i;
  unsigned int id;
 
+  error_code = (PKT_SP_ERROR -500);
+
   memcpy(&ecosystem, &pkt[4], 1);
   fprintf(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
 
   // valid values are 1 & 2
-  if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem)) return NULL;
+  if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem))
+  {
+    error_code = (PKT_SP_ERROR -501);
+    return NULL;
+  }
 
   id = global_NextPropertyId[ecosystem];
 
@@ -1451,7 +1459,11 @@ public:
   fprintf(mp_fp, "\tPrev Property ID: %u\n", prev_prop_id);
 
   // only 1 & 2 are valid right now
-  if ((MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type) || (MSC_PROPERTY_TYPE_DIVISIBLE != prop_type)) return NULL;
+  if ((MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type) && (MSC_PROPERTY_TYPE_DIVISIBLE != prop_type))
+  {
+    error_code = (PKT_SP_ERROR -502);
+    return NULL;
+  }
 
   for (i = 0; i<5; i++)
   {
@@ -1472,7 +1484,20 @@ public:
   fprintf(mp_fp, "\t             URL: %s\n", url);
   fprintf(mp_fp, "\t            Data: %s\n", data);
 
-  if ((MASTERCOIN_CURRENCY_MSC == ecosystem) && (MSC_SP_BLOCK > block)) return NULL;
+  if ((MASTERCOIN_CURRENCY_MSC == ecosystem) && (MSC_SP_BLOCK > block))
+  {
+    error_code = (PKT_SP_ERROR -503);
+    return NULL;
+  }
+
+  // name can not be NULL
+  if ('\0' == name[0])
+  {
+    error_code = (PKT_SP_ERROR -505);
+    return NULL;
+  }
+
+  if (!p) error_code = (PKT_SP_ERROR -510);
 
   return p;
  }
@@ -1533,7 +1558,7 @@ public:
   if (!deadline) return (PKT_SP_ERROR -203);  // deadline can not be 0
 
   // deadline can not be smaller than the timestamp of the current block
-  // TODO: ...
+  if (deadline < (uint64_t)blockTime) return (PKT_SP_ERROR -204);
 
   memcpy(&early_bird, p++, 1);
   fprintf(mp_fp, "\tEarly Bird Bonus: %u\n", early_bird);
@@ -1544,11 +1569,12 @@ public:
   return 0;
  }
 
-  void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0)
+  void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0, int64_t bt = 0)
   {
     txid = t;
     block = b;
     tx_idx = idx;
+    blockTime = bt;
   }
 
   void Set(string s, string r, uint64_t n, const uint256 &t, int b, unsigned int idx, unsigned char *p, unsigned int size, int fMultisig, uint64_t txf)
@@ -1779,7 +1805,7 @@ uint64_t inAll = 0;
 uint64_t outAll = 0;
 uint64_t txFee = 0;
 
-            mp_tx->Set(wtx.GetHash(), nBlock, idx);
+            mp_tx->Set(wtx.GetHash(), nBlock, idx, nTime);
 
             // quickly go through the outputs & ensure there is a marker (a send to the Exodus address)
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
