@@ -26,7 +26,8 @@
 using namespace std;
 using namespace boost;
 
-int mastercore_handler_block(int nBlockNow, CBlockIndex const * pBlockIndex);
+int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockIndex);
+int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex);
 int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, CBlockIndex const * pBlockIndex );
 
 #if defined(NDEBUG)
@@ -2031,12 +2032,13 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew) {
         SyncWithWallets(tx.GetHash(), tx, NULL);
     }
     unsigned int tx_idx = 0;  // mastercore: tx position/index within the block
+    (void) mastercore_handler_block_begin(GetHeight(), pindexNew);
     // ... and about transactions that got confirmed:
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         SyncWithWallets(tx.GetHash(), tx, &block);
         (void) mastercore_handler_tx(tx, GetHeight(), tx_idx++, pindexNew );
     }
-    (void) mastercore_handler_block(GetHeight(), pindexNew);
+    (void) mastercore_handler_block_end(GetHeight(), pindexNew);
     return true;
 }
 

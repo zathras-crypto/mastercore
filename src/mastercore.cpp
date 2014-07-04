@@ -44,7 +44,7 @@
 
 #include <openssl/sha.h>
 
-// #define MY_SP_HACK
+#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -87,6 +87,7 @@ int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
 int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
+int msc_debug_sp    = 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -429,7 +430,8 @@ public:
     Set(tx, pt, nv, c, s, n, u, d);
   }
 
-  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d, unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
+  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d,
+   unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
   {
     SetNull();
     issuer = sender;
@@ -462,11 +464,48 @@ public:
 
 };  // end of CMPSP class
 
+// live crowdsales are these objects in a map
+class CMPCrowd
+{
+private:
+  unsigned int propertyId;
+
+  uint64_t nValue;
+
+  unsigned int currency_desired;
+  uint64_t deadline;
+  unsigned char early_bird;
+  unsigned char percentage;
+
+  uint256 txid;
+
+public:
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
+  {
+  }
+
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per)
+  {
+  }
+  
+  uint64_t getDeadline() const { return deadline; }
+
+  void print(const string & address, FILE *fp = stdout) const
+  {
+    fprintf(fp, "%34s : id=%u=%X; curr=%u, value= %lu, deadline: %s (%lX)\n", address.c_str(), propertyId, propertyId,
+     currency_desired, nValue, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
+  }
+};  // end of CMPCrowd class
+
 CCriticalSection cs_tally;
+
+typedef std::map<string, CMPCrowd> CrowdMap;
 
 static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
 static map<unsigned int, CMPSP> my_sps;
+CrowdMap my_crowds;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
@@ -489,6 +528,15 @@ map<unsigned int, CMPSP>::iterator my_it = my_sps.find(currency);
   if (my_it != my_sps.end()) return &(my_it->second);
 
   return (CMPSP *) NULL;
+}
+
+CMPCrowd *getCrowd(const string & address)
+{
+CrowdMap::iterator my_it = my_crowds.find(address);
+
+  if (my_it != my_crowds.end()) return &(my_it->second);
+
+  return (CMPCrowd *) NULL;
 }
 
 // look at balance for an address
@@ -932,6 +980,49 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
+// save info from the crowdsale that's being erased
+void dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool bExpired = false)
+{
+FILE *fp = fopen("/tmp/dead.log", "a");
+
+  if (!fp) return;
+
+  fprintf(fp, "\nCrowdsale ended: %s\n", bExpired ? "Expired" : "Was closed");
+  crowd.print(address, fp);
+
+  fflush(fp);
+  fclose(fp);
+}
+
+unsigned int eraseExpiredCrowdsale(const int64_t blockTime)
+{
+unsigned int how_many_erased = 0;
+CrowdMap::iterator my_it = my_crowds.begin();
+
+  while (my_crowds.end() != my_it)
+  {
+    // my_it->first = key
+    // my_it->second = value
+
+    CMPCrowd &crowd = my_it->second;
+
+    if (blockTime > (int64_t)crowd.getDeadline())
+    {
+      fprintf(mp_fp, "%s() FOUND EXPIRED CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, (my_it->first).c_str());
+
+      // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
+      dumpCrowdsaleInfo(my_it->first, my_it->second, true);
+      my_crowds.erase(my_it++);
+
+      ++how_many_erased;
+    }
+    else my_it++;
+
+  }
+
+  return how_many_erased;
+}
+
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
 // The class responsible for sorted tx parsing. It does the initial block parsing (via a priority_queue, sorted).
@@ -1053,7 +1144,7 @@ public:
   switch(type)
   {
     case MSC_TYPE_SIMPLE_SEND:
-      rc = step2_value();
+      rc = step2_Value();
       if (0>rc) return rc;
 
       if (sender.empty()) ++InvalidCount_per_spec;
@@ -1067,6 +1158,24 @@ public:
       if (receiver.empty()) ++InvalidCount_per_spec;
       if (!update_tally_map(sender, currency, - nValue, MONEY)) break;
       update_tally_map(receiver, currency, nValue, MONEY);
+
+      // is there a crowdsale running from this recepient ?
+      {
+      CMPCrowd *crowd;
+
+        crowd = getCrowd(receiver);
+
+        if (crowd)
+        {
+          fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
+
+          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
+          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
+          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
+          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
+        }
+      }
+
       rc = 0;
       break;
 
@@ -1075,7 +1184,7 @@ public:
     enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
     const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
-      rc = step2_value();
+      rc = step2_Value();
       if (0>rc) return rc;
 
       memcpy(&amount_desired, &pkt[16], 8);
@@ -1178,7 +1287,7 @@ public:
     } // end of TRADE_OFFER
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
-      rc = step2_value();
+      rc = step2_Value();
       if (0>rc) return rc;
 
       // the min fee spec requirement is checked in the following function
@@ -1187,7 +1296,7 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_FIXED:
     {
-      const char *p = step2_sp();
+      const char *p = step2_SmartProperty();
       if (!p) return (PKT_SP_ERROR -11);
 
       rc = step3_sp_fixed(p);
@@ -1196,7 +1305,8 @@ public:
       {
       const unsigned int id = global_NextPropertyId[ecosystem];
 
-        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
+        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
+         (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
 
         update_tally_map(sender, id, nValue, MONEY);
 
@@ -1208,22 +1318,40 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
     {
-      const char *p = step2_sp();
+      const char *p = step2_SmartProperty();
       if (!p) return (PKT_SP_ERROR -12);
 
       rc = step3_sp_variable(p);
 
+      // check if one exists for this address already !
+      if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
+
       if (0 == rc)
       {
-        {
-        const unsigned int id = global_NextPropertyId[ecosystem];
+      const unsigned int id = global_NextPropertyId[ecosystem];
 
-          my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
+        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
+         (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
 
-          global_NextPropertyId[ecosystem]++;
-        }
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
+
+        global_NextPropertyId[ecosystem]++;
       }
 
+      break;
+    }
+
+    case MSC_TYPE_CLOSE_CROWDSALE:
+    {
+    CrowdMap::iterator it = my_crowds.find(sender);
+
+      if (it != my_crowds.end())
+      {
+        if (msc_debug_sp) fprintf(mp_fp, "%s() ERASING CROWDSALE, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+        dumpCrowdsaleInfo(it->first, it->second);
+        my_crowds.erase(it);
+      }
       break;
     }
 
@@ -1263,7 +1391,7 @@ public:
  }
 
  // extract Value for certain types of packets
- int step2_value()
+ int step2_Value()
  {
   memcpy(&nValue, &pkt[8], 8);
   swapByteOrder64(nValue);
@@ -1291,7 +1419,7 @@ public:
  }
 
  // extract Smart Property data
- const char *step2_sp()
+ const char *step2_SmartProperty()
  {
  const char *p = 11 + (char *)&pkt;
  std::vector<std::string>spstr;
@@ -1303,9 +1431,6 @@ public:
 
   // valid values are 1 & 2
   if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem)) return NULL;
-
-  // FIXME : remove !
-//  if ((MASTERCOIN_CURRENCY_MSC != ecosystem)) return NULL;
 
   id = global_NextPropertyId[ecosystem];
 
@@ -1525,9 +1650,17 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
   return (my_addresses_count);
 }
 
-// called once per block
+int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockIndex)
+{
+  (void) eraseExpiredCrowdsale(pBlockIndex->GetBlockTime());
+
+  return 0;
+}
+
+// called once per block, after the block has been processed
+// TODO: consolidate into *handler_block_begin() << need to adjust Accept expiry check.............
 // it performs cleanup and other functions
-int mastercore_handler_block(int nBlockNow, CBlockIndex const * pBlockIndex)
+int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex)
 {
   if (!mastercoreInitialized) {
     mastercore_init();
@@ -2227,6 +2360,13 @@ int extra2 = 0;
           printf("\n");
         }
       break;
+
+    case 4:
+      for(CrowdMap::const_iterator it = my_crowds.begin(); it != my_crowds.end(); ++it)
+      {
+        (it->second).print(it->first);
+      }
+      break;
   }
 
   return GetHeight();
@@ -2255,6 +2395,7 @@ const int max_block = GetHeight();
     ReadBlockFromDisk(block, pblockindex);
 
     int tx_count = 0;
+    mastercore_handler_block_begin(blockNum, pblockindex);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
       if (0 == mastercore_handler_tx(tx, blockNum, tx_count, pblockindex)) n_found++;
@@ -2265,7 +2406,7 @@ const int max_block = GetHeight();
     n_total += tx_count;
     if (msc_debug1) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
-    mastercore_handler_block(blockNum, pblockindex);
+    mastercore_handler_block_end(blockNum, pblockindex);
 #ifdef  MY_SP_HACK
 //    if (20 < n_found) break;
 #endif
@@ -2582,7 +2723,6 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 {
   LOCK(cs_tally);
 
-//  map<string, CMPTally>::const_iterator iter;
   map<string, CMPTally>::iterator iter;
   for (iter = mp_tally_map.begin(); iter != mp_tally_map.end(); ++iter) {
     bool emptyWallet = true;
@@ -2851,9 +2991,9 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = 292665;
     nWaterlineBlock = 303550;
-    nWaterlineBlock = MSC_DEX_BLOCK-3;
     nWaterlineBlock = 303550;
     nWaterlineBlock = 308500;
+    nWaterlineBlock = MSC_DEX_BLOCK-3;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
