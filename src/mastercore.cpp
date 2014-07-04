@@ -3995,7 +3995,7 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 
     CMPTally *addressTally=getTally(address);
 
-    if (NULL == addressTally) // property ID does not exist
+    if (NULL == addressTally) // addressTally object does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Address not found");
 
     addressTally->init();
