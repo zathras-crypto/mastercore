@@ -494,7 +494,7 @@ private:
   uint64_t created;
   uint64_t mined;
 
-  uint256 txid;
+  uint256 txid;  // NOTE: not persisted as it doesnt seem used
 
 public:
   CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
@@ -517,6 +517,26 @@ public:
   {
     fprintf(fp, "%34s : id=%u=%X; curr=%u, value= %lu, deadline: %s (%lX)\n", address.c_str(), propertyId, propertyId,
      currency_desired, nValue, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
+  }
+
+  void saveCrowdSale(ofstream &file, SHA256_CTX *shaCtx, string const &addr) const
+  {
+    // compose the outputline
+    // addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%s")
+      % addr
+      % propertyId
+      % nValue
+      % currency_desired
+      % deadline
+      % (int)early_bird
+      % (int)percentage).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
   }
 };  // end of CMPCrowd class
 
@@ -2948,6 +2968,42 @@ int input_devmsc_state_string(const string &s)
   return 0;
 }
 
+// addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,txid
+int input_mp_crowdsale_string(const string &s)
+{
+  string sellerAddr;
+  unsigned int propertyId;
+  uint64_t nValue;
+  unsigned int currency_desired;
+  uint64_t deadline;
+  unsigned char early_bird;
+  unsigned char percentage;
+
+  std::vector<std::string> vstr;
+  boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
+  int i = 0;
+
+  if (10 != vstr.size()) return -1;
+
+  sellerAddr = vstr[i++];
+  propertyId = atoi(vstr[i++]);
+  nValue = boost::lexical_cast<uint64_t>(vstr[i++]);
+  currency_desired = atoi(vstr[i++]);
+  deadline = boost::lexical_cast<uint64_t>(vstr[i++]);
+  early_bird = (unsigned char)atoi(vstr[i++]);
+  percentage = (unsigned char)atoi(vstr[i++]);
+
+  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage);
+  if (my_crowds.insert(std::make_pair(sellerAddr, newCrowdsale)).second) {
+    return 0;
+  } else {
+    return -1;
+  }
+
+  return 0;
+}
+
+
 static int msc_file_load(const string &filename, int what, bool verifyHash = false)
 {
   int lines = 0;
@@ -2979,6 +3035,11 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 
     case FILETYPE_DEVMSC:
       inputLineFunc = input_devmsc_state_string;
+      break;
+
+    case FILETYPE_CROWDSALES:
+      my_crowds.clear();
+      inputLineFunc = input_mp_crowdsale_string;
       break;
 
     default:
@@ -3061,6 +3122,7 @@ static char const * const statePrefix[NUM_FILETYPES] = {
     "offers",
     "accepts",
     "devmsc",
+    "crowdsales",
 };
 
 // returns the height of the state loaded
@@ -3182,6 +3244,18 @@ static int write_devmsc_state(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
+static int write_mp_crowdsales(ofstream &file, SHA256_CTX *shaCtx)
+{
+  CrowdMap::const_iterator iter;
+  for (iter = my_crowds.begin(); iter != my_crowds.end(); ++iter) {
+    // decompose the key for address
+    CMPCrowd const &crowd = (*iter).second;
+    crowd.saveCrowdSale(file, shaCtx, (*iter).first);
+  }
+
+  return 0;
+}
+
 
 static int write_state_file( CBlockIndex const *pBlockIndex, int what )
 {
@@ -3211,6 +3285,10 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
   case FILETYPE_DEVMSC:
     result = write_devmsc_state(file, &shaCtx);
     break;
+
+  case FILETYPE_CROWDSALES:
+      result = write_mp_crowdsales(file, &shaCtx);
+      break;
   }
 
   // generate and wite the double hash of all the contents written
@@ -3300,6 +3378,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
   write_state_file(pBlockIndex, FILETYPE_OFFERS);
   write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
   write_state_file(pBlockIndex, FILETYPE_DEVMSC);
+  write_state_file(pBlockIndex, FILETYPE_CROWDSALES);
 
   // clean-up the directory
   prune_state_files(pBlockIndex);
