@@ -44,7 +44,8 @@
 
 #include <openssl/sha.h>
 
-#define MY_SP_HACK
+// #define MY_SP_HACK
+// #define DISABLE_LOG_FILE 
 
 /* copied from 0.9.2, the one in 0.9.1 crashes on bad nTime input */
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -61,7 +62,6 @@ static std::string DateTimeStrFormat_092(const char* pszFormat, int64_t nTime)
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
 
-// #define DISABLE_LOG_FILE 
 static FILE *mp_fp = NULL;
 
 #include "mastercore.h"
@@ -355,8 +355,6 @@ class CMPSP
 private:
   string issuer;
 
-  unsigned int type;  // TX type
-
   unsigned char ecosystem;
   unsigned short prop_type;
   unsigned int prev_prop_id;
@@ -374,7 +372,14 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  uint256 txid;
+
+  bool bFixed;
+
 public:
+  uint256 getHash() const { return txid; }
+  bool isFixed() const { return bFixed; }
+
   void SetNull()
   {
     ecosystem = 0;
@@ -393,31 +398,37 @@ public:
     memset(&data, 0, sizeof(data));
   }
 
-  CMPSP(const string &sender, uint64_t v, char *c, char *s, char *n, char *u, char *d)
+  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
   {
     issuer = sender;
     SetNull();
-    Set(v, c, s, n, u, d);
+    bFixed = true;
+    Set(tx, pt, nv, c, s, n, u, d);
   }
 
-  CMPSP(const string &sender, uint64_t v, char *c, char *s, char *n, char *u, char *d, unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
+  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d, unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
   {
-    CMPSP(sender, v, c, s, n, u, d);
+    CMPSP(sender, tx, pt, nv, c, s, n, u, d);
     SetVariable(curr, dl, eb, per);
   }
 
+  const string getIssuer() const { return issuer; }
   const string getName() const { return name; }
   const string getCategory() const { return category; }
   const string getSubcategory() const { return subcategory; }
   const string getURL() const { return url; }
   const string getData() const { return data; }
 
+  unsigned short getPropertyType() const { return prop_type; }
+
   uint64_t getValue() const { return nValue; }
   uint64_t getDeadline() const { return deadline; }
 
-  void Set(uint64_t v, char *c, char *s, char *n, char *u, char *d)
+  void Set(uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
   {
-    nValue = v;
+    txid = tx;
+    prop_type = pt;
+    nValue = nv;
 
     strncpy(category, c, sizeof(category)-1);
     strncpy(subcategory, s, sizeof(subcategory)-1);
@@ -432,6 +443,8 @@ public:
     deadline = dl;
     early_bird = eb;
     percentage = per;
+
+    bFixed = false;
   }
 
   void print()
@@ -949,6 +962,7 @@ public:
   const string getTypeString() const { return string(c_strMastercoinType(getType())); }
   unsigned int getCurrency() const { return currency; }
   unsigned short getVersion() const { return version; }
+  unsigned short getPropertyType() const { return prop_type; }
   uint64_t getFeePaid() const { return tx_fee_paid; }
 
   const string & getSender() const { return sender; }
@@ -1164,16 +1178,13 @@ public:
 
       if (0 == rc)
       {
-//        if (NULL == getSP(currency))
-        {
-        const unsigned int id = global_NextPropertyId[ecosystem];
+      const unsigned int id = global_NextPropertyId[ecosystem];
 
-          my_sps.insert(std::make_pair(id, CMPSP(sender, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
+        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, nValue, prop_type, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
 
-          update_tally_map(sender, id, nValue, MONEY);  // TODO: check for test currencies
+        update_tally_map(sender, id, nValue, MONEY);
 
-          global_NextPropertyId[ecosystem]++;
-        }
+        global_NextPropertyId[ecosystem]++;
       }
 
       break;
@@ -1191,7 +1202,7 @@ public:
         {
         const unsigned int id = global_NextPropertyId[ecosystem];
 
-          my_sps.insert(std::make_pair(id, CMPSP(sender, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
+          my_sps.insert(std::make_pair(id, CMPSP(sender, txid, nValue, prop_type, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
 
           global_NextPropertyId[ecosystem]++;
         }
@@ -2193,13 +2204,10 @@ int extra2 = 0;
           (my_it->second).print(extra2);
 
           (my_it->second).init();
-
-          do
+          while (0 != (id = (my_it->second).next()))
           {
-            id = (my_it->second).next();
             printf("Id: %u=0x%X ", id, id);
           }
-          while (id);
           printf("\n");
         }
       break;
@@ -3185,7 +3193,9 @@ if (fHelp || params.size() != 4)
   // bool divisible = property.getDivisible();
   bool divisible = true; // hard code to true temporarily
 
-  long double tmpAmount = params[3].get_real();
+//  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
+
+  double tmpAmount = params[3].get_real();
   int64_t Amount = 0;
 
   if (divisible)
@@ -3202,6 +3212,9 @@ if (fHelp || params.size() != 4)
 
       Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
   }
+
+  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
+
   if (0 >= Amount)
            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
@@ -3230,10 +3243,12 @@ Value getbalance_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
+#ifndef MY_SP_HACK
     CMPSP *property = getSP(propertyId);
 
     if ((propertyId > 2) && (NULL == property)) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+#endif
 
     // ***This test also disabled because getDivisible still needs to be implemented
     // bool divisible = property.getDivisible();

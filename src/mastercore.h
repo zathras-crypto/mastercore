@@ -103,27 +103,37 @@ typedef struct
   uint64_t balance[TALLY_TYPE_COUNT];
 } BalanceRecord;
 
-  std::map<unsigned int, BalanceRecord> mp_token;
-  std::map<unsigned int, BalanceRecord>::iterator my_it;
+  typedef std::map<unsigned int, BalanceRecord> TokenMap;
+  TokenMap mp_token;
+  TokenMap::iterator my_it;
 
   bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
+
+  bool propertyExists(unsigned int which_currency) const
+  {
+  const TokenMap::const_iterator it = mp_token.find(which_currency);
+
+    return (it != mp_token.end());
+  }
 
 public:
   unsigned int init()
   {
   unsigned int ret = 0;
 
-    printf("%s();size = %lu, line %d, file: %s\n", __FUNCTION__, mp_token.size(), __LINE__, __FILE__);
+//    printf("%s();size = %lu, line %d, file: %s\n", __FUNCTION__, mp_token.size(), __LINE__, __FILE__);
     my_it = mp_token.begin();
     if (my_it != mp_token.end()) ret = my_it->first;
-    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
+//    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
 
+/*
     {
-      for(map<unsigned int, BalanceRecord>::iterator it = mp_token.begin(); it != mp_token.end(); ++it)
+      for(map<unsigned int, BalanceRecord>::const_iterator it = mp_token.begin(); it != mp_token.end(); ++it)
       {
         printf("%s();first = %u, line %d, file: %s\n", __FUNCTION__, it->first, __LINE__, __FILE__);
       }
     }
+*/
 
     return ret;
   }
@@ -132,39 +142,27 @@ public:
   {
   unsigned int ret;
 
-    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
     if (my_it == mp_token.end()) return 0;
 
     ret = my_it->first;
 
-    printf("%s();ret =%u, line %d, file: %s\n", __FUNCTION__, ret, __LINE__, __FILE__);
+//    printf("%s();ret =%u, line %d, file: %s\n", __FUNCTION__, ret, __LINE__, __FILE__);
 
     ++my_it;
 
     return ret;
   }
 
-  unsigned int begin(TallyType ttype)
-  {
-    return mp_token[0].balance[ttype];
-  };
-
-  unsigned int end(TallyType ttype)
-  {
-    return 0;
-  };
-
   bool updateMoney(unsigned int which_currency, int64_t amount, TallyType ttype)
   {
   bool bRet = false;
   int64_t now64;
 
-  LOCK(cs_tally);
+    LOCK(cs_tally);
 
     now64 = mp_token[which_currency].balance[ttype];
-
-//    fprintf(mp_fp, "%s(%u, %lu, %u); FUNDS AVAILABLE before= %lu\n", __FUNCTION__, which_currency, amount, ttype, now64);
 
     if (0>(now64 + amount))
     {
@@ -176,8 +174,6 @@ public:
 
       bRet = true;
     }
-
-//    fprintf(mp_fp, "%s(%u, %lu, %u); FUNDS AVAILABLE  after= %lu\n", __FUNCTION__, which_currency, amount, ttype, now64);
 
     return bRet;
   }
@@ -191,9 +187,16 @@ public:
 
   void print(int which_currency = MASTERCOIN_CURRENCY_MSC)
   {
-  const uint64_t money = mp_token[which_currency].balance[MONEY];
-  const uint64_t so_r = mp_token[which_currency].balance[SELLOFFER_RESERVE];
-  const uint64_t a_r = mp_token[which_currency].balance[ACCEPT_RESERVE];
+  uint64_t money = 0;
+  uint64_t so_r = 0;
+  uint64_t a_r = 0;
+
+    if (propertyExists(which_currency))
+    {
+      money = mp_token[which_currency].balance[MONEY];
+      so_r = mp_token[which_currency].balance[SELLOFFER_RESERVE];
+      a_r = mp_token[which_currency].balance[ACCEPT_RESERVE];
+    }
 
     printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
      (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
@@ -201,13 +204,11 @@ public:
 
   uint64_t getMoney(unsigned int which_currency, TallyType ttype)
   {
-  uint64_t ret64;
+  uint64_t ret64 = 0;
 
     LOCK(cs_tally);
 
-    ret64 = mp_token[which_currency].balance[ttype];
-
-//    fprintf(mp_fp, "%s(%u, %u); FUNDS AVAILABLE= %lu\n", __FUNCTION__, which_currency, ttype, ret64);
+    if (propertyExists(which_currency)) ret64 = mp_token[which_currency].balance[ttype];
 
     return ret64;
   }
