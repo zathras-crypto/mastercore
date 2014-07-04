@@ -3398,7 +3398,7 @@ if (fHelp || params.size() != 4)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
   bool divisible = false;
-  divisible=getSP(propertyId)->isDivisible();
+  divisible=property->isDivisible();
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
@@ -3458,7 +3458,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
 #endif
 
     bool divisible = false;
-    divisible=getSP(propertyId)->isDivisible();
+    divisible=property->isDivisible();
 
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     if (divisible)
@@ -3967,7 +3967,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
     bool divisible=false;
-    if (MSC_PROPERTY_TYPE_DIVISIBLE == property->getPropertyType()) divisible=true; //replace with isDivisible()
+    divisible=property->isDivisible();
 
     Array response;
 
@@ -4036,7 +4036,7 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 
     CMPTally *addressTally=getTally(address);
 
-    if (NULL == addressTally) // property ID does not exist
+    if (NULL == addressTally) // addressTally object does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Address not found");
 
     addressTally->init();
@@ -4107,6 +4107,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
 
     Object response;
         bool divisible = false;
+        divisible=property->isDivisible();
         string propertyName = property->getName();
         string propertyCategory = property->getCategory();
         string propertySubCategory = property->getSubcategory();
