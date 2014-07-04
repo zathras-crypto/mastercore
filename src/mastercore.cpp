@@ -3353,7 +3353,7 @@ if (fHelp || params.size() != 4)
   unsigned int propertyId = int(tmpPropertyId);
 
   CMPSP *property = getSP(propertyId);
-  if ((propertyId > 2) && (NULL == property)) // property ID does not exist
+  if (NULL == property) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
   // ***This test also disabled because getDivisible still needs to be implemented
@@ -3413,7 +3413,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
 #ifndef MY_SP_HACK
     CMPSP *property = getSP(propertyId);
 
-    if ((propertyId > 2) && (NULL == property)) // property ID does not exist
+    if (NULL == property) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 #endif
 
@@ -3898,11 +3898,7 @@ bool addressFilter;
 
 Value getallbalancesforid_MP(const Array& params, bool fHelp)
 {
-   int curID = 0;
-   if (params.size() > 0)
-        curID = boost::lexical_cast<boost::int32_t>(params[0].get_str());
-
-   if (fHelp || params.size() != 1 || !curID)
+   if (fHelp || params.size() != 1)
         throw runtime_error(
             "getallbalancesforid_MP currencyID\n"
             "\nGet a list of address balances for a given currency/property ID\n"
@@ -3920,20 +3916,51 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
             + HelpExampleCli("getallbalancesforid_MP", "1")
             + HelpExampleRpc("getallbalancesforid_MP", "1")
         );
-    if (!(MSC_MAX_KNOWN_CURRENCIES > curID))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Currency/Property ID does not exist");
+
+    int64_t tmpPropertyId = params[0].get_int64();
+    if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
+    unsigned int propertyId = int(tmpPropertyId);
+    CMPSP *property = getSP(propertyId);
+
+    if (NULL == property) // property ID does not exist
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+
+    bool divisible=false;
+    if (MSC_PROPERTY_TYPE_DIVISIBLE == property->getPropertyType()) divisible=true; //replace with isDivisible()
 
     Array response;
 
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
-        Object addressbal;
-        //note this is assuming divisibility, correct with SP
-        addressbal.push_back(Pair("address", (my_it->first).c_str()));
-        addressbal.push_back(Pair("balance", ValueFromAmount((my_it->second).getMoney(curID,MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", ValueFromAmount((my_it->second).getMoney(curID,SELLOFFER_RESERVE))));
-        addressbal.push_back(Pair("reservedbyaccept", ValueFromAmount((my_it->second).getMoney(curID,ACCEPT_RESERVE))));
+        unsigned int id;
+        bool includeAddress=false;
+        string address = (my_it->first).c_str();
+        (my_it->second).init();
+        while (0 != (id = (my_it->second).next()))
+        {
+           if(id==propertyId) includeAddress=true;
+           break;
+        }
 
+        if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
+
+        Object addressbal;
+
+        addressbal.push_back(Pair("address", address));
+        if(divisible)
+        {
+        addressbal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        }
+        else
+        {
+        addressbal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
+        addressbal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
+        }
         response.push_back(addressbal);
     }
 return response;
@@ -3997,12 +4024,7 @@ return response;
 
 Value getproperty_MP(const Array& params, bool fHelp)
 {
-   int propertyId = 0;
-
-   if (params.size() > 0)
-        propertyId = boost::lexical_cast<boost::int32_t>(params[0].get_str());
-
-   if (fHelp || params.size() != 1 || !propertyId)
+   if (fHelp || params.size() != 1)
         throw runtime_error(
             "getproperty_MP propertyID\n"
             "\nGet details for a property ID\n"
@@ -4026,22 +4048,29 @@ Value getproperty_MP(const Array& params, bool fHelp)
             + HelpExampleRpc("getproperty_MP", "3")
         );
 
+    int64_t tmpPropertyId = params[0].get_int64();
+    if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
+    unsigned int propertyId = int(tmpPropertyId);
+    CMPSP *property = getSP(propertyId);
+
+    if (NULL == property) // property ID does not exist
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+
     Object response;
-    //non-functional placeholder code only
-
         bool divisible = false;
-        string propertyName;
-        string propertyCategory;
-        string propertySubCategory;
-        string propertyData;
-        string propertyURL;
-        string creationTXID;
-        int64_t totalTokens;
-        string issuer;
-        string issuanceType; //fixed or variable
+        string propertyName = property->getName();
+        string propertyCategory = property->getCategory();
+        string propertySubCategory = property->getSubcategory();
+        string propertyData = property->getData();
+        string propertyURL = property->getURL();
+        uint256 creationTXID = property->getHash();
+        int64_t totalTokens = property->getValue(); //only valid for TX50, TODO TX51 loop map to calculate
+        string issuer = property->getIssuer();
+        bool fixedIssuance = property->isFixed();
 
-        //populate those details from the map
-
+//  uint64_t getValue() const { return nValue; }
         response.push_back(Pair("name", propertyName));
         response.push_back(Pair("category", propertyCategory));
         response.push_back(Pair("subcategory", propertySubCategory));
@@ -4049,8 +4078,8 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("url", propertyURL));
         response.push_back(Pair("divisible", divisible));
         response.push_back(Pair("issuer", issuer));
-        response.push_back(Pair("creationtxid", creationTXID));
-        response.push_back(Pair("issuanceType", issuanceType));
+        response.push_back(Pair("creationtxid", creationTXID.GetHex()));
+        response.push_back(Pair("fixedissuance", fixedIssuance));
         if (divisible)
         {
             response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
