@@ -81,7 +81,6 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
-#define MASTERCOIN_CURRENCY_SP1   3
 
 #define MSC_MAX_KNOWN_CURRENCIES  64  // TODO, FIXME: take this away, used to write persistent files
 

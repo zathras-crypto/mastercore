@@ -47,19 +47,6 @@
 // #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
-/* copied from 0.9.2, the one in 0.9.1 crashes on bad nTime input */
-#include <boost/date_time/posix_time/posix_time.hpp>
-#define DateTimeStrFormat DateTimeStrFormat_092
-static std::string DateTimeStrFormat_092(const char* pszFormat, int64_t nTime)
-{
-    // std::locale takes ownership of the pointer
-    std::locale loc(std::locale::classic(), new boost::posix_time::time_facet(pszFormat));
-    std::stringstream ss;
-    ss.imbue(loc);
-    ss << boost::posix_time::from_time_t(nTime);
-    return ss.str();
-}
-
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
 
 static FILE *mp_fp = NULL;
@@ -376,10 +363,6 @@ private:
 
   bool bFixed;
 
-public:
-  uint256 getHash() const { return txid; }
-  bool isFixed() const { return bFixed; }
-
   void SetNull()
   {
     ecosystem = 0;
@@ -397,32 +380,6 @@ public:
     memset(&url, 0, sizeof(url));
     memset(&data, 0, sizeof(data));
   }
-
-  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
-  {
-    issuer = sender;
-    SetNull();
-    bFixed = true;
-    Set(tx, pt, nv, c, s, n, u, d);
-  }
-
-  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d, unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
-  {
-    CMPSP(sender, tx, pt, nv, c, s, n, u, d);
-    SetVariable(curr, dl, eb, per);
-  }
-
-  const string getIssuer() const { return issuer; }
-  const string getName() const { return name; }
-  const string getCategory() const { return category; }
-  const string getSubcategory() const { return subcategory; }
-  const string getURL() const { return url; }
-  const string getData() const { return data; }
-
-  unsigned short getPropertyType() const { return prop_type; }
-
-  uint64_t getValue() const { return nValue; }
-  uint64_t getDeadline() const { return deadline; }
 
   void Set(uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
   {
@@ -447,9 +404,59 @@ public:
     bFixed = false;
   }
 
+public:
+  uint256 getHash() const { return txid; }
+
+  bool isFixed() const { return bFixed; }
+
+  bool isDivisible() const
+  {
+    switch (prop_type)
+    {
+      case MSC_PROPERTY_TYPE_DIVISIBLE:
+      case MSC_PROPERTY_TYPE_DIVISIBLE_REPLACING:
+      case MSC_PROPERTY_TYPE_DIVISIBLE_APPENDING:
+        return true;
+    }
+    return false;
+  }
+
+  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
+  {
+    SetNull();
+    issuer = sender;
+    bFixed = true;
+    Set(tx, pt, nv, c, s, n, u, d);
+  }
+
+  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d, unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
+  {
+    SetNull();
+    issuer = sender;
+    bFixed = false;
+    Set(tx, pt, nv, c, s, n, u, d);
+    SetVariable(curr, dl, eb, per);
+  }
+
+  const string getIssuer() const { return issuer; }
+  const string getName() const { return name; }
+  const string getCategory() const { return category; }
+  const string getSubcategory() const { return subcategory; }
+  const string getURL() const { return url; }
+  const string getData() const { return data; }
+
+  unsigned short getPropertyType() const { return prop_type; }
+
+  uint64_t getValue() const { return nValue; }
+  uint64_t getDeadline() const { return deadline; }
+
   void print()
   {
-    printf("%s/%s/%s, %s %s\n",
+    printf("%s(Fixed=%s,Divisible=%s):%lu:%s/%s/%s, %s %s\n",
+     getIssuer().c_str(),
+     isFixed() ? "Yes":"No",
+     isDivisible() ? "Yes":"No",
+     getValue(),
      getCategory().c_str(), getSubcategory().c_str(), getName().c_str(), getURL().c_str(), getData().c_str());
   }
 
@@ -464,8 +471,17 @@ static map<unsigned int, CMPSP> my_sps;
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
 
-// getOffer may replace DEx_offerExists() in the near future
-// TODO: locks are needed around map's insert & erase
+CMPTally *getTally(const string & address)
+{
+  LOCK (cs_tally);
+
+  map<string, CMPTally>::iterator it = mp_tally_map.find(address);
+
+  if (it != mp_tally_map.end()) return &(it->second);
+
+  return (CMPTally *) NULL;
+}
+
 CMPSP *getSP(unsigned int currency)
 {
 map<unsigned int, CMPSP>::iterator my_it = my_sps.find(currency);
@@ -1180,7 +1196,7 @@ public:
       {
       const unsigned int id = global_NextPropertyId[ecosystem];
 
-        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, nValue, prop_type, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
+        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
 
         update_tally_map(sender, id, nValue, MONEY);
 
@@ -1202,7 +1218,7 @@ public:
         {
         const unsigned int id = global_NextPropertyId[ecosystem];
 
-          my_sps.insert(std::make_pair(id, CMPSP(sender, txid, nValue, prop_type, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
+          my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue, (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
 
           global_NextPropertyId[ecosystem]++;
         }
@@ -2842,7 +2858,19 @@ const bool bTestnet = TestNet();
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
 
-    //(void) msc_preseed_file_load(FILETYPE_BALANCES);
+    my_sps.insert(std::make_pair(MASTERCOIN_CURRENCY_MSC, CMPSP(exodus, 0, MSC_PROPERTY_TYPE_DIVISIBLE, 600000,
+     (char *)"N/A",
+     (char *)"N/A",
+     (char *)"MasterCoin",
+     (char *)"www.mastercoin.org",
+     (char *)"***data***", 0,0,0,0)));
+
+    my_sps.insert(std::make_pair(MASTERCOIN_CURRENCY_TMSC, CMPSP(exodus, 0, MSC_PROPERTY_TYPE_DIVISIBLE, 700000,
+     (char *)"N/A",
+     (char *)"N/A",
+     (char *)"Test MasterCoin",
+     (char *)"www.mastercoin.org",
+     (char *)"***data***", 0,0,0,0)));
   }
 
   // collect the real Exodus balances available at the snapshot time
