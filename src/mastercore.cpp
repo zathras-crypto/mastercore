@@ -3356,9 +3356,8 @@ if (fHelp || params.size() != 4)
   if (NULL == property) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 
-  // ***This test also disabled because getDivisible still needs to be implemented
-  // bool divisible = property.getDivisible();
-  bool divisible = true; // hard code to true temporarily
+  bool divisible = false;
+  divisible=getSP(propertyId)->isDivisible();
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
@@ -3417,9 +3416,8 @@ Value getbalance_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
 #endif
 
-    // ***This test also disabled because getDivisible still needs to be implemented
-    // bool divisible = property.getDivisible();
-    bool divisible = true; // hard code to true temporarily
+    bool divisible = false;
+    divisible=getSP(propertyId)->isDivisible();
 
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     if (divisible)
@@ -3995,31 +3993,39 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 
     Array response;
 
-    //non-functional placeholder code only
+    CMPTally *addressTally=getTally(address);
 
-    //change this iterator for one that goes over the properties held by an address
-//    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
-//    {
-        Object propertybal;
-        bool divisible = false;
-        int64_t propertyId = 1; 
+    if (NULL == addressTally) // property ID does not exist
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Address not found");
 
-        propertybal.push_back(Pair("propertyid", propertyId));
-        if (divisible)
-        {
-        propertybal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-        propertybal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if (propertyId<3) propertybal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
-        }
-        else
-        {
-        propertybal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
-        propertybal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
-        if (propertyId<3) propertybal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
-        }
-        response.push_back(propertybal);
-//    }
-return response;
+    addressTally->init();
+
+    uint64_t propertyId; // avoid issues with json spirit at uint32
+    while (0 != (propertyId = addressTally->next()))
+    {
+            bool divisible=false;
+            if (NULL != getSP(propertyId)) divisible=getSP(propertyId)->isDivisible();
+
+            Object propertyBal;
+
+            propertyBal.push_back(Pair("propertyid", propertyId));
+            if (divisible)
+            {
+                    propertyBal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
+                    propertyBal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+            }
+            else
+            {
+                    propertyBal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
+                    propertyBal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
+                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
+            }
+
+            response.push_back(propertyBal);
+    }
+
+    return response;
 }
 
 Value getproperty_MP(const Array& params, bool fHelp)
