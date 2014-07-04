@@ -1767,19 +1767,80 @@ vector<vector<unsigned char> > vSolutions;
   return true;
 }
 
+#include <utility>
+#include <map>
+#include <string>
+#include <stdio.h>
+#include <vector>
+
 // calculates and returns fundraiser bonus, issuer premine, and total tokens
 // propType : divisible/indiv
 // bonusPerc: bonus percentage
 // currentSecs: number of seconds of current tx
 // numProps: number of properties
 // issuerPerc: percentage of tokens to issuer
-
-// need this
-std::pair < int64_t, int64_t> tokens;
-
-int calculateFundraiser(int propType, double amtTransfer, int bonusPerc, int64_t fundraiserSecs, int64_t currentSecs, int numProps, int issuerPerc, std::pair<int64_t, int64_t>& tokens  )
+int calculateFractional(int propType, int bonusPerc, long long int fundraiserSecs, int numProps, int issuerPerc,  const std::map<std::string, std::vector<long long int> > database, const long long int amountPremined  )
 {
-  int64_t bonusSeconds = fundraiserSecs - currentSecs;
+
+  long double totalCreated = 0;
+  double issuerPercentage = (double) (issuerPerc * 0.01);
+
+  std::map<std::string, std::vector<long long int> >::const_iterator it;
+
+  for(it = database.begin(); it != database.end(); it++) {
+
+    //printf("\n\ndoing... \n");
+    long long int currentSecs = it->second.at(1);
+    long double amtTransfer = it->second.at(0);
+
+    long long int bonusSeconds = fundraiserSecs - currentSecs;
+  
+    long double weeks = bonusSeconds / (double) 604800;
+    double ebPercentage = weeks * bonusPerc;
+    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+  
+    long double createdTokens;
+    long double issuerTokens;
+
+    if( 2 == propType ) {
+      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+      issuerTokens = createdTokens * issuerPercentage;
+      //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
+
+      totalCreated += createdTokens;
+      //tokens = std::make_pair(createdTokens,issuerTokens);
+
+    } else {
+      //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
+      createdTokens = (long long int) (  (amtTransfer/1e9) * (double) numProps * bonusPercentage);
+      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
+      //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
+
+      //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
+      totalCreated += createdTokens;
+      //tokens = std::make_pair( (long long int) createdTokens,issuerTokens);
+    }
+    //printf("did it %s \n ", it->first.c_str());
+  };
+
+  long double totalPremined = totalCreated * issuerPercentage;
+  long double missedTokens;
+
+  if( 2 == propType ) {
+    missedTokens = totalPremined - amountPremined;
+  } else {
+    missedTokens = (long long int) (totalPremined - amountPremined);
+  }
+
+  //printf("\ntotal toks %Lf and total missed %Lf and total premined %Lf and premined %lld \n ", totalCreated, missedTokens, totalPremined, amountPremined );
+
+  return missedTokens;
+}
+
+
+int calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, long long int fundraiserSecs, long long int currentSecs, int numProps, int issuerPerc, std::pair<long long int, long long int>& tokens )
+{
+  long long int bonusSeconds = fundraiserSecs - currentSecs;
 
   //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
 
@@ -1804,15 +1865,118 @@ int calculateFundraiser(int propType, double amtTransfer, int bonusPerc, int64_t
     tokens = std::make_pair(createdTokens,issuerTokens);
 
   } else {
-    createdTokens = (int) (amtTransfer * (double) numProps * bonusPercentage);
-    issuerTokens = (int) (createdTokens * issuerPercentage) ;
+    createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
+    issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
     //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
 
-    tokens = std::make_pair( (int64_t) createdTokens,issuerTokens);
+    tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
   }
   
   return -666;
 }
+
+/*  example interface 
+
+int main() {
+
+   long long int amountCreated = 0;
+   long long int amountPremined = 0;
+   
+   std::map<std::string, std::vector<long long int> > database;
+   std::pair <long long int, long long int> tokens;
+
+   //calculateFundraiser(1,2.0,0,1398701578,1398371487,817545361,0.0, tokens);
+   //262ab5f05b823c77ee7af8cb5ea9ce7ebbc0c34775a7bbeb7c3e477a4881dc89
+   //Expected: 'total created', 1635090722, 'tokens for issuer', 0.0
+   //Returned: 1635090722, and 0.000000 
+
+   //calculateFundraiser(2,7.39038774,25,22453142409904,1403765616,100,10, tokens);
+   //333d8fd459b270fde95736846eb81b2547837476f33e8e0b4c1158906870155f
+   //Expected: 'total created', 6858757932.260923, 'tokens for issuer', 685875793.2260923
+   //Returned: 6858757932.260923, and 685875793.226092
+   
+   //calculateFundraiser(1,1200,10,1400749200,1398164609,3400,0, tokens);
+   //f13d7cbd38c910572a0a049888896818da06a3b8d726f5d6fbfc87658aa1d642
+   //Expected: 'total created', 5823573, 'tokens for issuer', 0.0
+   //Returned: 5823573, and 0.000000 
+   
+   //calculateFundraiser(1,2.0,10,1396500000,1396067389,1500,5, tokens);
+   //9f8f19ee4dbc6eb23905c6416053a651259a22c88be0e55e61454909d20ce66d
+   //Expected: 'total created', 3214, 'tokens for issuer', 160.70000000000002
+   //Returned: 3214, and 160.700000
+   
+   //calculateFundraiser(2,1.299,0,1649030400,1397248685,1000,0, tokens);
+   //139e476fb34921f7cad834a2868dc4a734cd03a1e6b0a5eb03164e228e28e30d
+   //Expected: 'total created', 1299.0, 'tokens for issuer', 0.0
+   //Returned: 1299.000000, and 0.000000
+
+   //calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
+   //94d23c01d82ffb8b7fa1c25a919a96713afa1198ce02a06c1bd6713af6a6d97a
+   //Expected: 'total created', 214621, 'tokens for issuer', 90140.81999999999
+   //Returned: 214621, and 90140.820000
+
+   calculateFundraiser(1,42.0,10,1400198400,1397758429,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+   
+   calculateFundraiser(1,2.0,10,1400198400,1398103687,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+   
+   calculateFundraiser(1,2.0,10,1400198400,1398138271,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+
+   calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+
+   calculateFundraiser(1,1.0,10,1400198400,1398790874,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+
+   calculateFundraiser(1,55.23485377,10,1400198400,1399591823,1700,42, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   //77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c
+   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+   
+   long long int e1[] = { (long long int) (42.0 * 1e9 ), 1397758429};
+   std::vector<long long int> entry1(e1, e1 + sizeof(e1));
+
+   long long int e2[] = { (long long int) (2.0 * 1e9 ), 1398103687};
+   std::vector<long long int> entry2(e2, e2 + sizeof(e2));
+   
+   long long int e3[] = { (long long int) (2.0 * 1e9 ), 1398138271};
+   std::vector<long long int> entry3(e3, e3 + sizeof(e3));
+
+   long long int e4[] = { (long long int) (96.0 * 1e9 ), 1398292763};
+   std::vector<long long int> entry4(e4, e4 + sizeof(e4));
+   
+   long long int e5[] = { (long long int) (1.0 * 1e9 ), 1398790874};
+   std::vector<long long int> entry5(e5, e5 + sizeof(e5));
+
+   long long int e6[] = { (long long int) (55.23485377 * 1e9 ), 1399591823};
+   std::vector<long long int> entry6(e6, e6 + sizeof(e6));
+   
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662",entry1));
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba",entry2));
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4",entry3));
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6",entry4));
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b",entry5));
+   database.insert(std::make_pair<std::string, std::vector<long long int>& >("77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c",entry6));
+
+   long double missedTokens = calculateFractional(1,10,1400198400,1700,42, database, amountPremined);
+
+   printf("\nTokens created, Tokens for issuer, amountMissed: %lld %lld %Lf\n", amountCreated, amountPremined, missedTokens);
+   return 0;
+}
+
+*/
 
 
 int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
