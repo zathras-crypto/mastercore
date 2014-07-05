@@ -495,6 +495,7 @@ public:
   {
   }
   
+  unsigned int getPropertyId() const { return propertyId; }
   uint64_t getDeadline() const { return deadline; }
 
   void print(const string & address, FILE *fp = stdout) const
@@ -1048,7 +1049,8 @@ private:
   uint64_t nValue;
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
-  unsigned int type, currency;
+  unsigned int type;
+  unsigned int currency;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
 
@@ -1175,12 +1177,31 @@ public:
 
         if (crowd)
         {
+        CMPSP *sp = getSP(crowd->getPropertyId());
+
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
 
           // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
           // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+          if (sp)
+          {
+//            ... sp->getDeadline();
+          }
+          else
+          {
+            // NULL pointer, but the simple send is valid otherwise
+          }
+
+
+// propType : divisible/indiv
+// bonusPerc: bonus percentage
+// currentSecs: number of seconds of current tx
+// numProps: number of properties
+// issuerPerc: percentage of tokens to issuer
+
         }
       }
 
