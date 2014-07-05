@@ -31,6 +31,7 @@
 #include <fstream>
 #include <algorithm>
 
+#include <vector>
 
 #include <utility>
 #include <string>
@@ -494,16 +495,17 @@ private:
   uint256 txid;
 
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),created(0),mined(0)
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
   {
   }
 
-  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t cr, uint64_t mn):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per), created(cr), mined(mn)
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per)
   {
   }
-  
+
   unsigned int getPropertyId() const { return propertyId; }
+
   uint64_t getDeadline() const { return deadline; }
   
   void incTokensCreated(uint64_t amount) { created += amount; }
@@ -1041,6 +1043,44 @@ CrowdMap::iterator my_it = my_crowds.begin();
   return how_many_erased;
 }
 
+  void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
+    long long int fundraiserSecs, long int currentSecs, int numProps, int issuerPerc, 
+    std::pair<int64_t, int64_t>& tokens )
+  {
+    long long int bonusSeconds = fundraiserSecs - currentSecs;
+
+    //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+
+    long double weeks = bonusSeconds / (double) 604800;
+    double ebPercentage = weeks * bonusPerc;
+    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+
+    //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
+
+    double issuerPercentage = (double) (issuerPerc * 0.01);
+
+    long double createdTokens;
+    long double issuerTokens;
+
+    //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", 
+    //bonusSeconds, bonusPercentage, issuerPercentage);
+    
+    if( 2 == propType ) {
+      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+      issuerTokens = createdTokens * issuerPercentage;
+      //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
+
+      tokens = std::make_pair(createdTokens,issuerTokens);
+
+    } else {
+      createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
+      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
+      //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
+
+      tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
+    }
+  }
+
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
 // The class responsible for sorted tx parsing. It does the initial block parsing (via a priority_queue, sorted).
@@ -1379,7 +1419,7 @@ public:
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
 
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
 
         global_NextPropertyId[ecosystem]++;
       }
@@ -1647,43 +1687,6 @@ public:
   return 0;
  }
 
-  void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
-    long long int fundraiserSecs, long int currentSecs, int numProps, int issuerPerc, 
-    std::pair<int64_t, int64_t>& tokens )
-  {
-    long long int bonusSeconds = fundraiserSecs - currentSecs;
-
-    //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
-
-    long double weeks = bonusSeconds / (double) 604800;
-    double ebPercentage = weeks * bonusPerc;
-    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
-
-    //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
-
-    double issuerPercentage = (double) (issuerPerc * 0.01);
-
-    long double createdTokens;
-    long double issuerTokens;
-
-    //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", 
-    //bonusSeconds, bonusPercentage, issuerPercentage);
-    
-    if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
-      //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
-
-      tokens = std::make_pair(createdTokens,issuerTokens);
-
-    } else {
-      createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
-      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
-
-      tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
-    }
-  }
 
   void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0, int64_t bt = 0)
   {
@@ -1879,11 +1882,6 @@ vector<vector<unsigned char> > vSolutions;
   return true;
 }
 
-#include <utility>
-#include <map>
-#include <string>
-#include <stdio.h>
-#include <vector>
 
 // calculates and returns fundraiser bonus, issuer premine, and total tokens
 // propType : divisible/indiv
