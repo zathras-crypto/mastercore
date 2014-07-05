@@ -457,6 +457,11 @@ public:
   uint64_t getValue() const { return nValue; }
   uint64_t getDeadline() const { return deadline; }
 
+  uint64_t getNumProps() const { return nValue; }
+
+  unsigned char getEarlyBird() const { return early_bird; }
+  unsigned char getIssuerPerc() const { return percentage; }
+  
   void print()
   {
     printf("%s:%s(Fixed=%s,Divisible=%s):%lu:%s/%s, %s %s\n",
@@ -498,12 +503,8 @@ public:
   {
   }
   
+  unsigned int getPropertyId() const { return propertyId; }
   uint64_t getDeadline() const { return deadline; }
-  uint64_t getNumProps() const { return nValue; }
-
-  unsigned int getPropertyType() const { return propertyId; }
-  unsigned char getEarlyBird() const { return early_bird; }
-  unsigned char getIssuerPerc() const { return percentage; }
   
   void incTokensCreated(uint64_t amount) { created += amount; }
   void incTokensMined(uint64_t amount) { mined += amount; }
@@ -1059,7 +1060,8 @@ private:
   uint64_t nValue;
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
-  unsigned int type, currency;
+  unsigned int type;
+  unsigned int currency;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
 
@@ -1076,7 +1078,6 @@ private:
   char url[SP_STRING_FIELD_LEN];
   char data[SP_STRING_FIELD_LEN];
 
-  unsigned int currency_desired;
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
@@ -1187,22 +1188,32 @@ public:
 
         if (crowd)
         {
+          CMPSP *sp = getSP(crowd->getPropertyId());
+
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
           
-          std::pair <int64_t, int64_t> tokens;
-          
-          calculateFundraiser( crowd->getPropertyType(),
-                               nValue, 
-                               crowd->getEarlyBird(), 
-                               crowd->getDeadline(), 
-                               blockTime, 
-                               crowd->getNumProps(), 
-                               crowd->getIssuerPerc(), 
-                               tokens );
+          if (sp)
+          {
+            std::pair <int64_t, int64_t> tokens;
+            
+            calculateFundraiser( sp->getPropertyType(),
+                                nValue, 
+                                sp->getEarlyBird(), 
+                                sp->getDeadline(), 
+                                blockTime, 
+                                sp->getNumProps(), 
+                                sp->getIssuerPerc(), 
+                                tokens );
 
-          crowd->incTokensCreated(tokens.first); 
-          crowd->incTokensMined(tokens.second);
-          fprintf(mp_fp, "\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+            crowd->incTokensCreated(tokens.first); 
+            crowd->incTokensMined(tokens.second);
+            fprintf(mp_fp, "\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+          }
+          else
+          {
+            // NULL pointer, but the simple send is valid otherwise
+          }
+
         }
       }
 
