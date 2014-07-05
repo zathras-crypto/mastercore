@@ -48,6 +48,7 @@
 
 #include <openssl/sha.h>
 
+// comment out MY_SP_HACK & others here - used for Unit Testing only !
 // #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
@@ -458,12 +459,13 @@ public:
 
   void print()
   {
-    printf("%s(Fixed=%s,Divisible=%s):%lu:%s/%s/%s, %s %s\n",
+    printf("%s:%s(Fixed=%s,Divisible=%s):%lu:%s/%s, %s %s\n",
      getIssuer().c_str(),
+     getName().c_str(),
      isFixed() ? "Yes":"No",
      isDivisible() ? "Yes":"No",
      getValue(),
-     getCategory().c_str(), getSubcategory().c_str(), getName().c_str(), getURL().c_str(), getData().c_str());
+     getCategory().c_str(), getSubcategory().c_str(), getURL().c_str(), getData().c_str());
   }
 
 };  // end of CMPSP class
@@ -1430,7 +1432,20 @@ public:
   return 0;
  }
 
+ // overrun check, are we beyond the end of packet?
+ bool isOverrun(const char *p, unsigned int line)
+ {
+ int now = (char *)p - (char *)&pkt;
+ bool bRet = (now > pkt_size);
+
+    if (bRet) fprintf(mp_fp, "%s(%sline=%u):now= %u, pkt_size= %u\n", __FUNCTION__, bRet ? "OVERRUN !!! ":"", line, now, pkt_size);
+
+    return bRet;
+ }
+
  // extract Smart Property data
+ // RETURNS: the pointer to the next piece to be parsed
+ // ERROR is returns NULL and/or sets the error_code
  const char *step2_SmartProperty(int &error_code)
  {
  const char *p = 11 + (char *)&pkt;
@@ -1438,7 +1453,9 @@ public:
  unsigned int i;
  unsigned int id;
 
-  error_code = (PKT_SP_ERROR -500);
+  (void) isOverrun(p, __LINE__);
+
+  error_code = 0;
 
   memcpy(&ecosystem, &pkt[4], 1);
   fprintf(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
@@ -1469,10 +1486,14 @@ public:
     return NULL;
   }
 
+  (void) isOverrun(p, __LINE__);
+
   for (i = 0; i<5; i++)
   {
     spstr.push_back(std::string(p));
     p += spstr.back().size() + 1;
+
+    (void) isOverrun(p, __LINE__);
   }
 
   i = 0;
@@ -1488,6 +1509,8 @@ public:
   fprintf(mp_fp, "\t             URL: %s\n", url);
   fprintf(mp_fp, "\t            Data: %s\n", data);
 
+  (void) isOverrun(p, __LINE__);
+
   if ((MASTERCOIN_CURRENCY_MSC == ecosystem) && (MSC_SP_BLOCK > block))
   {
     error_code = (PKT_SP_ERROR -503);
@@ -1501,7 +1524,15 @@ public:
     return NULL;
   }
 
+  (void) isOverrun(p, __LINE__);
   if (!p) error_code = (PKT_SP_ERROR -510);
+  (void) isOverrun(p, __LINE__);
+
+  if (isOverrun(p, __LINE__))
+  {
+    error_code = (PKT_SP_ERROR -800);
+    return NULL;
+  }
 
   return p;
  }
@@ -1512,6 +1543,7 @@ public:
 
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
+  p += 8;
 
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
@@ -1525,12 +1557,16 @@ public:
     if (0 == nValue) return (PKT_SP_ERROR -102);
   }
 
+  if (isOverrun(p, __LINE__)) return (PKT_SP_ERROR -900);
+
   return 0;
  }
 
  int step3_sp_variable(const char *p)
  {
   if (!p) return (PKT_SP_ERROR -1);
+
+  (void) isOverrun(p, __LINE__);
 
   memcpy(&currency, p, 4);  // currency desired
   swapByteOrder32(currency);
@@ -1559,16 +1595,22 @@ public:
   p += 8;
   fprintf(mp_fp, "\t        Deadline: %s (%lX)\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
 
+  (void) isOverrun(p, __LINE__);
+
   if (!deadline) return (PKT_SP_ERROR -203);  // deadline can not be 0
 
   // deadline can not be smaller than the timestamp of the current block
   if (deadline < (uint64_t)blockTime) return (PKT_SP_ERROR -204);
+
+  (void) isOverrun(p, __LINE__);
 
   memcpy(&early_bird, p++, 1);
   fprintf(mp_fp, "\tEarly Bird Bonus: %u\n", early_bird);
 
   memcpy(&percentage, p++, 1);
   fprintf(mp_fp, "\t      Percentage: %u\n", percentage);
+
+  if (isOverrun(p, __LINE__)) return (PKT_SP_ERROR -765);
 
   return 0;
  }
@@ -3502,12 +3544,10 @@ Value getbalance_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
-#ifndef MY_SP_HACK
     CMPSP *property = getSP(propertyId);
 
     if (NULL == property) // property ID does not exist
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
-#endif
 
     bool divisible = false;
     divisible=property->isDivisible();
