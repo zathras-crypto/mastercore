@@ -1196,7 +1196,7 @@ public:
           {
             std::pair <int64_t, int64_t> tokens;
             
-            calculateFundraiser( sp->getPropertyType(),
+            calculateFundraiser(sp->getPropertyType(),
                                 nValue, 
                                 sp->getEarlyBird(), 
                                 sp->getDeadline(), 
@@ -1207,7 +1207,7 @@ public:
 
             crowd->incTokensCreated(tokens.first); 
             crowd->incTokensMined(tokens.second);
-            fprintf(mp_fp, "\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
+            fprintf(mp_fp, "\nTokens created, Tokens for issuer: %ld %ld", tokens.first, tokens.second);
           }
           else
           {
@@ -1648,7 +1648,7 @@ public:
  }
 
   void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
-    long long int fundraiserSecs, long long int currentSecs, int numProps, int issuerPerc, 
+    long long int fundraiserSecs, long int currentSecs, int numProps, int issuerPerc, 
     std::pair<int64_t, int64_t>& tokens )
   {
     long long int bonusSeconds = fundraiserSecs - currentSecs;
