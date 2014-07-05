@@ -50,7 +50,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
-// #define MY_SP_HACK
+#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -1043,43 +1043,45 @@ CrowdMap::iterator my_it = my_crowds.begin();
   return how_many_erased;
 }
 
-  void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
-    long long int fundraiserSecs, long int currentSecs, int numProps, int issuerPerc, 
-    std::pair<int64_t, int64_t>& tokens )
-  {
-    long long int bonusSeconds = fundraiserSecs - currentSecs;
+void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
+  uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
+  std::pair<uint64_t, uint64_t>& tokens )
+{
+  
+  printf("\n take note 2, %lu %d %lu %lu %lu %d", amtTransfer, bonusPerc, fundraiserSecs, currentSecs, numProps, issuerPerc );
+  uint64_t bonusSeconds = fundraiserSecs - currentSecs;
 
-    //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+  printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
 
-    long double weeks = bonusSeconds / (double) 604800;
-    double ebPercentage = weeks * bonusPerc;
-    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+  double weeks = bonusSeconds / (double) 604800;
+  double ebPercentage = weeks * bonusPerc;
+  double bonusPercentage = ( ebPercentage / 100 ) + 1;
 
-    //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
+  printf("\n calc layer 2 %f %f %f",  weeks, bonusPercentage, ebPercentage ); 
 
-    double issuerPercentage = (double) (issuerPerc * 0.01);
+  double issuerPercentage = (double) (issuerPerc * 0.01);
 
-    long double createdTokens;
-    long double issuerTokens;
+  double createdTokens;
+  double issuerTokens;
 
-    //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", 
-    //bonusSeconds, bonusPercentage, issuerPercentage);
-    
-    if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
-      //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
+  printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
+  bonusSeconds, bonusPercentage, issuerPercentage);
+  
+  if( 2 == propType ) {
+    createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+    issuerTokens = createdTokens * issuerPercentage;
+    printf("prop 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
 
-      tokens = std::make_pair(createdTokens,issuerTokens);
+    tokens = std::make_pair(createdTokens, issuerTokens);
 
-    } else {
-      createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
-      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
+  } else {
+    createdTokens = (uint64_t) (amtTransfer * (double) numProps * bonusPercentage);
+    issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
+    printf("prop 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
-      tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
-    }
+    tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
+}
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
@@ -1104,7 +1106,7 @@ private:
   unsigned int currency;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
-
+  
   int64_t blockTime;  // internally nTime is still an "unsigned int"
 
 // SP additions, perhaps a new class or a union is needed
@@ -1234,20 +1236,21 @@ public:
           
           if (sp)
           {
-            std::pair <int64_t, int64_t> tokens;
+            std::pair <uint64_t,uint64_t> tokens;
             
-            calculateFundraiser(sp->getPropertyType(),
-                                nValue, 
-                                sp->getEarlyBird(), 
-                                sp->getDeadline(), 
-                                blockTime, 
-                                sp->getNumProps(), 
-                                sp->getIssuerPerc(), 
+            printf("\n take note, %lu %d %lu %lu %lu %d", nValue, sp->getEarlyBird(), sp->getDeadline(), (uint64_t) blockTime, sp->getNumProps(), sp->getIssuerPerc() );
+            calculateFundraiser(sp->getPropertyType(), //u short
+                                nValue,                // u int 64
+                                sp->getEarlyBird(),    // u char 
+                                sp->getDeadline(),     // u int 64
+                                (uint64_t) blockTime,              // int 64
+                                sp->getNumProps(),      // u int 64 
+                                sp->getIssuerPerc(),    // u char
                                 tokens );
 
             crowd->incTokensCreated(tokens.first); 
             crowd->incTokensMined(tokens.second);
-            fprintf(mp_fp, "\nTokens created, Tokens for issuer: %ld %ld", tokens.first, tokens.second);
+            fprintf(mp_fp, "\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
           }
           else
           {
@@ -3315,16 +3318,16 @@ const bool bTestnet = TestNet();
 
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
 
-#ifdef  MY_SP_HACK
-    nWaterlineBlock = MSC_SP_BLOCK-3;
-    nWaterlineBlock = MSC_DEX_BLOCK-3;
+#ifdef  MY_SP_HACK     //
+    //nWaterlineBlock = MSC_SP_BLOCK-3;
+    //nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
-    nWaterlineBlock = MSC_SP_BLOCK-3;
+    //nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = 292665;
-    nWaterlineBlock = 303550;
-    nWaterlineBlock = 303550;
-    nWaterlineBlock = 308500;
-    nWaterlineBlock = MSC_DEX_BLOCK-3;
+    //nWaterlineBlock = 303550;
+    //nWaterlineBlock = 303550;
+    //nWaterlineBlock = 308500;
+    //nWaterlineBlock = MSC_DEX_BLOCK-3;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
