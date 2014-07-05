@@ -506,6 +506,11 @@ public:
   {
   }
 
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t _created, uint64_t _mined):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),created(_created),mined(_mined)
+  {
+  }
+
   unsigned int getPropertyId() const { return propertyId; }
 
   uint64_t getDeadline() const { return deadline; }
@@ -522,15 +527,17 @@ public:
   void saveCrowdSale(ofstream &file, SHA256_CTX *shaCtx, string const &addr) const
   {
     // compose the outputline
-    // addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage
-    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%s")
+    // addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,created,mined
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%d")
       % addr
       % propertyId
       % nValue
       % currency_desired
       % deadline
       % (int)early_bird
-      % (int)percentage).str();
+      % (int)percentage
+      % created
+      % mined ).str();
 
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -2978,6 +2985,8 @@ int input_mp_crowdsale_string(const string &s)
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
+  uint64_t created;
+  uint64_t mined;
 
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
@@ -2992,8 +3001,10 @@ int input_mp_crowdsale_string(const string &s)
   deadline = boost::lexical_cast<uint64_t>(vstr[i++]);
   early_bird = (unsigned char)atoi(vstr[i++]);
   percentage = (unsigned char)atoi(vstr[i++]);
+  created = boost::lexical_cast<uint64_t>(vstr[i++]);
+  mined = boost::lexical_cast<uint64_t>(vstr[i++]);
 
-  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage);
+  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage,created,mined);
   if (my_crowds.insert(std::make_pair(sellerAddr, newCrowdsale)).second) {
     return 0;
   } else {
