@@ -483,19 +483,30 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  uint64_t created;
+  uint64_t mined;
+
   uint256 txid;
 
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),created(0),mined(0)
   {
   }
 
-  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per)
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t cr, uint64_t mn):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per), created(cr), mined(mn)
   {
   }
   
   uint64_t getDeadline() const { return deadline; }
+  uint64_t getNumProps() const { return nValue; }
+
+  unsigned int getPropertyType() const { return propertyId; }
+  unsigned char getEarlyBird() const { return early_bird; }
+  unsigned char getIssuerPerc() const { return percentage; }
+  
+  void incTokensCreated(uint64_t amount) { created += amount; }
+  void incTokensMined(uint64_t amount) { mined += amount; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
@@ -1177,11 +1188,21 @@ public:
         if (crowd)
         {
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
+          
+          std::pair <int64_t, int64_t> tokens;
+          
+          calculateFundraiser( crowd->getPropertyType(),
+                               nValue, 
+                               crowd->getEarlyBird(), 
+                               crowd->getDeadline(), 
+                               blockTime, 
+                               crowd->getNumProps(), 
+                               crowd->getIssuerPerc(), 
+                               tokens );
 
-          // TODO: need math from Faiz here !!!!!!!!!!!!!!!!!!!!!!
-          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          crowd->incTokensCreated(tokens.first); 
+          crowd->incTokensMined(tokens.second);
+          fprintf(mp_fp, "\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
         }
       }
 
@@ -1347,7 +1368,7 @@ public:
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
 
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
 
         global_NextPropertyId[ecosystem]++;
       }
@@ -1615,6 +1636,44 @@ public:
   return 0;
  }
 
+  void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
+    long long int fundraiserSecs, long long int currentSecs, int numProps, int issuerPerc, 
+    std::pair<int64_t, int64_t>& tokens )
+  {
+    long long int bonusSeconds = fundraiserSecs - currentSecs;
+
+    //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+
+    long double weeks = bonusSeconds / (double) 604800;
+    double ebPercentage = weeks * bonusPerc;
+    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+
+    //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
+
+    double issuerPercentage = (double) (issuerPerc * 0.01);
+
+    long double createdTokens;
+    long double issuerTokens;
+
+    //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", 
+    //bonusSeconds, bonusPercentage, issuerPercentage);
+    
+    if( 2 == propType ) {
+      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+      issuerTokens = createdTokens * issuerPercentage;
+      //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
+
+      tokens = std::make_pair(createdTokens,issuerTokens);
+
+    } else {
+      createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
+      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
+      //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
+
+      tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
+    }
+  }
+
   void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0, int64_t bt = 0)
   {
     txid = t;
@@ -1880,42 +1939,7 @@ int calculateFractional(int propType, int bonusPerc, long long int fundraiserSec
 }
 
 
-int calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, long long int fundraiserSecs, long long int currentSecs, int numProps, int issuerPerc, std::pair<long long int, long long int>& tokens )
-{
-  long long int bonusSeconds = fundraiserSecs - currentSecs;
 
-  //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
-
-  long double weeks = bonusSeconds / (double) 604800;
-  double ebPercentage = weeks * bonusPerc;
-  long double bonusPercentage = ( ebPercentage / 100 ) + 1;
-
-  //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
-
-  double issuerPercentage = (double) (issuerPerc * 0.01);
-
-  long double createdTokens;
-  long double issuerTokens;
-
-  //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", bonusSeconds, bonusPercentage, issuerPercentage);
-  
-  if( 2 == propType ) {
-    createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-    issuerTokens = createdTokens * issuerPercentage;
-    //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
-
-    tokens = std::make_pair(createdTokens,issuerTokens);
-
-  } else {
-    createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
-    issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
-    //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
-
-    tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
-  }
-  
-  return -666;
-}
 
 /*  example interface 
 
