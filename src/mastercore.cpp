@@ -1065,7 +1065,6 @@ private:
   char url[SP_STRING_FIELD_LEN];
   char data[SP_STRING_FIELD_LEN];
 
-  unsigned int currency_desired;
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
