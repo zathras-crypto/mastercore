@@ -1703,7 +1703,7 @@ public:
  }
 
 
-  void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0, int64_t bt = 0)
+  void Set(const uint256 &t, int b, unsigned int idx, int64_t bt)
   {
     txid = t;
     block = b;
