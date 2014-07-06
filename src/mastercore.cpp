@@ -50,7 +50,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
-#define MY_SP_HACK
+//#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -507,6 +507,7 @@ public:
   unsigned int getPropertyId() const { return propertyId; }
 
   uint64_t getDeadline() const { return deadline; }
+  uint64_t getCurrDes() const { return currency_desired; }
   
   void incTokensCreated(uint64_t amount) { created += amount; }
   void incTokensMined(uint64_t amount) { mined += amount; }
@@ -525,6 +526,7 @@ typedef std::map<string, CMPCrowd> CrowdMap;
 static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
 static map<unsigned int, CMPSP> my_sps;
+static map<string, unsigned int> my_sps_name;
 CrowdMap my_crowds;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -1048,36 +1050,35 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   std::pair<uint64_t, uint64_t>& tokens )
 {
   
-  printf("\n take note 2, %lu %d %lu %lu %lu %d", amtTransfer, bonusPerc, fundraiserSecs, currentSecs, numProps, issuerPerc );
   uint64_t bonusSeconds = fundraiserSecs - currentSecs;
 
-  printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+  //printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
 
   double weeks = bonusSeconds / (double) 604800;
   double ebPercentage = weeks * bonusPerc;
   double bonusPercentage = ( ebPercentage / 100 ) + 1;
 
-  printf("\n calc layer 2 %f %f %f",  weeks, bonusPercentage, ebPercentage ); 
+  //printf("\n calc layer 2 %f %f %f",  weeks, bonusPercentage, ebPercentage ); 
 
   double issuerPercentage = (double) (issuerPerc * 0.01);
 
   double createdTokens;
   double issuerTokens;
 
-  printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
+  //printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
   bonusSeconds, bonusPercentage, issuerPercentage);
   
   if( 2 == propType ) {
     createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
     issuerTokens = createdTokens * issuerPercentage;
-    printf("prop 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
+    //printf("prop div 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
 
     tokens = std::make_pair(createdTokens, issuerTokens);
 
   } else {
     createdTokens = (uint64_t) (amtTransfer * (double) numProps * bonusPercentage);
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-    printf("prop 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
+    //printf("prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
@@ -1220,6 +1221,8 @@ public:
       }
       if (receiver.empty()) ++InvalidCount_per_spec;
       if (!update_tally_map(sender, currency, - nValue, MONEY)) break;
+
+      //fprintf(mp_fp, "\nUPDATE TALLYS SS curr: %u value: %lu money: %d\n", currency, nValue, MONEY);  
       update_tally_map(receiver, currency, nValue, MONEY);
 
       // is there a crowdsale running from this recepient ?
@@ -1228,8 +1231,9 @@ public:
 
         crowd = getCrowd(receiver);
 
-        if (crowd)
+        if (crowd && (crowd->getCurrDes() == currency) )
         {
+
           CMPSP *sp = getSP(crowd->getPropertyId());
 
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
@@ -1238,7 +1242,14 @@ public:
           {
             std::pair <uint64_t,uint64_t> tokens;
             
-            printf("\n take note, %lu %d %lu %lu %lu %d", nValue, sp->getEarlyBird(), sp->getDeadline(), (uint64_t) blockTime, sp->getNumProps(), sp->getIssuerPerc() );
+            string sp_txid =  sp->getHash().GetHex().c_str();
+
+            std::map<string, unsigned int>::iterator my_itty = my_sps_name.find(sp_txid);
+
+            unsigned int sp_id = my_itty->second;
+
+            fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), sp_id);
+
             calculateFundraiser(sp->getPropertyType(), //u short
                                 nValue,                // u int 64
                                 sp->getEarlyBird(),    // u char 
@@ -1251,10 +1262,15 @@ public:
             crowd->incTokensCreated(tokens.first); 
             crowd->incTokensMined(tokens.second);
             fprintf(mp_fp, "\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+
+            update_tally_map(sender, sp_id, tokens.first, MONEY);
+
+            update_tally_map(receiver, sp_id, tokens.second, MONEY);
           }
           else
           {
             // NULL pointer, but the simple send is valid otherwise
+            // oops, this is unneeded
           }
 
         }
@@ -1392,7 +1408,7 @@ public:
 
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
-
+        my_sps_name.insert(std::make_pair(txid.GetHex().c_str(), id));
         update_tally_map(sender, id, nValue, MONEY);
 
         global_NextPropertyId[ecosystem]++;
@@ -1419,9 +1435,10 @@ public:
       {
       const unsigned int id = global_NextPropertyId[ecosystem];
 
+        fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
-
+        my_sps_name.insert(std::make_pair(txid.GetHex().c_str(), id));
         my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
 
         global_NextPropertyId[ecosystem]++;
