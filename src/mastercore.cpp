@@ -547,6 +547,173 @@ public:
   }
 };  // end of CMPCrowd class
 
+
+class CMPSPInfo
+{
+private:
+  leveldb::DB *pDb;
+
+public:
+  struct Entry {
+    // common SP data
+    string issuer;
+    unsigned short prop_type;
+    unsigned int prev_prop_id;
+    string category;
+    string subcategory;
+    string name;
+    string url;
+    string data;
+    uint64_t total_tokens;
+
+    // Crowdsale generated SP
+    unsigned int currency_desired;
+    uint64_t deadline;
+    unsigned char early_bird;
+    unsigned char percentage;
+
+    // other information
+    uint256 txid;
+    bool fixed;
+
+    Entry()
+    : issuer()
+    , prop_type(0)
+    , prev_prop_id(0)
+    , category()
+    , subcategory()
+    , name()
+    , url()
+    , data()
+    , total_tokens(0)
+    , currency_desired(0)
+    , deadline(0)
+    , early_bird(0)
+    , percentage(0)
+    , txid()
+    , fixed(false)
+    {
+    }
+  };
+
+  CMPSPInfo(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe)
+  {
+    leveldb::Options options;
+    options.paranoid_checks = true;
+    options.create_if_missing = true;
+
+    leveldb::Status s = leveldb::DB::Open(options, path.string(), &pDb);
+
+    if (false == s.ok()) {
+      printf("Failed to create or read LevelDB for Smart Property at %s", path.c_str());
+    }
+  }
+
+  ~CMPSPInfo()
+  {
+    delete pDb;
+    pDb = NULL;
+  }
+
+  unsigned int putSP(unsigned char ecosystem, Entry const &info)
+  {
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = false;
+
+    std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
+    std::string nextIdStr;
+    unsigned int nextId = 0;
+    if (pDb->Get(readOpts, nextIdKey, &nextIdStr).ok()) {
+      nextId = atoi(nextIdStr.c_str());
+    } else {
+      switch(ecosystem) {
+      case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+        nextId = 3;
+        break;
+      case 2: // Test MSC ecosystem, same as above with high bit set
+        nextId = 0x80000003UL;
+        break;
+      default: // non standard ecosystem, ID's start at 0
+        nextId = 0;
+      }
+    }
+
+    Object spInfo;
+    spInfo.push_back(Pair("issuer", info.issuer));
+    spInfo.push_back(Pair("prop_type", info.prop_type));
+    spInfo.push_back(Pair("prev_prop_id", info.prev_prop_id));
+    spInfo.push_back(Pair("category", info.category));
+    spInfo.push_back(Pair("subcategory", info.subcategory));
+    spInfo.push_back(Pair("name", info.name));
+    spInfo.push_back(Pair("url", info.url));
+    spInfo.push_back(Pair("fixed", info.fixed));
+    if (info.fixed) {
+      spInfo.push_back(Pair("total_tokens", (boost::format("%d") % info.total_tokens).str()));
+    } else {
+      spInfo.push_back(Pair("currency_desired", info.currency_desired));
+      spInfo.push_back(Pair("deadline", (boost::format("%d") % info.deadline).str()));
+      spInfo.push_back(Pair("early_bird", (int)info.early_bird));
+      spInfo.push_back(Pair("percentage", (int)info.percentage));
+    }
+    spInfo.push_back(Pair("txid", (boost::format("%s") % info.txid.ToString()).str()));
+
+    // generate the SP id
+    unsigned int res = nextId++;
+    string spKey = (boost::format("sp-%d-%d") % (int)ecosystem % res).str();
+
+    // atomically write both the updated Id and the SP to the database
+    leveldb::WriteOptions writeOptions;
+    writeOptions.sync = true;
+
+    leveldb::WriteBatch commitBatch;
+    commitBatch.Put(nextIdKey, (boost::format("%d") % nextId).str());
+    commitBatch.Put(spKey, write_string(Value(spInfo), false));
+
+    pDb->Write(writeOptions, &commitBatch);
+    return res;
+  }
+
+  bool getSP(unsigned char ecosystem, unsigned int spid, Entry &info)
+  {
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+
+    string spKey = (boost::format("sp-%d-%d") % (int)ecosystem % spid).str();
+    string spInfoStr;
+    if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
+      return false;
+    }
+
+    // parse the encoded json, failing if it doesnt parse or is an object
+    Value spInfoVal;
+    if (false == read_string(spInfoStr, spInfoVal) || spInfoVal.type() != obj_type ) {
+      return false;
+    }
+
+    // transfer to the Entry structure
+    Object &spInfo = spInfoVal.get_obj();
+    int idx = 0;
+    info.issuer = spInfo[idx++].value_.get_str();
+    info.prop_type = (unsigned short)spInfo[idx++].value_.get_int();
+    info.prev_prop_id = (unsigned short)spInfo[idx++].value_.get_int();
+    info.category = spInfo[idx++].value_.get_str();
+    info.subcategory = spInfo[idx++].value_.get_str();
+    info.subcategory = spInfo[idx++].value_.get_str();
+    info.url = spInfo[idx++].value_.get_str();
+    info.fixed = spInfo[idx++].value_.get_bool();
+    if (info.fixed) {
+      info.total_tokens = boost::lexical_cast<uint64_t>(spInfo[idx++].value_.get_str());
+    } else {
+      info.currency_desired = (unsigned int)spInfo[idx++].value_.get_int();
+      info.deadline = boost::lexical_cast<uint64_t>(spInfo[idx++].value_.get_str());
+      info.early_bird = (unsigned char)spInfo[idx++].value_.get_int();
+      info.percentage = (unsigned char)spInfo[idx++].value_.get_int();
+    }
+    info.txid = uint256(spInfo[idx++].value_.get_str());
+    return true;
+  }
+};
+
 CCriticalSection cs_tally;
 
 typedef std::map<string, CMPCrowd> CrowdMap;
