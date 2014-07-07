@@ -581,7 +581,7 @@ public:
 
     // generate the SP id
     unsigned int res = nextId++;
-    string spKey = (boost::format("sp-%d-%d") % (int)ecosystem % res).str();
+    string spKey = (boost::format("sp-%d") % res).str();
 
     // atomically write both the updated Id and the SP to the database
     leveldb::WriteOptions writeOptions;
@@ -595,10 +595,10 @@ public:
     return res;
   }
 
-  bool getSP(unsigned char ecosystem, unsigned int spid, Entry &info)
+  bool getSP(unsigned int spid, Entry &info)
   {
     // special cases for constant SPs MSC and TMSC
-    if (ecosystem == 1 && spid == 1) {
+    if (spid == 1) {
       info.issuer = exodus;
       info.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
       info.total_tokens = 700000;
@@ -607,7 +607,7 @@ public:
       info.name = "MasterCoin";
       info.url = "www.mastercoin.org";
       info.data = "***data***";
-    } else if (ecosystem == 1 && spid == 1) {
+    } else if (spid == 1) {
       info.issuer = exodus;
       info.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
       info.total_tokens = 700000;
@@ -621,7 +621,7 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    string spKey = (boost::format("sp-%d-%d") % (int)ecosystem % spid).str();
+    string spKey = (boost::format("sp-%d") % spid).str();
     string spInfoStr;
     if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
       return false;
@@ -639,12 +639,12 @@ public:
     return true;
   }
 
-  bool hasSP(unsigned char ecosystem, unsigned int spid)
+  bool hasSP(unsigned int spid)
   {
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    string spKey = (boost::format("sp-%d-%d") % (int)ecosystem % spid).str();
+    string spKey = (boost::format("sp-%d") % spid).str();
     leveldb::Iterator *iter = pDb->NewIterator(readOpts);
     iter->Seek(spKey);
     if (iter->Valid() && iter->key().compare(spKey) == 0) {
@@ -656,6 +656,17 @@ public:
 
   void printAll()
   {
+    // print off the hard coded MSC and TMSC entries
+    for (unsigned int idx = 1; idx < 3; idx++ ) {
+      Entry info;
+      printf("%10d => ", idx);
+      if (getSP(idx, info)) {
+        info.print();
+      } else {
+        printf("<Internal Error on implicit SP>\n");
+      }
+    }
+
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = false;
     leveldb::Iterator *iter = pDb->NewIterator(readOpts);
@@ -665,7 +676,7 @@ public:
         std::string key = iter->key().ToString();
         boost::split(vstr, key, boost::is_any_of("-"), token_compress_on);
 
-        printf("%s => ", vstr[2].c_str());
+        printf("%10s => ", vstr[1].c_str());
 
         // parse the encoded json, failing if it doesnt parse or is an object
         Value spInfoVal;
@@ -1412,7 +1423,7 @@ public:
         if (crowd)
         {
           CMPSPInfo::Entry sp;
-          bool spFound = _my_sps->getSP(1, crowd->getPropertyId(), sp);
+          bool spFound = _my_sps->getSP(crowd->getPropertyId(), sp);
 
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
           
@@ -1600,7 +1611,7 @@ public:
       if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
 
       // must check that the desired currency exists in our universe
-      if (true == _my_sps->hasSP(ecosystem, currency)) return (PKT_SP_ERROR -30);
+      if (true == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
 
       if (0 == rc)
       {
@@ -3945,7 +3956,7 @@ if (fHelp || params.size() != 4)
   unsigned int propertyId = int(tmpPropertyId);
 
   CMPSPInfo::Entry sp;
-  if (false == _my_sps->getSP(1, propertyId, sp)) {
+  if (false == _my_sps->getSP(propertyId, sp)) {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
   }
 
@@ -4003,7 +4014,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
-    if (false == _my_sps->getSP(1, propertyId, sp)) {
+    if (false == _my_sps->getSP(propertyId, sp)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
     }
 
@@ -4512,7 +4523,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
-    if (false == _my_sps->getSP(1, propertyId, sp)) {
+    if (false == _my_sps->getSP(propertyId, sp)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
     }
 
@@ -4595,7 +4606,7 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     {
             bool divisible=false;
             CMPSPInfo::Entry sp;
-            if (_my_sps->getSP(1, propertyId, sp)) {
+            if (_my_sps->getSP(propertyId, sp)) {
               divisible = sp.isDivisible();
             }
 
@@ -4654,7 +4665,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
-    if (false == _my_sps->getSP(1, propertyId, sp)) {
+    if (false == _my_sps->getSP(propertyId, sp)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
     }
 
