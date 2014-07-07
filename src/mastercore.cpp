@@ -1141,9 +1141,9 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
     tokens = std::make_pair(createdTokens, issuerTokens);
 
   } else {
-    createdTokens = (uint64_t) ( (amtTransfer/1e9) * (double) numProps * bonusPercentage);
+    createdTokens = (uint64_t) ( (amtTransfer) * (double) numProps * bonusPercentage);
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-    printf("prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
+    fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
@@ -1309,9 +1309,9 @@ public:
             
             string sp_txid =  sp->getHash().GetHex().c_str();
 
-            std::map<string, unsigned int>::iterator my_itty = my_sps_name.find(sp_txid);
+            //std::map<string, unsigned int>::iterator my_itty = my_sps_name.find(sp_txid);
 
-            unsigned int sp_id = my_itty->second;
+            //unsigned int sp_id = my_itty->second;
 
             fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), sp_id);
 
@@ -1326,11 +1326,11 @@ public:
 
             //crowd->incTokensCreated(tokens.first); should use CMPCrowdData
             //crowd->incTokensMined(tokens.second); should use CMPCrowdData
-            printf("\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+            fprintf(mp_fp,"\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
-            update_tally_map(sender, sp_id, tokens.first, MONEY);
+            update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
 
-            update_tally_map(receiver, sp_id, tokens.second, MONEY);
+            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
           }
           else
           {
