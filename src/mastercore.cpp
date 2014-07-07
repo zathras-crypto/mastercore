@@ -476,32 +476,6 @@ public:
 
 };  // end of CMPSP class
 
-/*class CMPCrowdData 
-{
-private:
-  uint64_t created;
-  uint64_t mined;
-
-  //data structure to store txes
-  std::map<std::string, std::vector<uint64_t> > database
-
-public:
-
-  CMPCrowdData():created(0),mined(0)
-  {
-  }
-
-  CMPCrowd(uint64_t ct, uint64_t mn): created(ct),mined(mn)
-  {
-  }
-
-  void incTokensCreated(uint64_t amount) { created += amount; }
-  void incTokensMined(uint64_t amount) { mined += amount; }
-  unsigned int getPropertyId() const { return propertyId; }
-
-  uint64_t getDeadline() const { return deadline; }
-  uint64_t getCurrDes() const { return currency_desired; }
-}*/
 
 // live crowdsales are these objects in a map
 class CMPCrowd
@@ -516,15 +490,19 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  uint64_t created;
+  uint64_t mined;
+
   uint256 txid;
 
+  std::map<std::string, std::vector<uint64_t> > database;
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),created(0), mined(0)
   {
   }
 
-  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per)
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t ct, uint64_t mn):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),created(ct),mined(mn)
   {
   }
 
@@ -532,7 +510,15 @@ public:
 
   uint64_t getDeadline() const { return deadline; }
   uint64_t getCurrDes() const { return currency_desired; }
-  
+
+  void incTokensCreated(uint64_t amount) { created += amount; }
+  void incTokensMined(uint64_t amount) { mined += amount; }
+
+  uint64_t getCreated() const { return created; }
+  uint64_t getPremined() const { return mined; }
+
+  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
+  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return database; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
@@ -548,8 +534,6 @@ typedef std::map<string, CMPCrowd> CrowdMap;
 static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
 static map<unsigned int, CMPSP> my_sps;
-static map<string, unsigned int> my_sps_name;
-//static map<string, CMPCrowdData> my_crowds_data;
 CrowdMap my_crowds;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -584,23 +568,6 @@ CrowdMap::iterator my_it = my_crowds.find(address);
   return (CMPCrowd *) NULL;
 }
 
-/*CMPCrowdData *getCrowdData(const string & address)
-{
-map<unsigned int, CMPSP>::iterator my_it = my_sps.find(currency);
-CMPSP *getSP(unsigned int currency)
-{
-
-map<unsigned int, CMPSP>::iterator my_it = my_sps.find(currency);
-
-  if (my_it != my_sps.end()) return &(my_it->second);
-
-  return (CMPSP *) NULL;
-}
-
-  if (my_it != my_sps.end()) return &(my_it->second);
-
-  return (CMPSP *) NULL;
-}*/
 
 // look at balance for an address
 uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
@@ -1057,6 +1024,73 @@ FILE *fp = fopen("/tmp/dead.log", "a");
   fclose(fp);
 }
 
+
+// calculates and returns fundraiser bonus, issuer premine, and total tokens
+// propType : divisible/indiv
+// bonusPerc: bonus percentage
+// currentSecs: number of seconds of current tx
+// numProps: number of properties
+// issuerPerc: percentage of tokens to issuer
+int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
+  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+  const uint64_t amountPremined  )
+{
+
+  double totalCreated = 0;
+  double issuerPercentage = (double) (issuerPerc * 0.01);
+
+  std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+
+  for(it = database.begin(); it != database.end(); it++) {
+
+    //printf("\n\ndoing... \n");
+    uint64_t currentSecs = it->second.at(1);
+    double amtTransfer = it->second.at(0);
+
+    uint64_t bonusSeconds = fundraiserSecs - currentSecs;
+  
+    double weeks = bonusSeconds / (double) 604800;
+    double ebPercentage = weeks * bonusPerc;
+    double bonusPercentage = ( ebPercentage / 100 ) + 1;
+  
+    double createdTokens;
+    double issuerTokens;
+
+    if( 2 == propType ) {
+      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+      issuerTokens = createdTokens * issuerPercentage;
+      //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
+
+      totalCreated += createdTokens;
+      //tokens = std::make_pair(createdTokens,issuerTokens);
+
+    } else {
+      //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
+      createdTokens = (uint64_t) ( (amtTransfer/1e9) * (double) numProps * bonusPercentage);
+      issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
+      //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
+
+      //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
+      totalCreated += createdTokens;
+      //tokens = std::make_pair( (long long int) createdTokens,issuerTokens);
+    }
+    //printf("did it %s \n ", it->first.c_str());
+  };
+
+  double totalPremined = totalCreated * issuerPercentage;
+  double missedTokens;
+
+  if( 2 == propType ) {
+    missedTokens = totalPremined - amountPremined;
+  } else {
+    missedTokens = (uint64_t) (totalPremined - amountPremined);
+  }
+
+  //printf("\ntotal toks %Lf and total missed %Lf and total premined %Lf and premined %lld \n ", totalCreated, missedTokens, totalPremined, amountPremined );
+
+  return missedTokens;
+}
+
 unsigned int eraseExpiredCrowdsale(const int64_t blockTime)
 {
 unsigned int how_many_erased = 0;
@@ -1076,29 +1110,23 @@ CrowdMap::iterator my_it = my_crowds.begin();
       // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
       
-  /*          calculateFundraiser(sp->getPropertyType(), //u short
-                                nValue,                // u int 64
-                                sp->getEarlyBird(),    // u char 
-                                sp->getDeadline(),     // u int 64
-                                (uint64_t) blockTime,              // int 64
-                                sp->getNumProps(),      // u int 64 
-                                sp->getIssuerPerc(),    // u char
-                                tokens );
+      // Begin calculate Fractional 
       CMPSP *sp = getSP(crowd.getPropertyId());
 
-      //get crowdsale metadata class
       //pass amountPremined and TX db into func
 
-  int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
-  const uint64_t amountPremined  )
+      //int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
+      //uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+      //const uint64_t amountPremined  )
       calculateFractional(sp->getPropertyType(),
                           sp->getEarlyBird(),
                           sp->getDeadline(),
                           sp->getNumProps(),
                           sp->getIssuerPerc(),
-                           
-  */
+                          crowd.getDatabase(),
+                          crowd.getPremined());
+      //End
+                     
       my_crowds.erase(my_it++);
 
       ++how_many_erased;
@@ -1148,6 +1176,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
 }
+
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
@@ -1309,11 +1338,7 @@ public:
             
             string sp_txid =  sp->getHash().GetHex().c_str();
 
-            //std::map<string, unsigned int>::iterator my_itty = my_sps_name.find(sp_txid);
-
-            //unsigned int sp_id = my_itty->second;
-
-            fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), sp_id);
+            fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), crowd->getPropertyId());
 
             calculateFundraiser(sp->getPropertyType(), //u short
                                 nValue,                // u int 64
@@ -1324,8 +1349,14 @@ public:
                                 sp->getIssuerPerc(),    // u char
                                 tokens );
 
-            //crowd->incTokensCreated(tokens.first); should use CMPCrowdData
-            //crowd->incTokensMined(tokens.second); should use CMPCrowdData
+            crowd->incTokensCreated(tokens.first);
+            crowd->incTokensMined(tokens.second);
+
+            uint64_t txdata[] = { (uint64_t) (nValue), (uint64_t) blockTime };
+            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)); 
+            crowd->insertDatabase(txid.GetHex().c_str(), txDataVec );
+            //need to add txid to CMPSP database
+
             fprintf(mp_fp,"\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
@@ -1473,7 +1504,7 @@ public:
 
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
-        my_sps_name.insert(std::make_pair(txid.GetHex().c_str(), id));
+        
         update_tally_map(sender, id, nValue, MONEY);
 
         global_NextPropertyId[ecosystem]++;
@@ -1503,8 +1534,8 @@ public:
         fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
-        my_sps_name.insert(std::make_pair(txid.GetHex().c_str(), id));
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
+        
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
 
         global_NextPropertyId[ecosystem]++;
       }
@@ -1521,6 +1552,27 @@ public:
         if (msc_debug_sp) fprintf(mp_fp, "%s() ERASING CROWDSALE, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
         dumpCrowdsaleInfo(it->first, it->second);
+
+        // Begin calculate Fractional 
+
+        CMPCrowd &crowd = it->second;
+        
+        CMPSP *sp = getSP(crowd.getPropertyId());
+
+        //pass amountPremined and TX db into func
+
+        //int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
+        //uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+        //const uint64_t amountPremined  )
+        calculateFractional(sp->getPropertyType(),
+                            sp->getEarlyBird(),
+                            sp->getDeadline(),
+                            sp->getNumProps(),
+                            sp->getIssuerPerc(),
+                            crowd.getDatabase(),
+                            crowd.getPremined());
+        //End
+
         my_crowds.erase(it);
       }
       break;
@@ -1967,72 +2019,6 @@ vector<vector<unsigned char> > vSolutions;
   return true;
 }
 
-
-// calculates and returns fundraiser bonus, issuer premine, and total tokens
-// propType : divisible/indiv
-// bonusPerc: bonus percentage
-// currentSecs: number of seconds of current tx
-// numProps: number of properties
-// issuerPerc: percentage of tokens to issuer
-int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
-  const uint64_t amountPremined  )
-{
-
-  double totalCreated = 0;
-  double issuerPercentage = (double) (issuerPerc * 0.01);
-
-  std::map<std::string, std::vector<uint64_t> >::const_iterator it;
-
-  for(it = database.begin(); it != database.end(); it++) {
-
-    //printf("\n\ndoing... \n");
-    uint64_t currentSecs = it->second.at(1);
-    double amtTransfer = it->second.at(0);
-
-    uint64_t bonusSeconds = fundraiserSecs - currentSecs;
-  
-    double weeks = bonusSeconds / (double) 604800;
-    double ebPercentage = weeks * bonusPerc;
-    double bonusPercentage = ( ebPercentage / 100 ) + 1;
-  
-    double createdTokens;
-    double issuerTokens;
-
-    if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
-      //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
-
-      totalCreated += createdTokens;
-      //tokens = std::make_pair(createdTokens,issuerTokens);
-
-    } else {
-      //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
-      createdTokens = (uint64_t) ( (amtTransfer/1e9) * (double) numProps * bonusPercentage);
-      issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
-
-      //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
-      totalCreated += createdTokens;
-      //tokens = std::make_pair( (long long int) createdTokens,issuerTokens);
-    }
-    //printf("did it %s \n ", it->first.c_str());
-  };
-
-  double totalPremined = totalCreated * issuerPercentage;
-  double missedTokens;
-
-  if( 2 == propType ) {
-    missedTokens = totalPremined - amountPremined;
-  } else {
-    missedTokens = (uint64_t) (totalPremined - amountPremined);
-  }
-
-  //printf("\ntotal toks %Lf and total missed %Lf and total premined %Lf and premined %lld \n ", totalCreated, missedTokens, totalPremined, amountPremined );
-
-  return missedTokens;
-}
 
 /*  example interface 
 
