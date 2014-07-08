@@ -59,7 +59,7 @@ enum FILETYPES {
   FILETYPE_BALANCES = 0,
   FILETYPE_OFFERS,
   FILETYPE_ACCEPTS,
-  FILETYPE_DEVMSC,
+  FILETYPE_GLOBALS,
   FILETYPE_CROWDSALES,
   NUM_FILETYPES
 };
@@ -68,7 +68,8 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 "mastercoin_balances.txt",
 "mastercoin_offers.txt",
 "mastercoin_accepts.txt",
-"mastercoin_devmsc.txt"
+"mastercoin_globals.txt",
+"mastercoin_crowdsales.txt",
 };
 
 #define PKT_RETURN_OFFER    (1000)

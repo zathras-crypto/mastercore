@@ -417,9 +417,6 @@ public:
 
 class CMPSPInfo
 {
-private:
-  leveldb::DB *pDb;
-
 public:
   struct Entry {
     // common SP data
@@ -533,6 +530,18 @@ public:
 
   };
 
+private:
+  leveldb::DB *pDb;
+
+  // implied version of msc and tmsc so they don't hit the leveldb
+  Entry implied_msc;
+  Entry implied_tmsc;
+
+  unsigned int next_spid;
+  unsigned int next_test_spid;
+
+public:
+
   CMPSPInfo(const boost::filesystem::path &path)
   {
     leveldb::Options options;
@@ -562,6 +571,8 @@ public:
     implied_tmsc.name = "Test MasterCoin";
     implied_tmsc.url = "www.mastercoin.org";
     implied_tmsc.data = "***data***";
+
+    init();
   }
 
   ~CMPSPInfo()
@@ -570,27 +581,25 @@ public:
     pDb = NULL;
   }
 
+  void init(unsigned int nextSPID = 0x3UL, unsigned int nextTestSPID = 0x80000003UL )
+  {
+    next_spid = nextSPID;
+    next_test_spid = nextTestSPID;
+  }
+
   unsigned int peekNextSPID(unsigned char ecosystem)
   {
-    leveldb::ReadOptions readOpts;
-    readOpts.fill_cache = true;
-
-    std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
-    std::string nextIdStr;
     unsigned int nextId = 0;
-    if (pDb->Get(readOpts, nextIdKey, &nextIdStr).ok()) {
-      nextId = atoi(nextIdStr.c_str());
-    } else {
-      switch(ecosystem) {
-      case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
-        nextId = 3;
-        break;
-      case 2: // Test MSC ecosystem, same as above with high bit set
-        nextId = 0x80000003UL;
-        break;
-      default: // non standard ecosystem, ID's start at 0
-        nextId = 0;
-      }
+
+    switch(ecosystem) {
+    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+      nextId = next_spid;
+      break;
+    case 2: // Test MSC ecosystem, same as above with high bit set
+      nextId = next_test_spid;
+      break;
+    default: // non standard ecosystem, ID's start at 0
+      nextId = 0;
     }
 
     return nextId;
@@ -599,24 +608,43 @@ public:
   unsigned int putSP(unsigned char ecosystem, Entry const &info)
   {
     std::string nextIdStr;
-    unsigned int nextId = peekNextSPID(ecosystem);
+    unsigned int res = 0;
+    switch(ecosystem) {
+    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+      res = next_spid++;
+      break;
+    case 2: // Test MSC ecosystem, same as above with high bit set
+      res = next_test_spid++;
+      break;
+    default: // non standard ecosystem, ID's start at 0
+      res = 0;
+    }
+
     Object spInfo = info.toJSON();
 
     // generate the SP id
-    unsigned int res = nextId++;
     string spKey = (boost::format("sp-%d") % res).str();
+    string spValue = write_string(Value(spInfo), false);
     string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
-    std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
+    string txValue = (boost::format("%d") % res).str();
 
+    // sanity checking
+    string existingEntry;
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+    if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
+    } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
+    }
 
-    // atomically write both the updated Id and the SP to the database
+    // atomically write both the the SP and the index to the database
     leveldb::WriteOptions writeOptions;
     writeOptions.sync = true;
 
     leveldb::WriteBatch commitBatch;
-    commitBatch.Put(nextIdKey, (boost::format("%d") % nextId).str());
-    commitBatch.Put(spKey, write_string(Value(spInfo), false));
-    commitBatch.Put(txIndexKey, (boost::format("%d") % res).str());
+    commitBatch.Put(spKey, spValue);
+    commitBatch.Put(txIndexKey, txValue);
 
     pDb->Write(writeOptions, &commitBatch);
     return res;
@@ -725,10 +753,6 @@ public:
       }
     }
   }
-
-  // implied version of msc and tmsc so they don't hit the leveldb
-  Entry implied_msc;
-  Entry implied_tmsc;
 };
 
 CCriticalSection cs_tally;
@@ -3147,17 +3171,21 @@ int input_mp_accepts_string(const string &s)
 }
 
 // exodus_prev
-int input_devmsc_state_string(const string &s)
+int input_globals_state_string(const string &s)
 {
   uint64_t exodusPrev;
+  unsigned int nextSPID, nextTestSPID;
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
-  if (1 != vstr.size()) return -1;
+  if (3 != vstr.size()) return -1;
 
   int i = 0;
   exodusPrev = boost::lexical_cast<uint64_t>(vstr[i++]);
-  exodus_prev = exodusPrev;
+  nextSPID = boost::lexical_cast<unsigned int>(vstr[i++]);
+  nextTestSPID = boost::lexical_cast<unsigned int>(vstr[i++]);
 
+  exodus_prev = exodusPrev;
+  _my_sps->init(nextSPID, nextTestSPID);
   return 0;
 }
 
@@ -3230,8 +3258,8 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       inputLineFunc = input_mp_accepts_string;
       break;
 
-    case FILETYPE_DEVMSC:
-      inputLineFunc = input_devmsc_state_string;
+    case FILETYPE_GLOBALS:
+      inputLineFunc = input_globals_state_string;
       break;
 
     case FILETYPE_CROWDSALES:
@@ -3428,9 +3456,15 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
-static int write_devmsc_state(ofstream &file, SHA256_CTX *shaCtx)
+static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  string lineOut = (boost::format("%d") % exodus_prev).str();
+  unsigned int nextSPID = _my_sps->peekNextSPID(1);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
+  string lineOut = (boost::format("%d,%d,%d")
+    % exodus_prev
+    % nextSPID
+    % nextTestSPID
+    ).str();
 
   // add the line to the hash
   SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -3479,8 +3513,8 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
     result = write_mp_accepts(file, &shaCtx);
     break;
 
-  case FILETYPE_DEVMSC:
-    result = write_devmsc_state(file, &shaCtx);
+  case FILETYPE_GLOBALS:
+    result = write_globals_state(file, &shaCtx);
     break;
 
   case FILETYPE_CROWDSALES:
@@ -3574,7 +3608,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
   write_state_file(pBlockIndex, FILETYPE_BALANCES);
   write_state_file(pBlockIndex, FILETYPE_OFFERS);
   write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
-  write_state_file(pBlockIndex, FILETYPE_DEVMSC);
+  write_state_file(pBlockIndex, FILETYPE_GLOBALS);
   write_state_file(pBlockIndex, FILETYPE_CROWDSALES);
 
   // clean-up the directory
