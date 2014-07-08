@@ -1171,7 +1171,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
     tokens = std::make_pair(createdTokens, issuerTokens);
 
   } else {
-    createdTokens = (uint64_t) ( (amtTransfer) * (double) numProps * bonusPercentage);
+    createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
     fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
