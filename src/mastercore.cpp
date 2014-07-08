@@ -101,7 +101,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 0;
 static int disableLevelDB = 0;
-static int disable_Persistence = 1;
+static int disable_Persistence = 0;
 
 static int mastercoreInitialized = 0;
 
@@ -494,7 +494,7 @@ public:
       prev_prop_id = (unsigned int)json[idx++].value_.get_uint64();
       category = json[idx++].value_.get_str();
       subcategory = json[idx++].value_.get_str();
-      subcategory = json[idx++].value_.get_str();
+      name = json[idx++].value_.get_str();
       url = json[idx++].value_.get_str();
       data = json[idx++].value_.get_str();
       fixed = json[idx++].value_.get_bool();
@@ -625,8 +625,10 @@ public:
     // special cases for constant SPs MSC and TMSC
     if (spid == 1) {
       info = implied_msc;
+      return true;
     } else if (spid == 2) {
       info = implied_tmsc;
+      return true;
     }
 
     leveldb::ReadOptions readOpts;
@@ -652,6 +654,11 @@ public:
 
   bool hasSP(unsigned int spid)
   {
+    // special cases for constant SPs MSC and TMSC
+    if (spid == 1 || spid == 2) {
+      return true;
+    }
+
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
@@ -1626,7 +1633,7 @@ public:
       if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
 
       // must check that the desired currency exists in our universe
-      if (true == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
+      if (false == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
 
       if (0 == rc)
       {
@@ -3154,7 +3161,7 @@ int input_mp_crowdsale_string(const string &s)
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
   int i = 0;
 
-  if (10 != vstr.size()) return -1;
+  if (9 != vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
   propertyId = atoi(vstr[i++]);
