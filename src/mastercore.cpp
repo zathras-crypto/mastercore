@@ -152,6 +152,8 @@ char *c_strMastercoinType(int i)
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
     case MSC_TYPE_PROMOTE_PROPERTY: return ((char *)"Promote Property");
+    case MSC_TYPE_CLOSE_CROWDSALE: return ((char *)"Close Crowsale");
+
     default: return ((char *)"* unknown type *");
   }
 }
@@ -1549,7 +1551,18 @@ public:
 
       if (it != my_crowds.end())
       {
-        if (msc_debug_sp) fprintf(mp_fp, "%s() ERASING CROWDSALE, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+        // retrieve the property id from the incoming packet
+        memcpy(&currency, &pkt[4], 4);
+        swapByteOrder32(currency);
+
+        if (msc_debug_sp) fprintf(mp_fp, "%s() trying to ERASE CROWDSALE for propid= %u=%X, line %d, file: %s\n",
+         __FUNCTION__, currency, currency, __LINE__, __FILE__);
+
+        if ((it->second).getPropertyId() != currency)
+        {
+          rc = (PKT_SP_ERROR -606);
+          break;
+        }
 
         dumpCrowdsaleInfo(it->first, it->second);
 
@@ -1574,6 +1587,8 @@ public:
         //End
 
         my_crowds.erase(it);
+
+        rc = 0;
       }
       break;
     }
@@ -1825,7 +1840,7 @@ public:
  }
 
 
-  void Set(const uint256 &t, int b, unsigned int idx, uint64_t txf = 0, int64_t bt = 0)
+  void Set(const uint256 &t, int b, unsigned int idx, int64_t bt)
   {
     txid = t;
     block = b;
