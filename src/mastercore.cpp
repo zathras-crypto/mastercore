@@ -605,6 +605,7 @@ public:
     // generate the SP id
     unsigned int res = nextId++;
     string spKey = (boost::format("sp-%d") % res).str();
+    string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
     std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
 
 
@@ -615,6 +616,7 @@ public:
     leveldb::WriteBatch commitBatch;
     commitBatch.Put(nextIdKey, (boost::format("%d") % nextId).str());
     commitBatch.Put(spKey, write_string(Value(spInfo), false));
+    commitBatch.Put(txIndexKey, (boost::format("%d") % res).str());
 
     pDb->Write(writeOptions, &commitBatch);
     return res;
@@ -670,6 +672,21 @@ public:
     }
 
     return false;
+  }
+
+  unsigned int findSPByTX(uint256 const &txid)
+  {
+    unsigned int res = 0;
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+
+    string txIndexKey = (boost::format("index-tx-%s") % txid.ToString() ).str();
+    string spidStr;
+    if (pDb->Get(readOpts, txIndexKey, &spidStr).ok()) {
+      res = boost::lexical_cast<unsigned int>(spidStr);
+    }
+
+    return res;
   }
 
   void printAll()
