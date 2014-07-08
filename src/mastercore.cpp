@@ -54,8 +54,6 @@
 // #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
-unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
-
 static FILE *mp_fp = NULL;
 
 #include "mastercore.h"
@@ -535,7 +533,7 @@ public:
 
   };
 
-  CMPSPInfo(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe)
+  CMPSPInfo(const boost::filesystem::path &path)
   {
     leveldb::Options options;
     options.paranoid_checks = true;
@@ -546,6 +544,24 @@ public:
     if (false == s.ok()) {
       printf("Failed to create or read LevelDB for Smart Property at %s", path.c_str());
     }
+
+    // special cases for constant SPs MSC and TMSC
+    implied_msc.issuer = exodus;
+    implied_msc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
+    implied_msc.total_tokens = 700000;
+    implied_msc.category = "N/A";
+    implied_msc.subcategory = "N/A";
+    implied_msc.name = "MasterCoin";
+    implied_msc.url = "www.mastercoin.org";
+    implied_msc.data = "***data***";
+    implied_tmsc.issuer = exodus;
+    implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
+    implied_tmsc.total_tokens = 700000;
+    implied_tmsc.category = "N/A";
+    implied_tmsc.subcategory = "N/A";
+    implied_tmsc.name = "Test MasterCoin";
+    implied_tmsc.url = "www.mastercoin.org";
+    implied_tmsc.data = "***data***";
   }
 
   ~CMPSPInfo()
@@ -554,10 +570,10 @@ public:
     pDb = NULL;
   }
 
-  unsigned int putSP(unsigned char ecosystem, Entry const &info)
+  unsigned int peekNextSPID(unsigned char ecosystem)
   {
     leveldb::ReadOptions readOpts;
-    readOpts.fill_cache = false;
+    readOpts.fill_cache = true;
 
     std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
     std::string nextIdStr;
@@ -577,11 +593,20 @@ public:
       }
     }
 
+    return nextId;
+  }
+
+  unsigned int putSP(unsigned char ecosystem, Entry const &info)
+  {
+    std::string nextIdStr;
+    unsigned int nextId = peekNextSPID(ecosystem);
     Object spInfo = info.toJSON();
 
     // generate the SP id
     unsigned int res = nextId++;
     string spKey = (boost::format("sp-%d") % res).str();
+    std::string nextIdKey = (boost::format("nextId-%d") % (int)ecosystem).str();
+
 
     // atomically write both the updated Id and the SP to the database
     leveldb::WriteOptions writeOptions;
@@ -599,23 +624,9 @@ public:
   {
     // special cases for constant SPs MSC and TMSC
     if (spid == 1) {
-      info.issuer = exodus;
-      info.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
-      info.total_tokens = 700000;
-      info.category = "N/A";
-      info.subcategory = "N/A";
-      info.name = "MasterCoin";
-      info.url = "www.mastercoin.org";
-      info.data = "***data***";
-    } else if (spid == 1) {
-      info.issuer = exodus;
-      info.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
-      info.total_tokens = 700000;
-      info.category = "N/A";
-      info.subcategory = "N/A";
-      info.name = "Test MasterCoin";
-      info.url = "www.mastercoin.org";
-      info.data = "***data***";
+      info = implied_msc;
+    } else if (spid == 2) {
+      info = implied_tmsc;
     }
 
     leveldb::ReadOptions readOpts;
@@ -690,6 +701,10 @@ public:
       }
     }
   }
+
+  // implied version of msc and tmsc so they don't hit the leveldb
+  Entry implied_msc;
+  Entry implied_tmsc;
 };
 
 CCriticalSection cs_tally;
@@ -1763,7 +1778,7 @@ public:
     return NULL;
   }
 
-  id = global_NextPropertyId[ecosystem];
+  id = _my_sps->peekNextSPID(ecosystem);
 
   memcpy(&prop_type, &pkt[5], 2);
   swapByteOrder16(prop_type);
@@ -3568,8 +3583,10 @@ const bool bTestnet = TestNet();
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
+  _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
   boost::filesystem::create_directories(MPPersistencePath);
+
 
   //no more preseed, so legacy code, setting to pre-genesis-block
   static const int snapshotHeight = (GENESIS_BLOCK - 1);
