@@ -4283,8 +4283,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         (my_it->second).init();
         while (0 != (id = (my_it->second).next()))
         {
-           if(id==propertyId) includeAddress=true;
-           break;
+           if(id==propertyId) { includeAddress=true; break; }
         }
 
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
