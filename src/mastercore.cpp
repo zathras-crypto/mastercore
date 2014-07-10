@@ -578,7 +578,7 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   return balance;
 }
 
-// get total tokens for an address
+// get total tokens for a property
 int64_t getTotalTokens(unsigned int propertyId)
 {
   LOCK(cs_tally);
