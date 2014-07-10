@@ -374,6 +374,7 @@ public:
   {
   }
 
+  unsigned int getPropertyId() const { return propertyId; }
 
   uint64_t getDeadline() const { return deadline; }
   uint64_t getCurrDes() const { return currency_desired; }
@@ -811,16 +812,15 @@ int64_t getTotalTokens(unsigned int propertyId)
 {
   LOCK(cs_tally);
 
-  CMPSP *property = getSP(propertyId);
-
-  if (NULL == property) return 0; // property ID does not exist
+  CMPSPInfo::Entry property;
+  if (false == _my_sps->getSP(propertyId, property)) return 0; // property ID does not exist
 
   int64_t totalTokens = 0;
-  bool fixedIssuance = property->isFixed();
+  bool fixedIssuance = property.fixed;
 
   if (fixedIssuance)
   {
-      totalTokens = property->getValue(); //only valid for TX50
+      totalTokens = property.total_tokens; //only valid for TX50
   }
   else // loop map and calculate total number of tokens
   {
@@ -1345,22 +1345,23 @@ CrowdMap::iterator my_it = my_crowds.begin();
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
       
       // Begin calculate Fractional 
-      CMPSP *sp = getSP(crowd.getPropertyId());
+      CMPSPInfo::Entry sp;
+      _my_sps->getSP(crowd.getPropertyId(), sp);
       
-      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp->getHash().GetHex().c_str(), sp->getEarlyBird(), sp->getDeadline(), sp->getNumProps(), sp->getIssuerPerc(), crowd.getIssuerCreated());
+      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
 
-      double missedTokens = calculateFractional(sp->getPropertyType(),
-                          sp->getEarlyBird(),
-                          sp->getDeadline(),
-                          sp->getNumProps(),
-                          sp->getIssuerPerc(),
+      double missedTokens = calculateFractional(sp.prop_type,
+                          sp.early_bird,
+                          sp.deadline,
+                          sp.total_tokens,
+                          sp.percentage,
                           crowd.getDatabase(),
                           crowd.getIssuerCreated());
 
 
-      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp->getIssuer().c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
-      update_tally_map(sp->getIssuer(), crowd.getPropertyId(), missedTokens, MONEY);
+      update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
       //End
                      
       my_crowds.erase(my_it++);
@@ -1572,7 +1573,7 @@ public:
             
             string sp_txid =  sp.txid.GetHex().c_str();
 
-            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp->getEarlyBird(), sp->getDeadline(), (uint64_t) blockTime, sp->getNumProps(), sp->getIssuerPerc());
+            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.total_tokens, sp.percentage);
 
             calculateFundraiser(sp.prop_type,         //u short
                                 nValue,               // u int 64
@@ -1787,7 +1788,7 @@ public:
         newSP.percentage = percentage;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
         fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
       }
 
@@ -1819,21 +1820,22 @@ public:
 
         CMPCrowd &crowd = it->second;
         
-        CMPSP *sp = getSP(crowd.getPropertyId());
+        CMPSPInfo::Entry sp;
+        _my_sps->getSP(crowd.getPropertyId(), sp);
 
-      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp->getHash().GetHex().c_str(), sp->getEarlyBird(), sp->getDeadline(), sp->getNumProps(), sp->getIssuerPerc(), crowd.getIssuerCreated());
+        fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
 
-      double missedTokens = calculateFractional(sp->getPropertyType(),
-                          sp->getEarlyBird(),
-                          sp->getDeadline(),
-                          sp->getNumProps(),
-                          sp->getIssuerPerc(),
-                          crowd.getDatabase(),
-                          crowd.getIssuerCreated());
+        double missedTokens = calculateFractional(sp.prop_type,
+                            sp.early_bird,
+                            sp.deadline,
+                            sp.total_tokens,
+                            sp.percentage,
+                            crowd.getDatabase(),
+                            crowd.getIssuerCreated());
 
-      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp->getIssuer().c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+        fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
-        update_tally_map(sp->getIssuer(), crowd.getPropertyId(), missedTokens, MONEY);
+        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
         //End
 
         my_crowds.erase(it);
