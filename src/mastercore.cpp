@@ -50,7 +50,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
-//#define MY_SP_HACK
+// #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
@@ -478,7 +478,6 @@ public:
 
 };  // end of CMPSP class
 
-
 // live crowdsales are these objects in a map
 class CMPCrowd
 {
@@ -569,7 +568,6 @@ CrowdMap::iterator my_it = my_crowds.find(address);
 
   return (CMPCrowd *) NULL;
 }
-
 
 // look at balance for an address
 uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
@@ -1045,7 +1043,6 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
 
   for(it = database.begin(); it != database.end(); it++) {
 
-    //printf("\n\ndoing... \n");
     uint64_t currentSecs = it->second.second;
     double amtTransfer = it->second.first;
 
@@ -1056,27 +1053,16 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     double bonusPercentage = ( ebPercentage / 100 ) + 1;
   
     double createdTokens;
-    //double issuerTokens;
 
     if( 2 == propType ) {
       createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
-      //issuerTokens = createdTokens * issuerPercentage;
       //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
-
       totalCreated += createdTokens;
-      //tokens = std::make_pair(createdTokens,issuerTokens);
-
     } else {
       //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
       createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
-      //issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
-
-      //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
       totalCreated += createdTokens;
-      //tokens = std::make_pair( (long long int) createdTokens,issuerTokens);
     }
-    //printf("did it %s \n ", it->first.c_str());
   };
 
   double totalPremined = totalCreated * issuerPercentage;
@@ -1087,9 +1073,6 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
   } else {
     missedTokens = (uint64_t) (totalPremined - amountPremined);
   }
-
-  //printf("\ntotal toks %Lf and total missed %Lf and total premined %Lf and premined %lld \n ", totalCreated, missedTokens, totalPremined, amountPremined );
-
   return missedTokens;
 }
 
@@ -1175,7 +1158,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   } else {
     createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-    fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
+    //fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
@@ -1205,7 +1188,6 @@ private:
   unsigned int currency;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
-  
   int64_t blockTime;  // internally nTime is still an "unsigned int"
 
 // SP additions, perhaps a new class or a union is needed
@@ -1320,7 +1302,6 @@ public:
       if (receiver.empty()) ++InvalidCount_per_spec;
       if (!update_tally_map(sender, currency, - nValue, MONEY)) break;
 
-      //fprintf(mp_fp, "\nUPDATE TALLYS SS curr: %u value: %lu money: %d\n", currency, nValue, MONEY);  
       update_tally_map(receiver, currency, nValue, MONEY);
 
       // is there a crowdsale running from this recepient ?
@@ -1342,8 +1323,6 @@ public:
             
             string sp_txid =  sp->getHash().GetHex().c_str();
 
-            fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), crowd->getPropertyId());
-
             fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp->getEarlyBird(), sp->getDeadline(), (uint64_t) blockTime, sp->getNumProps(), sp->getIssuerPerc());
 
             calculateFundraiser(sp->getPropertyType(), //u short
@@ -1356,11 +1335,11 @@ public:
                                 tokens );
 
             fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            
             crowd->incTokensUserCreated(tokens.first);
             crowd->incTokensIssuerCreated(tokens.second);
+            
             fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
-            //uint64_t txdata[] = { (uint64_t) (nValue), (uint64_t) blockTime };
-            //std::make<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)); 
             crowd->insertDatabase(txid.GetHex().c_str(), std::make_pair<uint64_t, uint64_t>(nValue, blockTime) );
             //need to add txid to CMPSP database
 
@@ -1511,7 +1490,7 @@ public:
 
         my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
          (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
-        
+
         update_tally_map(sender, id, nValue, MONEY);
 
         global_NextPropertyId[ecosystem]++;
@@ -1587,9 +1566,7 @@ public:
                           crowd.getDatabase(),
                           crowd.getIssuerCreated());
 
-
       fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp->getIssuer().c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
-
 
         update_tally_map(sp->getIssuer(), crowd.getPropertyId(), missedTokens, MONEY);
         //End
@@ -3310,15 +3287,15 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
 
 #ifdef  MY_SP_HACK     //
-    //nWaterlineBlock = MSC_SP_BLOCK-3;
-    //nWaterlineBlock = MSC_DEX_BLOCK-3;
+    nWaterlineBlock = MSC_SP_BLOCK-3;
+    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
-    //nWaterlineBlock = MSC_SP_BLOCK-3;
+    nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = 292665;
-    //nWaterlineBlock = 303550;
-    //nWaterlineBlock = 303550;
-    //nWaterlineBlock = 308500;
-    //nWaterlineBlock = MSC_DEX_BLOCK-3;
+    nWaterlineBlock = 303550;
+    nWaterlineBlock = 303550;
+    nWaterlineBlock = 308500;
+    nWaterlineBlock = MSC_DEX_BLOCK-3;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
