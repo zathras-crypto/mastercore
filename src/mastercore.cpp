@@ -492,19 +492,19 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
-  uint64_t created;
-  uint64_t mined;
+  uint64_t u_created;
+  uint64_t i_created;
 
   uint256 txid;
 
-  std::map<std::string, std::vector<uint64_t> > database;
+  std::map<std::string, std::pair<uint64_t, uint64_t> > database;
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),created(0), mined(0)
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
   {
   }
 
-  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t ct, uint64_t mn):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),created(ct),mined(mn)
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t uct, uint64_t ict):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),u_created(uct),i_created(ict)
   {
   }
 
@@ -513,14 +513,14 @@ public:
   uint64_t getDeadline() const { return deadline; }
   uint64_t getCurrDes() const { return currency_desired; }
 
-  void incTokensCreated(uint64_t amount) { created += amount; }
-  void incTokensMined(uint64_t amount) { mined += amount; }
+  void incTokensUserCreated(uint64_t amount) { u_created += amount; }
+  void incTokensIssuerCreated(uint64_t amount) { i_created += amount; }
 
-  uint64_t getCreated() const { return created; }
-  uint64_t getPremined() const { return mined; }
+  uint64_t getUserCreated() const { return u_created; }
+  uint64_t getIssuerCreated() const { return i_created; }
 
-  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
-  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return database; }
+  void insertDatabase(std::string txhash, std::pair<uint64_t, uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::pair<uint64_t, uint64_t>& >(txhash,txdata)); }
+  std::map<std::string, std::pair<uint64_t, uint64_t> > getDatabase() const { return database; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
@@ -1034,20 +1034,20 @@ FILE *fp = fopen("/tmp/dead.log", "a");
 // numProps: number of properties
 // issuerPerc: percentage of tokens to issuer
 int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::pair<uint64_t, uint64_t> > database, 
   const uint64_t amountPremined  )
 {
 
   double totalCreated = 0;
   double issuerPercentage = (double) (issuerPerc * 0.01);
 
-  std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+  std::map<std::string, std::pair<uint64_t, uint64_t> >::const_iterator it;
 
   for(it = database.begin(); it != database.end(); it++) {
 
     //printf("\n\ndoing... \n");
-    uint64_t currentSecs = it->second.at(1);
-    double amtTransfer = it->second.at(0);
+    uint64_t currentSecs = it->second.second;
+    double amtTransfer = it->second.first;
 
     uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   
@@ -1056,11 +1056,11 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     double bonusPercentage = ( ebPercentage / 100 ) + 1;
   
     double createdTokens;
-    double issuerTokens;
+    //double issuerTokens;
 
     if( 2 == propType ) {
       createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
+      //issuerTokens = createdTokens * issuerPercentage;
       //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
 
       totalCreated += createdTokens;
@@ -1069,7 +1069,7 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     } else {
       //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
       createdTokens = (uint64_t) ( (amtTransfer/1e9) * (double) numProps * bonusPercentage);
-      issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
+      //issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
       //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
 
       //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
@@ -1114,19 +1114,21 @@ CrowdMap::iterator my_it = my_crowds.begin();
       
       // Begin calculate Fractional 
       CMPSP *sp = getSP(crowd.getPropertyId());
+      
+      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp->getHash().GetHex().c_str(), sp->getEarlyBird(), sp->getDeadline(), sp->getNumProps(), sp->getIssuerPerc(), crowd.getIssuerCreated());
 
-      //pass amountPremined and TX db into func
-
-      //int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-      //uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
-      //const uint64_t amountPremined  )
-      calculateFractional(sp->getPropertyType(),
+      double missedTokens = calculateFractional(sp->getPropertyType(),
                           sp->getEarlyBird(),
                           sp->getDeadline(),
                           sp->getNumProps(),
                           sp->getIssuerPerc(),
                           crowd.getDatabase(),
-                          crowd.getPremined());
+                          crowd.getIssuerCreated());
+
+
+      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp->getIssuer().c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+
+      update_tally_map(sp->getIssuer(), crowd.getPropertyId(), missedTokens, MONEY);
       //End
                      
       my_crowds.erase(my_it++);
@@ -1342,6 +1344,8 @@ public:
 
             fprintf(mp_fp, " ATTEMPTED CROWDSALE FUNDING ----> des: %lu getting: %u ", crowd->getCurrDes(), crowd->getPropertyId());
 
+            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp->getEarlyBird(), sp->getDeadline(), (uint64_t) blockTime, sp->getNumProps(), sp->getIssuerPerc());
+
             calculateFundraiser(sp->getPropertyType(), //u short
                                 nValue,                // u int 64
                                 sp->getEarlyBird(),    // u char 
@@ -1351,15 +1355,16 @@ public:
                                 sp->getIssuerPerc(),    // u char
                                 tokens );
 
-            crowd->incTokensCreated(tokens.first);
-            crowd->incTokensMined(tokens.second);
-
-            uint64_t txdata[] = { (uint64_t) (nValue), (uint64_t) blockTime };
-            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)); 
-            crowd->insertDatabase(txid.GetHex().c_str(), txDataVec );
+            fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            crowd->incTokensUserCreated(tokens.first);
+            crowd->incTokensIssuerCreated(tokens.second);
+            fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            //uint64_t txdata[] = { (uint64_t) (nValue), (uint64_t) blockTime };
+            //std::make<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)); 
+            crowd->insertDatabase(txid.GetHex().c_str(), std::make_pair<uint64_t, uint64_t>(nValue, blockTime) );
             //need to add txid to CMPSP database
 
-            fprintf(mp_fp,"\n hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+            fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
 
@@ -1572,18 +1577,21 @@ public:
         
         CMPSP *sp = getSP(crowd.getPropertyId());
 
-        //pass amountPremined and TX db into func
+      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp->getHash().GetHex().c_str(), sp->getEarlyBird(), sp->getDeadline(), sp->getNumProps(), sp->getIssuerPerc(), crowd.getIssuerCreated());
 
-        //int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-        //uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
-        //const uint64_t amountPremined  )
-        calculateFractional(sp->getPropertyType(),
-                            sp->getEarlyBird(),
-                            sp->getDeadline(),
-                            sp->getNumProps(),
-                            sp->getIssuerPerc(),
-                            crowd.getDatabase(),
-                            crowd.getPremined());
+      double missedTokens = calculateFractional(sp->getPropertyType(),
+                          sp->getEarlyBird(),
+                          sp->getDeadline(),
+                          sp->getNumProps(),
+                          sp->getIssuerPerc(),
+                          crowd.getDatabase(),
+                          crowd.getIssuerCreated());
+
+
+      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp->getIssuer().c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+
+
+        update_tally_map(sp->getIssuer(), crowd.getPropertyId(), missedTokens, MONEY);
         //End
 
         my_crowds.erase(it);
@@ -2033,110 +2041,6 @@ vector<vector<unsigned char> > vSolutions;
 
   return true;
 }
-
-
-/*  example interface 
-
-int main() {
-
-   long long int amountCreated = 0;
-   long long int amountPremined = 0;
-   
-   std::map<std::string, std::vector<long long int> > database;
-   std::pair <long long int, long long int> tokens;
-
-   //calculateFundraiser(1,2.0,0,1398701578,1398371487,817545361,0.0, tokens);
-   //262ab5f05b823c77ee7af8cb5ea9ce7ebbc0c34775a7bbeb7c3e477a4881dc89
-   //Expected: 'total created', 1635090722, 'tokens for issuer', 0.0
-   //Returned: 1635090722, and 0.000000 
-
-   //calculateFundraiser(2,7.39038774,25,22453142409904,1403765616,100,10, tokens);
-   //333d8fd459b270fde95736846eb81b2547837476f33e8e0b4c1158906870155f
-   //Expected: 'total created', 6858757932.260923, 'tokens for issuer', 685875793.2260923
-   //Returned: 6858757932.260923, and 685875793.226092
-   
-   //calculateFundraiser(1,1200,10,1400749200,1398164609,3400,0, tokens);
-   //f13d7cbd38c910572a0a049888896818da06a3b8d726f5d6fbfc87658aa1d642
-   //Expected: 'total created', 5823573, 'tokens for issuer', 0.0
-   //Returned: 5823573, and 0.000000 
-   
-   //calculateFundraiser(1,2.0,10,1396500000,1396067389,1500,5, tokens);
-   //9f8f19ee4dbc6eb23905c6416053a651259a22c88be0e55e61454909d20ce66d
-   //Expected: 'total created', 3214, 'tokens for issuer', 160.70000000000002
-   //Returned: 3214, and 160.700000
-   
-   //calculateFundraiser(2,1.299,0,1649030400,1397248685,1000,0, tokens);
-   //139e476fb34921f7cad834a2868dc4a734cd03a1e6b0a5eb03164e228e28e30d
-   //Expected: 'total created', 1299.0, 'tokens for issuer', 0.0
-   //Returned: 1299.000000, and 0.000000
-
-   //calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
-   //94d23c01d82ffb8b7fa1c25a919a96713afa1198ce02a06c1bd6713af6a6d97a
-   //Expected: 'total created', 214621, 'tokens for issuer', 90140.81999999999
-   //Returned: 214621, and 90140.820000
-
-   calculateFundraiser(1,42.0,10,1400198400,1397758429,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   calculateFundraiser(1,2.0,10,1400198400,1398103687,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   calculateFundraiser(1,2.0,10,1400198400,1398138271,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,1.0,10,1400198400,1398790874,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,55.23485377,10,1400198400,1399591823,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   long long int e1[] = { (long long int) (42.0 * 1e9 ), 1397758429};
-   std::vector<long long int> entry1(e1, e1 + sizeof(e1));
-
-   long long int e2[] = { (long long int) (2.0 * 1e9 ), 1398103687};
-   std::vector<long long int> entry2(e2, e2 + sizeof(e2));
-   
-   long long int e3[] = { (long long int) (2.0 * 1e9 ), 1398138271};
-   std::vector<long long int> entry3(e3, e3 + sizeof(e3));
-
-   long long int e4[] = { (long long int) (96.0 * 1e9 ), 1398292763};
-   std::vector<long long int> entry4(e4, e4 + sizeof(e4));
-   
-   long long int e5[] = { (long long int) (1.0 * 1e9 ), 1398790874};
-   std::vector<long long int> entry5(e5, e5 + sizeof(e5));
-
-   long long int e6[] = { (long long int) (55.23485377 * 1e9 ), 1399591823};
-   std::vector<long long int> entry6(e6, e6 + sizeof(e6));
-   
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662",entry1));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba",entry2));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4",entry3));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6",entry4));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b",entry5));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c",entry6));
-
-   long double missedTokens = calculateFractional(1,10,1400198400,1700,42, database, amountPremined);
-
-   printf("\nTokens created, Tokens for issuer, amountMissed: %lld %lld %Lf\n", amountCreated, amountPremined, missedTokens);
-   return 0;
-}
-
-*/
 
 
 int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
