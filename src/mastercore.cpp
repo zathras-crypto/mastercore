@@ -1059,7 +1059,7 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     //double issuerTokens;
 
     if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+      createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
       //issuerTokens = createdTokens * issuerPercentage;
       //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
 
@@ -1068,7 +1068,7 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
 
     } else {
       //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
-      createdTokens = (uint64_t) ( (amtTransfer/1e9) * (double) numProps * bonusPercentage);
+      createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
       //issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
       //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
 
@@ -1166,7 +1166,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   //bonusSeconds, bonusPercentage, issuerPercentage);
   
   if( 2 == propType ) {
-    createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
+    createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
     issuerTokens = createdTokens * issuerPercentage;
     //printf("prop div 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
 
@@ -1364,7 +1364,7 @@ public:
             crowd->insertDatabase(txid.GetHex().c_str(), std::make_pair<uint64_t, uint64_t>(nValue, blockTime) );
             //need to add txid to CMPSP database
 
-            fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %lu %lu\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+            fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
 
@@ -1647,6 +1647,11 @@ public:
 
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
   fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+
+  if ( (MASTERCOIN_CURRENCY_TMSC != currency || MASTERCOIN_CURRENCY_MSC != currency) && MSC_TYPE_SIMPLE_SEND != type){ 
+    fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
+    return -90972;
+  }
 
   if (MASTERCOIN_CURRENCY_TMSC != currency)
   {
