@@ -578,6 +578,35 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   return balance;
 }
 
+// get total tokens for an address
+int64_t getTotalTokens(unsigned int propertyId)
+{
+  LOCK(cs_tally);
+
+  CMPSP *property = getSP(propertyId);
+
+  if (NULL == property) return 0; // property ID does not exist
+
+  int64_t totalTokens = 0;
+  bool fixedIssuance = property->isFixed();
+
+  if (fixedIssuance)
+  {
+      totalTokens = property->getValue(); //only valid for TX50
+  }
+  else // loop map and calculate total number of tokens
+  {
+      for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+      {
+          string address = (my_it->first).c_str();
+          totalTokens += getMPbalance(address, propertyId, MONEY);
+          totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+      }
+  }
+  return totalTokens;
+}
+
 // bSet will SET the amount into the address, instead of just updating it
 // bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false, bool bSet = false)
 //
