@@ -1625,12 +1625,12 @@ public:
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
   fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
 
-  //if (MSC_TYPE_SIMPLE_SEND != type){ 
-  //  if (MASTERCOIN_CURRENCY_TMSC != currency || MASTERCOIN_CURRENCY_MSC != currency) {
-  //    fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
-  //    return -90972;
-  //    }
-  //}
+  if (MSC_TYPE_TRADE_OFFER == type){ 
+    if (MASTERCOIN_CURRENCY_TMSC != currency || MASTERCOIN_CURRENCY_MSC != currency) {
+      fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
+      return -90972;
+    }
+  }
 
   if (MASTERCOIN_CURRENCY_TMSC != currency)
   {
