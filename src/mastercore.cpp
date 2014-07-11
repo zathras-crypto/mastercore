@@ -494,7 +494,7 @@ private:
 
   uint256 txid;
 
-  std::map<std::string, std::pair<uint64_t, uint64_t> > database;
+  std::map<std::string, std::vector<uint64_t> > database;
 public:
   CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
   {
@@ -516,8 +516,8 @@ public:
   uint64_t getUserCreated() const { return u_created; }
   uint64_t getIssuerCreated() const { return i_created; }
 
-  void insertDatabase(std::string txhash, std::pair<uint64_t, uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::pair<uint64_t, uint64_t>& >(txhash,txdata)); }
-  std::map<std::string, std::pair<uint64_t, uint64_t> > getDatabase() const { return database; }
+  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
+  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return database; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
@@ -1059,19 +1059,19 @@ FILE *fp = fopen("/tmp/dead.log", "a");
 // numProps: number of properties
 // issuerPerc: percentage of tokens to issuer
 int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::pair<uint64_t, uint64_t> > database, 
+  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
   const uint64_t amountPremined  )
 {
 
   double totalCreated = 0;
   double issuerPercentage = (double) (issuerPerc * 0.01);
 
-  std::map<std::string, std::pair<uint64_t, uint64_t> >::const_iterator it;
+  std::map<std::string, std::vector<uint64_t> >::const_iterator it;
 
   for(it = database.begin(); it != database.end(); it++) {
 
-    uint64_t currentSecs = it->second.second;
-    double amtTransfer = it->second.first;
+    uint64_t currentSecs = it->second.at(1);
+    double amtTransfer = it->second.at(0);
 
     uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   
@@ -1366,7 +1366,11 @@ public:
             crowd->incTokensIssuerCreated(tokens.second);
             
             fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
-            crowd->insertDatabase(txid.GetHex().c_str(), std::make_pair<uint64_t, uint64_t>(nValue, blockTime) );
+            
+            uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
+            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata) );
+
+            crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
             //need to add txid to CMPSP database
 
             fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
