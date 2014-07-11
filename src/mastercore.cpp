@@ -3166,7 +3166,7 @@ int input_mp_crowdsale_string(const string &s)
   boost::split(vstr, s, boost::is_any_of(" ,"), token_compress_on);
   unsigned int i = 0;
 
-  if (9 < vstr.size()) return -1;
+  if (9 > vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
   propertyId = atoi(vstr[i++]);
