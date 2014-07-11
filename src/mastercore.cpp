@@ -39,6 +39,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/find.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
@@ -408,13 +409,19 @@ public:
       % i_created ).str();
 
     // append N pairs of address=nValue;blockTime for the database
-    std::map<std::string, std::pair<uint64_t, uint64_t> >::const_iterator iter;
+    std::map<std::string, std::vector<uint64_t> >::const_iterator iter;
     for (iter = database.begin(); iter != database.end(); ++iter) {
-      lineOut.append((boost::format(",%s=%d;%d")
-        % (*iter).first
-        % (*iter).second.first
-        % (*iter).second.second
-      ).str());
+      lineOut.append((boost::format(",%s=") % (*iter).first).str());
+      std::vector<uint64_t> const &vals = (*iter).second;
+
+      std::vector<uint64_t>::const_iterator valIter;
+      for (valIter = vals.begin(); valIter != vals.end(); ++valIter) {
+        if (valIter != vals.begin()) {
+          lineOut.append(";");
+        }
+
+        lineOut.append((boost::format("%d") % (*valIter)).str());
+      }
     }
 
     // add the line to the hash
@@ -3181,12 +3188,14 @@ int input_mp_crowdsale_string(const string &s)
 
     std::vector<std::string> valueData;
     boost::split(valueData, entryData[1], boost::is_any_of(";"), token_compress_on);
-    if ( 2 != valueData.size()) return -1;
 
-    uint64_t nValue = boost::lexical_cast<uint64_t>(valueData[0]);
-    uint64_t blocktime = boost::lexical_cast<uint64_t>(valueData[1]);
+    std::vector<uint64_t> vals;
+    std::vector<std::string>::const_iterator iter;
+    for (iter = valueData.begin(); iter != valueData.end(); ++iter) {
+      vals.push_back(boost::lexical_cast<uint64_t>(*iter));
+    }
 
-    newCrowdsale.insertDatabase(entryData[0], std::make_pair(nValue,blocktime));
+    newCrowdsale.insertDatabase(entryData[0], vals);
   }
 
 
