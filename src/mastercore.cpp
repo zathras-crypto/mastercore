@@ -99,8 +99,6 @@ int msc_debug_sp    = 1;
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
-// disable TMSC handling for now, has more legacy corner cases
-static int ignore_all_but_MSC = 0;
 static int disableLevelDB = 0;
 static int disable_Persistence = 1;
 
@@ -1205,7 +1203,6 @@ public:
 
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
- // NOTE: TMSC is ignored for now...
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
@@ -1298,6 +1295,15 @@ public:
 
       rc = step2_Value();
       if (0>rc) return rc;
+
+      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
+      {
+        fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
+        return -90972;
+      }
+
+      // block height checks, for instance DEX is only available on MSC starting with block 290630
+      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MSC_DEX_BLOCK > block)) return -88888;
 
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
@@ -1531,19 +1537,6 @@ public:
 
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
   fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
-
-  if (MASTERCOIN_CURRENCY_TMSC != currency)
-  {
-    // block height checks, for instance DEX is only available on MSC starting with block 290630
-    if ((MSC_TYPE_SIMPLE_SEND != type) && (MSC_DEX_BLOCK > block)) return -88888;
-  }
-
-  if (ignore_all_but_MSC)
-  if (currency != MASTERCOIN_CURRENCY_MSC)
-  {
-    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
-    return (PKT_ERROR -2);
-  }
 
   return 0;
  }
@@ -3324,7 +3317,6 @@ const bool bTestnet = TestNet();
   if (bTestnet)
   {
     exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
-    ignore_all_but_MSC = 0;
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
