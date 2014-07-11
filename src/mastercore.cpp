@@ -101,7 +101,7 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 // disable TMSC handling for now, has more legacy corner cases
 static int ignore_all_but_MSC = 0;
 static int disableLevelDB = 0;
-static int disable_Persistence = 0;
+static int disable_Persistence = 1;
 
 static int mastercoreInitialized = 0;
 
@@ -408,6 +408,16 @@ public:
       % (int)percentage
       % u_created
       % i_created ).str();
+
+    // append N pairs of address=nValue;blockTime for the database
+    std::map<std::string, std::pair<uint64_t, uint64_t> >::const_iterator iter;
+    for (iter = database.begin(); iter != database.end(); ++iter) {
+      lineOut.append((boost::format(",%s=%d;%d")
+        % (*iter).first
+        % (*iter).second.first
+        % (*iter).second.second
+      ).str());
+    }
 
     // add the line to the hash
     SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
@@ -3154,10 +3164,10 @@ int input_mp_crowdsale_string(const string &s)
   uint64_t i_created;
 
   std::vector<std::string> vstr;
-  boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
-  int i = 0;
+  boost::split(vstr, s, boost::is_any_of(" ,"), token_compress_on);
+  unsigned int i = 0;
 
-  if (9 != vstr.size()) return -1;
+  if (9 < vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
   propertyId = atoi(vstr[i++]);
@@ -3170,6 +3180,24 @@ int input_mp_crowdsale_string(const string &s)
   i_created = boost::lexical_cast<uint64_t>(vstr[i++]);
 
   CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage,u_created,i_created);
+
+  // load the remaining as database pairs
+  while (i < vstr.size()) {
+    std::vector<std::string> entryData;
+    boost::split(entryData, vstr[i++], boost::is_any_of("="), token_compress_on);
+    if ( 2 != entryData.size()) return -1;
+
+    std::vector<std::string> valueData;
+    boost::split(valueData, entryData[1], boost::is_any_of(";"), token_compress_on);
+    if ( 2 != valueData.size()) return -1;
+
+    uint64_t nValue = boost::lexical_cast<uint64_t>(valueData[0]);
+    uint64_t blocktime = boost::lexical_cast<uint64_t>(valueData[1]);
+
+    newCrowdsale.insertDatabase(entryData[0], std::make_pair(nValue,blocktime));
+  }
+
+
   if (my_crowds.insert(std::make_pair(sellerAddr, newCrowdsale)).second) {
     return 0;
   } else {
