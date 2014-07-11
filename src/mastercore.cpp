@@ -99,8 +99,6 @@ int msc_debug_sp    = 1;
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
-// disable TMSC handling for now, has more legacy corner cases
-static int ignore_all_but_MSC = 0;
 static int disableLevelDB = 0;
 static int disable_Persistence = 1;
 
@@ -584,6 +582,35 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   }
 
   return balance;
+}
+
+// get total tokens for a property
+int64_t getTotalTokens(unsigned int propertyId)
+{
+  LOCK(cs_tally);
+
+  CMPSP *property = getSP(propertyId);
+
+  if (NULL == property) return 0; // property ID does not exist
+
+  int64_t totalTokens = 0;
+  bool fixedIssuance = property->isFixed();
+
+  if (fixedIssuance)
+  {
+      totalTokens = property->getValue(); //only valid for TX50
+  }
+  else // loop map and calculate total number of tokens
+  {
+      for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+      {
+          string address = (my_it->first).c_str();
+          totalTokens += getMPbalance(address, propertyId, MONEY);
+          totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+      }
+  }
+  return totalTokens;
 }
 
 // bSet will SET the amount into the address, instead of just updating it
@@ -1257,7 +1284,6 @@ public:
 
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
- // NOTE: TMSC is ignored for now...
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
@@ -1368,6 +1394,15 @@ public:
 
       rc = step2_Value();
       if (0>rc) return rc;
+
+      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
+      {
+        fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
+        return -90972;
+      }
+
+      // block height checks, for instance DEX is only available on MSC starting with block 290630
+      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MSC_DEX_BLOCK > block)) return -88888;
 
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
@@ -1624,26 +1659,6 @@ public:
 
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
   fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
-
-  if (MSC_TYPE_TRADE_OFFER == type){ 
-    if (MASTERCOIN_CURRENCY_TMSC != currency || MASTERCOIN_CURRENCY_MSC != currency) {
-      fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
-      return -90972;
-    }
-  }
-
-  if (MASTERCOIN_CURRENCY_TMSC != currency)
-  {
-    // block height checks, for instance DEX is only available on MSC starting with block 290630
-    if ((MSC_TYPE_SIMPLE_SEND != type) && (MSC_DEX_BLOCK > block)) return -88888;
-  }
-
-  if (ignore_all_but_MSC)
-  if (currency != MASTERCOIN_CURRENCY_MSC)
-  {
-    fprintf(mp_fp, "IGNORING NON-MSC packet for NOW !!!\n");
-    return (PKT_ERROR -2);
-  }
 
   return 0;
  }
@@ -3253,7 +3268,6 @@ const bool bTestnet = TestNet();
   if (bTestnet)
   {
     exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
-    ignore_all_but_MSC = 0;
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
