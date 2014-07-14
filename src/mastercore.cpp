@@ -39,6 +39,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/find.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
@@ -46,14 +47,13 @@
 #include "json/json_spirit_value.h"
 
 #include "leveldb/db.h"
+#include "leveldb/write_batch.h"
 
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
 // #define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
-
-unsigned int global_NextPropertyId[0xF]= { 0, 3, 0x80000003, 0 };
 
 static FILE *mp_fp = NULL;
 
@@ -344,138 +344,6 @@ public:
 
 };  // end of CMPAccept class
 
-class CMPSP
-{
-private:
-  string issuer;
-
-  unsigned char ecosystem;
-  unsigned short prop_type;
-  unsigned int prev_prop_id;
-
-  char category[SP_STRING_FIELD_LEN];
-  char subcategory[SP_STRING_FIELD_LEN];
-  char name[SP_STRING_FIELD_LEN];
-  char url[SP_STRING_FIELD_LEN];
-  char data[SP_STRING_FIELD_LEN];
-
-  uint64_t nValue;
-
-  unsigned int currency_desired;
-  uint64_t deadline;
-  unsigned char early_bird;
-  unsigned char percentage;
-
-  uint256 txid;
-
-  bool bFixed;
-
-  void SetNull()
-  {
-    ecosystem = 0;
-    prop_type = 0;
-    prev_prop_id = 0;
-    nValue = 0;
-    currency_desired = 0;
-    deadline = 0;
-    early_bird = 0;
-    percentage = 0;
-
-    memset(&category, 0, sizeof(category));
-    memset(&subcategory, 0, sizeof(subcategory));
-    memset(&name, 0, sizeof(name));
-    memset(&url, 0, sizeof(url));
-    memset(&data, 0, sizeof(data));
-  }
-
-  void Set(uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
-  {
-    txid = tx;
-    prop_type = pt;
-    nValue = nv;
-
-    strncpy(category, c, sizeof(category)-1);
-    strncpy(subcategory, s, sizeof(subcategory)-1);
-    strncpy(name, n, sizeof(name)-1);
-    strncpy(url, u, sizeof(url)-1);
-    strncpy(data, d, sizeof(data)-1);
-  }
-  
-  void SetVariable(unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
-  {
-    currency_desired = curr;
-    deadline = dl;
-    early_bird = eb;
-    percentage = per;
-
-    bFixed = false;
-  }
-
-public:
-  uint256 getHash() const { return txid; }
-
-  bool isFixed() const { return bFixed; }
-
-  bool isDivisible() const
-  {
-    switch (prop_type)
-    {
-      case MSC_PROPERTY_TYPE_DIVISIBLE:
-      case MSC_PROPERTY_TYPE_DIVISIBLE_REPLACING:
-      case MSC_PROPERTY_TYPE_DIVISIBLE_APPENDING:
-        return true;
-    }
-    return false;
-  }
-
-  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d)
-  {
-    SetNull();
-    issuer = sender;
-    bFixed = true;
-    Set(tx, pt, nv, c, s, n, u, d);
-  }
-
-  CMPSP(const string &sender, uint256 tx, unsigned short pt, uint64_t nv, char *c, char *s, char *n, char *u, char *d,
-   unsigned int curr, uint64_t dl, unsigned char eb, unsigned char per)
-  {
-    SetNull();
-    issuer = sender;
-    bFixed = false;
-    Set(tx, pt, nv, c, s, n, u, d);
-    SetVariable(curr, dl, eb, per);
-  }
-
-  const string getIssuer() const { return issuer; }
-  const string getName() const { return name; }
-  const string getCategory() const { return category; }
-  const string getSubcategory() const { return subcategory; }
-  const string getURL() const { return url; }
-  const string getData() const { return data; }
-
-  unsigned short getPropertyType() const { return prop_type; }
-
-  uint64_t getValue() const { return nValue; }
-  uint64_t getDeadline() const { return deadline; }
-
-  uint64_t getNumProps() const { return nValue; }
-
-  unsigned char getEarlyBird() const { return early_bird; }
-  unsigned char getIssuerPerc() const { return percentage; }
-  
-  void print()
-  {
-    printf("%s:%s(Fixed=%s,Divisible=%s):%lu:%s/%s, %s %s\n",
-     getIssuer().c_str(),
-     getName().c_str(),
-     isFixed() ? "Yes":"No",
-     isDivisible() ? "Yes":"No",
-     getValue(),
-     getCategory().c_str(), getSubcategory().c_str(), getURL().c_str(), getData().c_str());
-  }
-
-};  // end of CMPSP class
-
 // live crowdsales are these objects in a map
 class CMPCrowd
 {
@@ -489,34 +357,421 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
-  uint64_t created;
-  uint64_t mined;
+  uint64_t u_created;
+  uint64_t i_created;
 
-  uint256 txid;
+  uint256 txid;  // NOTE: not persisted as it doesnt seem used
 
+  std::map<std::string, std::vector<uint64_t> > database;
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0)
+  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
   {
   }
 
-  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per)
+  CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t uct, uint64_t ict):
+   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),u_created(uct),i_created(ict)
   {
   }
 
   unsigned int getPropertyId() const { return propertyId; }
 
   uint64_t getDeadline() const { return deadline; }
-  
-  void incTokensCreated(uint64_t amount) { created += amount; }
-  void incTokensMined(uint64_t amount) { mined += amount; }
+  uint64_t getCurrDes() const { return currency_desired; }
+
+  void incTokensUserCreated(uint64_t amount) { u_created += amount; }
+  void incTokensIssuerCreated(uint64_t amount) { i_created += amount; }
+
+  uint64_t getUserCreated() const { return u_created; }
+  uint64_t getIssuerCreated() const { return i_created; }
+
+  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
+  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return database; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
     fprintf(fp, "%34s : id=%u=%X; curr=%u, value= %lu, deadline: %s (%lX)\n", address.c_str(), propertyId, propertyId,
      currency_desired, nValue, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
   }
+
+  void saveCrowdSale(ofstream &file, SHA256_CTX *shaCtx, string const &addr) const
+  {
+    // compose the outputline
+    // addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,created,mined
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%d")
+      % addr
+      % propertyId
+      % nValue
+      % currency_desired
+      % deadline
+      % (int)early_bird
+      % (int)percentage
+      % u_created
+      % i_created ).str();
+
+    // append N pairs of address=nValue;blockTime for the database
+    std::map<std::string, std::vector<uint64_t> >::const_iterator iter;
+    for (iter = database.begin(); iter != database.end(); ++iter) {
+      lineOut.append((boost::format(",%s=") % (*iter).first).str());
+      std::vector<uint64_t> const &vals = (*iter).second;
+
+      std::vector<uint64_t>::const_iterator valIter;
+      for (valIter = vals.begin(); valIter != vals.end(); ++valIter) {
+        if (valIter != vals.begin()) {
+          lineOut.append(";");
+        }
+
+        lineOut.append((boost::format("%d") % (*valIter)).str());
+      }
+    }
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
+  }
 };  // end of CMPCrowd class
+
+
+class CMPSPInfo
+{
+public:
+  struct Entry {
+    // common SP data
+    string issuer;
+    unsigned short prop_type;
+    unsigned int prev_prop_id;
+    string category;
+    string subcategory;
+    string name;
+    string url;
+    string data;
+    uint64_t total_tokens;
+
+    // Crowdsale generated SP
+    unsigned int currency_desired;
+    uint64_t deadline;
+    unsigned char early_bird;
+    unsigned char percentage;
+
+    // other information
+    uint256 txid;
+    bool fixed;
+
+    Entry()
+    : issuer()
+    , prop_type(0)
+    , prev_prop_id(0)
+    , category()
+    , subcategory()
+    , name()
+    , url()
+    , data()
+    , total_tokens(0)
+    , currency_desired(0)
+    , deadline(0)
+    , early_bird(0)
+    , percentage(0)
+    , txid()
+    , fixed(false)
+    {
+    }
+
+    Object toJSON() const
+    {
+      Object spInfo;
+      spInfo.push_back(Pair("issuer", issuer));
+      spInfo.push_back(Pair("prop_type", prop_type));
+      spInfo.push_back(Pair("prev_prop_id", (uint64_t)prev_prop_id));
+      spInfo.push_back(Pair("category", category));
+      spInfo.push_back(Pair("subcategory", subcategory));
+      spInfo.push_back(Pair("name", name));
+      spInfo.push_back(Pair("url", url));
+      spInfo.push_back(Pair("data", data));
+      spInfo.push_back(Pair("fixed", fixed));
+      spInfo.push_back(Pair("total_tokens", (boost::format("%d") % total_tokens).str()));
+      if (false == fixed) {
+        spInfo.push_back(Pair("currency_desired", (uint64_t)currency_desired));
+        spInfo.push_back(Pair("deadline", (boost::format("%d") % deadline).str()));
+        spInfo.push_back(Pair("early_bird", (int)early_bird));
+        spInfo.push_back(Pair("percentage", (int)percentage));
+      }
+      spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
+
+      return spInfo;
+    }
+
+    void fromJSON(Object const &json)
+    {
+      int idx = 0;
+      issuer = json[idx++].value_.get_str();
+      prop_type = (unsigned short)json[idx++].value_.get_int();
+      prev_prop_id = (unsigned int)json[idx++].value_.get_uint64();
+      category = json[idx++].value_.get_str();
+      subcategory = json[idx++].value_.get_str();
+      name = json[idx++].value_.get_str();
+      url = json[idx++].value_.get_str();
+      data = json[idx++].value_.get_str();
+      fixed = json[idx++].value_.get_bool();
+      total_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
+      if (false == fixed) {
+        currency_desired = (unsigned int)json[idx++].value_.get_uint64();
+        deadline = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
+        early_bird = (unsigned char)json[idx++].value_.get_int();
+        percentage = (unsigned char)json[idx++].value_.get_int();
+      }
+      txid = uint256(json[idx++].value_.get_str());
+    }
+
+    bool isDivisible() const
+    {
+      switch (prop_type)
+      {
+        case MSC_PROPERTY_TYPE_DIVISIBLE:
+        case MSC_PROPERTY_TYPE_DIVISIBLE_REPLACING:
+        case MSC_PROPERTY_TYPE_DIVISIBLE_APPENDING:
+          return true;
+      }
+      return false;
+    }
+
+    void print() const
+    {
+      printf("%s:%s(Fixed=%s,Divisible=%s):%lu:%s/%s, %s %s\n",
+        issuer.c_str(),
+        name.c_str(),
+        fixed ? "Yes":"No",
+        isDivisible() ? "Yes":"No",
+        total_tokens,
+        category.c_str(), subcategory.c_str(), url.c_str(), data.c_str());
+    }
+
+  };
+
+private:
+  leveldb::DB *pDb;
+
+  // implied version of msc and tmsc so they don't hit the leveldb
+  Entry implied_msc;
+  Entry implied_tmsc;
+
+  unsigned int next_spid;
+  unsigned int next_test_spid;
+
+public:
+
+  CMPSPInfo(const boost::filesystem::path &path)
+  {
+    leveldb::Options options;
+    options.paranoid_checks = true;
+    options.create_if_missing = true;
+
+    leveldb::Status s = leveldb::DB::Open(options, path.string(), &pDb);
+
+    if (false == s.ok()) {
+      printf("Failed to create or read LevelDB for Smart Property at %s", path.c_str());
+    }
+
+    // special cases for constant SPs MSC and TMSC
+    implied_msc.issuer = exodus;
+    implied_msc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
+    implied_msc.total_tokens = 700000;
+    implied_msc.category = "N/A";
+    implied_msc.subcategory = "N/A";
+    implied_msc.name = "MasterCoin";
+    implied_msc.url = "www.mastercoin.org";
+    implied_msc.data = "***data***";
+    implied_tmsc.issuer = exodus;
+    implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
+    implied_tmsc.total_tokens = 700000;
+    implied_tmsc.category = "N/A";
+    implied_tmsc.subcategory = "N/A";
+    implied_tmsc.name = "Test MasterCoin";
+    implied_tmsc.url = "www.mastercoin.org";
+    implied_tmsc.data = "***data***";
+
+    init();
+  }
+
+  ~CMPSPInfo()
+  {
+    delete pDb;
+    pDb = NULL;
+  }
+
+  void init(unsigned int nextSPID = 0x3UL, unsigned int nextTestSPID = 0x80000003UL )
+  {
+    next_spid = nextSPID;
+    next_test_spid = nextTestSPID;
+  }
+
+  unsigned int peekNextSPID(unsigned char ecosystem)
+  {
+    unsigned int nextId = 0;
+
+    switch(ecosystem) {
+    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+      nextId = next_spid;
+      break;
+    case 2: // Test MSC ecosystem, same as above with high bit set
+      nextId = next_test_spid;
+      break;
+    default: // non standard ecosystem, ID's start at 0
+      nextId = 0;
+    }
+
+    return nextId;
+  }
+
+  unsigned int putSP(unsigned char ecosystem, Entry const &info)
+  {
+    std::string nextIdStr;
+    unsigned int res = 0;
+    switch(ecosystem) {
+    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+      res = next_spid++;
+      break;
+    case 2: // Test MSC ecosystem, same as above with high bit set
+      res = next_test_spid++;
+      break;
+    default: // non standard ecosystem, ID's start at 0
+      res = 0;
+    }
+
+    Object spInfo = info.toJSON();
+
+    // generate the SP id
+    string spKey = (boost::format("sp-%d") % res).str();
+    string spValue = write_string(Value(spInfo), false);
+    string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
+    string txValue = (boost::format("%d") % res).str();
+
+    // sanity checking
+    string existingEntry;
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+    if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
+    } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
+    }
+
+    // atomically write both the the SP and the index to the database
+    leveldb::WriteOptions writeOptions;
+    writeOptions.sync = true;
+
+    leveldb::WriteBatch commitBatch;
+    commitBatch.Put(spKey, spValue);
+    commitBatch.Put(txIndexKey, txValue);
+
+    pDb->Write(writeOptions, &commitBatch);
+    return res;
+  }
+
+  bool getSP(unsigned int spid, Entry &info)
+  {
+    // special cases for constant SPs MSC and TMSC
+    if (spid == 1) {
+      info = implied_msc;
+      return true;
+    } else if (spid == 2) {
+      info = implied_tmsc;
+      return true;
+    }
+
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+
+    string spKey = (boost::format("sp-%d") % spid).str();
+    string spInfoStr;
+    if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
+      return false;
+    }
+
+    // parse the encoded json, failing if it doesnt parse or is an object
+    Value spInfoVal;
+    if (false == read_string(spInfoStr, spInfoVal) || spInfoVal.type() != obj_type ) {
+      return false;
+    }
+
+    // transfer to the Entry structure
+    Object &spInfo = spInfoVal.get_obj();
+    info.fromJSON(spInfo);
+    return true;
+  }
+
+  bool hasSP(unsigned int spid)
+  {
+    // special cases for constant SPs MSC and TMSC
+    if (spid == 1 || spid == 2) {
+      return true;
+    }
+
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+
+    string spKey = (boost::format("sp-%d") % spid).str();
+    leveldb::Iterator *iter = pDb->NewIterator(readOpts);
+    iter->Seek(spKey);
+    if (iter->Valid() && iter->key().compare(spKey) == 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+  unsigned int findSPByTX(uint256 const &txid)
+  {
+    unsigned int res = 0;
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+
+    string txIndexKey = (boost::format("index-tx-%s") % txid.ToString() ).str();
+    string spidStr;
+    if (pDb->Get(readOpts, txIndexKey, &spidStr).ok()) {
+      res = boost::lexical_cast<unsigned int>(spidStr);
+    }
+
+    return res;
+  }
+
+  void printAll()
+  {
+    // print off the hard coded MSC and TMSC entries
+    for (unsigned int idx = 1; idx < 3; idx++ ) {
+      Entry info;
+      printf("%10d => ", idx);
+      if (getSP(idx, info)) {
+        info.print();
+      } else {
+        printf("<Internal Error on implicit SP>\n");
+      }
+    }
+
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = false;
+    leveldb::Iterator *iter = pDb->NewIterator(readOpts);
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+      if (iter->key().starts_with("sp-")) {
+        std::vector<std::string> vstr;
+        std::string key = iter->key().ToString();
+        boost::split(vstr, key, boost::is_any_of("-"), token_compress_on);
+
+        printf("%10s => ", vstr[1].c_str());
+
+        // parse the encoded json, failing if it doesnt parse or is an object
+        Value spInfoVal;
+        if (read_string(iter->value().ToString(), spInfoVal) && spInfoVal.type() == obj_type ) {
+          Entry info;
+          info.fromJSON(spInfoVal.get_obj());
+          info.print();
+        } else {
+          printf("<Malformed JSON in DB>\n");
+        }
+      }
+    }
+  }
+};
 
 CCriticalSection cs_tally;
 
@@ -524,7 +779,7 @@ typedef std::map<string, CMPCrowd> CrowdMap;
 
 static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
-static map<unsigned int, CMPSP> my_sps;
+static CMPSPInfo *_my_sps;
 CrowdMap my_crowds;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -539,15 +794,6 @@ CMPTally *getTally(const string & address)
   if (it != mp_tally_map.end()) return &(it->second);
 
   return (CMPTally *) NULL;
-}
-
-CMPSP *getSP(unsigned int currency)
-{
-map<unsigned int, CMPSP>::iterator my_it = my_sps.find(currency);
-
-  if (my_it != my_sps.end()) return &(my_it->second);
-
-  return (CMPSP *) NULL;
 }
 
 CMPCrowd *getCrowd(const string & address)
@@ -581,16 +827,15 @@ int64_t getTotalTokens(unsigned int propertyId)
 {
   LOCK(cs_tally);
 
-  CMPSP *property = getSP(propertyId);
-
-  if (NULL == property) return 0; // property ID does not exist
+  CMPSPInfo::Entry property;
+  if (false == _my_sps->getSP(propertyId, property)) return 0; // property ID does not exist
 
   int64_t totalTokens = 0;
-  bool fixedIssuance = property->isFixed();
+  bool fixedIssuance = property.fixed;
 
   if (fixedIssuance)
   {
-      totalTokens = property->getValue(); //only valid for TX50
+      totalTokens = property.total_tokens; //only valid for TX50
   }
   else // loop map and calculate total number of tokens
   {
@@ -1043,6 +1288,58 @@ FILE *fp = fopen("/tmp/dead.log", "a");
   fclose(fp);
 }
 
+
+// calculates and returns fundraiser bonus, issuer premine, and total tokens
+// propType : divisible/indiv
+// bonusPerc: bonus percentage
+// currentSecs: number of seconds of current tx
+// numProps: number of properties
+// issuerPerc: percentage of tokens to issuer
+int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
+  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+  const uint64_t amountPremined  )
+{
+
+  double totalCreated = 0;
+  double issuerPercentage = (double) (issuerPerc * 0.01);
+
+  std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+
+  for(it = database.begin(); it != database.end(); it++) {
+
+    uint64_t currentSecs = it->second.at(1);
+    double amtTransfer = it->second.at(0);
+
+    uint64_t bonusSeconds = fundraiserSecs - currentSecs;
+  
+    double weeks = bonusSeconds / (double) 604800;
+    double ebPercentage = weeks * bonusPerc;
+    double bonusPercentage = ( ebPercentage / 100 ) + 1;
+  
+    double createdTokens;
+
+    if( 2 == propType ) {
+      createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
+      //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
+      totalCreated += createdTokens;
+    } else {
+      //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
+      createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
+      totalCreated += createdTokens;
+    }
+  };
+
+  double totalPremined = totalCreated * issuerPercentage;
+  double missedTokens;
+
+  if( 2 == propType ) {
+    missedTokens = totalPremined - amountPremined;
+  } else {
+    missedTokens = (uint64_t) (totalPremined - amountPremined);
+  }
+  return missedTokens;
+}
+
 unsigned int eraseExpiredCrowdsale(const int64_t blockTime)
 {
 unsigned int how_many_erased = 0;
@@ -1061,6 +1358,27 @@ CrowdMap::iterator my_it = my_crowds.begin();
 
       // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
+      
+      // Begin calculate Fractional 
+      CMPSPInfo::Entry sp;
+      _my_sps->getSP(crowd.getPropertyId(), sp);
+      
+      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
+
+      double missedTokens = calculateFractional(sp.prop_type,
+                          sp.early_bird,
+                          sp.deadline,
+                          sp.total_tokens,
+                          sp.percentage,
+                          crowd.getDatabase(),
+                          crowd.getIssuerCreated());
+
+
+      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+
+      update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
+      //End
+                     
       my_crowds.erase(my_it++);
 
       ++how_many_erased;
@@ -1072,43 +1390,45 @@ CrowdMap::iterator my_it = my_crowds.begin();
   return how_many_erased;
 }
 
-  void calculateFundraiser(int propType, long double amtTransfer, int bonusPerc, 
-    long long int fundraiserSecs, long int currentSecs, int numProps, int issuerPerc, 
-    std::pair<int64_t, int64_t>& tokens )
-  {
-    long long int bonusSeconds = fundraiserSecs - currentSecs;
+void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
+  uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
+  std::pair<uint64_t, uint64_t>& tokens )
+{
+  
+  uint64_t bonusSeconds = fundraiserSecs - currentSecs;
 
-    //printf(" calc layer 1 %lld %lld %lld\n", fundraiserSecs, currentSecs, bonusSeconds); 
+  //printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
 
-    long double weeks = bonusSeconds / (double) 604800;
-    double ebPercentage = weeks * bonusPerc;
-    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
+  double weeks = bonusSeconds / (double) 604800;
+  double ebPercentage = weeks * bonusPerc;
+  double bonusPercentage = ( ebPercentage / 100 ) + 1;
 
-    //printf(" calc layer 2 %Lf %Lf %f",  weeks, bonusPercentage, ebPercentage ); 
+  //printf("\n calc layer 2 %f %f %f",  weeks, bonusPercentage, ebPercentage ); 
 
-    double issuerPercentage = (double) (issuerPerc * 0.01);
+  double issuerPercentage = (double) (issuerPerc * 0.01);
 
-    long double createdTokens;
-    long double issuerTokens;
+  double createdTokens;
+  double issuerTokens;
 
-    //printf("\nbonusSeconds is %lld, bonusPercentage is %Lf, and issuerPercentage is %f\n", 
-    //bonusSeconds, bonusPercentage, issuerPercentage);
-    
-    if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
-      //printf("prop 2: is %Lf, and %Lf", createdTokens, issuerTokens);
+  //printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
+  //bonusSeconds, bonusPercentage, issuerPercentage);
+  
+  if( 2 == propType ) {
+    createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
+    issuerTokens = createdTokens * issuerPercentage;
+    //printf("prop div 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
 
-      tokens = std::make_pair(createdTokens,issuerTokens);
+    tokens = std::make_pair(createdTokens, issuerTokens);
 
-    } else {
-      createdTokens = (long long int) (amtTransfer * (double) numProps * bonusPercentage);
-      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld", (long long int) createdTokens, (long long int) issuerTokens);
+  } else {
+    createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
+    issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
+    //fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
-      tokens = std::make_pair( (long long int) createdTokens, (long long int) issuerTokens);
-    }
+    tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
+}
+
 
 // this class is the in-memory structure for the various MSC transactions (types) I've processed
 //  ordered by the block #
@@ -1133,7 +1453,6 @@ private:
   unsigned int currency;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
-
   int64_t blockTime;  // internally nTime is still an "unsigned int"
 
 // SP additions, perhaps a new class or a union is needed
@@ -1246,6 +1565,7 @@ public:
       }
       if (receiver.empty()) ++InvalidCount_per_spec;
       if (!update_tally_map(sender, currency, - nValue, MONEY)) break;
+
       update_tally_map(receiver, currency, nValue, MONEY);
 
       // is there a crowdsale running from this recepient ?
@@ -1254,32 +1574,53 @@ public:
 
         crowd = getCrowd(receiver);
 
-        if (crowd)
+        if (crowd && (crowd->getCurrDes() == currency) )
         {
-          CMPSP *sp = getSP(crowd->getPropertyId());
+          CMPSPInfo::Entry sp;
+          bool spFound = _my_sps->getSP(crowd->getPropertyId(), sp);
 
           fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
           
-          if (sp)
+          if (spFound)
           {
-            std::pair <int64_t, int64_t> tokens;
+            std::pair <uint64_t,uint64_t> tokens;
             
-            calculateFundraiser(sp->getPropertyType(),
-                                nValue, 
-                                sp->getEarlyBird(), 
-                                sp->getDeadline(), 
-                                blockTime, 
-                                sp->getNumProps(), 
-                                sp->getIssuerPerc(), 
+            string sp_txid =  sp.txid.GetHex().c_str();
+
+            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.total_tokens, sp.percentage);
+
+            calculateFundraiser(sp.prop_type,         //u short
+                                nValue,               // u int 64
+                                sp.early_bird,        // u char
+                                sp.deadline,          // u int 64
+                                (uint64_t) blockTime, // int 64
+                                sp.total_tokens,      // u int 64
+                                sp.percentage,        // u char
                                 tokens );
 
-            crowd->incTokensCreated(tokens.first); 
-            crowd->incTokensMined(tokens.second);
-            fprintf(mp_fp, "\nTokens created, Tokens for issuer: %ld %ld", tokens.first, tokens.second);
+            fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            
+            crowd->incTokensUserCreated(tokens.first);
+            crowd->incTokensIssuerCreated(tokens.second);
+            
+            fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            
+            uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
+            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata) );
+
+            crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
+            //need to add txid to CMPSP database
+
+            fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+
+            update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
+
+            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
           }
           else
           {
             // NULL pointer, but the simple send is valid otherwise
+            // oops, this is unneeded
           }
 
         }
@@ -1422,14 +1763,20 @@ public:
 
       if (0 == rc)
       {
-      const unsigned int id = global_NextPropertyId[ecosystem];
+        CMPSPInfo::Entry newSP;
+        newSP.issuer = sender;
+        newSP.txid = txid;
+        newSP.prop_type = prop_type;
+        newSP.total_tokens = nValue;
+        newSP.category.assign(category);
+        newSP.subcategory.assign(subcategory);
+        newSP.name.assign(name);
+        newSP.url.assign(url);
+        newSP.data.assign(data);
+        newSP.fixed = true;
 
-        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
-         (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data)));
-
+        const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         update_tally_map(sender, id, nValue, MONEY);
-
-        global_NextPropertyId[ecosystem]++;
       }
 
       break;
@@ -1447,18 +1794,29 @@ public:
       if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
 
       // must check that the desired currency exists in our universe
-      if (NULL == getSP(currency)) return (PKT_SP_ERROR -30);
+      if (false == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
 
       if (0 == rc)
       {
-      const unsigned int id = global_NextPropertyId[ecosystem];
+        CMPSPInfo::Entry newSP;
+        newSP.issuer = sender;
+        newSP.txid = txid;
+        newSP.prop_type = prop_type;
+        newSP.total_tokens = nValue;
+        newSP.category.assign(category);
+        newSP.subcategory.assign(subcategory);
+        newSP.name.assign(name);
+        newSP.url.assign(url);
+        newSP.data.assign(data);
+        newSP.fixed = false;
+        newSP.currency_desired = currency;
+        newSP.deadline = deadline;
+        newSP.early_bird = early_bird;
+        newSP.percentage = percentage;
 
-        my_sps.insert(std::make_pair(id, CMPSP(sender, txid, prop_type, nValue,
-         (char*)category, (char*)subcategory, (char*)name, (char*)url, (char*)data, currency, deadline, early_bird, percentage)));
-
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage)));
-
-        global_NextPropertyId[ecosystem]++;
+        const unsigned int id = _my_sps->putSP(ecosystem, newSP);
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
+        fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
       }
 
       break;
@@ -1484,6 +1842,29 @@ public:
         }
 
         dumpCrowdsaleInfo(it->first, it->second);
+
+        // Begin calculate Fractional 
+
+        CMPCrowd &crowd = it->second;
+        
+        CMPSPInfo::Entry sp;
+        _my_sps->getSP(crowd.getPropertyId(), sp);
+
+        fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
+
+        double missedTokens = calculateFractional(sp.prop_type,
+                            sp.early_bird,
+                            sp.deadline,
+                            sp.total_tokens,
+                            sp.percentage,
+                            crowd.getDatabase(),
+                            crowd.getIssuerCreated());
+
+        fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+
+        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
+        //End
+
         my_crowds.erase(it);
 
         rc = 0;
@@ -1576,7 +1957,7 @@ public:
     return NULL;
   }
 
-  id = global_NextPropertyId[ecosystem];
+  id = _my_sps->peekNextSPID(ecosystem);
 
   memcpy(&prop_type, &pkt[5], 2);
   swapByteOrder16(prop_type);
@@ -1918,177 +2299,6 @@ vector<vector<unsigned char> > vSolutions;
 
   return true;
 }
-
-
-// calculates and returns fundraiser bonus, issuer premine, and total tokens
-// propType : divisible/indiv
-// bonusPerc: bonus percentage
-// currentSecs: number of seconds of current tx
-// numProps: number of properties
-// issuerPerc: percentage of tokens to issuer
-int calculateFractional(int propType, int bonusPerc, long long int fundraiserSecs, int numProps, int issuerPerc,  const std::map<std::string, std::vector<long long int> > database, const long long int amountPremined  )
-{
-
-  long double totalCreated = 0;
-  double issuerPercentage = (double) (issuerPerc * 0.01);
-
-  std::map<std::string, std::vector<long long int> >::const_iterator it;
-
-  for(it = database.begin(); it != database.end(); it++) {
-
-    //printf("\n\ndoing... \n");
-    long long int currentSecs = it->second.at(1);
-    long double amtTransfer = it->second.at(0);
-
-    long long int bonusSeconds = fundraiserSecs - currentSecs;
-  
-    long double weeks = bonusSeconds / (double) 604800;
-    double ebPercentage = weeks * bonusPerc;
-    long double bonusPercentage = ( ebPercentage / 100 ) + 1;
-  
-    long double createdTokens;
-    long double issuerTokens;
-
-    if( 2 == propType ) {
-      createdTokens = amtTransfer * (double) numProps * bonusPercentage ;
-      issuerTokens = createdTokens * issuerPercentage;
-      //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
-
-      totalCreated += createdTokens;
-      //tokens = std::make_pair(createdTokens,issuerTokens);
-
-    } else {
-      //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
-      createdTokens = (long long int) (  (amtTransfer/1e9) * (double) numProps * bonusPercentage);
-      issuerTokens = (long long int) (createdTokens * issuerPercentage) ;
-      //printf("prop 1: is %lld, and %lld \n", (long long int) createdTokens, (long long int) issuerTokens);
-
-      //printf("\nWHOLES 1: is %lld, and %lld \n", (long long int) (createdTokens / 1e9), (long long int) (issuerTokens / 1e9 ));
-      totalCreated += createdTokens;
-      //tokens = std::make_pair( (long long int) createdTokens,issuerTokens);
-    }
-    //printf("did it %s \n ", it->first.c_str());
-  };
-
-  long double totalPremined = totalCreated * issuerPercentage;
-  long double missedTokens;
-
-  if( 2 == propType ) {
-    missedTokens = totalPremined - amountPremined;
-  } else {
-    missedTokens = (long long int) (totalPremined - amountPremined);
-  }
-
-  //printf("\ntotal toks %Lf and total missed %Lf and total premined %Lf and premined %lld \n ", totalCreated, missedTokens, totalPremined, amountPremined );
-
-  return missedTokens;
-}
-
-
-
-
-/*  example interface 
-
-int main() {
-
-   long long int amountCreated = 0;
-   long long int amountPremined = 0;
-   
-   std::map<std::string, std::vector<long long int> > database;
-   std::pair <long long int, long long int> tokens;
-
-   //calculateFundraiser(1,2.0,0,1398701578,1398371487,817545361,0.0, tokens);
-   //262ab5f05b823c77ee7af8cb5ea9ce7ebbc0c34775a7bbeb7c3e477a4881dc89
-   //Expected: 'total created', 1635090722, 'tokens for issuer', 0.0
-   //Returned: 1635090722, and 0.000000 
-
-   //calculateFundraiser(2,7.39038774,25,22453142409904,1403765616,100,10, tokens);
-   //333d8fd459b270fde95736846eb81b2547837476f33e8e0b4c1158906870155f
-   //Expected: 'total created', 6858757932.260923, 'tokens for issuer', 685875793.2260923
-   //Returned: 6858757932.260923, and 685875793.226092
-   
-   //calculateFundraiser(1,1200,10,1400749200,1398164609,3400,0, tokens);
-   //f13d7cbd38c910572a0a049888896818da06a3b8d726f5d6fbfc87658aa1d642
-   //Expected: 'total created', 5823573, 'tokens for issuer', 0.0
-   //Returned: 5823573, and 0.000000 
-   
-   //calculateFundraiser(1,2.0,10,1396500000,1396067389,1500,5, tokens);
-   //9f8f19ee4dbc6eb23905c6416053a651259a22c88be0e55e61454909d20ce66d
-   //Expected: 'total created', 3214, 'tokens for issuer', 160.70000000000002
-   //Returned: 3214, and 160.700000
-   
-   //calculateFundraiser(2,1.299,0,1649030400,1397248685,1000,0, tokens);
-   //139e476fb34921f7cad834a2868dc4a734cd03a1e6b0a5eb03164e228e28e30d
-   //Expected: 'total created', 1299.0, 'tokens for issuer', 0.0
-   //Returned: 1299.000000, and 0.000000
-
-   //calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
-   //94d23c01d82ffb8b7fa1c25a919a96713afa1198ce02a06c1bd6713af6a6d97a
-   //Expected: 'total created', 214621, 'tokens for issuer', 90140.81999999999
-   //Returned: 214621, and 90140.820000
-
-   calculateFundraiser(1,42.0,10,1400198400,1397758429,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   calculateFundraiser(1,2.0,10,1400198400,1398103687,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   calculateFundraiser(1,2.0,10,1400198400,1398138271,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,96.0,10,1400198400,1398292763,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,1.0,10,1400198400,1398790874,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-
-   calculateFundraiser(1,55.23485377,10,1400198400,1399591823,1700,42, tokens);
-   amountCreated += tokens.first; amountPremined += tokens.second;
-   //77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c
-   //printf("\nTokens created, Tokens for issuer: %lld %lld", tokens.first, tokens.second);
-   
-   long long int e1[] = { (long long int) (42.0 * 1e9 ), 1397758429};
-   std::vector<long long int> entry1(e1, e1 + sizeof(e1));
-
-   long long int e2[] = { (long long int) (2.0 * 1e9 ), 1398103687};
-   std::vector<long long int> entry2(e2, e2 + sizeof(e2));
-   
-   long long int e3[] = { (long long int) (2.0 * 1e9 ), 1398138271};
-   std::vector<long long int> entry3(e3, e3 + sizeof(e3));
-
-   long long int e4[] = { (long long int) (96.0 * 1e9 ), 1398292763};
-   std::vector<long long int> entry4(e4, e4 + sizeof(e4));
-   
-   long long int e5[] = { (long long int) (1.0 * 1e9 ), 1398790874};
-   std::vector<long long int> entry5(e5, e5 + sizeof(e5));
-
-   long long int e6[] = { (long long int) (55.23485377 * 1e9 ), 1399591823};
-   std::vector<long long int> entry6(e6, e6 + sizeof(e6));
-   
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9578e55f53acaac49bb691efd7f7f5fac7b13d148a73222fc986932da3126662",entry1));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("9a206f4caea9ce9392432763285adfdb6feab75b8d6e6b290aa87bdde91e54ba",entry2));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("68859a806d7e453c097cdad061a80c90c6a8eb17f3dc0a147255c69e4f2878f4",entry3));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("c404bedee25b7d3dc790280d2913c2092c976df26fe2db4c2b08dc9eb12bedd6",entry4));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("45acd766a41d4418963470cc10f8ec76e63f4db0d30a258815e3dbc1306ebc0b",entry5));
-   database.insert(std::make_pair<std::string, std::vector<long long int>& >("77030cc6217c7555d056566c99a46178215d0254e9567445b615e71b1838e11c",entry6));
-
-   long double missedTokens = calculateFractional(1,10,1400198400,1700,42, database, amountPremined);
-
-   printf("\nTokens created, Tokens for issuer, amountMissed: %lld %lld %Lf\n", amountCreated, amountPremined, missedTokens);
-   return 0;
-}
-
-*/
 
 
 int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
@@ -2700,13 +2910,7 @@ int extra2 = 0;
 
     case 2:
         // display smart properties
-        for(map<unsigned int, CMPSP>::iterator my_it = my_sps.begin(); my_it != my_sps.end(); ++my_it)
-        {
-          // my_it->first = key
-          // my_it->second = value
-          printf("%9u => ", (my_it->first));
-          (my_it->second).print();
-        }
+        _my_sps->printAll();
       break;
 
     case 3:
@@ -2927,19 +3131,83 @@ int input_mp_accepts_string(const string &s)
 }
 
 // exodus_prev
-int input_devmsc_state_string(const string &s)
+int input_globals_state_string(const string &s)
 {
   uint64_t exodusPrev;
+  unsigned int nextSPID, nextTestSPID;
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
-  if (1 != vstr.size()) return -1;
+  if (3 != vstr.size()) return -1;
 
   int i = 0;
   exodusPrev = boost::lexical_cast<uint64_t>(vstr[i++]);
+  nextSPID = boost::lexical_cast<unsigned int>(vstr[i++]);
+  nextTestSPID = boost::lexical_cast<unsigned int>(vstr[i++]);
+
   exodus_prev = exodusPrev;
+  _my_sps->init(nextSPID, nextTestSPID);
+  return 0;
+}
+
+// addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,txid
+int input_mp_crowdsale_string(const string &s)
+{
+  string sellerAddr;
+  unsigned int propertyId;
+  uint64_t nValue;
+  unsigned int currency_desired;
+  uint64_t deadline;
+  unsigned char early_bird;
+  unsigned char percentage;
+  uint64_t u_created;
+  uint64_t i_created;
+
+  std::vector<std::string> vstr;
+  boost::split(vstr, s, boost::is_any_of(" ,"), token_compress_on);
+  unsigned int i = 0;
+
+  if (9 > vstr.size()) return -1;
+
+  sellerAddr = vstr[i++];
+  propertyId = atoi(vstr[i++]);
+  nValue = boost::lexical_cast<uint64_t>(vstr[i++]);
+  currency_desired = atoi(vstr[i++]);
+  deadline = boost::lexical_cast<uint64_t>(vstr[i++]);
+  early_bird = (unsigned char)atoi(vstr[i++]);
+  percentage = (unsigned char)atoi(vstr[i++]);
+  u_created = boost::lexical_cast<uint64_t>(vstr[i++]);
+  i_created = boost::lexical_cast<uint64_t>(vstr[i++]);
+
+  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage,u_created,i_created);
+
+  // load the remaining as database pairs
+  while (i < vstr.size()) {
+    std::vector<std::string> entryData;
+    boost::split(entryData, vstr[i++], boost::is_any_of("="), token_compress_on);
+    if ( 2 != entryData.size()) return -1;
+
+    std::vector<std::string> valueData;
+    boost::split(valueData, entryData[1], boost::is_any_of(";"), token_compress_on);
+
+    std::vector<uint64_t> vals;
+    std::vector<std::string>::const_iterator iter;
+    for (iter = valueData.begin(); iter != valueData.end(); ++iter) {
+      vals.push_back(boost::lexical_cast<uint64_t>(*iter));
+    }
+
+    newCrowdsale.insertDatabase(entryData[0], vals);
+  }
+
+
+  if (my_crowds.insert(std::make_pair(sellerAddr, newCrowdsale)).second) {
+    return 0;
+  } else {
+    return -1;
+  }
 
   return 0;
 }
+
 
 static int msc_file_load(const string &filename, int what, bool verifyHash = false)
 {
@@ -2970,8 +3238,13 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       inputLineFunc = input_mp_accepts_string;
       break;
 
-    case FILETYPE_DEVMSC:
-      inputLineFunc = input_devmsc_state_string;
+    case FILETYPE_GLOBALS:
+      inputLineFunc = input_globals_state_string;
+      break;
+
+    case FILETYPE_CROWDSALES:
+      my_crowds.clear();
+      inputLineFunc = input_mp_crowdsale_string;
       break;
 
     default:
@@ -3054,6 +3327,7 @@ static char const * const statePrefix[NUM_FILETYPES] = {
     "offers",
     "accepts",
     "devmsc",
+    "crowdsales",
 };
 
 // returns the height of the state loaded
@@ -3097,7 +3371,10 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
     string lineOut = (*iter).first;
     lineOut.append("=");
-    for (int curr = MASTERCOIN_CURRENCY_MSC; curr < MSC_MAX_KNOWN_CURRENCIES; curr ++) {
+    CMPTally &curAddr = (*iter).second;
+    curAddr.init();
+    unsigned int curr = 0;
+    while (0 != (curr = curAddr.next())) {
       uint64_t balance = (*iter).second.getMoney(curr, MONEY);
       uint64_t sellReserved = (*iter).second.getMoney(curr, SELLOFFER_RESERVE);
       uint64_t acceptReserved = (*iter).second.getMoney(curr, ACCEPT_RESERVE);
@@ -3159,15 +3436,33 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
-static int write_devmsc_state(ofstream &file, SHA256_CTX *shaCtx)
+static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  string lineOut = (boost::format("%d") % exodus_prev).str();
+  unsigned int nextSPID = _my_sps->peekNextSPID(1);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
+  string lineOut = (boost::format("%d,%d,%d")
+    % exodus_prev
+    % nextSPID
+    % nextTestSPID
+    ).str();
 
   // add the line to the hash
   SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
 
   // write the line
   file << lineOut << endl;
+
+  return 0;
+}
+
+static int write_mp_crowdsales(ofstream &file, SHA256_CTX *shaCtx)
+{
+  CrowdMap::const_iterator iter;
+  for (iter = my_crowds.begin(); iter != my_crowds.end(); ++iter) {
+    // decompose the key for address
+    CMPCrowd const &crowd = (*iter).second;
+    crowd.saveCrowdSale(file, shaCtx, (*iter).first);
+  }
 
   return 0;
 }
@@ -3198,9 +3493,13 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
     result = write_mp_accepts(file, &shaCtx);
     break;
 
-  case FILETYPE_DEVMSC:
-    result = write_devmsc_state(file, &shaCtx);
+  case FILETYPE_GLOBALS:
+    result = write_globals_state(file, &shaCtx);
     break;
+
+  case FILETYPE_CROWDSALES:
+      result = write_mp_crowdsales(file, &shaCtx);
+      break;
   }
 
   // generate and wite the double hash of all the contents written
@@ -3289,7 +3588,8 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
   write_state_file(pBlockIndex, FILETYPE_BALANCES);
   write_state_file(pBlockIndex, FILETYPE_OFFERS);
   write_state_file(pBlockIndex, FILETYPE_ACCEPTS);
-  write_state_file(pBlockIndex, FILETYPE_DEVMSC);
+  write_state_file(pBlockIndex, FILETYPE_GLOBALS);
+  write_state_file(pBlockIndex, FILETYPE_CROWDSALES);
 
   // clean-up the directory
   prune_state_files(pBlockIndex);
@@ -3320,8 +3620,10 @@ const bool bTestnet = TestNet();
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
+  _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
   boost::filesystem::create_directories(MPPersistencePath);
+
 
   //no more preseed, so legacy code, setting to pre-genesis-block
   static const int snapshotHeight = (GENESIS_BLOCK - 1);
@@ -3351,7 +3653,7 @@ const bool bTestnet = TestNet();
 
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
 
-#ifdef  MY_SP_HACK
+#ifdef  MY_SP_HACK     //
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
@@ -3365,19 +3667,6 @@ const bool bTestnet = TestNet();
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
 
-    my_sps.insert(std::make_pair(MASTERCOIN_CURRENCY_MSC, CMPSP(exodus, 0, MSC_PROPERTY_TYPE_DIVISIBLE, 600000,
-     (char *)"N/A",
-     (char *)"N/A",
-     (char *)"MasterCoin",
-     (char *)"www.mastercoin.org",
-     (char *)"***data***", 0,0,0,0)));
-
-    my_sps.insert(std::make_pair(MASTERCOIN_CURRENCY_TMSC, CMPSP(exodus, 0, MSC_PROPERTY_TYPE_DIVISIBLE, 700000,
-     (char *)"N/A",
-     (char *)"N/A",
-     (char *)"Test MasterCoin",
-     (char *)"www.mastercoin.org",
-     (char *)"***data***", 0,0,0,0)));
   }
 
   // collect the real Exodus balances available at the snapshot time
@@ -3720,12 +4009,13 @@ if (fHelp || params.size() != 4)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
   unsigned int propertyId = int(tmpPropertyId);
 
-  CMPSP *property = getSP(propertyId);
-  if (NULL == property) // property ID does not exist
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+  CMPSPInfo::Entry sp;
+  if (false == _my_sps->getSP(propertyId, sp)) {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+  }
 
   bool divisible = false;
-  divisible=property->isDivisible();
+  divisible=sp.isDivisible();
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
@@ -3777,13 +4067,13 @@ Value getbalance_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
-    CMPSP *property = getSP(propertyId);
-
-    if (NULL == property) // property ID does not exist
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    CMPSPInfo::Entry sp;
+    if (false == _my_sps->getSP(propertyId, sp)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    }
 
     bool divisible = false;
-    divisible=property->isDivisible();
+    divisible=sp.isDivisible();
 
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     if (divisible)
@@ -4286,13 +4576,13 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
-    CMPSP *property = getSP(propertyId);
-
-    if (NULL == property) // property ID does not exist
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    CMPSPInfo::Entry sp;
+    if (false == _my_sps->getSP(propertyId, sp)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    }
 
     bool divisible=false;
-    divisible=property->isDivisible();
+    divisible=sp.isDivisible();
 
     Array response;
 
@@ -4369,7 +4659,11 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     while (0 != (propertyId = addressTally->next()))
     {
             bool divisible=false;
-            if (NULL != getSP(propertyId)) divisible=getSP(propertyId)->isDivisible();
+            CMPSPInfo::Entry sp;
+            if (_my_sps->getSP(propertyId, sp)) {
+              divisible = sp.isDivisible();
+            }
+
 
             Object propertyBal;
 
@@ -4424,23 +4718,23 @@ Value getproperty_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
 
     unsigned int propertyId = int(tmpPropertyId);
-    CMPSP *property = getSP(propertyId);
-
-    if (NULL == property) // property ID does not exist
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    CMPSPInfo::Entry sp;
+    if (false == _my_sps->getSP(propertyId, sp)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    }
 
     Object response;
         bool divisible = false;
-        divisible=property->isDivisible();
-        string propertyName = property->getName();
-        string propertyCategory = property->getCategory();
-        string propertySubCategory = property->getSubcategory();
-        string propertyData = property->getData();
-        string propertyURL = property->getURL();
-        uint256 creationTXID = property->getHash();
-        int64_t totalTokens = property->getValue(); //only valid for TX50, TODO TX51 loop map to calculate
-        string issuer = property->getIssuer();
-        bool fixedIssuance = property->isFixed();
+        divisible=sp.isDivisible();
+        string propertyName = sp.name;
+        string propertyCategory = sp.category;
+        string propertySubCategory = sp.subcategory;
+        string propertyData = sp.data;
+        string propertyURL = sp.url;
+        uint256 creationTXID = sp.txid;
+        int64_t totalTokens = sp.total_tokens; //only valid for TX50, TODO TX51 loop map to calculate
+        string issuer = sp.issuer;
+        bool fixedIssuance = sp.fixed;
 
 //  uint64_t getValue() const { return nValue; }
         response.push_back(Pair("name", propertyName));
