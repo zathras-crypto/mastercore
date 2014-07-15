@@ -499,7 +499,7 @@ public:
         spInfo.push_back(Pair("early_bird", (int)early_bird));
         spInfo.push_back(Pair("percentage", (int)percentage));
       }
-      //spInfo.push_back(//need map here);
+      spInfo.push_back(Pair("database", database.ToString().c_str())); //need map here);
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
       
 
