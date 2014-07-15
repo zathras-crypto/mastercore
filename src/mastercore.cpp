@@ -1525,7 +1525,7 @@ public:
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
- // RETURNS: >0 NOT DONE TODAY: if the packet is valid, BUT nValue was augmented into nNewValue (funds adjusted up or down, use getNewAmount())
+ // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
  //
  // 
  // the following functions may augment the amount in question (nValue):
@@ -1913,6 +1913,9 @@ public:
   memcpy(&nValue, &pkt[8], 8);
   swapByteOrder64(nValue);
 
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
+
   memcpy(&currency, &pkt[4], 4);
   swapByteOrder32(currency);
 
@@ -2035,6 +2038,9 @@ public:
   swapByteOrder64(nValue);
   p += 8;
 
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
+
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu\n", nValue);
@@ -2067,6 +2073,9 @@ public:
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
   p += 8;
+
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
 
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
@@ -2104,7 +2113,6 @@ public:
 
   return 0;
  }
-
 
   void Set(const uint256 &t, int b, unsigned int idx, int64_t bt)
   {
@@ -3741,12 +3749,6 @@ int interp_ret = -555555, pop_ret;
     if (!disableLevelDB)
     {
     bool bValid = (0 <= interp_ret);
-    bool bValueAugmented = (0 < interp_ret);
-
-
-      if (bValueAugmented)  // testing...
-      {
-      }
 
       p_txlistdb->recordTX(tx.GetHash(), bValid, nBlock, mp_obj.getType(), mp_obj.getNewAmount());
     }
