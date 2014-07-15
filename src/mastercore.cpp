@@ -71,6 +71,8 @@ int nWaterlineBlock = 0;  //
 // uint64_t global_MSC_RESERVED_total = 0;
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
+static const string exodus_testnet = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
+
 static uint64_t exodus_prev = 0;
 // static uint64_t exodus_prev = 0; // Bart has 0 for some reason ???
 static uint64_t exodus_balance;
@@ -499,7 +501,7 @@ public:
         spInfo.push_back(Pair("early_bird", (int)early_bird));
         spInfo.push_back(Pair("percentage", (int)percentage));
       }
-      spInfo.push_back(Pair("database", database.ToString().c_str())); //need map here);
+      //spInfo.push_back(Pair("database", database.ToString().c_str())); //need map here);
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
       
 
@@ -587,7 +589,7 @@ public:
     implied_msc.name = "MasterCoin";
     implied_msc.url = "www.mastercoin.org";
     implied_msc.data = "***data***";
-    implied_tmsc.issuer = exodus;
+    implied_tmsc.issuer = exodus_testnet;
     implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
     implied_tmsc.total_tokens = 700000;
     implied_tmsc.category = "N/A";
@@ -616,10 +618,10 @@ public:
     unsigned int nextId = 0;
 
     switch(ecosystem) {
-    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+    case MASTERCOIN_CURRENCY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
       nextId = next_spid;
       break;
-    case 2: // Test MSC ecosystem, same as above with high bit set
+    case MASTERCOIN_CURRENCY_TMSC: // Test MSC ecosystem, same as above with high bit set
       nextId = next_test_spid;
       break;
     default: // non standard ecosystem, ID's start at 0
@@ -669,10 +671,10 @@ public:
     std::string nextIdStr;
     unsigned int res = 0;
     switch(ecosystem) {
-    case 1: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+    case MASTERCOIN_CURRENCY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
       res = next_spid++;
       break;
-    case 2: // Test MSC ecosystem, same as above with high bit set
+    case MASTERCOIN_CURRENCY_TMSC: // Test MSC ecosystem, same as above with high bit set
       res = next_test_spid++;
       break;
     default: // non standard ecosystem, ID's start at 0
@@ -682,9 +684,9 @@ public:
     Object spInfo = info.toJSON();
 
     // generate the SP id
-    string spKey = (boost::format("sp-%d") % res).str();
+    string spKey = (boost::format(FORMAT_BOOST_SPKEY) % res).str();
     string spValue = write_string(Value(spInfo), false);
-    string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
+    string txIndexKey = (boost::format(FORMAT_BOOST_TXINDEXKEY) % info.txid.ToString() ).str();
     string txValue = (boost::format("%d") % res).str();
 
     // sanity checking
@@ -712,10 +714,10 @@ public:
   bool getSP(unsigned int spid, Entry &info)
   {
     // special cases for constant SPs MSC and TMSC
-    if (spid == 1) {
+    if (MASTERCOIN_CURRENCY_MSC == spid) {
       info = implied_msc;
       return true;
-    } else if (spid == 2) {
+    } else if (MASTERCOIN_CURRENCY_TMSC == spid) {
       info = implied_tmsc;
       return true;
     }
@@ -723,7 +725,7 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    string spKey = (boost::format("sp-%d") % spid).str();
+    string spKey = (boost::format(FORMAT_BOOST_SPKEY) % spid).str();
     string spInfoStr;
     if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
       return false;
@@ -744,14 +746,14 @@ public:
   bool hasSP(unsigned int spid)
   {
     // special cases for constant SPs MSC and TMSC
-    if (spid == 1 || spid == 2) {
+    if (MASTERCOIN_CURRENCY_MSC == spid || MASTERCOIN_CURRENCY_TMSC == spid) {
       return true;
     }
 
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    string spKey = (boost::format("sp-%d") % spid).str();
+    string spKey = (boost::format(FORMAT_BOOST_SPKEY) % spid).str();
     leveldb::Iterator *iter = pDb->NewIterator(readOpts);
     iter->Seek(spKey);
     if (iter->Valid() && iter->key().compare(spKey) == 0) {
@@ -767,7 +769,7 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    string txIndexKey = (boost::format("index-tx-%s") % txid.ToString() ).str();
+    string txIndexKey = (boost::format(FORMAT_BOOST_TXINDEXKEY) % txid.ToString() ).str();
     string spidStr;
     if (pDb->Get(readOpts, txIndexKey, &spidStr).ok()) {
       res = boost::lexical_cast<unsigned int>(spidStr);
@@ -779,7 +781,7 @@ public:
   void printAll()
   {
     // print off the hard coded MSC and TMSC entries
-    for (unsigned int idx = 1; idx < 3; idx++ ) {
+    for (unsigned int idx = MASTERCOIN_CURRENCY_MSC; idx <= MASTERCOIN_CURRENCY_TMSC; idx++ ) {
       Entry info;
       printf("%10d => ", idx);
       if (getSP(idx, info)) {
@@ -1569,7 +1571,7 @@ public:
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
- // RETURNS: >0 NOT DONE TODAY: if the packet is valid, BUT nValue was augmented into nNewValue (funds adjusted up or down, use getNewAmount())
+ // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
  //
  // 
  // the following functions may augment the amount in question (nValue):
@@ -1650,7 +1652,8 @@ public:
             fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
             uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
-            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(uint64_t) );
+            
+            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
 
             crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
             //need to add txid to CMPSP database
@@ -1959,6 +1962,9 @@ public:
   memcpy(&nValue, &pkt[8], 8);
   swapByteOrder64(nValue);
 
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
+
   memcpy(&currency, &pkt[4], 4);
   swapByteOrder32(currency);
 
@@ -2081,6 +2087,9 @@ public:
   swapByteOrder64(nValue);
   p += 8;
 
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
+
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu\n", nValue);
@@ -2113,6 +2122,9 @@ public:
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
   p += 8;
+
+  // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+  nNewValue = nValue;
 
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
@@ -2150,7 +2162,6 @@ public:
 
   return 0;
  }
-
 
   void Set(const uint256 &t, int b, unsigned int idx, int64_t bt)
   {
@@ -2352,7 +2363,7 @@ int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHig
   if (nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) { //Exodus Fundraiser start/end blocks
     //printf("transaction: %s\n", wtx.ToString().c_str() );
     int deadline_timeleft=1377993600-nTime;
-    double bonus= 1 + std::max( 0.10 * deadline_timeleft / 604800 , 0.0 );
+    double bonus= 1 + std::max( 0.10 * deadline_timeleft / (60 * 60 * 24 * 7), 0.0 );
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
@@ -3662,7 +3673,7 @@ const bool bTestnet = TestNet();
 
   if (bTestnet)
   {
-    exodus = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
+    exodus = exodus_testnet;
   }
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
@@ -3787,12 +3798,6 @@ int interp_ret = -555555, pop_ret;
     if (!disableLevelDB)
     {
     bool bValid = (0 <= interp_ret);
-    bool bValueAugmented = (0 < interp_ret);
-
-
-      if (bValueAugmented)  // testing...
-      {
-      }
 
       p_txlistdb->recordTX(tx.GetHash(), bValid, nBlock, mp_obj.getType(), mp_obj.getNewAmount());
     }
