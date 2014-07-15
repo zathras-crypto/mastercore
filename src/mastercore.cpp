@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
-// #define MY_SP_HACK
+#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -145,9 +145,11 @@ char *c_strMastercoinType(int i)
   switch (i)
   {
     case MSC_TYPE_SIMPLE_SEND: return ((char *)"Simple Send");
-    case 1: return ((char *)"Investment Send");
+    case MSC_TYPE_RESTRICTED_SEND: return ((char *)"Restricted Send");
+    case MSC_TYPE_SEND_TO_ALL: return ((char *)"Send To All");
+    case MSC_TYPE_AUTOMATIC_DISPENSARY: return ((char *)"Automatic Dispensary");
     case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
-    case 21: return ((char *)"Offer/Accept one Master Protocol Coins for another");
+    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Coins for another");
     case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
@@ -824,6 +826,16 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   return balance;
 }
 
+bool isPropertyDivisible(unsigned int propertyId)
+{
+// TODO: is a lock here needed
+CMPSPInfo::Entry sp;
+
+  if (_my_sps->getSP(propertyId, sp)) return sp.isDivisible();
+
+  return true;
+}
+
 // get total tokens for a property
 int64_t getTotalTokens(unsigned int propertyId)
 {
@@ -856,14 +868,14 @@ int64_t getTotalTokens(unsigned int propertyId)
 // bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false, bool bSet = false)
 //
 // return true if everything is ok
-bool update_tally_map(string who, unsigned int which, int64_t amount, TallyType ttype, bool bSet = false)
+bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype, bool bSet = false)
 {
 bool bRet = false;
 uint64_t before, after;
 
   LOCK(cs_tally);
 
-  before = getMPbalance(who, which, ttype);
+  before = getMPbalance(who, which_currency, ttype);
 
   map<string, CMPTally>::iterator my_it = mp_tally_map.find(who);
   if (my_it == mp_tally_map.end())
@@ -874,17 +886,17 @@ uint64_t before, after;
 
   CMPTally &tally = my_it->second;
 
-  bRet = tally.updateMoney(which, amount, ttype);
+  bRet = tally.updateMoney(which_currency, amount, ttype);
 
-  after = getMPbalance(who, which, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, which, amount, ttype);
+  after = getMPbalance(who, which_currency, ttype);
+  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
 
   if (msc_debug_tally)
   {
     if ((exodus != who) || (exodus == who && msc_debug_exo))
     {
       fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
-       __FUNCTION__, who.c_str(), which, which, amount, ttype, before, after);
+       __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype, before, after);
     }
   }
 
@@ -1872,6 +1884,38 @@ public:
 
         rc = 0;
       }
+      break;
+    }
+
+    case MSC_TYPE_SEND_TO_ALL:
+    {
+      rc = step2_Value();
+      if (0>rc) return rc;
+
+      // take from the payer
+      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      {
+        rc = (PKT_ERROR_STA -1);
+        break;
+      }
+
+      int64_t totalTokens = getTotalTokens(currency);
+
+      if (0 >= totalTokens)
+      {
+        rc = (PKT_ERROR_STA -2);
+        break;
+      }
+
+      // get the internal loop out of getTotalTokens(), build a sorted list from high to low
+      // 
+
+      // split up what was taken and distribute between all holders
+      // TODO: ...
+      // ...
+      // ...
+      // ...
+
       break;
     }
 
@@ -2889,16 +2933,20 @@ int extra2 = 0;
 
   printf("%s(extra=%d,extra2=%d)\n", __FUNCTION__, extra, extra2);
 
+  bool bDivisible = isPropertyDivisible(extra2);
+
   // various extra tests
   switch (extra)
   {
     case 0: // the old output
         // display all offers with accepts
+/*
         for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
         }
+*/
 
         fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
@@ -2909,7 +2957,7 @@ int extra2 = 0;
           // my_it->second = value
 
           printf("%34s => ", (my_it->first).c_str());
-          (my_it->second).print(extra2);
+          (my_it->second).print(extra2, bDivisible);
         }
       break;
 
@@ -2926,7 +2974,7 @@ int extra2 = 0;
 
     case 3:
         unsigned int id;
-        // display all balances
+        // for each address display all currencies it holds
         for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
         {
           // my_it->first = key
@@ -3848,8 +3896,12 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   vecSend.push_back(make_pair(multisig_output, nDustLimit));
 
   // the reference/recepient/receiver
-  scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  if (!receiverAddress.empty())
+  {
+    // Send To All is the first use case where the receiver is empty
+    scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
+    vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  }
 
   // the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
@@ -3873,8 +3925,8 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   return 0;
 }
 
-//
-uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+// WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
+static uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType)
 {
 const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 CWallet *wallet = pwalletMain;
@@ -3946,14 +3998,16 @@ uint256 txid = 0;
   string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
   prepareObfuscatedHashes(FromAddress, strObfuscatedHashes);
 
-  unsigned char packet[128];
+  unsigned char packet[MAX_PACKETS * PACKET_SIZE];
   memset(&packet, 0, sizeof(packet));
 
+  swapByteOrder32(TransactionType);
   swapByteOrder32(CurrencyID);
   swapByteOrder64(Amount);
 
   // TODO: beautify later
   packet[0] = 0x01; // seq
+  memcpy(&packet[1], &TransactionType, 4);
   memcpy(&packet[5], &CurrencyID, 4);
   memcpy(&packet[9], &Amount, 8);
 
@@ -3991,6 +4045,16 @@ uint256 txid = 0;
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   return txid;
+}
+
+uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+{
+  return send_INTERNAL_1packet(FromAddress, ToAddress, CurrencyID, Amount, MSC_TYPE_SIMPLE_SEND);
+}
+
+uint256 send_To_All(const string &FromAddress, unsigned int CurrencyID, uint64_t Amount)
+{
+  return send_INTERNAL_1packet(FromAddress, "", CurrencyID, Amount, MSC_TYPE_SEND_TO_ALL);
 }
 
 // send a MP transaction via RPC - simple send

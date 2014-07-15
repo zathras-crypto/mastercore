@@ -35,8 +35,13 @@
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
 
+// Transaction types, from the spec
 #define MSC_TYPE_SIMPLE_SEND              0
+#define MSC_TYPE_RESTRICTED_SEND          2
+#define MSC_TYPE_SEND_TO_ALL              3
+#define MSC_TYPE_AUTOMATIC_DISPENSARY     15
 #define MSC_TYPE_TRADE_OFFER              20
+#define MSC_TYPE_METADEX                  21
 #define MSC_TYPE_ACCEPT_OFFER_BTC         22
 #define MSC_TYPE_CREATE_PROPERTY_FIXED    50
 #define MSC_TYPE_CREATE_PROPERTY_VARIABLE 51
@@ -84,6 +89,8 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define DEX_ERROR_ACCEPT    (-20000)
 #define DEX_ERROR_PAYMENT   (-30000)
 #define PKT_SP_ERROR        (-40000)
+// Send To All
+#define PKT_ERROR_STA       (-50000)
 
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
@@ -112,7 +119,7 @@ typedef struct
   TokenMap mp_token;
   TokenMap::iterator my_it;
 
-  bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
+//  bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
 
   bool propertyExists(unsigned int which_currency) const
   {
@@ -122,6 +129,8 @@ typedef struct
   }
 
 public:
+//  bool isDivisible() const { return divisible; }
+
   unsigned int init()
   {
   unsigned int ret = 0;
@@ -130,15 +139,6 @@ public:
     my_it = mp_token.begin();
     if (my_it != mp_token.end()) ret = my_it->first;
 //    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
-
-/*
-    {
-      for(map<unsigned int, BalanceRecord>::const_iterator it = mp_token.begin(); it != mp_token.end(); ++it)
-      {
-        printf("%s();first = %u, line %d, file: %s\n", __FUNCTION__, it->first, __LINE__, __FILE__);
-      }
-    }
-*/
 
     return ret;
   }
@@ -186,11 +186,11 @@ public:
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
-    divisible = true; // TODO: re-think, but currently default
+//    divisible = true; // TODO: re-think, but currently hard-coded
     my_it = mp_token.begin();
   }
 
-  void print(int which_currency = MASTERCOIN_CURRENCY_MSC)
+  void print(int which_currency = MASTERCOIN_CURRENCY_MSC, bool bDivisible = true)
   {
   uint64_t money = 0;
   uint64_t so_r = 0;
@@ -203,8 +203,15 @@ public:
       a_r = mp_token[which_currency].balance[ACCEPT_RESERVE];
     }
 
-    printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
-     (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
+    if (bDivisible)
+    {
+      printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
+       (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
+    }
+    else
+    {
+      printf("%30lu [SO_RESERVE= %30lu , ACCEPT_RESERVE= %30lu ]\n", money, so_r, a_r);
+    }
   }
 
   uint64_t getMoney(unsigned int which_currency, TallyType ttype)
