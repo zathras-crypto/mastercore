@@ -458,6 +458,8 @@ public:
     uint256 txid;
     bool fixed;
 
+    std::map<std::string, std::vector<uint64_t> > database;
+    
     Entry()
     : issuer()
     , prop_type(0)
@@ -474,6 +476,7 @@ public:
     , percentage(0)
     , txid()
     , fixed(false)
+    , database()
     {
     }
 
@@ -496,7 +499,9 @@ public:
         spInfo.push_back(Pair("early_bird", (int)early_bird));
         spInfo.push_back(Pair("percentage", (int)percentage));
       }
+      //spInfo.push_back(//need map here);
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
+      
 
       return spInfo;
     }
@@ -520,6 +525,7 @@ public:
         early_bird = (unsigned char)json[idx++].value_.get_int();
         percentage = (unsigned char)json[idx++].value_.get_int();
       }
+      //database = .push_back(//need deserialized here);
       txid = uint256(json[idx++].value_.get_str());
     }
 
@@ -621,6 +627,41 @@ public:
     }
 
     return nextId;
+  }
+
+  unsigned int updateSP(unsigned int propertyID, Entry const &info)
+  {
+    std::string nextIdStr;
+    unsigned int res = 0;
+
+    Object spInfo = info.toJSON();
+
+    // generate the SP id
+    string spKey = (boost::format("sp-%d") % propertyID).str();
+    string spValue = write_string(Value(spInfo), false);
+    string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
+    string txValue = (boost::format("%d") % propertyID).str();
+
+    // sanity checking
+    string existingEntry;
+    leveldb::ReadOptions readOpts;
+    readOpts.fill_cache = true;
+    if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
+    } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
+      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
+    }
+
+    // atomically write both the the SP and the index to the database
+    leveldb::WriteOptions writeOptions;
+    writeOptions.sync = true;
+
+    leveldb::WriteBatch commitBatch;
+    commitBatch.Put(spKey, spValue);
+    commitBatch.Put(txIndexKey, txValue);
+
+    pDb->Write(writeOptions, &commitBatch);
+    return res;
   }
 
   unsigned int putSP(unsigned char ecosystem, Entry const &info)
@@ -1376,6 +1417,9 @@ CrowdMap::iterator my_it = my_crowds.begin();
 
       fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
+      sp.database = crowd.getDatabase();
+      _my_sps->updateSP(crowd.getPropertyId() , sp);
+
       update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
       //End
                      
@@ -1606,7 +1650,7 @@ public:
             fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
             uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
-            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata) );
+            std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(uint64_t) );
 
             crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
             //need to add txid to CMPSP database
@@ -1861,7 +1905,9 @@ public:
                             crowd.getIssuerCreated());
 
         fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
-
+        sp.database = crowd.getDatabase();
+        _my_sps->updateSP(crowd.getPropertyId() , sp);
+        
         update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
         //End
 
