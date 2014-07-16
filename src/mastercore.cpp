@@ -554,7 +554,7 @@ public:
       
       fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
       
-      std::map<std::string, std::vector<uint64_t> > database;
+      //std::map<std::string, std::vector<uint64_t> > database;
       std::vector<std::string> strngs_vec;
 
       boost::split(strngs_vec, longstr, boost::is_any_of(";"));
@@ -578,7 +578,7 @@ public:
           database.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
         }
       }
-      fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS");
+      fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
     }
 
@@ -5040,6 +5040,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         std::map<std::string, std::vector<uint64_t> >::const_iterator it;
         Object jsonArr;
 
+        fprintf(mp_fp," SIZE OF DB %lu", sp.database.size() ); 
         for(it = database.begin(); it != database.end(); it++) {
           
           jsonArr.push_back(Pair(it->first.c_str(), Array(it->second.begin(),it->second.end()) ));
@@ -5121,7 +5122,10 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     int64_t tokensIssued = getTotalTokens(propertyId);
     int64_t tokensPerUnit = sp.num_tokens;
     int64_t propertyIdDesired = sp.currency_desired;
+    
+    std::map<std::string, std::vector<uint64_t> > database = sp.database;
 
+    printf("\nSIZE OF DB %lu\n", sp.database.size() ); 
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
@@ -5165,8 +5169,9 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         {
       //      Array participanttxs;
 
-            std::map<std::string, std::vector<uint64_t> > database = sp.database;
+
             std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+
 
             for(it = database.begin(); it != database.end(); it++)
             {
