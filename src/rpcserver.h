@@ -182,6 +182,7 @@ extern json_spirit::Value mscrpc(const json_spirit::Array& params, bool fHelp); 
 extern json_spirit::Value getallbalancesforid_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getbalance_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value send_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value sendtoall_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value getproperty_MP(const json_spirit::Array& params, bool fHelp); // in rpcblockchain.cpp
 extern json_spirit::Value getcrowdsale_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
