@@ -214,7 +214,7 @@ public:
     }
     else
     {
-      printf("%30lu [SO_RESERVE= %30lu , ACCEPT_RESERVE= %30lu ]\n", money, so_r, a_r);
+      printf("%14lu [SO_RESERVE= %14lu , ACCEPT_RESERVE= %14lu ]\n", money, so_r, a_r);
     }
   }
 

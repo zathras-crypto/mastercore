@@ -35,16 +35,6 @@ Testnet
 
 All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
-Preseeding
---------------------
-
-During initial development balances have been pre-seeded up until block 290629 (the block prior to the Distributed Exchange launch).  Please copy the preseed file into your bitcoin data directory prior to first run. As persistence has been achieved pre-seeding will be removed during future development. 
-
-To install:
-
-* Add the mastercoin-balances.txt file in the Bitcoin data dir ( usually: ~/.bitcoin/ )
-
-
 Installation
 ------------
 
@@ -59,8 +49,6 @@ make
 Known Issues:
 ----------------
 * Payments for DEx transactions not currently available in history
-
-* Transactions before preseed (290630) not currently available in history
 
 * Feel free to open more Github issues with other new bugs or improvement suggestions
 
