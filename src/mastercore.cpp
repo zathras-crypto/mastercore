@@ -4173,12 +4173,12 @@ if (fHelp || params.size() != 4)
 }
 
 // send a MP transaction via RPC - simple send
-Value sendtoall_MP(const Array& params, bool fHelp)
+Value sendtoowners_MP(const Array& params, bool fHelp)
 {
 if (fHelp || params.size() != 3)
         throw runtime_error(
-            "sendtoall_MP\n"
-            "\nCreates and broadcasts a send-to-all transaction for a given amount and currency/property ID.\n"
+            "sendtoowners_MP\n"
+            "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
             "\nResult:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
