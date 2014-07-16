@@ -450,7 +450,7 @@ public:
     string name;
     string url;
     string data;
-    uint64_t total_tokens;
+    uint64_t num_tokens;
 
     // Crowdsale generated SP
     unsigned int currency_desired;
@@ -471,7 +471,7 @@ public:
     , name()
     , url()
     , data()
-    , total_tokens(0)
+    , num_tokens(0)
     , currency_desired(0)
     , deadline(0)
     , early_bird(0)
@@ -493,7 +493,7 @@ public:
       spInfo.push_back(Pair("url", url));
       spInfo.push_back(Pair("data", data));
       spInfo.push_back(Pair("fixed", fixed));
-      spInfo.push_back(Pair("total_tokens", (boost::format("%d") % total_tokens).str()));
+      spInfo.push_back(Pair("num_tokens", (boost::format("%d") % num_tokens).str()));
       if (false == fixed) {
         spInfo.push_back(Pair("currency_desired", (uint64_t)currency_desired));
         spInfo.push_back(Pair("deadline", (boost::format("%d") % deadline).str()));
@@ -517,7 +517,7 @@ public:
       url = json[idx++].value_.get_str();
       data = json[idx++].value_.get_str();
       fixed = json[idx++].value_.get_bool();
-      total_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
+      num_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
       if (false == fixed) {
         currency_desired = (unsigned int)json[idx++].value_.get_uint64();
         deadline = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
@@ -546,7 +546,7 @@ public:
         name.c_str(),
         fixed ? "Yes":"No",
         isDivisible() ? "Yes":"No",
-        total_tokens,
+        num_tokens,
         category.c_str(), subcategory.c_str(), url.c_str(), data.c_str());
     }
 
@@ -579,7 +579,7 @@ public:
     // special cases for constant SPs MSC and TMSC
     implied_msc.issuer = exodus;
     implied_msc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
-    implied_msc.total_tokens = 700000;
+    implied_msc.num_tokens = 700000;
     implied_msc.category = "N/A";
     implied_msc.subcategory = "N/A";
     implied_msc.name = "MasterCoin";
@@ -587,7 +587,7 @@ public:
     implied_msc.data = "***data***";
     implied_tmsc.issuer = exodus;
     implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
-    implied_tmsc.total_tokens = 700000;
+    implied_tmsc.num_tokens = 700000;
     implied_tmsc.category = "N/A";
     implied_tmsc.subcategory = "N/A";
     implied_tmsc.name = "Test MasterCoin";
@@ -869,7 +869,7 @@ int64_t prev = 0, owners = 0;
 
   if (fixedIssuance)
   {
-      totalTokens = property.total_tokens; //only valid for TX50
+      totalTokens = property.num_tokens; //only valid for TX50
   }
 
   if (n_owners) *n_owners = owners;
@@ -1387,12 +1387,12 @@ CrowdMap::iterator my_it = my_crowds.begin();
       CMPSPInfo::Entry sp;
       _my_sps->getSP(crowd.getPropertyId(), sp);
       
-      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
+      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
       double missedTokens = calculateFractional(sp.prop_type,
                           sp.early_bird,
                           sp.deadline,
-                          sp.total_tokens,
+                          sp.num_tokens,
                           sp.percentage,
                           crowd.getDatabase(),
                           crowd.getIssuerCreated());
@@ -1614,14 +1614,14 @@ public:
             
             string sp_txid =  sp.txid.GetHex().c_str();
 
-            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.total_tokens, sp.percentage);
+            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
 
             calculateFundraiser(sp.prop_type,         //u short
                                 nValue,               // u int 64
                                 sp.early_bird,        // u char
                                 sp.deadline,          // u int 64
                                 (uint64_t) blockTime, // int 64
-                                sp.total_tokens,      // u int 64
+                                sp.num_tokens,      // u int 64
                                 sp.percentage,        // u char
                                 tokens );
 
@@ -1795,7 +1795,7 @@ public:
         newSP.issuer = sender;
         newSP.txid = txid;
         newSP.prop_type = prop_type;
-        newSP.total_tokens = nValue;
+        newSP.num_tokens = nValue;
         newSP.category.assign(category);
         newSP.subcategory.assign(subcategory);
         newSP.name.assign(name);
@@ -1830,7 +1830,7 @@ public:
         newSP.issuer = sender;
         newSP.txid = txid;
         newSP.prop_type = prop_type;
-        newSP.total_tokens = nValue;
+        newSP.num_tokens = nValue;
         newSP.category.assign(category);
         newSP.subcategory.assign(subcategory);
         newSP.name.assign(name);
@@ -1878,12 +1878,12 @@ public:
         CMPSPInfo::Entry sp;
         _my_sps->getSP(crowd.getPropertyId(), sp);
 
-        fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
+        fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
         double missedTokens = calculateFractional(sp.prop_type,
                             sp.early_bird,
                             sp.deadline,
-                            sp.total_tokens,
+                            sp.num_tokens,
                             sp.percentage,
                             crowd.getDatabase(),
                             crowd.getIssuerCreated());
