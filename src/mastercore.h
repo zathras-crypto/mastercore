@@ -14,6 +14,9 @@
 
 #define SP_STRING_FIELD_LEN 256
 
+// in Mastercoin Satoshis (Willets)
+#define TRANSFER_FEE_PER_OWNER  (1)
+
 // some boost formats
 #define FORMAT_BOOST_TXINDEXKEY "index-tx-%s"
 #define FORMAT_BOOST_SPKEY      "sp-%d"
@@ -38,7 +41,7 @@
 // Transaction types, from the spec
 #define MSC_TYPE_SIMPLE_SEND              0
 #define MSC_TYPE_RESTRICTED_SEND          2
-#define MSC_TYPE_SEND_TO_ALL              3
+#define MSC_TYPE_SEND_TO_OWNERS           3
 #define MSC_TYPE_AUTOMATIC_DISPENSARY     15
 #define MSC_TYPE_TRADE_OFFER              20
 #define MSC_TYPE_METADEX                  21
@@ -89,9 +92,10 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define DEX_ERROR_ACCEPT    (-20000)
 #define DEX_ERROR_PAYMENT   (-30000)
 #define PKT_SP_ERROR        (-40000)
-// Send To All
-#define PKT_ERROR_STA       (-50000)
+// Send To Owners
+#define PKT_ERROR_STO       (-50000)
 
+#define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
 
