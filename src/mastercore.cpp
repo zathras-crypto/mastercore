@@ -102,7 +102,7 @@ static int InvalidCount_per_spec = 0; // consolidate error messages into a nice 
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disableLevelDB = 0;
-static int disable_Persistence = 1;
+static int disable_Persistence = 0;
 
 static int mastercoreInitialized = 0;
 
@@ -4172,6 +4172,67 @@ if (fHelp || params.size() != 4)
   return newTX.GetHex();
 }
 
+// send a MP transaction via RPC - simple send
+Value sendtoowners_MP(const Array& params, bool fHelp)
+{
+if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "sendtoowners_MP\n"
+            "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
+            "\nResult:\n"
+            "txid    (string) The transaction ID of the sent transaction\n"
+            "\nExamples:\n"
+            ">mastercored send_MP 1FromAddress PropertyID Amount\n"
+        );
+
+  std::string FromAddress = (params[0].get_str());
+
+  int64_t tmpPropertyId = params[1].get_int64();
+  if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+  unsigned int propertyId = int(tmpPropertyId);
+
+  CMPSPInfo::Entry sp;
+  if (false == _my_sps->getSP(propertyId, sp)) {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+  }
+
+  bool divisible = false;
+  divisible=sp.isDivisible();
+
+//  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
+
+  double tmpAmount = params[2].get_real();
+  int64_t Amount = 0;
+
+  if (divisible)
+  {
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+
+      Amount = roundint64(tmpAmount * COIN);
+  }
+  else // indivisible
+  {
+      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+
+      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
+  }
+
+  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
+
+  if (0 >= Amount)
+           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+
+  //some sanity checking of the data supplied?
+  uint256 newTX = send_To_Owners(FromAddress, propertyId, Amount);
+
+  //we need to do better than just returning a string of 0000000 here if we can't send the TX
+  return newTX.GetHex();
+}
+
+
 // display an MP balance via RPC
 Value getbalance_MP(const Array& params, bool fHelp)
 {
@@ -4855,7 +4916,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         string propertyData = sp.data;
         string propertyURL = sp.url;
         uint256 creationTXID = sp.txid;
-        int64_t totalTokens = sp.total_tokens; //only valid for TX50, TODO TX51 loop map to calculate
+        int64_t totalTokens = getTotalTokens(propertyId); //only valid for TX50, TODO TX51 loop map to calculate
         string issuer = sp.issuer;
         bool fixedIssuance = sp.fixed;
 
