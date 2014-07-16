@@ -102,7 +102,7 @@ static int InvalidCount_per_spec = 0; // consolidate error messages into a nice 
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disableLevelDB = 0;
-static int disable_Persistence = 1;
+static int disable_Persistence = 0;
 
 static int mastercoreInitialized = 0;
 
@@ -501,7 +501,31 @@ public:
         spInfo.push_back(Pair("early_bird", (int)early_bird));
         spInfo.push_back(Pair("percentage", (int)percentage));
       }
-      //spInfo.push_back(Pair("database", database.ToString().c_str())); //need map here);
+
+      #include <boost/lexical_cast.hpp>
+      std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+      
+      std::string values_long = "";
+      std::string values = "";
+
+      fprintf(mp_fp,"crowdsale started to save, size of db %ld", database.size());
+      for(it = database.begin(); it != database.end(); it++) {
+
+
+         fprintf(mp_fp,"crowdsale data %s", it->first.c_str());
+         values += it->first.c_str();
+         values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
+         values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
+         values += ":" + boost::lexical_cast<std::string>(it->second.at(2));
+         values += ":" + boost::lexical_cast<std::string>(it->second.at(3));
+         values += ";";
+         values_long += values;
+
+         fprintf(mp_fp,"crowdsale data 2 %s %s", values_long.c_str(), values.c_str());
+      }
+      fprintf(mp_fp,"crowdsale salved %s", values_long.c_str());
+
+      spInfo.push_back(Pair("database", values_long)); //need map here);
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
       
 
@@ -527,7 +551,41 @@ public:
         early_bird = (unsigned char)json[idx++].value_.get_int();
         percentage = (unsigned char)json[idx++].value_.get_int();
       }
-      //database = .push_back(//need deserialized here);
+
+      //reconstruct database
+      #include <boost/algorithm/string.hpp>
+      std::string longstr = json[idx++].value_.get_str();
+      std::map<std::string, std::vector<uint64_t> > database;
+      std::vector<std::string> strngs_vec;
+
+      boost::split(strngs_vec, longstr, boost::is_any_of(";"));
+
+      fprintf(mp_fp,"DATABASE PRE-INSERT SUCCESS, %ld" ,strngs_vec.size());
+      for(std::vector<std::string>::size_type i = 0; i != strngs_vec.size(); i++) {
+        
+        std::vector<std::string> str_split_vec;
+        boost::split(str_split_vec, strngs_vec[i], boost::is_any_of(":"));
+
+        fprintf(mp_fp,"\n before vector %ld", str_split_vec.size());
+        if ( str_split_vec.size() == 5) {
+          fprintf(mp_fp,"\n before vector insert %s %s %s %s", str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
+          uint64_t txdata[] = { 
+            boost::lexical_cast<uint64_t>( str_split_vec.at(1) ), 
+            boost::lexical_cast<uint64_t>( str_split_vec.at(2) ), 
+            boost::lexical_cast<uint64_t>( str_split_vec.at(3) ), 
+            boost::lexical_cast<uint64_t>( str_split_vec.at(4) )
+          };
+          
+          fprintf(mp_fp,"\n after array created");
+          std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
+
+          fprintf(mp_fp,"\n after vector created");
+          database.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
+
+          fprintf(mp_fp,"\n after insert");
+        }
+      }
+      fprintf(mp_fp,"DATABASE INSERT SUCCESS");
       txid = uint256(json[idx++].value_.get_str());
     }
 
@@ -654,6 +712,7 @@ public:
       fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
     }
 
+    fprintf(mp_fp,"WROTE STRING SP UPDATE %s, ", spValue.c_str());
     // atomically write both the the SP and the index to the database
     leveldb::WriteOptions writeOptions;
     writeOptions.sync = true;
@@ -713,6 +772,7 @@ public:
 
   bool getSP(unsigned int spid, Entry &info)
   {
+    fprintf(mp_fp, "\ngot to inside getSP");
     // special cases for constant SPs MSC and TMSC
     if (MASTERCOIN_CURRENCY_MSC == spid) {
       info = implied_msc;
@@ -725,21 +785,29 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
+    fprintf(mp_fp, "\ngot first check");
     string spKey = (boost::format(FORMAT_BOOST_SPKEY) % spid).str();
     string spInfoStr;
     if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
       return false;
     }
 
+    fprintf(mp_fp, "\ngot second check");
     // parse the encoded json, failing if it doesnt parse or is an object
     Value spInfoVal;
     if (false == read_string(spInfoStr, spInfoVal) || spInfoVal.type() != obj_type ) {
       return false;
     }
 
+    fprintf(mp_fp, "\ngot third check");
     // transfer to the Entry structure
     Object &spInfo = spInfoVal.get_obj();
+
+    fprintf(mp_fp, "\ngot fourth check");
     info.fromJSON(spInfo);
+
+
+    fprintf(mp_fp, "\ngot fifth check");
     return true;
   }
 
@@ -1402,10 +1470,13 @@ CrowdMap::iterator my_it = my_crowds.begin();
       // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
       
+      fprintf(mp_fp,"\n got to at least before cFrac");
       // Begin calculate Fractional 
       CMPSPInfo::Entry sp;
       _my_sps->getSP(crowd.getPropertyId(), sp);
-      
+
+      fprintf(mp_fp,"\n got to at least after cFrac");
+
       fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.total_tokens, sp.percentage, crowd.getIssuerCreated());
 
       double missedTokens = calculateFractional(sp.prop_type,
@@ -3024,6 +3095,7 @@ const int max_block = GetHeight();
     ReadBlockFromDisk(block, pblockindex);
 
     int tx_count = 0;
+    printf("before begin...@$!@$!@$ at %d \n", blockNum);
     mastercore_handler_block_begin(blockNum, pblockindex);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -3031,13 +3103,15 @@ const int max_block = GetHeight();
 
       ++tx_count;
     }
-
+    
+    printf("after foreach...@$!@$!@$ at %d \n", blockNum);
     n_total += tx_count;
     if (msc_debug1) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
+    printf("before end...@$!@$!@$ at %d \n", blockNum);
     mastercore_handler_block_end(blockNum, pblockindex);
 #ifdef  MY_SP_HACK
-//    if (20 < n_found) break;
+    if (20 < n_found) break;
 #endif
   }
 
@@ -3690,7 +3764,7 @@ const bool bTestnet = TestNet();
 
   if (!disable_Persistence)
   {
-    nWaterlineBlock = load_most_relevant_state();
+    //nWaterlineBlock = load_most_relevant_state();
 
     if (nWaterlineBlock < snapshotHeight)
     {
@@ -3726,6 +3800,7 @@ const bool bTestnet = TestNet();
 
   }
 
+  nWaterlineBlock = MSC_SP_BLOCK-3;
   // collect the real Exodus balances available at the snapshot time
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
