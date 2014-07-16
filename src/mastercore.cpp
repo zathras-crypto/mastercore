@@ -554,7 +554,6 @@ public:
       
       fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
       
-      //std::map<std::string, std::vector<uint64_t> > database;
       std::vector<std::string> strngs_vec;
 
       boost::split(strngs_vec, longstr, boost::is_any_of(";"));
@@ -5167,7 +5166,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         // array of txids contributing to crowdsale here if needed
         if (showVerbose)
         {
-      //      Array participanttxs;
+            Array participanttxs;
 
 
             std::map<std::string, std::vector<uint64_t> >::const_iterator it;
@@ -5176,31 +5175,32 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
             for(it = database.begin(); it != database.end(); it++)
             {
                 printf("found a database entry\n");
-        //        Object participanttx;
+                Object participanttx;
 
                 string txid = it->first; //uint256 txid = it->first;
                 int64_t userTokens = it->second.at(2);
                 int64_t issuerTokens = it->second.at(3);
-                response.push_back(Pair("txid", txid)); //participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
+                //response.push_back(Pair("txid", txid)); 
+                participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
                 if (divisible)
                 {
-                     //participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
+                     participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
                 }
                 else
                 {
-                     //participanttx.push_back(Pair("participanttokens", userTokens));
+                     participanttx.push_back(Pair("participanttokens", userTokens));
                 }
                 if (divisible)
                 {
-                     //participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
+                     participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
                 }
                 else
                 {
-                     //participanttx.push_back(Pair("issuertokens", issuerTokens));
+                     participanttx.push_back(Pair("issuertokens", issuerTokens));
                 }
-      //          participanttxs.push_back(participanttx);
+                participanttxs.push_back(participanttx);
             }
-          //  response.push_back(participanttxs);
+            response.push_back(participanttxs);
         }
 
 return response;
