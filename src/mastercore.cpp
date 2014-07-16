@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_SP_HACK & others here - used for Unit Testing only !
-// #define MY_SP_HACK
+#define MY_SP_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -850,11 +850,7 @@ int64_t prev = 0, owners = 0;
   int64_t totalTokens = 0;
   bool fixedIssuance = property.fixed;
 
-  if (fixedIssuance)
-  {
-      totalTokens = property.total_tokens; //only valid for TX50
-  }
-  else // loop map and calculate total number of tokens
+  if (!fixedIssuance || n_owners)
   {
       for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
       {
@@ -869,6 +865,11 @@ int64_t prev = 0, owners = 0;
             owners++;
           }
       }
+  }
+
+  if (fixedIssuance)
+  {
+      totalTokens = property.total_tokens; //only valid for TX50
   }
 
   if (n_owners) *n_owners = owners;
@@ -1452,11 +1453,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   }
 }
 
-
-// this class is the in-memory structure for the various MSC transactions (types) I've processed
-//  ordered by the block #
-// The class responsible for sorted tx parsing. It does the initial block parsing (via a priority_queue, sorted).
-// Also used as new block are received.
+// The class responsible for tx interpreting/parsing.
 //
 // It invokes other classes & methods: offers, accepts, tallies (balances).
 class CMPTransaction
@@ -1916,11 +1913,14 @@ public:
 
       // totalTokens will be 0 for non-existing currency
       int64_t owners = 0, totalTokens = getTotalTokens(currency, &owners);
-      int64_t nFee = TRANSFER_FEE_PER_OWNER * owners;
+      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * owners;
+      bool bDivisible = isPropertyDivisible(currency);
 
-      fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
+      if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
+      else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+
       fprintf(mp_fp, "\t          Owners: %lu\n", owners);
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nFee/COIN, nFee%COIN);
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
       if (0 >= totalTokens)
       {
@@ -1942,7 +1942,7 @@ public:
       }
 
       // enough Mastercoins to pay the fee?
-      if (getMPbalance(sender, MASTERCOIN_CURRENCY_MSC, MONEY) < nFee)
+      if (getMPbalance(sender, MASTERCOIN_CURRENCY_MSC, MONEY) < nXferFee)
       {
         rc = (PKT_ERROR_STO -5);
         break;
@@ -3774,7 +3774,12 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 
     update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*10000, MONEY); // put some TMSC in, for my hack
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*100, MONEY); // put some TMSC in, for my hack
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*100, MONEY);
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*100, MONEY);
+    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_MSC, COIN*500, MONEY);
+    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_TMSC, COIN*500, MONEY);
+    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*400, MONEY);
+    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*400, MONEY);
     nWaterlineBlock = 300000;
 #endif
 
