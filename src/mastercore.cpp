@@ -5061,12 +5061,7 @@ return response;
 
 Value getcrowdsale_MP(const Array& params, bool fHelp)
 {
-   int propertyId = 0;
-
-   if (params.size() > 0)
-        propertyId = boost::lexical_cast<boost::int32_t>(params[0].get_str());
-
-   if (fHelp || params.size() != 1 || !propertyId)
+   if (fHelp || params.size() < 1 )
         throw runtime_error(
             "getcrowdsale_MP propertyID\n"
             "\nGet crowdsale info for a property ID\n"
@@ -5093,36 +5088,115 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
             + HelpExampleRpc("getcrowdsale_MP", "3")
         );
 
+    int64_t tmpPropertyId = params[0].get_int64();
+    if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
+    unsigned int propertyId = int(tmpPropertyId);
+    CMPSPInfo::Entry sp;
+    if (false == _my_sps->getSP(propertyId, sp)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    }
+
+    bool showVerbose = false;
+    if (params.size() > 1) showVerbose = params[1].get_bool();
+
+    bool fixedIssuance = sp.fixed;
+    if (fixedIssuance) // property was not a variable issuance
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
+
     Object response;
-    //non-functional placeholder code only
 
-        bool active = false;
-        string propertyName;
-        string creationTXID;
-        int64_t propertyIdDesired;
-        int64_t tokensPerUnit;
-        int64_t startTime;
-        int64_t deadline;
-        bool closedEarly = false;
-        int64_t endedTime;
-        int8_t earlyBonus = 0;
-        int8_t percentToIssuer = 0;
-        string issuer;
+    bool active = false;
+    bool divisible = false;
+    divisible=sp.isDivisible();
+    string propertyName = sp.name;
+    uint256 creationTXID = sp.txid;
+    int64_t startTime = 0;
+    int64_t deadline = sp.deadline;
+    int8_t earlyBonus = sp.early_bird;
+    int8_t percentToIssuer = sp.percentage;
+    string issuer = sp.issuer;
+    int64_t amountRaised = 0;
+    int64_t tokensIssued = getTotalTokens(propertyId);
+    int64_t tokensPerUnit = sp.num_tokens;
+    int64_t propertyIdDesired = sp.currency_desired;
 
-        //populate those details from the map
+    //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
+    //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
+
+    bool divisibleDesired = false;
+    CMPSPInfo::Entry spDesired;
+    if (false == _my_sps->getSP(propertyId, spDesired)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Desired property ID does not exist");
+    }
 
         response.push_back(Pair("name", propertyName));
         response.push_back(Pair("active", active));
         response.push_back(Pair("issuer", issuer));
-        response.push_back(Pair("creationtxid", creationTXID));
         response.push_back(Pair("propertyiddesired", propertyIdDesired));
         response.push_back(Pair("tokensperunit", tokensPerUnit));
         response.push_back(Pair("earlybonus", earlyBonus));
         response.push_back(Pair("percenttoissuer", percentToIssuer));
         response.push_back(Pair("starttime", startTime));
         response.push_back(Pair("deadline", deadline));
-        if (!active) response.push_back(Pair("closedearly", closedEarly));
-        if (!active) response.push_back(Pair("endedtime", endedTime));
+
+        if (divisibleDesired)
+        {
+            response.push_back(Pair("amountraised", ValueFromAmount(amountRaised)));
+        }
+        else
+        {
+            response.push_back(Pair("amountraised", amountRaised));
+        }
+        if (divisible)
+        {
+            response.push_back(Pair("tokensissued", ValueFromAmount(tokensIssued)));
+        }
+        else
+        {
+            response.push_back(Pair("tokensissued", tokensIssued));
+        }
+        if (!active) response.push_back(Pair("closedearly", "unknown"));
+        if (!active) response.push_back(Pair("endedtime", "unknown"));
+
+        // array of txids contributing to crowdsale here if needed
+        if (showVerbose)
+        {
+      //      Array participanttxs;
+
+            std::map<std::string, std::vector<uint64_t> > database = sp.database;
+            std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+
+            for(it = database.begin(); it != database.end(); it++)
+            {
+                printf("found a database entry\n");
+        //        Object participanttx;
+
+                string txid = it->first; //uint256 txid = it->first;
+                int64_t userTokens = it->second.at(2);
+                int64_t issuerTokens = it->second.at(3);
+                response.push_back(Pair("txid", txid)); //participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
+                if (divisible)
+                {
+                     //participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
+                }
+                else
+                {
+                     //participanttx.push_back(Pair("participanttokens", userTokens));
+                }
+                if (divisible)
+                {
+                     //participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
+                }
+                else
+                {
+                     //participanttx.push_back(Pair("issuertokens", issuerTokens));
+                }
+      //          participanttxs.push_back(participanttx);
+            }
+          //  response.push_back(participanttxs);
+        }
 
 return response;
 }
