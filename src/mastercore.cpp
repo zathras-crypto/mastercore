@@ -145,9 +145,11 @@ char *c_strMastercoinType(int i)
   switch (i)
   {
     case MSC_TYPE_SIMPLE_SEND: return ((char *)"Simple Send");
-    case 1: return ((char *)"Investment Send");
+    case MSC_TYPE_RESTRICTED_SEND: return ((char *)"Restricted Send");
+    case MSC_TYPE_SEND_TO_OWNERS: return ((char *)"Send To Owners");
+    case MSC_TYPE_AUTOMATIC_DISPENSARY: return ((char *)"Automatic Dispensary");
     case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
-    case 21: return ((char *)"Offer/Accept one Master Protocol Coins for another");
+    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Coins for another");
     case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
@@ -638,7 +640,7 @@ public:
     implied_msc.name = "MasterCoin";
     implied_msc.url = "www.mastercoin.org";
     implied_msc.data = "***data***";
-    implied_tmsc.issuer = exodus_testnet;
+    implied_tmsc.issuer = exodus;
     implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
     implied_tmsc.total_tokens = 700000;
     implied_tmsc.category = "N/A";
@@ -915,9 +917,22 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   return balance;
 }
 
-// get total tokens for a property
-int64_t getTotalTokens(unsigned int propertyId)
+bool isPropertyDivisible(unsigned int propertyId)
 {
+// TODO: is a lock here needed
+CMPSPInfo::Entry sp;
+
+  if (_my_sps->getSP(propertyId, sp)) return sp.isDivisible();
+
+  return true;
+}
+
+// get total tokens for a property
+// optionally counters the number of addresses who own that property: n_owners
+int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
+{
+int64_t prev = 0, owners = 0;
+
   LOCK(cs_tally);
 
   CMPSPInfo::Entry property;
@@ -938,23 +953,29 @@ int64_t getTotalTokens(unsigned int propertyId)
           totalTokens += getMPbalance(address, propertyId, MONEY);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
+          if (prev != totalTokens)
+          {
+            prev = totalTokens;
+            owners++;
+          }
       }
   }
+
+  if (n_owners) *n_owners = owners;
+
   return totalTokens;
 }
 
-// bSet will SET the amount into the address, instead of just updating it
-// bool update_tally_map(string who, unsigned int which, int64_t amount, bool bReserved = false, bool bSet = false)
-//
 // return true if everything is ok
-bool update_tally_map(string who, unsigned int which, int64_t amount, TallyType ttype, bool bSet = false)
+bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype)
 {
 bool bRet = false;
 uint64_t before, after;
 
   LOCK(cs_tally);
 
-  before = getMPbalance(who, which, ttype);
+  before = getMPbalance(who, which_currency, ttype);
 
   map<string, CMPTally>::iterator my_it = mp_tally_map.find(who);
   if (my_it == mp_tally_map.end())
@@ -965,17 +986,17 @@ uint64_t before, after;
 
   CMPTally &tally = my_it->second;
 
-  bRet = tally.updateMoney(which, amount, ttype);
+  bRet = tally.updateMoney(which_currency, amount, ttype);
 
-  after = getMPbalance(who, which, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which, which, amount, ttype);
+  after = getMPbalance(who, which_currency, ttype);
+  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
 
   if (msc_debug_tally)
   {
     if ((exodus != who) || (exodus == who && msc_debug_exo))
     {
       fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
-       __FUNCTION__, who.c_str(), which, which, amount, ttype, before, after);
+       __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype, before, after);
     }
   }
 
@@ -1642,6 +1663,7 @@ public:
  uint64_t amount_desired, min_fee;
  unsigned char blocktimelimit, subaction = 0;
  int rc = PKT_ERROR;
+ int step_rc;
 
   if (0>step1()) return -98765;
 
@@ -1652,8 +1674,8 @@ public:
   switch(type)
   {
     case MSC_TYPE_SIMPLE_SEND:
-      rc = step2_Value();
-      if (0>rc) return rc;
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
 
       if (sender.empty()) ++InvalidCount_per_spec;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -1664,7 +1686,13 @@ public:
         receiver = sender;
       }
       if (receiver.empty()) ++InvalidCount_per_spec;
-      if (!update_tally_map(sender, currency, - nValue, MONEY)) break;
+
+      // insufficient funds check & return
+      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      {
+        rc = (PKT_ERROR -111);
+        break;
+      }
 
       update_tally_map(receiver, currency, nValue, MONEY);
 
@@ -1735,8 +1763,8 @@ public:
     enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
     const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
-      rc = step2_Value();
-      if (0>rc) return rc;
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
 
       if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
       {
@@ -1847,8 +1875,8 @@ public:
     } // end of TRADE_OFFER
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
-      rc = step2_Value();
-      if (0>rc) return rc;
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
 
       // the min fee spec requirement is checked in the following function
       rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, &nNewValue);
@@ -1856,13 +1884,13 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_FIXED:
     {
-      const char *p = step2_SmartProperty(rc);
-      if (0>rc) return rc;
+      const char *p = step2_SmartProperty(step_rc);
+      if (0>step_rc) return step_rc;
       if (!p) return (PKT_SP_ERROR -11);
 
-      rc = step3_sp_fixed(p);
+      step_rc = step3_sp_fixed(p);
 
-      if (0 == rc)
+      if (0 == step_rc)
       {
         CMPSPInfo::Entry newSP;
         newSP.issuer = sender;
@@ -1885,11 +1913,11 @@ public:
 
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
     {
-      const char *p = step2_SmartProperty(rc);
-      if (0>rc) return rc;
+      const char *p = step2_SmartProperty(step_rc);
+      if (0>step_rc) return step_rc;
       if (!p) return (PKT_SP_ERROR -12);
 
-      rc = step3_sp_variable(p);
+      step_rc = step3_sp_variable(p);
 
       // check if one exists for this address already !
       if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
@@ -1897,7 +1925,7 @@ public:
       // must check that the desired currency exists in our universe
       if (false == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
 
-      if (0 == rc)
+      if (0 == step_rc)
       {
         CMPSPInfo::Entry newSP;
         newSP.issuer = sender;
@@ -1974,6 +2002,72 @@ public:
 
         rc = 0;
       }
+      break;
+    }
+
+    case MSC_TYPE_SEND_TO_OWNERS:
+    {
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      if (MASTERCOIN_CURRENCY_BTC == currency)
+      {
+        rc = (PKT_ERROR_STO -100);
+        break;
+      }
+
+      // totalTokens will be 0 for non-existing currency
+      int64_t owners = 0, totalTokens = getTotalTokens(currency, &owners);
+      int64_t nFee = TRANSFER_FEE_PER_OWNER * owners;
+
+      fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
+      fprintf(mp_fp, "\t          Owners: %lu\n", owners);
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nFee/COIN, nFee%COIN);
+
+      if (0 >= totalTokens)
+      {
+        rc = (PKT_ERROR_STO -2);
+        break;
+      }
+
+      if (getMPbalance(sender, currency, MONEY) < nValue)
+      {
+        rc = (PKT_ERROR_STO -3);
+        break;
+      }
+
+      // make sure there is more than 1 owner (ourselves), otherwise this TX is invalid
+      if (1 < owners)
+      {
+        rc = (PKT_ERROR_STO -4);
+        break;
+      }
+
+      // enough Mastercoins to pay the fee?
+      if (getMPbalance(sender, MASTERCOIN_CURRENCY_MSC, MONEY) < nFee)
+      {
+        rc = (PKT_ERROR_STO -5);
+        break;
+      }
+
+      // get the internal loop out of getTotalTokens(), build a sorted list from high to low
+      // 
+
+      // split up what was taken and distribute between all holders
+      // TODO: ...
+      // ...
+      // ...
+      // ...
+
+/*
+      // incremental take from the payer and give to owner(s)
+      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      {
+        rc = (PKT_ERROR_STO -1);
+        break;
+      }
+*/
+
       break;
     }
 
@@ -2991,16 +3085,20 @@ int extra2 = 0;
 
   printf("%s(extra=%d,extra2=%d)\n", __FUNCTION__, extra, extra2);
 
+  bool bDivisible = isPropertyDivisible(extra2);
+
   // various extra tests
   switch (extra)
   {
     case 0: // the old output
         // display all offers with accepts
+/*
         for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
         {
           // my_it->first = key
           // my_it->second = value
         }
+*/
 
         fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
@@ -3011,7 +3109,7 @@ int extra2 = 0;
           // my_it->second = value
 
           printf("%34s => ", (my_it->first).c_str());
-          (my_it->second).print(extra2);
+          (my_it->second).print(extra2, bDivisible);
         }
       break;
 
@@ -3028,7 +3126,7 @@ int extra2 = 0;
 
     case 3:
         unsigned int id;
-        // display all balances
+        // for each address display all currencies it holds
         for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
         {
           // my_it->first = key
@@ -3776,6 +3874,10 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = 303550;
     nWaterlineBlock = 308500;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
+
+    update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*10000, MONEY); // put some TMSC in, for my hack
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*100, MONEY); // put some TMSC in, for my hack
+    nWaterlineBlock = 300000;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
@@ -3950,8 +4052,12 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   vecSend.push_back(make_pair(multisig_output, nDustLimit));
 
   // the reference/recepient/receiver
-  scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  if (!receiverAddress.empty())
+  {
+    // Send To Owners is the first use case where the receiver is empty
+    scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
+    vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  }
 
   // the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
@@ -3975,8 +4081,8 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   return 0;
 }
 
-//
-uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+// WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
+static uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType)
 {
 const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 CWallet *wallet = pwalletMain;
@@ -4048,14 +4154,16 @@ uint256 txid = 0;
   string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
   prepareObfuscatedHashes(FromAddress, strObfuscatedHashes);
 
-  unsigned char packet[128];
+  unsigned char packet[MAX_PACKETS * PACKET_SIZE];
   memset(&packet, 0, sizeof(packet));
 
+  swapByteOrder32(TransactionType);
   swapByteOrder32(CurrencyID);
   swapByteOrder64(Amount);
 
   // TODO: beautify later
   packet[0] = 0x01; // seq
+  memcpy(&packet[1], &TransactionType, 4);
   memcpy(&packet[5], &CurrencyID, 4);
   memcpy(&packet[9], &Amount, 8);
 
@@ -4093,6 +4201,16 @@ uint256 txid = 0;
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   return txid;
+}
+
+uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+{
+  return send_INTERNAL_1packet(FromAddress, ToAddress, CurrencyID, Amount, MSC_TYPE_SIMPLE_SEND);
+}
+
+uint256 send_To_Owners(const string &FromAddress, unsigned int CurrencyID, uint64_t Amount)
+{
+  return send_INTERNAL_1packet(FromAddress, "", CurrencyID, Amount, MSC_TYPE_SEND_TO_OWNERS);
 }
 
 // send a MP transaction via RPC - simple send
