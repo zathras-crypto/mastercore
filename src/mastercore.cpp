@@ -4226,7 +4226,7 @@ if (fHelp || params.size() != 3)
            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
   //some sanity checking of the data supplied?
-  uint256 newTX = send_To_All(FromAddress, propertyId, Amount);
+  uint256 newTX = send_To_Owners(FromAddress, propertyId, Amount);
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
