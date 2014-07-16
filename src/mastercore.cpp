@@ -102,7 +102,7 @@ static int InvalidCount_per_spec = 0; // consolidate error messages into a nice 
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disableLevelDB = 0;
-static int disable_Persistence = 0;
+static int disable_Persistence = 1;
 
 static int mastercoreInitialized = 0;
 
@@ -508,11 +508,8 @@ public:
       std::string values_long = "";
       std::string values = "";
 
-      fprintf(mp_fp,"crowdsale started to save, size of db %ld", database.size());
+      fprintf(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
       for(it = database.begin(); it != database.end(); it++) {
-
-
-         fprintf(mp_fp,"crowdsale data %s", it->first.c_str());
          values += it->first.c_str();
          values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
          values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
@@ -520,14 +517,11 @@ public:
          values += ":" + boost::lexical_cast<std::string>(it->second.at(3));
          values += ";";
          values_long += values;
-
-         fprintf(mp_fp,"crowdsale data 2 %s %s", values_long.c_str(), values.c_str());
       }
-      fprintf(mp_fp,"crowdsale salved %s", values_long.c_str());
+      fprintf(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
 
       spInfo.push_back(Pair("database", values_long)); //need map here);
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
-      
 
       return spInfo;
     }
@@ -555,20 +549,22 @@ public:
       //reconstruct database
       #include <boost/algorithm/string.hpp>
       std::string longstr = json[idx++].value_.get_str();
+      
+      fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
+      
       std::map<std::string, std::vector<uint64_t> > database;
       std::vector<std::string> strngs_vec;
 
       boost::split(strngs_vec, longstr, boost::is_any_of(";"));
 
-      fprintf(mp_fp,"DATABASE PRE-INSERT SUCCESS, %ld" ,strngs_vec.size());
+      fprintf(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
       for(std::vector<std::string>::size_type i = 0; i != strngs_vec.size(); i++) {
         
         std::vector<std::string> str_split_vec;
         boost::split(str_split_vec, strngs_vec[i], boost::is_any_of(":"));
 
-        fprintf(mp_fp,"\n before vector %ld", str_split_vec.size());
         if ( str_split_vec.size() == 5) {
-          fprintf(mp_fp,"\n before vector insert %s %s %s %s", str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
+          fprintf(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
           uint64_t txdata[] = { 
             boost::lexical_cast<uint64_t>( str_split_vec.at(1) ), 
             boost::lexical_cast<uint64_t>( str_split_vec.at(2) ), 
@@ -576,16 +572,11 @@ public:
             boost::lexical_cast<uint64_t>( str_split_vec.at(4) )
           };
           
-          fprintf(mp_fp,"\n after array created");
           std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
-
-          fprintf(mp_fp,"\n after vector created");
           database.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
-
-          fprintf(mp_fp,"\n after insert");
         }
       }
-      fprintf(mp_fp,"DATABASE INSERT SUCCESS");
+      fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS");
       txid = uint256(json[idx++].value_.get_str());
     }
 
@@ -692,7 +683,7 @@ public:
   unsigned int updateSP(unsigned int propertyID, Entry const &info)
   {
     std::string nextIdStr;
-    unsigned int res = 0;
+    unsigned int res = propertyID;
 
     Object spInfo = info.toJSON();
 
@@ -707,12 +698,12 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
     if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
+      fprintf(mp_fp, "%s WRITING SP %u TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
     } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
+      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %u IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
     }
 
-    fprintf(mp_fp,"WROTE STRING SP UPDATE %s, ", spValue.c_str());
+    fprintf(mp_fp,"\nSP UPDATE SUCCESS");
     // atomically write both the the SP and the index to the database
     leveldb::WriteOptions writeOptions;
     writeOptions.sync = true;
@@ -772,7 +763,6 @@ public:
 
   bool getSP(unsigned int spid, Entry &info)
   {
-    fprintf(mp_fp, "\ngot to inside getSP");
     // special cases for constant SPs MSC and TMSC
     if (MASTERCOIN_CURRENCY_MSC == spid) {
       info = implied_msc;
@@ -785,29 +775,21 @@ public:
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
 
-    fprintf(mp_fp, "\ngot first check");
     string spKey = (boost::format(FORMAT_BOOST_SPKEY) % spid).str();
     string spInfoStr;
     if (false == pDb->Get(readOpts, spKey, &spInfoStr).ok()) {
       return false;
     }
 
-    fprintf(mp_fp, "\ngot second check");
     // parse the encoded json, failing if it doesnt parse or is an object
     Value spInfoVal;
     if (false == read_string(spInfoStr, spInfoVal) || spInfoVal.type() != obj_type ) {
       return false;
     }
 
-    fprintf(mp_fp, "\ngot third check");
     // transfer to the Entry structure
     Object &spInfo = spInfoVal.get_obj();
-
-    fprintf(mp_fp, "\ngot fourth check");
     info.fromJSON(spInfo);
-
-
-    fprintf(mp_fp, "\ngot fifth check");
     return true;
   }
 
@@ -1491,6 +1473,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
       fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
       sp.database = crowd.getDatabase();
+
       _my_sps->updateSP(crowd.getPropertyId() , sp);
 
       update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
@@ -1979,7 +1962,9 @@ public:
                             crowd.getIssuerCreated());
 
         fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+        
         sp.database = crowd.getDatabase();
+        
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
         update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
@@ -3095,7 +3080,6 @@ const int max_block = GetHeight();
     ReadBlockFromDisk(block, pblockindex);
 
     int tx_count = 0;
-    printf("before begin...@$!@$!@$ at %d \n", blockNum);
     mastercore_handler_block_begin(blockNum, pblockindex);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -3104,14 +3088,12 @@ const int max_block = GetHeight();
       ++tx_count;
     }
     
-    printf("after foreach...@$!@$!@$ at %d \n", blockNum);
     n_total += tx_count;
     if (msc_debug1) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
-    printf("before end...@$!@$!@$ at %d \n", blockNum);
     mastercore_handler_block_end(blockNum, pblockindex);
 #ifdef  MY_SP_HACK
-    if (20 < n_found) break;
+    //if (20 < n_found) break;
 #endif
   }
 
@@ -3764,7 +3746,7 @@ const bool bTestnet = TestNet();
 
   if (!disable_Persistence)
   {
-    //nWaterlineBlock = load_most_relevant_state();
+    nWaterlineBlock = load_most_relevant_state();
 
     if (nWaterlineBlock < snapshotHeight)
     {
@@ -3800,7 +3782,6 @@ const bool bTestnet = TestNet();
 
   }
 
-  nWaterlineBlock = MSC_SP_BLOCK-3;
   // collect the real Exodus balances available at the snapshot time
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
@@ -4861,6 +4842,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         int64_t totalTokens = sp.total_tokens; //only valid for TX50, TODO TX51 loop map to calculate
         string issuer = sp.issuer;
         bool fixedIssuance = sp.fixed;
+        std::map<std::string, std::vector<uint64_t> > database = sp.database;
 
 //  uint64_t getValue() const { return nValue; }
         response.push_back(Pair("name", propertyName));
@@ -4872,6 +4854,17 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("issuer", issuer));
         response.push_back(Pair("creationtxid", creationTXID.GetHex()));
         response.push_back(Pair("fixedissuance", fixedIssuance));
+
+        std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+        Object jsonArr;
+
+        for(it = database.begin(); it != database.end(); it++) {
+          
+          jsonArr.push_back(Pair(it->first.c_str(), Array(it->second.begin(),it->second.end()) ));
+        }
+
+        response.push_back(Pair("fundedTransactions", jsonArr)); //need map here);
+
         if (divisible)
         {
             response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
