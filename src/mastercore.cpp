@@ -4689,7 +4689,14 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                      case MSC_TYPE_CLOSE_CROWDSALE:
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
-                                }
+                                     case  MSC_TYPE_SEND_TO_OWNERS:
+                                          if (0 >= mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                          }
+                                     break; 
+                          }
                                 divisible=isPropertyDivisible(propertyId);
                         }
                 }
@@ -4872,6 +4879,14 @@ bool addressFilter;
                                      case MSC_TYPE_CLOSE_CROWDSALE:
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
+                                     case  MSC_TYPE_SEND_TO_OWNERS:
+                                          if (0 >= mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                          }
+                                     break;
+
                                 }
                                 divisible=isPropertyDivisible(propertyId);
                         }
