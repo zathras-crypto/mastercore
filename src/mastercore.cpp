@@ -1662,12 +1662,6 @@ public:
 
             update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
           }
-          else
-          {
-            // NULL pointer, but the simple send is valid otherwise
-            // oops, this is unneeded
-          }
-
         }
       }
 
@@ -1824,7 +1818,7 @@ public:
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         update_tally_map(sender, id, nValue, MONEY);
       }
-
+      rc = 0;
       break;
     }
 
@@ -1865,7 +1859,7 @@ public:
         my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
         fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
       }
-
+      rc = 0;
       break;
     }
 
