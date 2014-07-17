@@ -921,6 +921,17 @@ CMPSPInfo::Entry sp;
   return true;
 }
 
+bool isCrowdsaleActive(unsigned int propertyId)
+{
+  for(CrowdMap::const_iterator it = my_crowds.begin(); it != my_crowds.end(); ++it)
+  {
+      CMPCrowd crowd = it->second;
+      unsigned int foundPropertyId = crowd.getPropertyId();
+      if (foundPropertyId == propertyId) return true;
+  }
+  return false;
+}
+
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
@@ -5238,6 +5249,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     Object response;
 
     bool active = false;
+    active = isCrowdsaleActive(propertyId);
     bool divisible = false;
     divisible=sp.isDivisible();
     string propertyName = sp.name;
