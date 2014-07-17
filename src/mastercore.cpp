@@ -5295,12 +5295,10 @@ Value getproperty_MP(const Array& params, bool fHelp)
         string propertyData = sp.data;
         string propertyURL = sp.url;
         uint256 creationTXID = sp.txid;
-        int64_t totalTokens = getTotalTokens(propertyId); //only valid for TX50, TODO TX51 loop map to calculate
+        int64_t totalTokens = getTotalTokens(propertyId);
         string issuer = sp.issuer;
         bool fixedIssuance = sp.fixed;
-        std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
 
-//  uint64_t getValue() const { return nValue; }
         response.push_back(Pair("name", propertyName));
         response.push_back(Pair("category", propertyCategory));
         response.push_back(Pair("subcategory", propertySubCategory));
@@ -5310,18 +5308,6 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("issuer", issuer));
         response.push_back(Pair("creationtxid", creationTXID.GetHex()));
         response.push_back(Pair("fixedissuance", fixedIssuance));
-
-        std::map<std::string, std::vector<uint64_t> >::const_iterator it;
-        Object jsonArr;
-
-        fprintf(mp_fp," SIZE OF DB %lu", sp.txFundraiserData.size() ); 
-        for(it = database.begin(); it != database.end(); it++) {
-          
-          jsonArr.push_back(Pair(it->first.c_str(), Array(it->second.begin(),it->second.end()) ));
-        }
-
-        response.push_back(Pair("fundedTransactions", jsonArr)); //need map here);
-
         if (divisible)
         {
             response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
