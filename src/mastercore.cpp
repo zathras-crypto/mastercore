@@ -926,24 +926,6 @@ CMPSPInfo::Entry sp;
   return true;
 }
 
-// get SP created with a specific TXID
-unsigned int getCreatedSP(uint256 txid)
-{
-  //replace this with a lookup to index once Bart has added it
-  //for(map<unsigned int, CMPSPInfo>::iterator my_it = _my_sps->begin(); my_it != _my_sps->end(); ++my_it)
-  //for (i = 0; i<5; i++)
-  //{
-  //    unsigned int tmpPropertyId = (my_it.first);
-  //    CMPSPInfo::Entry tmpSP;
-  //    if (false == _my_sps->getSP(tmppropertyId, tmpSP))
-  //    {
-  //        uint256 tmpTXID = tmpSP.txid;
-  //        if (tmpTXID == txid) return tmpPropertyId;
-  //    }
-  //}
-  return 0;
-}
-
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
@@ -4616,11 +4598,11 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 switch (MPTxTypeInt)
                                 {
                                      case MSC_TYPE_CREATE_PROPERTY_FIXED:
-                                          propertyId = getCreatedSP(wtxid); // propertyId of created property (if valid)
+                                          propertyId = _my_sps->findSPByTX(wtxid); // propertyId of created property (if valid)
                                           amount = getTotalTokens(propertyId);
                                      break;
                                      case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
-                                          propertyId = getCreatedSP(wtxid); // propertyId of created property (if valid)
+                                          propertyId = _my_sps->findSPByTX(wtxid); // propertyId of created property (if valid)
                                           amount = 0; // crowdsale txs always create zero tokens
                                      break;
                                      case MSC_TYPE_SIMPLE_SEND:
@@ -5100,6 +5082,64 @@ Value getproperty_MP(const Array& params, bool fHelp)
         }
 
 return response;
+}
+
+Value listproperties_MP(const Array& params, bool fHelp)
+{
+   if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "listproperty_MP\n"
+            "\nList smart properties\n"
+            "\nArguments:\n"
+            "1. propertyID    (int, required) The property ID\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"name\" : \"PropertyName\",     (string) the property name\n"
+            "  \"category\" : \"PropertyCategory\",     (string) the property category\n"
+            "  \"subcategory\" : \"PropertySubCategory\",     (string) the property subcategory\n"
+            "  \"data\" : \"PropertyData\",     (string) the property data\n"
+            "  \"url\" : \"PropertyURL\",     (string) the property URL\n"
+            "  \"divisible\" : false,     (boolean) whether the property is divisible\n"
+            "  \"issuer\" : \"1Address\",     (string) the property issuer address\n"
+            "  \"issueancetype\" : \"Fixed\",     (string) the property method of issuance\n"
+            "  \"totaltokens\" : x     (numeric) the total number of tokens in existence\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getproperty_MP", "3")
+            + HelpExampleRpc("getproperty_MP", "3")
+        );
+
+    Array response;
+
+//    for(map<unsigned int, CMPSP>::iterator my_it = my_sps.begin(); my_it != my_sps.end(); ++my_it)
+//    {
+//      int64_t tmpPropertyId = (my_it->first); //use int64 to keep json:spirit happy
+//      CMPSP *property = getSP(tmpPropertyId);
+//      if (NULL != property)
+//      {
+//          Object responseItem;
+
+//          bool divisible = false;
+//          divisible=property->isDivisible();
+//          string propertyName = property->getName();
+//         string propertyCategory = property->getCategory();
+//          string propertySubCategory = property->getSubcategory();
+//          string propertyData = property->getData();
+//          string propertyURL = property->getURL();
+
+//          responseItem.push_back(Pair("propertyid", tmpPropertyId));
+//          responseItem.push_back(Pair("name", propertyName));
+//          responseItem.push_back(Pair("category", propertyCategory));
+//          responseItem.push_back(Pair("subcategory", propertySubCategory));
+//          responseItem.push_back(Pair("data", propertyData));
+//          responseItem.push_back(Pair("url", propertyURL));
+//          responseItem.push_back(Pair("divisible", divisible));
+
+//          response.push_back(responseItem);
+//      }
+//    }
+    return response;
 }
 
 Value getcrowdsale_MP(const Array& params, bool fHelp)
