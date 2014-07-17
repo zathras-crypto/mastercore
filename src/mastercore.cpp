@@ -926,6 +926,24 @@ CMPSPInfo::Entry sp;
   return true;
 }
 
+// get SP created with a specific TXID
+unsigned int getCreatedSP(uint256 txid)
+{
+  //replace this with a lookup to index once Bart has added it
+  //for(map<unsigned int, CMPSPInfo>::iterator my_it = _my_sps->begin(); my_it != _my_sps->end(); ++my_it)
+  //for (i = 0; i<5; i++)
+  //{
+  //    unsigned int tmpPropertyId = (my_it.first);
+  //    CMPSPInfo::Entry tmpSP;
+  //    if (false == _my_sps->getSP(tmppropertyId, tmpSP))
+  //    {
+  //        uint256 tmpTXID = tmpSP.txid;
+  //        if (tmpTXID == txid) return tmpPropertyId;
+  //    }
+  //}
+  return 0;
+}
+
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
@@ -4530,48 +4548,45 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
     uint256 hash;
     hash.SetHex(params[0].get_str());
-    CWallet *wallet = pwalletMain;
 
     Object txobj;
-    if (!pwalletMain->mapWallet.count(hash))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
-    const CWalletTx& wtx = pwalletMain->mapWallet[hash];
+
+    CTransaction wtx;
+    uint256 blockHash = 0;
+    if (!GetTransaction(hash, wtx, blockHash, true))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
     // here begins
     CMPTransaction mp_obj;
-
-    LOCK(wallet->cs_wallet);
 
                 uint256 wtxid = wtx.GetHash();
                 bool bIsMine;
                 bool isMPTx = false;
                 int nFee;
                 string MPTxType;
+                unsigned int MPTxTypeInt;
                 string selectedAddress;
                 string senderAddress;
                 string refAddress;
                 bool valid;
-                uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
-                bool divisible;
-                uint64_t amount;
+                bool showReference = false;
+                uint64_t propertyId = 0;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+                bool divisible = false;
+                uint64_t amount = 0;
                 string result;
-                bool outgoingTransaction = false;
-                bool selloffer = false;
                 uint64_t sell_minfee = 0;
                 unsigned char sell_timelimit = 0;
                 unsigned char sell_subaction = 0;
                 uint64_t sell_btcdesired = 0;
 
-                int confirmations = wtx.GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
-                uint256 blockHash = wtx.hashBlock;
                 if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash]))
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
                 CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
                 if (NULL == pBlockIndex)
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: pBlockIndex is NULL");
                 int blockHeight = pBlockIndex->nHeight;
-                int64_t blockTime = mapBlockIndex[wtx.hashBlock]->nTime;
-                int blockIndex = wtx.nIndex;
+                int confirmations =  1 + chainActive.Height() - pBlockIndex->nHeight;
+                int64_t blockTime = mapBlockIndex[blockHash]->nTime; 
 
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
@@ -4580,28 +4595,72 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(wtx, 0, 0, &mp_obj))
+                if (0 == parseTransaction(wtx, blockHeight, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
                         {
-                                isMPTx = true;
                                 MPTxType = mp_obj.getTypeString();
+                                MPTxTypeInt = mp_obj.getType();
                                 senderAddress = mp_obj.getSender();
                                 refAddress = mp_obj.getReceiver();
-                                curId = mp_obj.getCurrency();
-                                divisible = true; // hard coded for now until SP support
-                                amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
+                                isMPTx = true;
                                 nFee = mp_obj.getFeePaid();
 
-           		        if ((0 < mp_obj.interpretPacket(&temp_offer)) && (MSC_TYPE_TRADE_OFFER == mp_obj.getType()))
+                                int tmpblock=0;
+                                uint32_t tmptype=0;
+                                uint64_t amountNew=0;
+                                valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
+
+                                //populate based on type of tx
+                                switch (MPTxTypeInt)
                                 {
-                                           sell_minfee = temp_offer.getMinFee();
-                                           sell_timelimit = temp_offer.getBlockTimeLimit();
-                                           sell_subaction = temp_offer.getSubaction();
-                                           sell_btcdesired = temp_offer.getBTCDesiredOriginal();
-                                           selloffer = true;
+                                     case MSC_TYPE_CREATE_PROPERTY_FIXED:
+                                          propertyId = getCreatedSP(wtxid); // propertyId of created property (if valid)
+                                          amount = getTotalTokens(propertyId);
+                                     break;
+                                     case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
+                                          propertyId = getCreatedSP(wtxid); // propertyId of created property (if valid)
+                                          amount = 0; // crowdsale txs always create zero tokens
+                                     break;
+                                     case MSC_TYPE_SIMPLE_SEND:
+                                          if (0 == mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                               showReference = true;
+                                               //check crowdsale invest?
+                                          }
+                                     break;
+                                     case MSC_TYPE_TRADE_OFFER:
+                                          if (0 == mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                          }
+                                          if (0 <= mp_obj.interpretPacket(&temp_offer))
+                                          {
+                                               sell_minfee = temp_offer.getMinFee();
+                                               sell_timelimit = temp_offer.getBlockTimeLimit();
+                                               sell_subaction = temp_offer.getSubaction();
+                                               sell_btcdesired = temp_offer.getBTCDesiredOriginal();
+                                          }
+                                          if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
+                                     break;
+                                     case MSC_TYPE_ACCEPT_OFFER_BTC:
+                                          if (0 >= mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                               showReference = true;
+                                          }
+                                          if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
+                                     break;
+                                     case MSC_TYPE_CLOSE_CROWDSALE:
+                                          propertyId = 0; // propertyId of Crowdsale Close
+                                     break;
                                 }
+                                divisible=isPropertyDivisible(propertyId);
                         }
                 }
                 else
@@ -4610,38 +4669,22 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 }
                 if (isMPTx)
                 {
-                        // use master protocol functions for embedded MP message
-                        int tmpblock=0;
-                        uint32_t tmptype=0;
-                        uint64_t amountNew=0;
-
-                        valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
-                        if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
-
                         // test sender and reference against ismine to determine which address is ours
                         // if both ours (eg sending to another address in wallet) use reference
                         bIsMine = IsMyAddress(senderAddress);
-                        if (bIsMine)
+                        if (!bIsMine)
                         {
-                                outgoingTransaction=true;
+                                bIsMine = IsMyAddress(refAddress);
                         }
                         txobj.push_back(Pair("txid", wtxid.GetHex()));
                         txobj.push_back(Pair("sendingaddress", senderAddress));
-                        if (!selloffer) txobj.push_back(Pair("referenceaddress", refAddress));
-                        if (outgoingTransaction)
-                        {
-                                txobj.push_back(Pair("direction", "out"));
-                        }
-                        else
-                        {
-                                txobj.push_back(Pair("direction", "in"));
-                        }
+                        if (showReference) txobj.push_back(Pair("referenceaddress", refAddress));
+                        txobj.push_back(Pair("ismine", bIsMine));
                         txobj.push_back(Pair("confirmations", confirmations));
                         txobj.push_back(Pair("fee", ValueFromAmount(nFee)));
                         txobj.push_back(Pair("blocktime", blockTime));
-                        txobj.push_back(Pair("blockindex", blockIndex));
                         txobj.push_back(Pair("type", MPTxType));
-                        txobj.push_back(Pair("currency", curId));
+                        txobj.push_back(Pair("propertyid", propertyId));
                         txobj.push_back(Pair("divisible", divisible));
                         if (divisible)
                         {
@@ -4651,7 +4694,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         {
                                 txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
                         }
-			if (selloffer)
+                        if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
                         {
                         txobj.push_back(Pair("feerequired", ValueFromAmount(sell_minfee)));
                         txobj.push_back(Pair("timelimit", sell_timelimit));
@@ -5105,14 +5148,23 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (fixedIssuance) // property was not a variable issuance
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
 
+    uint256 creationHash = sp.txid;
+
+    CTransaction tx;
+    uint256 hashBlock = 0;
+    if (!GetTransaction(creationHash, tx, hashBlock, true))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+
+    if ((0 == hashBlock) || (NULL == mapBlockIndex[hashBlock]))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
+
     Object response;
 
     bool active = false;
     bool divisible = false;
     divisible=sp.isDivisible();
     string propertyName = sp.name;
-    uint256 creationTXID = sp.txid;
-    int64_t startTime = 0;
+    int64_t startTime = mapBlockIndex[hashBlock]->nTime;
     int64_t deadline = sp.deadline;
     int8_t earlyBonus = sp.early_bird;
     int8_t percentToIssuer = sp.percentage;
@@ -5121,10 +5173,9 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     int64_t tokensIssued = getTotalTokens(propertyId);
     int64_t tokensPerUnit = sp.num_tokens;
     int64_t propertyIdDesired = sp.currency_desired;
-    
     std::map<std::string, std::vector<uint64_t> > database = sp.database;
 
-    printf("\nSIZE OF DB %lu\n", sp.database.size() ); 
+    fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.database.size() ); 
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
@@ -5133,76 +5184,83 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (false == _my_sps->getSP(propertyId, spDesired)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Desired property ID does not exist");
     }
+    divisibleDesired = spDesired.isDivisible();
+    divisibleDesired = isPropertyDivisible(propertyIdDesired);
 
-        response.push_back(Pair("name", propertyName));
-        response.push_back(Pair("active", active));
-        response.push_back(Pair("issuer", issuer));
-        response.push_back(Pair("propertyiddesired", propertyIdDesired));
-        response.push_back(Pair("tokensperunit", tokensPerUnit));
-        response.push_back(Pair("earlybonus", earlyBonus));
-        response.push_back(Pair("percenttoissuer", percentToIssuer));
-        response.push_back(Pair("starttime", startTime));
-        response.push_back(Pair("deadline", deadline));
+    Array participanttxs;
+    std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+    for(it = database.begin(); it != database.end(); it++)
+    {
+        Object participanttx;
 
+        string txid = it->first; //uint256 txid = it->first;
+        int64_t userTokens = it->second.at(2);
+        int64_t issuerTokens = it->second.at(3);
+        int64_t amountSent = it->second.at(0);
+
+        amountRaised += amountSent;
+        participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
         if (divisibleDesired)
         {
-            response.push_back(Pair("amountraised", ValueFromAmount(amountRaised)));
+             participanttx.push_back(Pair("amountsent", ValueFromAmount(amountSent)));
         }
         else
         {
-            response.push_back(Pair("amountraised", amountRaised));
+             participanttx.push_back(Pair("amountsent", amountSent));
         }
         if (divisible)
         {
-            response.push_back(Pair("tokensissued", ValueFromAmount(tokensIssued)));
+             participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
         }
         else
         {
-            response.push_back(Pair("tokensissued", tokensIssued));
+             participanttx.push_back(Pair("participanttokens", userTokens));
         }
-        if (!active) response.push_back(Pair("closedearly", "unknown"));
-        if (!active) response.push_back(Pair("endedtime", "unknown"));
-
-        // array of txids contributing to crowdsale here if needed
-        if (showVerbose)
+        if (divisible)
         {
-            Array participanttxs;
-
-
-            std::map<std::string, std::vector<uint64_t> >::const_iterator it;
-
-
-            for(it = database.begin(); it != database.end(); it++)
-            {
-                printf("found a database entry\n");
-                Object participanttx;
-
-                string txid = it->first; //uint256 txid = it->first;
-                int64_t userTokens = it->second.at(2);
-                int64_t issuerTokens = it->second.at(3);
-                //response.push_back(Pair("txid", txid)); 
-                participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
-                if (divisible)
-                {
-                     participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
-                }
-                else
-                {
-                     participanttx.push_back(Pair("participanttokens", userTokens));
-                }
-                if (divisible)
-                {
-                     participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
-                }
-                else
-                {
-                     participanttx.push_back(Pair("issuertokens", issuerTokens));
-                }
-                participanttxs.push_back(participanttx);
-            }
-            response.push_back(participanttxs);
+             participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
         }
+        else
+        {
+             participanttx.push_back(Pair("issuertokens", issuerTokens));
+        }
+        participanttxs.push_back(participanttx);
+    }
 
+    response.push_back(Pair("name", propertyName));
+    response.push_back(Pair("active", active));
+    response.push_back(Pair("issuer", issuer));
+    response.push_back(Pair("propertyiddesired", propertyIdDesired));
+    response.push_back(Pair("tokensperunit", tokensPerUnit));
+    response.push_back(Pair("earlybonus", earlyBonus));
+    response.push_back(Pair("percenttoissuer", percentToIssuer));
+    response.push_back(Pair("starttime", startTime));
+    response.push_back(Pair("deadline", deadline));
+
+    if (divisibleDesired)
+    {
+        response.push_back(Pair("amountraised", ValueFromAmount(amountRaised)));
+    }
+    else
+    {
+        response.push_back(Pair("amountraised", amountRaised));
+    }
+    if (divisible)
+    {
+        response.push_back(Pair("tokensissued", ValueFromAmount(tokensIssued)));
+    }
+    else
+    {
+        response.push_back(Pair("tokensissued", tokensIssued));
+    }
+    if (!active) response.push_back(Pair("closedearly", "unknown"));
+    if (!active) response.push_back(Pair("endedtime", "unknown"));
+
+    // array of txids contributing to crowdsale here if needed
+    if (showVerbose)
+    {
+        response.push_back(Pair("participanttransactions", participanttxs));
+    }
 return response;
 }
 
