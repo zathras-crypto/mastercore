@@ -932,6 +932,42 @@ bool isCrowdsaleActive(unsigned int propertyId)
   return false;
 }
 
+//go hunting for whether a simple send is a crowdsale purchase
+//find a more efficient way to do this
+bool isCrowdsalePurchase(uint256 txid, string address, unsigned int *propertyId = NULL, int64_t *userTokens = NULL)
+{
+//1. loop crowdsales (active/non-active) looking for issuer address
+//2. loop those crowdsales for that address and check their participant txs in database
+
+  //check for an active crowdsale to this address
+  CMPCrowd *crowd;
+  crowd = getCrowd(address);
+  if (crowd)
+  {
+      unsigned int foundPropertyId = crowd->getPropertyId();
+      std::map<std::string, std::vector<uint64_t> > database = crowd->getDatabase();
+      std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+      for(it = database.begin(); it != database.end(); it++)
+      {
+          string tmpTxid = it->first; //uint256 txid = it->first;
+     //     if (tmpTxid == txid) xtring to uint256 comparison
+          {
+              int64_t tmpUserTokens = it->second.at(2);
+              *propertyId = foundPropertyId;
+              *userTokens = tmpUserTokens;
+              return true;
+          }
+      }
+   }
+
+   //if we still haven't found txid, check non active crowdsales to this address
+   //std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+   
+
+//didn't find anything, not a crowdsale purchase
+return false;
+}
+
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
@@ -5184,12 +5220,10 @@ return response;
 
 Value listproperties_MP(const Array& params, bool fHelp)
 {
-   if (fHelp || params.size() != 1)
+   if (fHelp)
         throw runtime_error(
-            "listproperty_MP\n"
+            "listproperties_MP\n"
             "\nList smart properties\n"
-            "\nArguments:\n"
-            "1. propertyID    (int, required) The property ID\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -5198,46 +5232,70 @@ Value listproperties_MP(const Array& params, bool fHelp)
             "  \"data\" : \"PropertyData\",     (string) the property data\n"
             "  \"url\" : \"PropertyURL\",     (string) the property URL\n"
             "  \"divisible\" : false,     (boolean) whether the property is divisible\n"
-            "  \"issuer\" : \"1Address\",     (string) the property issuer address\n"
-            "  \"issueancetype\" : \"Fixed\",     (string) the property method of issuance\n"
-            "  \"totaltokens\" : x     (numeric) the total number of tokens in existence\n"
             "}\n"
 
             "\nbExamples\n"
-            + HelpExampleCli("getproperty_MP", "3")
-            + HelpExampleRpc("getproperty_MP", "3")
+            + HelpExampleCli("listproperties_MP", "")
+            + HelpExampleRpc("listproperties_MP", "")
         );
 
     Array response;
 
-//    for(map<unsigned int, CMPSP>::iterator my_it = my_sps.begin(); my_it != my_sps.end(); ++my_it)
-//    {
-//      int64_t tmpPropertyId = (my_it->first); //use int64 to keep json:spirit happy
-//      CMPSP *property = getSP(tmpPropertyId);
-//      if (NULL != property)
-//      {
-//          Object responseItem;
+    int64_t propertyId;
+    unsigned int nextSPID = _my_sps->peekNextSPID(1);
+    for (propertyId = 1; propertyId<nextSPID; propertyId++)
+    {
+        CMPSPInfo::Entry sp;
+        if (false != _my_sps->getSP(propertyId, sp))
+        {
+            Object responseItem;
 
-//          bool divisible = false;
-//          divisible=property->isDivisible();
-//          string propertyName = property->getName();
-//         string propertyCategory = property->getCategory();
-//          string propertySubCategory = property->getSubcategory();
-//          string propertyData = property->getData();
-//          string propertyURL = property->getURL();
+            bool divisible=sp.isDivisible();
+            string propertyName = sp.name;
+            string propertyCategory = sp.category;
+            string propertySubCategory = sp.subcategory;
+            string propertyData = sp.data;
+            string propertyURL = sp.url;
 
-//          responseItem.push_back(Pair("propertyid", tmpPropertyId));
-//          responseItem.push_back(Pair("name", propertyName));
-//          responseItem.push_back(Pair("category", propertyCategory));
-//          responseItem.push_back(Pair("subcategory", propertySubCategory));
-//          responseItem.push_back(Pair("data", propertyData));
-//          responseItem.push_back(Pair("url", propertyURL));
-//          responseItem.push_back(Pair("divisible", divisible));
+            responseItem.push_back(Pair("propertyid", propertyId));
+            responseItem.push_back(Pair("name", propertyName));
+            responseItem.push_back(Pair("category", propertyCategory));
+            responseItem.push_back(Pair("subcategory", propertySubCategory));
+            responseItem.push_back(Pair("data", propertyData));
+            responseItem.push_back(Pair("url", propertyURL));
+            responseItem.push_back(Pair("divisible", divisible));
 
-//          response.push_back(responseItem);
-//      }
-//    }
-    return response;
+            response.push_back(responseItem);
+        }
+    }
+
+    unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
+    for (propertyId = 2147483651; propertyId<nextTestSPID; propertyId++)
+    {
+        CMPSPInfo::Entry sp;
+        if (false != _my_sps->getSP(propertyId, sp))
+        {
+            Object responseItem;
+
+            bool divisible=sp.isDivisible();
+            string propertyName = sp.name;
+            string propertyCategory = sp.category;
+            string propertySubCategory = sp.subcategory;
+            string propertyData = sp.data;
+            string propertyURL = sp.url;
+
+            responseItem.push_back(Pair("propertyid", propertyId));
+            responseItem.push_back(Pair("name", propertyName));
+            responseItem.push_back(Pair("category", propertyCategory));
+            responseItem.push_back(Pair("subcategory", propertySubCategory));
+            responseItem.push_back(Pair("data", propertyData));
+            responseItem.push_back(Pair("url", propertyURL));
+            responseItem.push_back(Pair("divisible", divisible));
+
+            response.push_back(responseItem);
+        }
+    }
+return response;
 }
 
 Value getcrowdsale_MP(const Array& params, bool fHelp)

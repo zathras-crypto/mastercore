@@ -323,6 +323,7 @@ static const CRPCCommand vRPCCommands[] =
     { "gettransaction_MP",      &gettransaction_MP,      false,     false,      true },
     { "listtransactions_MP",    &listtransactions_MP,    false,     false,      true },
     { "getproperty_MP",         &getproperty_MP,         false,     false,      true },
+    { "listproperties_MP",      &listproperties_MP,      false,     false,      true },
     { "getcrowdsale_MP",        &getcrowdsale_MP,        false,     false,      true },
     { "getactivecrowdsales_MP", &getactivecrowdsales_MP, false,     false,      true },
     { "sendtoowners_MP",                &sendtoowners_MP,                false,     false,      true },
