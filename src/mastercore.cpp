@@ -933,8 +933,8 @@ bool isCrowdsaleActive(unsigned int propertyId)
 }
 
 //go hunting for whether a simple send is a crowdsale purchase
-//find a more efficient way to do this
-bool isCrowdsalePurchase(uint256 txid, string address, unsigned int *propertyId = NULL, int64_t *userTokens = NULL)
+//TODO !!!! horribly inefficient !!!! find a more efficient way to do this
+bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NULL, int64_t *userTokens = NULL)
 {
 //1. loop crowdsales (active/non-active) looking for issuer address
 //2. loop those crowdsales for that address and check their participant txs in database
@@ -950,7 +950,8 @@ bool isCrowdsalePurchase(uint256 txid, string address, unsigned int *propertyId 
       for(it = database.begin(); it != database.end(); it++)
       {
           string tmpTxid = it->first; //uint256 txid = it->first;
-     //     if (tmpTxid == txid) xtring to uint256 comparison
+          string compTxid = txid.GetHex().c_str(); //convert to string to compare since this is how stored in levelDB
+          if (tmpTxid == compTxid) 
           {
               int64_t tmpUserTokens = it->second.at(2);
               *propertyId = foundPropertyId;
@@ -961,8 +962,58 @@ bool isCrowdsalePurchase(uint256 txid, string address, unsigned int *propertyId 
    }
 
    //if we still haven't found txid, check non active crowdsales to this address
-   //std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
-   
+   int64_t tmpPropertyId;
+   unsigned int nextSPID = _my_sps->peekNextSPID(1);
+   unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
+
+   for (tmpPropertyId = 1; tmpPropertyId<nextSPID; tmpPropertyId++)
+   {
+       CMPSPInfo::Entry sp;
+       if (false != _my_sps->getSP(tmpPropertyId, sp))
+       {
+           if (sp.issuer == address)
+           {
+               std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+               std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+               for(it = database.begin(); it != database.end(); it++)
+               {
+                   string tmpTxid = it->first; //uint256 txid = it->first;
+                   string compTxid = txid.GetHex().c_str(); //convert to string to compare since this is how stored in levelDB
+                   if (tmpTxid == compTxid)
+                   {
+                       int64_t tmpUserTokens = it->second.at(2);
+                       *propertyId = tmpPropertyId;
+                       *userTokens = tmpUserTokens;
+                       return true;
+                   }
+               }
+           }
+       }
+   }
+   for (tmpPropertyId = 2147483651; tmpPropertyId<nextTestSPID; tmpPropertyId++)
+   {
+       CMPSPInfo::Entry sp;
+       if (false != _my_sps->getSP(tmpPropertyId, sp))
+       {
+           if (sp.issuer == address)
+           {
+               std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+               std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+               for(it = database.begin(); it != database.end(); it++)
+               {
+                   string tmpTxid = it->first; //uint256 txid = it->first;
+                   string compTxid = txid.GetHex().c_str(); //convert to string to compare since this is how stored in levelDB
+                   if (tmpTxid == compTxid)
+                   {
+                       int64_t tmpUserTokens = it->second.at(2);
+                       *propertyId = tmpPropertyId;
+                       *userTokens = tmpUserTokens;
+                       return true;
+                   }
+               }
+           }
+       }
+   }
 
 //didn't find anything, not a crowdsale purchase
 return false;
@@ -2191,6 +2242,8 @@ public:
 
   // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
   nNewValue = nValue;
+
+//  if nNewValue > 9223372036854775807 return 9064 // nvalue is over int64, invalidate 
 
   memcpy(&currency, &pkt[4], 4);
   swapByteOrder32(currency);
@@ -4641,6 +4694,12 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 unsigned char sell_subaction = 0;
                 uint64_t sell_btcdesired = 0;
 
+                bool crowdPurchase = false;
+                int64_t crowdPropertyId = 0;
+                int64_t crowdTokens = 0;
+                bool crowdDivisible = false;
+                string crowdName;
+
                 if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash]))
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
                 CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
@@ -4692,6 +4751,17 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                                amount = mp_obj.getAmount();
                                                showReference = true;
                                                //check crowdsale invest?
+                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens);
+                                               if (crowdPurchase)
+                                               {
+                                                  MPTxType = "Crowdsale Purchase";
+                                                  CMPSPInfo::Entry sp;
+                                                  if (false == _my_sps->getSP(crowdPropertyId, sp)) {
+                                                       throw JSONRPCError(RPC_INVALID_PARAMETER, "Exception: Crowdsale Purchase but Property ID does not exist");
+                                                  }
+                                                  crowdName = sp.name;
+                                                  crowdDivisible = sp.isDivisible();
+                                               } 
                                           }
                                      break;
                                      case MSC_TYPE_TRADE_OFFER:
@@ -4762,6 +4832,19 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         else
                         {
                                 txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                        }
+                        if (crowdPurchase)
+                        {
+                                txobj.push_back(Pair("purchasedpropertyid", crowdPropertyId));
+                                txobj.push_back(Pair("purchasedpropertyname", crowdName));
+                                if (crowdDivisible)
+                                {
+                                     txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                }
+                                else
+                                {
+                                     txobj.push_back(Pair("purchasedtokens", crowdTokens)); //indivisible, push raw 64
+                                }
                         }
                         if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
                         {
@@ -4853,6 +4936,12 @@ bool addressFilter;
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
                 if ((TestNet()) && (blockHeight < SOME_TESTNET_BLOCK)) continue;
 
+                bool crowdPurchase = false;
+                int64_t crowdPropertyId = 0;
+                int64_t crowdTokens = 0;
+                bool crowdDivisible = false;
+                string crowdName;
+
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
                 if (0 == parseTransaction(*pwtx, blockHeight, 0, &mp_obj))
@@ -4889,6 +4978,17 @@ bool addressFilter;
                                                amount = mp_obj.getAmount();
                                                showReference = true;
                                                //check crowdsale invest?
+                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens);
+                                               if (crowdPurchase)
+                                               {
+                                                  MPTxType = "Crowdsale Purchase";
+                                                  CMPSPInfo::Entry sp;
+                                                  if (false == _my_sps->getSP(crowdPropertyId, sp)) {
+                                                       throw JSONRPCError(RPC_INVALID_PARAMETER, "Exception: Crowdsale Purchase but Property ID does not exist");
+                                                  }
+                                                  crowdName = sp.name;
+                                                  crowdDivisible = sp.isDivisible();
+                                               }
                                           }
                                      break;
                                      case MSC_TYPE_TRADE_OFFER:
@@ -4971,6 +5071,19 @@ bool addressFilter;
                                 else
                                 {
                                         txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                                }
+                                if (crowdPurchase)
+                                {
+                                    txobj.push_back(Pair("purchasedpropertyid", crowdPropertyId));
+                                    txobj.push_back(Pair("purchasedpropertyname", crowdName));
+                                    if (crowdDivisible)
+                                    {
+                                        txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                    }
+                                    else
+                                    {
+                                        txobj.push_back(Pair("purchasedtokens", crowdTokens)); //indivisible, push raw 64
+                                    }
                                 }
                                 txobj.push_back(Pair("valid", valid));
                                 response.push_back(txobj);
