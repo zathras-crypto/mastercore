@@ -91,7 +91,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define DEX_ERROR_SELLOFFER (-10000)
 #define DEX_ERROR_ACCEPT    (-20000)
 #define DEX_ERROR_PAYMENT   (-30000)
-#define PKT_SP_ERROR        (-40000)
+#define PKT_ERROR_SP        (-40000)
 // Send To Owners
 #define PKT_ERROR_STO       (-50000)
 

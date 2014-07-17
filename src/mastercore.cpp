@@ -136,7 +136,7 @@ string str = "*unknown*";
   else
   switch (i)
   {
-    case 0: str = "BTC"; break;
+    case MASTERCOIN_CURRENCY_BTC: str = "BTC"; break;
     case MASTERCOIN_CURRENCY_MSC: str = "MSC"; break;
     case MASTERCOIN_CURRENCY_TMSC: str = "TMSC"; break;
     default: str = strprintf("SP token: %d", i);
@@ -1802,7 +1802,7 @@ public:
     {
       const char *p = step2_SmartProperty(step_rc);
       if (0>step_rc) return step_rc;
-      if (!p) return (PKT_SP_ERROR -11);
+      if (!p) return (PKT_ERROR_SP -11);
 
       step_rc = step3_sp_fixed(p);
 
@@ -1831,15 +1831,15 @@ public:
     {
       const char *p = step2_SmartProperty(step_rc);
       if (0>step_rc) return step_rc;
-      if (!p) return (PKT_SP_ERROR -12);
+      if (!p) return (PKT_ERROR_SP -12);
 
       step_rc = step3_sp_variable(p);
 
       // check if one exists for this address already !
-      if (NULL != getCrowd(sender)) return (PKT_SP_ERROR -20);
+      if (NULL != getCrowd(sender)) return (PKT_ERROR_SP -20);
 
       // must check that the desired currency exists in our universe
-      if (false == _my_sps->hasSP(currency)) return (PKT_SP_ERROR -30);
+      if (false == _my_sps->hasSP(currency)) return (PKT_ERROR_SP -30);
 
       if (0 == step_rc)
       {
@@ -1880,9 +1880,10 @@ public:
         if (msc_debug_sp) fprintf(mp_fp, "%s() trying to ERASE CROWDSALE for propid= %u=%X, line %d, file: %s\n",
          __FUNCTION__, currency, currency, __LINE__, __FILE__);
 
+        // ensure we are closing the crowdsale which we opened by checking the currency
         if ((it->second).getPropertyId() != currency)
         {
-          rc = (PKT_SP_ERROR -606);
+          rc = (PKT_ERROR_SP -606);
           break;
         }
 
@@ -1980,8 +1981,8 @@ public:
         }
       }
 
-      if (!bDivisible)fprintf(mp_fp, "\t >>>Total Tokens: %lu\n", totalTokens);
-      else fprintf(mp_fp, "\t >>>Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+      if (!bDivisible)fprintf(mp_fp, " Total Tokens Excluding Sender: %lu\n", totalTokens);
+      else fprintf(mp_fp, " Total Tokens Excluding Sender: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
 
       // loop #1 -- count the actual number of owners to receive the payment
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
@@ -2028,7 +2029,7 @@ public:
         owns = my_it->first;
         percentage = (double) owns / (double) totalTokens;
         piece = percentage * nValue;
-        should_receive = piece;
+        should_receive = rounduint64(piece);
 
         // ensure that much is still available
         if ((nValue - sent_so_far) < should_receive)
@@ -2039,6 +2040,8 @@ public:
         {
           will_really_receive = should_receive;
         }
+
+        sent_so_far += will_really_receive;
 
         fprintf(mp_fp, "%14lu = %s, percentage= %20.10lf, piece= %20.10lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
          owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
@@ -2051,14 +2054,22 @@ public:
 
         update_tally_map(address, currency, will_really_receive, MONEY);
 
-        sent_so_far += will_really_receive;
-
         if (sent_so_far >= nValue)
         {
           printf("%s() DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok; line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           break; // done here, everybody who could get paid got paid
         }
       }
+
+      // sent_so_far must equal nValue here
+      if (sent_so_far != nValue)
+      {
+        fprintf(mp_fp, "send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n",
+         sent_so_far, nValue, n_owners);
+
+        // rc = ???
+      }
+
       break;
     }
 
@@ -2146,7 +2157,7 @@ public:
   // valid values are 1 & 2
   if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem))
   {
-    error_code = (PKT_SP_ERROR -501);
+    error_code = (PKT_ERROR_SP -501);
     return NULL;
   }
 
@@ -2165,7 +2176,7 @@ public:
   // only 1 & 2 are valid right now
   if ((MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type) && (MSC_PROPERTY_TYPE_DIVISIBLE != prop_type))
   {
-    error_code = (PKT_SP_ERROR -502);
+    error_code = (PKT_ERROR_SP -502);
     return NULL;
   }
 
@@ -2196,24 +2207,24 @@ public:
 
   if ((MASTERCOIN_CURRENCY_MSC == ecosystem) && (MSC_SP_BLOCK > block))
   {
-    error_code = (PKT_SP_ERROR -503);
+    error_code = (PKT_ERROR_SP -503);
     return NULL;
   }
 
   // name can not be NULL
   if ('\0' == name[0])
   {
-    error_code = (PKT_SP_ERROR -505);
+    error_code = (PKT_ERROR_SP -505);
     return NULL;
   }
 
   (void) isOverrun(p, __LINE__);
-  if (!p) error_code = (PKT_SP_ERROR -510);
+  if (!p) error_code = (PKT_ERROR_SP -510);
   (void) isOverrun(p, __LINE__);
 
   if (isOverrun(p, __LINE__))
   {
-    error_code = (PKT_SP_ERROR -800);
+    error_code = (PKT_ERROR_SP -800);
     return NULL;
   }
 
@@ -2222,7 +2233,7 @@ public:
 
  int step3_sp_fixed(const char *p)
  {
-  if (!p) return (PKT_SP_ERROR -1);
+  if (!p) return (PKT_ERROR_SP -1);
 
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
@@ -2234,23 +2245,23 @@ public:
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu\n", nValue);
-    if (0 == nValue) return (PKT_SP_ERROR -101);
+    if (0 == nValue) return (PKT_ERROR_SP -101);
   }
   else
   if (MSC_PROPERTY_TYPE_DIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
-    if (0 == nValue) return (PKT_SP_ERROR -102);
+    if (0 == nValue) return (PKT_ERROR_SP -102);
   }
 
-  if (isOverrun(p, __LINE__)) return (PKT_SP_ERROR -900);
+  if (isOverrun(p, __LINE__)) return (PKT_ERROR_SP -900);
 
   return 0;
  }
 
  int step3_sp_variable(const char *p)
  {
-  if (!p) return (PKT_SP_ERROR -1);
+  if (!p) return (PKT_ERROR_SP -1);
 
   (void) isOverrun(p, __LINE__);
 
@@ -2270,13 +2281,13 @@ public:
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu\n", nValue);
-    if (0 == nValue) return (PKT_SP_ERROR -201);
+    if (0 == nValue) return (PKT_ERROR_SP -201);
   }
   else
   if (MSC_PROPERTY_TYPE_DIVISIBLE == prop_type)
   {
     fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
-    if (0 == nValue) return (PKT_SP_ERROR -202);
+    if (0 == nValue) return (PKT_ERROR_SP -202);
   }
 
   memcpy(&deadline, p, 8);
@@ -2286,10 +2297,10 @@ public:
 
   (void) isOverrun(p, __LINE__);
 
-  if (!deadline) return (PKT_SP_ERROR -203);  // deadline can not be 0
+  if (!deadline) return (PKT_ERROR_SP -203);  // deadline cannot be 0
 
   // deadline can not be smaller than the timestamp of the current block
-  if (deadline < (uint64_t)blockTime) return (PKT_SP_ERROR -204);
+  if (deadline < (uint64_t)blockTime) return (PKT_ERROR_SP -204);
 
   (void) isOverrun(p, __LINE__);
 
@@ -2299,7 +2310,7 @@ public:
   memcpy(&percentage, p++, 1);
   fprintf(mp_fp, "\t      Percentage: %u\n", percentage);
 
-  if (isOverrun(p, __LINE__)) return (PKT_SP_ERROR -765);
+  if (isOverrun(p, __LINE__)) return (PKT_ERROR_SP -765);
 
   return 0;
  }
@@ -3640,8 +3651,8 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  unsigned int nextSPID = _my_sps->peekNextSPID(1);
-  unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
+  unsigned int nextSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_MSC);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_TMSC);
   string lineOut = (boost::format("%d,%d,%d")
     % exodus_prev
     % nextSPID
