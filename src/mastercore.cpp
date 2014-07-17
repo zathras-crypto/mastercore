@@ -5262,7 +5262,28 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     int64_t tokensIssued = getTotalTokens(propertyId);
     int64_t tokensPerUnit = sp.num_tokens;
     int64_t propertyIdDesired = sp.currency_desired;
-    std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+    std::map<std::string, std::vector<uint64_t> > database;
+
+    if (active)
+    {
+          bool crowdFound = false;
+          for(CrowdMap::const_iterator it = my_crowds.begin(); it != my_crowds.end(); ++it)
+          {
+              CMPCrowd crowd = it->second;
+              int64_t tmpPropertyId = crowd.getPropertyId();
+              if (tmpPropertyId == propertyId)
+              {
+                  crowdFound = true;
+                  crowd.getDatabase();
+              }
+          }
+          if (!crowdFound)
+                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: crowdsale is flagged active but cannot be found in CrowdMap");
+    }
+    else
+    {
+        database = sp.txFundraiserData;
+    }
 
     fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.txFundraiserData.size() ); 
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
@@ -5437,9 +5458,6 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               response.push_back(responseObj);
           }
       }
-
-
-//(it->second).print(it->first);
 
 return response;
 }
