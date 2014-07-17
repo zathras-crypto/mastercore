@@ -1805,6 +1805,7 @@ public:
       if (!p) return (PKT_ERROR_SP -11);
 
       step_rc = step3_sp_fixed(p);
+      if (0>step_rc) return step_rc;
 
       if (0 == step_rc)
       {
@@ -1834,6 +1835,7 @@ public:
       if (!p) return (PKT_ERROR_SP -12);
 
       step_rc = step3_sp_variable(p);
+      if (0>step_rc) return step_rc;
 
       // check if one exists for this address already !
       if (NULL != getCrowd(sender)) return (PKT_ERROR_SP -20);
@@ -2123,6 +2125,11 @@ public:
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
   fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
 
+  if (MAX_INT_8_BYTES < nValue)
+  {
+    return (PKT_ERROR -801);  // out of bounds
+  }
+
   return 0;
  }
 
@@ -2254,6 +2261,11 @@ public:
     if (0 == nValue) return (PKT_ERROR_SP -102);
   }
 
+  if (MAX_INT_8_BYTES < nValue)
+  {
+    return (PKT_ERROR -802);  // out of bounds
+  }
+
   if (isOverrun(p, __LINE__)) return (PKT_ERROR_SP -900);
 
   return 0;
@@ -2288,6 +2300,11 @@ public:
   {
     fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
     if (0 == nValue) return (PKT_ERROR_SP -202);
+  }
+
+  if (MAX_INT_8_BYTES < nValue)
+  {
+    return (PKT_ERROR -803);  // out of bounds
   }
 
   memcpy(&deadline, p, 8);

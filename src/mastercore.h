@@ -9,6 +9,10 @@
 #include "netbase.h"
 #include "protocol.h"
 
+// could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
+// maximum numeric values from the spec: 
+#define MAX_INT_8_BYTES (9223372036854775807)
+
 // what should've been in the Exodus address for this block if none were spent
 #define DEV_MSC_BLOCK_290629 (1743358325718)
 
