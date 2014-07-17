@@ -5308,7 +5308,14 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     response.push_back(Pair("active", active));
     response.push_back(Pair("issuer", issuer));
     response.push_back(Pair("propertyiddesired", propertyIdDesired));
-    response.push_back(Pair("tokensperunit", tokensPerUnit));
+    if (divisible)
+    {
+        response.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+    }
+    else
+    {
+        response.push_back(Pair("tokensperunit", tokensPerUnit));
+    }
     response.push_back(Pair("earlybonus", earlyBonus));
     response.push_back(Pair("percenttoissuer", percentToIssuer));
     response.push_back(Pair("starttime", startTime));
@@ -5338,6 +5345,90 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     {
         response.push_back(Pair("participanttransactions", participanttxs));
     }
+return response;
+}
+
+Value getactivecrowdsales_MP(const Array& params, bool fHelp)
+{
+   if (fHelp)
+        throw runtime_error(
+            "getactivecrowdsales_MP\n"
+            "\nGet active crowdsales\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"name\" : \"PropertyName\",     (string) the property name\n"
+            "  \"issuer\" : \"1Address\",     (string) the issuer address\n"
+            "  \"creationtxid\" : \"txid\",     (string) the transaction that created the crowdsale\n"
+            "  \"propertyiddesired\" : x,     (numeric) the property ID desired\n"
+            "  \"tokensperunit\" : x,     (numeric) the number of tokens awarded per unit\n"
+            "  \"earlybonus\" : x,     (numeric) the percentage per week early bonus applied\n"
+            "  \"percenttoissuer\" : x,     (numeric) the percentage awarded to the issuer\n"
+            "  \"starttime\" : xxx,     (numeric) the start time of the crowdsale\n"
+            "  \"deadline\" : xxx,     (numeric) the time the crowdsale will automatically end\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getactivecrowdsales_MP", "")
+            + HelpExampleRpc("getactivecrowdsales_MP", "")
+        );
+
+      Array response;
+
+      for(CrowdMap::const_iterator it = my_crowds.begin(); it != my_crowds.end(); ++it)
+      {
+          CMPCrowd crowd = it->second;
+          CMPSPInfo::Entry sp;
+          bool spFound = _my_sps->getSP(crowd.getPropertyId(), sp);
+          int64_t propertyId = crowd.getPropertyId();
+          if (spFound)
+          {
+              Object responseObj;
+
+              uint256 creationHash = sp.txid;
+
+              CTransaction tx;
+              uint256 hashBlock = 0;
+              if (!GetTransaction(creationHash, tx, hashBlock, true))
+                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+
+              if ((0 == hashBlock) || (NULL == mapBlockIndex[hashBlock]))
+                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
+
+              bool divisible = false;
+              divisible=sp.isDivisible();
+              string propertyName = sp.name;
+              int64_t startTime = mapBlockIndex[hashBlock]->nTime;
+              int64_t deadline = sp.deadline;
+              int8_t earlyBonus = sp.early_bird;
+              int8_t percentToIssuer = sp.percentage;
+              string issuer = sp.issuer;
+              int64_t tokensPerUnit = sp.num_tokens;
+              int64_t propertyIdDesired = sp.currency_desired;
+
+              responseObj.push_back(Pair("propertyid", propertyId));
+              responseObj.push_back(Pair("name", propertyName));
+              responseObj.push_back(Pair("issuer", issuer));
+              responseObj.push_back(Pair("propertyiddesired", propertyIdDesired));
+              if (divisible)
+              {
+                  responseObj.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+              }
+              else
+              {
+                  responseObj.push_back(Pair("tokensperunit", tokensPerUnit));
+              }
+              responseObj.push_back(Pair("earlybonus", earlyBonus));
+              responseObj.push_back(Pair("percenttoissuer", percentToIssuer));
+              responseObj.push_back(Pair("starttime", startTime));
+              responseObj.push_back(Pair("deadline", deadline));
+
+              response.push_back(responseObj);
+          }
+      }
+
+
+//(it->second).print(it->first);
+
 return response;
 }
 
