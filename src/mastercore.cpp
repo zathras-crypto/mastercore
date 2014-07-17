@@ -1788,12 +1788,6 @@ public:
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
             update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
           }
-          else
-          {
-            // NULL pointer, but the simple send is valid otherwise
-            // oops, this is unneeded ????
-          }
-
         }
       }
 
@@ -1950,6 +1944,7 @@ public:
         update_tally_map(sender, id, nValue, MONEY);
       }
 
+      rc = 0;
       break;
     }
 
@@ -1990,6 +1985,7 @@ public:
         fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
       }
 
+      rc = 0;
       break;
     }
 
