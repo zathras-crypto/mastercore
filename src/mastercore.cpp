@@ -1534,7 +1534,7 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     double createdTokens;
 
     //if indiv or div, do different truncation
-    if( 2 == propType ) {
+    if( MSC_PROPERTY_TYPE_DIVISIBLE == propType ) {
       //calculate tokens
       createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
       
@@ -4783,7 +4783,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                           if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
                                      break;
                                      case MSC_TYPE_ACCEPT_OFFER_BTC:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -4795,7 +4795,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
                                      case  MSC_TYPE_SEND_TO_OWNERS:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -5003,7 +5003,7 @@ bool addressFilter;
                                           if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
                                      break;
                                      case MSC_TYPE_ACCEPT_OFFER_BTC:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -5015,7 +5015,7 @@ bool addressFilter;
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
                                      case  MSC_TYPE_SEND_TO_OWNERS:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
