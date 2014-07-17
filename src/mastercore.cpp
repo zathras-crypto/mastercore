@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_DIV_HACK & others here - used for Unit Testing only !
-#define MY_DIV_HACK
+// #define MY_DIV_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
