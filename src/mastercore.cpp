@@ -366,7 +366,7 @@ private:
 
   uint256 txid;  // NOTE: not persisted as it doesnt seem used
 
-  std::map<std::string, std::vector<uint64_t> > database;
+  std::map<std::string, std::vector<uint64_t> > txFundraiserData;  // schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
 public:
   CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
   {
@@ -388,8 +388,8 @@ public:
   uint64_t getUserCreated() const { return u_created; }
   uint64_t getIssuerCreated() const { return i_created; }
 
-  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { database.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
-  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return database; }
+  void insertDatabase(std::string txhash, std::vector<uint64_t> txdata ) { txFundraiserData.insert(std::make_pair<std::string, std::vector<uint64_t>& >(txhash,txdata)); }
+  std::map<std::string, std::vector<uint64_t> > getDatabase() const { return txFundraiserData; }
 
   void print(const string & address, FILE *fp = stdout) const
   {
@@ -414,7 +414,7 @@ public:
 
     // append N pairs of address=nValue;blockTime for the database
     std::map<std::string, std::vector<uint64_t> >::const_iterator iter;
-    for (iter = database.begin(); iter != database.end(); ++iter) {
+    for (iter = txFundraiserData.begin(); iter != txFundraiserData.end(); ++iter) {
       lineOut.append((boost::format(",%s=") % (*iter).first).str());
       std::vector<uint64_t> const &vals = (*iter).second;
 
@@ -462,7 +462,7 @@ public:
     uint256 txid;
     bool fixed;
 
-    std::map<std::string, std::vector<uint64_t> > database;
+    std::map<std::string, std::vector<uint64_t> > txFundraiserData; // schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
     
     Entry()
     : issuer()
@@ -480,7 +480,7 @@ public:
     , percentage(0)
     , txid()
     , fixed(false)
-    , database()
+    , txFundraiserData()
     {
     }
 
@@ -504,14 +504,16 @@ public:
         spInfo.push_back(Pair("percentage", (int)percentage));
       }
 
-      #include <boost/lexical_cast.hpp>
+      //Initialize values
       std::map<std::string, std::vector<uint64_t> >::const_iterator it;
       
       std::string values_long = "";
       std::string values = "";
 
-      fprintf(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
-      for(it = database.begin(); it != database.end(); it++) {
+      //fprintf(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
+
+      //Iterate through fundraiser data, serializing it with txid:val:val:val:val;
+      for(it = txFundraiserData.begin(); it != txFundraiserData.end(); it++) {
          values += it->first.c_str();
          values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
          values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
@@ -520,9 +522,9 @@ public:
          values += ";";
          values_long += values;
       }
-      fprintf(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
+      //fprintf(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
 
-      spInfo.push_back(Pair("database", values_long)); //need map here);
+      spInfo.push_back(Pair("txFundraiserData", values_long)); 
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
 
       return spInfo;
@@ -549,23 +551,25 @@ public:
       }
 
       //reconstruct database
-      #include <boost/algorithm/string.hpp>
       std::string longstr = json[idx++].value_.get_str();
       
-      fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
+      //fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
       
       std::vector<std::string> strngs_vec;
-
+      
+      //split serialized form up
       boost::split(strngs_vec, longstr, boost::is_any_of(";"));
 
-      fprintf(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
+      //fprintf(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
+      
+      //Go through and deserialize the database
       for(std::vector<std::string>::size_type i = 0; i != strngs_vec.size(); i++) {
         
         std::vector<std::string> str_split_vec;
         boost::split(str_split_vec, strngs_vec[i], boost::is_any_of(":"));
 
         if ( str_split_vec.size() == 5) {
-          fprintf(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
+          //fprintf(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
           uint64_t txdata[] = { 
             boost::lexical_cast<uint64_t>( str_split_vec.at(1) ), 
             boost::lexical_cast<uint64_t>( str_split_vec.at(2) ), 
@@ -574,10 +578,10 @@ public:
           };
           
           std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
-          database.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
+          txFundraiserData.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
         }
       }
-      fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
+      //fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
     }
 
@@ -694,17 +698,8 @@ public:
     string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
     string txValue = (boost::format("%d") % propertyID).str();
 
-    // sanity checking
-    string existingEntry;
-    leveldb::ReadOptions readOpts;
-    readOpts.fill_cache = true;
-    if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING SP %u TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
-    } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %u IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
-    }
-
-    fprintf(mp_fp,"\nSP UPDATE SUCCESS");
+    fprintf(mp_fp,"\nUpdated LevelDB with SP data successfully\n");
+    
     // atomically write both the the SP and the index to the database
     leveldb::WriteOptions writeOptions;
     writeOptions.sync = true;
@@ -1410,47 +1405,67 @@ FILE *fp = fopen("/tmp/dead.log", "a");
 // numProps: number of properties
 // issuerPerc: percentage of tokens to issuer
 int calculateFractional(unsigned short int propType, unsigned char bonusPerc, uint64_t fundraiserSecs, 
-  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > database, 
+  uint64_t numProps, unsigned char issuerPerc, const std::map<std::string, std::vector<uint64_t> > txFundraiserData, 
   const uint64_t amountPremined  )
 {
 
+  //initialize variables
   double totalCreated = 0;
   double issuerPercentage = (double) (issuerPerc * 0.01);
 
   std::map<std::string, std::vector<uint64_t> >::const_iterator it;
 
-  for(it = database.begin(); it != database.end(); it++) {
+  //iterate through fundraiser data
+  for(it = txFundraiserData.begin(); it != txFundraiserData.end(); it++) {
 
+    // grab the seconds and amt transferred from this tx
     uint64_t currentSecs = it->second.at(1);
     double amtTransfer = it->second.at(0);
 
+    //make calc for bonus given in sec
     uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   
+    //turn it into weeks
     double weeks = bonusSeconds / (double) 604800;
+    
+    //make it a %
     double ebPercentage = weeks * bonusPerc;
     double bonusPercentage = ( ebPercentage / 100 ) + 1;
   
+    //init var
     double createdTokens;
 
+    //if indiv or div, do different truncation
     if( 2 == propType ) {
+      //calculate tokens
       createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
+      
       //printf("prop 2: is %Lf, and %Lf \n", createdTokens, issuerTokens);
+      
+      //add totals up
       totalCreated += createdTokens;
     } else {
       //printf("amount xfer %Lf and props %f and bonus percs %Lf \n", amtTransfer, (double) numProps, bonusPercentage);
+      
+      //same here
       createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
+      
       totalCreated += createdTokens;
     }
   };
 
+  // calculate premine
   double totalPremined = totalCreated * issuerPercentage;
   double missedTokens;
 
+  // calculate based on div/indiv, truncation/not
   if( 2 == propType ) {
     missedTokens = totalPremined - amountPremined;
   } else {
     missedTokens = (uint64_t) (totalPremined - amountPremined);
   }
+
+  //return value
   return missedTokens;
 }
 
@@ -1473,13 +1488,15 @@ CrowdMap::iterator my_it = my_crowds.begin();
       // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
       
-      fprintf(mp_fp,"\n got to at least before cFrac");
       // Begin calculate Fractional 
       CMPSPInfo::Entry sp;
+      
+      //get sp from data struct
       _my_sps->getSP(crowd.getPropertyId(), sp);
 
-      fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
+      //fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
+      //find missing tokens
       double missedTokens = calculateFractional(sp.prop_type,
                           sp.early_bird,
                           sp.deadline,
@@ -1489,12 +1506,15 @@ CrowdMap::iterator my_it = my_crowds.begin();
                           crowd.getIssuerCreated());
 
 
-      fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+      //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
-      sp.database = crowd.getDatabase();
+      //get txdata
+      sp.txFundraiserData = crowd.getDatabase();
 
+      //update SP with this data
       _my_sps->updateSP(crowd.getPropertyId() , sp);
 
+      //update values
       update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
       //End
                      
@@ -1509,15 +1529,21 @@ CrowdMap::iterator my_it = my_crowds.begin();
   return how_many_erased;
 }
 
+//calculateFundraiser does token calculations per transaction
+//calcluateFractional does calculations for missed tokens
 void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
   
+  //see calculateFractional() for more info
+
+  //calc bonus in sec
   uint64_t bonusSeconds = fundraiserSecs - currentSecs;
 
   //printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
 
+  //turn it into weeks and %
   double weeks = bonusSeconds / (double) 604800;
   double ebPercentage = weeks * bonusPerc;
   double bonusPercentage = ( ebPercentage / 100 ) + 1;
@@ -1526,24 +1552,30 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 
   double issuerPercentage = (double) (issuerPerc * 0.01);
 
+  //init more values
   double createdTokens;
   double issuerTokens;
 
   //printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
   //bonusSeconds, bonusPercentage, issuerPercentage);
   
+  //indiv vs div calcs, one truncated 
   if( 2 == propType ) {
+    //get tokens created and issued
     createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
     issuerTokens = createdTokens * issuerPercentage;
     //printf("prop div 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
 
+    //add to tokens struct
     tokens = std::make_pair(createdTokens, issuerTokens);
 
   } else {
+    //calculate tokens created and issued
     createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
     //fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
 
+    //add to tokens struct
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
   }
 }
@@ -1705,12 +1737,15 @@ public:
           
           if (spFound)
           {
+            //init this struct
             std::pair <uint64_t,uint64_t> tokens;
             
+            //get txid
             string sp_txid =  sp.txid.GetHex().c_str();
 
-            fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
+            //fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
 
+            // calc tokens per this fundraise
             calculateFundraiser(sp.prop_type,         //u short
                                 nValue,               // u int 64
                                 sp.early_bird,        // u char
@@ -1720,30 +1755,32 @@ public:
                                 sp.percentage,        // u char
                                 tokens );
 
-            fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            //fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
+            //dead code? nothing uses this AFAIK
             crowd->incTokensUserCreated(tokens.first);
             crowd->incTokensIssuerCreated(tokens.second);
             
-            fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            //fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
+            //init data to pass to txFundraiserData
             uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
             
             std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
 
+            //insert data
             crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
-            //need to add txid to CMPSP database
 
-            fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+            //fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
+            //update sender/rec
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
-
             update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
           }
           else
           {
             // NULL pointer, but the simple send is valid otherwise
-            // oops, this is unneeded
+            // oops, this is unneeded ????
           }
 
         }
@@ -1973,7 +2010,7 @@ public:
         CMPSPInfo::Entry sp;
         _my_sps->getSP(crowd.getPropertyId(), sp);
 
-        fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
+        //fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
         double missedTokens = calculateFractional(sp.prop_type,
                             sp.early_bird,
@@ -1983,9 +2020,9 @@ public:
                             crowd.getDatabase(),
                             crowd.getIssuerCreated());
 
-        fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+        //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
         
-        sp.database = crowd.getDatabase();
+        sp.txFundraiserData = crowd.getDatabase();
         
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
@@ -5048,7 +5085,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         int64_t totalTokens = getTotalTokens(propertyId); //only valid for TX50, TODO TX51 loop map to calculate
         string issuer = sp.issuer;
         bool fixedIssuance = sp.fixed;
-        std::map<std::string, std::vector<uint64_t> > database = sp.database;
+        std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
 
 //  uint64_t getValue() const { return nValue; }
         response.push_back(Pair("name", propertyName));
@@ -5064,7 +5101,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         std::map<std::string, std::vector<uint64_t> >::const_iterator it;
         Object jsonArr;
 
-        fprintf(mp_fp," SIZE OF DB %lu", sp.database.size() ); 
+        fprintf(mp_fp," SIZE OF DB %lu", sp.txFundraiserData.size() ); 
         for(it = database.begin(); it != database.end(); it++) {
           
           jsonArr.push_back(Pair(it->first.c_str(), Array(it->second.begin(),it->second.end()) ));
@@ -5213,9 +5250,9 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     int64_t tokensIssued = getTotalTokens(propertyId);
     int64_t tokensPerUnit = sp.num_tokens;
     int64_t propertyIdDesired = sp.currency_desired;
-    std::map<std::string, std::vector<uint64_t> > database = sp.database;
+    std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
 
-    fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.database.size() ); 
+    fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.txFundraiserData.size() ); 
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
