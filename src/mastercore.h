@@ -14,7 +14,7 @@
 
 #define SP_STRING_FIELD_LEN 256
 
-// in Mastercoin Satoshis (Willets)
+// in Mastercoin Satoshis (Willetts)
 #define TRANSFER_FEE_PER_OWNER  (1)
 
 // some boost formats

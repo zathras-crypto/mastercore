@@ -51,8 +51,8 @@
 
 #include <openssl/sha.h>
 
-// comment out MY_SP_HACK & others here - used for Unit Testing only !
-// #define MY_SP_HACK
+// comment out MY_DIV_HACK & others here - used for Unit Testing only !
+// #define MY_DIV_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -102,7 +102,12 @@ static int InvalidCount_per_spec = 0; // consolidate error messages into a nice 
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disableLevelDB = 0;
+
+#ifdef  MY_DIV_HACK
+static int disable_Persistence = 1;
+#else
 static int disable_Persistence = 0;
+#endif
 
 static int mastercoreInitialized = 0;
 
@@ -837,8 +842,8 @@ CMPSPInfo::Entry sp;
 }
 
 // get total tokens for a property
-// optionally counters the number of addresses who own that property: n_owners
-int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners = NULL)
+// optionally counters the number of addresses who own that property: n_owners_total
+int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL)
 {
 int64_t prev = 0, owners = 0;
 
@@ -850,7 +855,7 @@ int64_t prev = 0, owners = 0;
   int64_t totalTokens = 0;
   bool fixedIssuance = property.fixed;
 
-  if (!fixedIssuance || n_owners)
+  if (!fixedIssuance || n_owners_total)
   {
       for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
       {
@@ -872,7 +877,7 @@ int64_t prev = 0, owners = 0;
       totalTokens = property.total_tokens; //only valid for TX50
   }
 
-  if (n_owners) *n_owners = owners;
+  if (n_owners_total) *n_owners_total = owners;
 
   return totalTokens;
 }
@@ -1490,6 +1495,18 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  class SendToOwners_compare
+  {
+  public:
+
+    bool operator()(pair<long, string> p1, pair < long, string> p2) const
+    {
+//      if (p1.first == p2.first) return p1.second < p2.second;
+      if (p1.first == p2.first) return p1.second > p2.second; // reverse check
+      else return p1.first < p2.first;
+    }
+  };
+
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
@@ -1912,15 +1929,11 @@ public:
       }
 
       // totalTokens will be 0 for non-existing currency
-      int64_t owners = 0, totalTokens = getTotalTokens(currency, &owners);
-      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * owners;
+      int64_t totalTokens = getTotalTokens(currency);
       bool bDivisible = isPropertyDivisible(currency);
 
       if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
       else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
-
-      fprintf(mp_fp, "\t          Owners: %lu\n", owners);
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
       if (0 >= totalTokens)
       {
@@ -1928,18 +1941,65 @@ public:
         break;
       }
 
+      // does the sender have enough of the property he's trying to "Send To Owners" ?
       if (getMPbalance(sender, currency, MONEY) < nValue)
       {
         rc = (PKT_ERROR_STO -3);
         break;
       }
 
-      // make sure there is more than 1 owner (ourselves), otherwise this TX is invalid
-      if (1 < owners)
+      totalTokens = 0;
+      int64_t n_owners = 0;
+
+      typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
+//      typedef set<pair<int64_t, string> > OwnerAddrType;
+      OwnerAddrType OwnerAddrSet;
+
+      {
+        for(map<string, CMPTally>::reverse_iterator my_it = mp_tally_map.rbegin(); my_it != mp_tally_map.rend(); ++my_it)
+        {
+          const string address = (my_it->first).c_str();
+
+          // do not count the sender
+          if (address == sender) continue;
+
+          // do not count the Exodus either
+//          if (address == exodus) continue;
+
+          int64_t tokens = 0;
+
+          tokens += getMPbalance(address, currency, MONEY);
+          tokens += getMPbalance(address, currency, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, currency, ACCEPT_RESERVE);
+
+          if (tokens)
+          {
+            OwnerAddrSet.insert(make_pair(tokens, address));
+            totalTokens += tokens;
+          }
+        }
+      }
+
+      if (!bDivisible)fprintf(mp_fp, "\t >>>Total Tokens: %lu\n", totalTokens);
+      else fprintf(mp_fp, "\t >>>Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+
+      // loop #1 -- count the actual number of owners to receive the payment
+      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
+      {
+        n_owners++;
+        printf("#%ld: %lu = %s\n", n_owners, (my_it->first), (my_it->second).c_str());
+      }
+
+      fprintf(mp_fp, "\t          Owners: %lu\n", n_owners);
+
+      // make sure we found some owners
+      if (0 >= n_owners)
       {
         rc = (PKT_ERROR_STO -4);
         break;
       }
+      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
       // enough Mastercoins to pay the fee?
       if (getMPbalance(sender, MASTERCOIN_CURRENCY_MSC, MONEY) < nXferFee)
@@ -1948,24 +2008,57 @@ public:
         break;
       }
 
-      // get the internal loop out of getTotalTokens(), build a sorted list from high to low
-      // 
-
-      // split up what was taken and distribute between all holders
-      // TODO: ...
-      // ...
-      // ...
-      // ...
-
-/*
-      // incremental take from the payer and give to owner(s)
-      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      // burn Mastercoins here: take the transfer fee away from the sender
+      if (!update_tally_map(sender, MASTERCOIN_CURRENCY_MSC, - nXferFee, MONEY))
       {
-        rc = (PKT_ERROR_STO -1);
+        // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
+        rc = (PKT_ERROR_STO -500);
         break;
       }
-*/
 
+      // loop #2
+      // split up what was taken and distribute between all holders
+      uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
+      double percentage, piece;
+      rc = 0; // almost good, the for-loop will set the error code
+      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
+      {
+      const string address = my_it->second;
+
+        owns = my_it->first;
+        percentage = (double) owns / (double) totalTokens;
+        piece = percentage * nValue;
+        should_receive = piece;
+
+        // ensure that much is still available
+        if ((nValue - sent_so_far) < should_receive)
+        {
+          will_really_receive = nValue - sent_so_far;
+        }
+        else
+        {
+          will_really_receive = should_receive;
+        }
+
+        fprintf(mp_fp, "%14lu = %s, percentage= %20.10lf, piece= %20.10lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
+         owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+
+        if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
+        {
+          rc = (PKT_ERROR_STO -1);
+          break;
+        }
+
+        update_tally_map(address, currency, will_really_receive, MONEY);
+
+        sent_so_far += will_really_receive;
+
+        if (sent_so_far >= nValue)
+        {
+          printf("%s() DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok; line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          break; // done here, everybody who could get paid got paid
+        }
+      }
       break;
     }
 
@@ -3088,7 +3181,7 @@ const int max_block = GetHeight();
     if (msc_debug1) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
     mastercore_handler_block_end(blockNum, pblockindex);
-#ifdef  MY_SP_HACK
+#ifdef  MY_DIV_HACK
 //    if (20 < n_found) break;
 #endif
   }
@@ -3762,7 +3855,7 @@ const bool bTestnet = TestNet();
 
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
 
-#ifdef  MY_SP_HACK     //
+#ifdef  MY_DIV_HACK     //
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
@@ -3773,14 +3866,14 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = 308500;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 
-    update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*10000, MONEY); // put some TMSC in, for my hack
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*100, MONEY);
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*100, MONEY);
-    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_MSC, COIN*500, MONEY);
-    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_TMSC, COIN*500, MONEY);
-    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*400, MONEY);
-    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*400, MONEY);
-    nWaterlineBlock = 300000;
+    update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*5678, MONEY); // put some TMSC in, for my hack
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_MSC, COIN*456, MONEY);
+    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_TMSC, COIN*567, MONEY);
+    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*678, MONEY);
+    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
+    nWaterlineBlock = 304000;
 #endif
 
     if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
