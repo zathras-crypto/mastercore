@@ -4791,15 +4791,16 @@ bool addressFilter;
                 uint256 wtxid = pwtx->GetHash();
                 bool bIsMine;
                 bool isMPTx = false;
+                unsigned int MPTxTypeInt;
                 string MPTxType;
                 string selectedAddress;
                 string senderAddress;
                 string refAddress;
                 bool valid;
-                uint64_t curId;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
+                uint64_t propertyId = 0;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
                 bool divisible;
-                bool selloffer = false;
-                uint64_t amount;
+                bool showReference = false;
+                uint64_t amount = 0;
                 string result;
                 bool outgoingTransaction = false;
                 int confirmations = pwtx->GetDepthInMainChain(); //what about conflicted (<0)? how will we display these?
@@ -4814,34 +4815,71 @@ bool addressFilter;
                 if ((TestNet()) && (blockHeight < SOME_TESTNET_BLOCK)) continue;
 
                 mp_obj.SetNull();
-                if (0 == parseTransaction(*pwtx, 0, 0, &mp_obj))
+                CMPOffer temp_offer;
+                if (0 == parseTransaction(*pwtx, blockHeight, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
                         {
-                                isMPTx = true;
                                 MPTxType = mp_obj.getTypeString();
+                                MPTxTypeInt = mp_obj.getType();
                                 senderAddress = mp_obj.getSender();
                                 refAddress = mp_obj.getReceiver();
-                                curId = mp_obj.getCurrency();
-                                divisible = true; // hard coded for now until SP support
-                                amount = mp_obj.getAmount(); // need to go to leveldb for selloffers and accepts
-                                if (MSC_TYPE_TRADE_OFFER == mp_obj.getType()) selloffer=true;
+                                isMPTx = true;
+
+                                int tmpblock=0;
+                                uint32_t tmptype=0;
+                                uint64_t amountNew=0;
+                                valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
+
+                                //populate based on type of tx
+                                switch (MPTxTypeInt)
+                                {
+                                     case MSC_TYPE_CREATE_PROPERTY_FIXED:
+                                          propertyId = _my_sps->findSPByTX(wtxid); // propertyId of created property (if valid)
+                                          amount = getTotalTokens(propertyId);
+                                     break;
+                                     case MSC_TYPE_CREATE_PROPERTY_VARIABLE:
+                                          propertyId = _my_sps->findSPByTX(wtxid); // propertyId of created property (if valid)
+                                          amount = 0; // crowdsale txs always create zero tokens
+                                     break;
+                                     case MSC_TYPE_SIMPLE_SEND:
+                                          if (0 == mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                               showReference = true;
+                                               //check crowdsale invest?
+                                          }
+                                     break;
+                                     case MSC_TYPE_TRADE_OFFER:
+                                          if (0 == mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                          }
+                                          if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
+                                     break;
+                                     case MSC_TYPE_ACCEPT_OFFER_BTC:
+                                          if (0 >= mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                               amount = mp_obj.getAmount();
+                                               showReference = true;
+                                          }
+                                          if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
+                                     break;
+                                     case MSC_TYPE_CLOSE_CROWDSALE:
+                                          propertyId = 0; // propertyId of Crowdsale Close
+                                     break;
+                                }
+                                divisible=isPropertyDivisible(propertyId);
                         }
                 }
 
                 // is this a MP transaction? switched to parsing rather than leveldb at Michael's request
                 if (isMPTx)
                 {
-
-                        // use master protocol functions for embedded MP message
-                        int tmpblock=0;
-                        uint32_t tmptype=0;
-                        uint64_t amountNew=0;
-
-                        valid=getValidMPTX(wtxid, &tmpblock, &tmptype, &amountNew);
-                        if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
-
                         // test sender and reference against ismine to determine which address is ours
                         // if both ours (eg sending to another address in wallet) use reference
                         bIsMine = IsMyAddress(senderAddress);
@@ -4863,7 +4901,7 @@ bool addressFilter;
                                 Object txobj;
                                 txobj.push_back(Pair("txid", wtxid.GetHex()));
                                 txobj.push_back(Pair("sendingaddress", senderAddress));
-                                if (!selloffer) txobj.push_back(Pair("referenceaddress", refAddress));
+                                if (showReference) txobj.push_back(Pair("referenceaddress", refAddress));
                                 if (outgoingTransaction)
                                 {
                                         txobj.push_back(Pair("direction", "out"));
@@ -4872,11 +4910,12 @@ bool addressFilter;
                                 {
                                         txobj.push_back(Pair("direction", "in"));
                                 }
+
                                 txobj.push_back(Pair("confirmations", confirmations));
                                 txobj.push_back(Pair("blocktime", blockTime));
                                 txobj.push_back(Pair("blockindex", blockIndex));
                                 txobj.push_back(Pair("type", MPTxType));
-                                txobj.push_back(Pair("currency", curId));
+                                txobj.push_back(Pair("propertyid", propertyId));
                                 txobj.push_back(Pair("divisible", divisible));
                                 if (divisible)
                                 {
