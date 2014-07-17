@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_DIV_HACK & others here - used for Unit Testing only !
-// #define MY_DIV_HACK
+#define MY_DIV_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -2031,7 +2031,7 @@ public:
         owns = my_it->first;
         percentage = (double) owns / (double) totalTokens;
         piece = percentage * nValue;
-        should_receive = rounduint64(piece);
+        should_receive = ceil(piece);
 
         // ensure that much is still available
         if ((nValue - sent_so_far) < should_receive)
