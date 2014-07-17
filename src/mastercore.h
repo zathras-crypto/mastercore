@@ -9,12 +9,16 @@
 #include "netbase.h"
 #include "protocol.h"
 
+// could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
+// maximum numeric values from the spec: 
+#define MAX_INT_8_BYTES (9223372036854775807)
+
 // what should've been in the Exodus address for this block if none were spent
 #define DEV_MSC_BLOCK_290629 (1743358325718)
 
 #define SP_STRING_FIELD_LEN 256
 
-// in Mastercoin Satoshis (Willets)
+// in Mastercoin Satoshis (Willetts)
 #define TRANSFER_FEE_PER_OWNER  (1)
 
 // some boost formats
@@ -91,7 +95,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define DEX_ERROR_SELLOFFER (-10000)
 #define DEX_ERROR_ACCEPT    (-20000)
 #define DEX_ERROR_PAYMENT   (-30000)
-#define PKT_SP_ERROR        (-40000)
+#define PKT_ERROR_SP        (-40000)
 // Send To Owners
 #define PKT_ERROR_STO       (-50000)
 
