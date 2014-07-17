@@ -5274,7 +5274,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
               if (tmpPropertyId == propertyId)
               {
                   crowdFound = true;
-                  crowd.getDatabase();
+                  database = crowd.getDatabase();
               }
           }
           if (!crowdFound)
