@@ -2127,7 +2127,7 @@ public:
 
   if (MAX_INT_8_BYTES < nValue)
   {
-    return (PKT_ERROR -801);  // out of bounds
+    return (PKT_ERROR -801);  // out of range
   }
 
   return 0;
@@ -2263,7 +2263,7 @@ public:
 
   if (MAX_INT_8_BYTES < nValue)
   {
-    return (PKT_ERROR -802);  // out of bounds
+    return (PKT_ERROR -802);  // out of range
   }
 
   if (isOverrun(p, __LINE__)) return (PKT_ERROR_SP -900);
@@ -2304,7 +2304,7 @@ public:
 
   if (MAX_INT_8_BYTES < nValue)
   {
-    return (PKT_ERROR -803);  // out of bounds
+    return (PKT_ERROR -803);  // out of range
   }
 
   memcpy(&deadline, p, 8);
