@@ -1995,6 +1995,7 @@ public:
         rc = (PKT_ERROR_STO -4);
         break;
       }
+
       uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
       fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
