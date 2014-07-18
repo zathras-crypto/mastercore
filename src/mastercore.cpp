@@ -666,7 +666,7 @@ public:
     pDb = NULL;
   }
 
-  void init(unsigned int nextSPID = 0x3UL, unsigned int nextTestSPID = 0x80000003UL )
+  void init(unsigned int nextSPID = 0x3UL, unsigned int nextTestSPID = TEST_ECO_PROPERTY_1)
   {
     next_spid = nextSPID;
     next_test_spid = nextTestSPID;
@@ -916,6 +916,13 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   return balance;
 }
 
+bool isTestEcosystemProperty(unsigned int property)
+{
+  if ((MASTERCOIN_CURRENCY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
+
+  return false;
+}
+
 bool isPropertyDivisible(unsigned int propertyId)
 {
 // TODO: is a lock here needed
@@ -995,7 +1002,7 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
            }
        }
    }
-   for (tmpPropertyId = 2147483651; tmpPropertyId<nextTestSPID; tmpPropertyId++)
+   for (tmpPropertyId = TEST_ECO_PROPERTY_1; tmpPropertyId<nextTestSPID; tmpPropertyId++)
    {
        CMPSPInfo::Entry sp;
        if (false != _my_sps->getSP(tmpPropertyId, sp))
@@ -2183,7 +2190,6 @@ public:
       int64_t n_owners = 0;
 
       typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
-//      typedef set<pair<int64_t, string> > OwnerAddrType;
       OwnerAddrType OwnerAddrSet;
 
       {
@@ -2233,15 +2239,28 @@ public:
       uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
       fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
-      // enough Mastercoins to pay the fee?
-      if (getMPbalance(sender, MASTERCOIN_CURRENCY_MSC, MONEY) < nXferFee)
+      // determine which currency the fee will be paid in
+      const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
+
+      // enough coins to pay the fee?
+      if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
       {
         rc = (PKT_ERROR_STO -5);
         break;
       }
 
-      // burn Mastercoins here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, MASTERCOIN_CURRENCY_MSC, - nXferFee, MONEY))
+      // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
+      if (feeCurrency == currency)
+      {
+        if (getMPbalance(sender, feeCurrency, MONEY) < (nValue + nXferFee))
+        {
+          rc = (PKT_ERROR_STO -55);
+          break;
+        }
+      }
+
+      // burn MSC or TMSC here: take the transfer fee away from the sender
+      if (!update_tally_map(sender, feeCurrency, - nXferFee, MONEY))
       {
         // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
         rc = (PKT_ERROR_STO -500);
@@ -2287,7 +2306,7 @@ public:
 
         if (sent_so_far >= nValue)
         {
-          printf("%s() DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok; line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          printf("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
           break; // done here, everybody who could get paid got paid
         }
       }
@@ -4547,9 +4566,10 @@ if (fHelp || params.size() != 3)
   int64_t tmpPropertyId = params[1].get_int64();
   if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
   unsigned int propertyId = int(tmpPropertyId);
 
-  if (propertyId < 2147483651) // restrict usage to test eco only
+  if (!isTestEcosystemProperty(propertyId)) // restrict usage to test eco only
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Send to owners restricted to test properties only in this build"); 
 
   CMPSPInfo::Entry sp;
@@ -5492,7 +5512,7 @@ Value listproperties_MP(const Array& params, bool fHelp)
     }
 
     unsigned int nextTestSPID = _my_sps->peekNextSPID(2);
-    for (propertyId = 2147483651; propertyId<nextTestSPID; propertyId++)
+    for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++)
     {
         CMPSPInfo::Entry sp;
         if (false != _my_sps->getSP(propertyId, sp))
