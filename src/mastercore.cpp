@@ -101,6 +101,8 @@ int msc_debug_sp    = 1;
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
+static int disable_Divs = 0;
+
 static int disableLevelDB = 0;
 
 #ifdef  MY_DIV_HACK
@@ -2156,6 +2158,8 @@ public:
     }
 
     case MSC_TYPE_SEND_TO_OWNERS:
+    if (disable_Divs) break;
+    else
     {
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
@@ -2237,10 +2241,11 @@ public:
       }
 
       uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu Mastercoins\n", nXferFee/COIN, nXferFee%COIN);
 
       // determine which currency the fee will be paid in
       const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
+
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
 
       // enough coins to pay the fee?
       if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
@@ -4147,10 +4152,14 @@ const bool bTestnet = TestNet();
     update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*5678, MONEY); // put some TMSC in, for my hack
     update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
     update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x80000009, COIN*345, MONEY);
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x8000003F, COIN*345, MONEY);
+    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x80000040, COIN*345, MONEY);
     update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_MSC, COIN*456, MONEY);
     update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_TMSC, COIN*567, MONEY);
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*678, MONEY);
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
+    update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
     nWaterlineBlock = 304000;
 #endif
 
