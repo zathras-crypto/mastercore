@@ -2858,10 +2858,9 @@ uint64_t txFee = 0;
   // So, send from 1Exodus to self may have multiple outputs in a Class A TX !!!
               return -1;
             }
-            
 
-            fprintf(mp_fp, "%s(block=%d, idx= %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
             fprintf(mp_fp, "____________________________________________________________________________________________________________________________________\n");
+            fprintf(mp_fp, "%s(block=%d, idx= %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
             if (msc_debug3) fprintf(mp_fp, "================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
