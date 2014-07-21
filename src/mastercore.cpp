@@ -4503,7 +4503,7 @@ if (fHelp || params.size() != 4)
 
   if (divisible)
   {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = roundint64(tmpAmount * COIN);
@@ -4566,7 +4566,7 @@ if (fHelp || params.size() != 3)
 
   if (divisible)
   {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775807)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = roundint64(tmpAmount * COIN);
