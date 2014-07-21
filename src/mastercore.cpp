@@ -1548,7 +1548,7 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
     double createdTokens;
 
     //if indiv or div, do different truncation
-    if( 2 == propType ) {
+    if( MSC_PROPERTY_TYPE_DIVISIBLE == propType ) {
       //calculate tokens
       createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
       
@@ -4531,7 +4531,7 @@ if (fHelp || params.size() != 4)
 
   if (divisible)
   {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = roundint64(tmpAmount * COIN);
@@ -4595,7 +4595,7 @@ if (fHelp || params.size() != 3)
 
   if (divisible)
   {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720368.54775807)
+      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775807)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
       Amount = roundint64(tmpAmount * COIN);
@@ -4931,7 +4931,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                           if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
                                      break;
                                      case MSC_TYPE_ACCEPT_OFFER_BTC:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -4943,7 +4943,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
                                      case  MSC_TYPE_SEND_TO_OWNERS:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -5018,7 +5018,7 @@ string sAddress = "";
 string addressParam = "";
 bool addressFilter;
 
-    if (fHelp || params.size() > 3)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
             "*** SOME *** HELP *** GOES *** HERE ***\n"
             + HelpExampleCli("*************_MP", "\"-------------\"")
@@ -5036,16 +5036,24 @@ bool addressFilter;
                   addressFilter = true;
                   }
         }
-        int nCount = 10;
-        if (params.size() > 1)
-                nCount = boost::lexical_cast<boost::int32_t>(params[1].get_str());
-        int nFrom = 0;
-        if (params.size() > 2)
-                 nFrom = boost::lexical_cast<boost::int32_t>(params[2].get_str());
+
+        int64_t nCount = 10;
+        if (params.size() > 1) nCount = params[1].get_int64();
+        int64_t nFrom = 0;
+        if (params.size() > 2) nFrom = params[2].get_int64();
+        int64_t nStartBlock = 0;
+        if (params.size() > 3) nStartBlock = params[3].get_int64();
+        int64_t nEndBlock = 999999;
+        if (params.size() > 4) nEndBlock = params[4].get_int64();
+
         if (nCount < 0)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
         if (nFrom < 0)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+        if (nStartBlock < 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative start block");
+        if (nEndBlock < 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative end block");
 
         Array response; //prep an array to hold our output
         CMPTransaction mp_obj;
@@ -5086,6 +5094,9 @@ bool addressFilter;
                 int blockIndex = pwtx->nIndex;
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
                 if ((TestNet()) && (blockHeight < SOME_TESTNET_BLOCK)) continue;
+
+                //ignore transactions not between nStartBlock and nEndBlock
+                if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue;
 
                 bool crowdPurchase = false;
                 int64_t crowdPropertyId = 0;
@@ -5151,7 +5162,7 @@ bool addressFilter;
                                           if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
                                      break;
                                      case MSC_TYPE_ACCEPT_OFFER_BTC:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
@@ -5163,7 +5174,7 @@ bool addressFilter;
                                           propertyId = 0; // propertyId of Crowdsale Close
                                      break;
                                      case  MSC_TYPE_SEND_TO_OWNERS:
-                                          if (0 >= mp_obj.step2_Value())
+                                          if (0 == mp_obj.step2_Value())
                                           {
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();

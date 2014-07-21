@@ -182,9 +182,13 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "send_MP"                && n > 2) ConvertTo<int64_t>(params[2]);
     if (strMethod == "send_MP"                && n > 3) ConvertTo<double>(params[3]);
     if (strMethod == "getbalance_MP"          && n > 1) ConvertTo<int64_t>(params[1]);
-    if (strMethod == "sendtoowners_MP"           && n > 1) ConvertTo<int64_t>(params[1]);
-    if (strMethod == "sendtoowners_MP"           && n > 2) ConvertTo<double>(params[2]);
+    if (strMethod == "sendtoowners_MP"        && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "sendtoowners_MP"        && n > 2) ConvertTo<double>(params[2]);
     if (strMethod == "getproperty_MP"         && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "listtransactions_MP"    && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "listtransactions_MP"    && n > 2) ConvertTo<int64_t>(params[2]);
+    if (strMethod == "listtransactions_MP"    && n > 3) ConvertTo<int64_t>(params[3]);
+    if (strMethod == "listtransactions_MP"    && n > 4) ConvertTo<int64_t>(params[4]);
     if (strMethod == "getallbalancesforid_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
 
     return params;
