@@ -1254,7 +1254,7 @@ map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-int rc = DEX_ERROR_ACCEPT;
+int rc = DEX_ERROR_ACCEPT - 10;
 map<string, CMPOffer>::iterator my_it;
 const string selloffer_combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller);
 const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
@@ -1313,7 +1313,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 int DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase = false)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-int rc = DEX_ERROR_ACCEPT;
+int rc = DEX_ERROR_ACCEPT - 20;
 CMPOffer *p_offer = DEx_getOffer(seller, curr);
 CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
 bool bReturnToMoney; // return to MONEY of the seller, otherwise return to SELLOFFER_RESERVE
@@ -1735,7 +1735,6 @@ private:
 
     bool operator()(pair<long, string> p1, pair < long, string> p2) const
     {
-//      if (p1.first == p2.first) return p1.second < p2.second;
       if (p1.first == p2.first) return p1.second > p2.second; // reverse check
       else return p1.first < p2.first;
     }
@@ -1791,41 +1790,9 @@ public:
     SetNull();
   }
 
- // the 31-byte packet & the packet #
- // int interpretPacket(int blocknow, unsigned char pkt[], int size)
- //
- // RETURNS:  0 if the packet is fully valid
- // RETURNS: <0 if the packet is invalid
- // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
- //
- // 
- // the following functions may augment the amount in question (nValue):
- // DEx_offerCreate()
- // DEx_offerUpdate()
- // DEx_acceptCreate()
- // DEx_payment() -- DOES NOT fit nicely into the model, as it currently is NOT a MP TX (not even in leveldb) -- gotta rethink
- //
- // optional: provide the pointer to the CMPOffer object, it will get filled in
- // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
- //
- int interpretPacket(CMPOffer *obj_o = NULL)
- {
- uint64_t amount_desired, min_fee;
- unsigned char blocktimelimit, subaction = 0;
- int rc = PKT_ERROR;
- int step_rc;
-
-  if (0>step1()) return -98765;
-
-  if ((obj_o) && (MSC_TYPE_TRADE_OFFER != type)) return -777; // can't fill in the Offer object !
-
-  // further processing for complex types
-  // TODO: version may play a role here !
-  switch(type)
+  int logicMath_SimpleSend()
   {
-    case MSC_TYPE_SIMPLE_SEND:
-      step_rc = step2_Value();
-      if (0>step_rc) return step_rc;
+  int rc = PKT_ERROR_SEND -1000;
 
       if (sender.empty()) ++InvalidCount_per_spec;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -1840,8 +1807,7 @@ public:
       // insufficient funds check & return
       if (!update_tally_map(sender, currency, - nValue, MONEY))
       {
-        rc = (PKT_ERROR -111);
-        break;
+        return (PKT_ERROR -111);
       }
 
       update_tally_map(receiver, currency, nValue, MONEY);
@@ -1905,15 +1871,17 @@ public:
       }
 
       rc = 0;
-      break;
 
-    case MSC_TYPE_TRADE_OFFER:
-    {
-    enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
-    const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
+    return rc;
+  }
 
-      step_rc = step2_Value();
-      if (0>step_rc) return step_rc;
+  int logicMath_TradeOffer(CMPOffer *obj_o)
+  {
+  int rc = PKT_ERROR_TRADEOFFER;
+  uint64_t amount_desired, min_fee;
+  unsigned char blocktimelimit, subaction = 0;
+  enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
+  const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
       if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
       {
@@ -2020,15 +1988,228 @@ public:
           break;
       };
 
+    return rc;
+  }
+
+  int logicMath_AcceptOffer_BTC()
+  {
+  int rc = DEX_ERROR_ACCEPT;
+
+    // the min fee spec requirement is checked in the following function
+    rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, &nNewValue);
+
+    return rc;
+  }
+
+  int logicMath_SendToOwners()
+  {
+  int rc = PKT_ERROR_STO -1000;
+
+      if (MASTERCOIN_CURRENCY_BTC == currency)
+      {
+        return (PKT_ERROR_STO -100);
+      }
+
+      // totalTokens will be 0 for non-existing currency
+      int64_t totalTokens = getTotalTokens(currency);
+      bool bDivisible = isPropertyDivisible(currency);
+
+      if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
+      else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+
+      if (0 >= totalTokens)
+      {
+        return (PKT_ERROR_STO -2);
+      }
+
+      // does the sender have enough of the property he's trying to "Send To Owners" ?
+      if (getMPbalance(sender, currency, MONEY) < nValue)
+      {
+        return (PKT_ERROR_STO -3);
+      }
+
+      totalTokens = 0;
+      int64_t n_owners = 0;
+
+      typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
+      OwnerAddrType OwnerAddrSet;
+
+      {
+        for(map<string, CMPTally>::reverse_iterator my_it = mp_tally_map.rbegin(); my_it != mp_tally_map.rend(); ++my_it)
+        {
+          const string address = (my_it->first).c_str();
+
+          // do not count the sender
+          if (address == sender) continue;
+
+          // do not count the Exodus either
+//          if (address == exodus) continue;
+
+          int64_t tokens = 0;
+
+          tokens += getMPbalance(address, currency, MONEY);
+          tokens += getMPbalance(address, currency, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, currency, ACCEPT_RESERVE);
+
+          if (tokens)
+          {
+            OwnerAddrSet.insert(make_pair(tokens, address));
+            totalTokens += tokens;
+          }
+        }
+      }
+
+      if (!bDivisible)fprintf(mp_fp, "  Excluding Sender: %lu\n", totalTokens);
+      else fprintf(mp_fp, "  Excluding Sender: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+
+      // loop #1 -- count the actual number of owners to receive the payment
+      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
+      {
+        n_owners++;
+        printf("#%ld: %lu = %s\n", n_owners, (my_it->first), (my_it->second).c_str());
+      }
+
+      fprintf(mp_fp, "\t          Owners: %lu\n", n_owners);
+
+      // make sure we found some owners
+      if (0 >= n_owners)
+      {
+        return (PKT_ERROR_STO -4);
+      }
+
+      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
+
+      // determine which currency the fee will be paid in
+      const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
+
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
+
+      // enough coins to pay the fee?
+      if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
+      {
+        return (PKT_ERROR_STO -5);
+      }
+
+      // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
+      if (feeCurrency == currency)
+      {
+        if (getMPbalance(sender, feeCurrency, MONEY) < (nValue + nXferFee))
+        {
+          return (PKT_ERROR_STO -55);
+        }
+      }
+
+      // burn MSC or TMSC here: take the transfer fee away from the sender
+      if (!update_tally_map(sender, feeCurrency, - nXferFee, MONEY))
+      {
+        // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
+        return (PKT_ERROR_STO -500);
+      }
+
+      // loop #2
+      // split up what was taken and distribute between all holders
+      uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
+      double percentage, piece;
+      rc = 0; // almost good, the for-loop will set the error code
+      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
+      {
+      const string address = my_it->second;
+
+        owns = my_it->first;
+        percentage = (double) owns / (double) totalTokens;
+        piece = percentage * nValue;
+        should_receive = ceil(piece);
+
+        // ensure that much is still available
+        if ((nValue - sent_so_far) < should_receive)
+        {
+          will_really_receive = nValue - sent_so_far;
+        }
+        else
+        {
+          will_really_receive = should_receive;
+        }
+
+        sent_so_far += will_really_receive;
+
+        fprintf(mp_fp, "%14lu = %s, percentage= %20.10lf, piece= %20.10lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
+         owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+
+        if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
+        {
+          return (PKT_ERROR_STO -1);
+        }
+
+        update_tally_map(address, currency, will_really_receive, MONEY);
+
+        if (sent_so_far >= nValue)
+        {
+          printf("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
+          break; // done here, everybody who could get paid got paid
+        }
+      }
+
+      // sent_so_far must equal nValue here
+      if (sent_so_far != nValue)
+      {
+        fprintf(mp_fp, "send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n",
+         sent_so_far, nValue, n_owners);
+
+        // rc = ???
+      }
+
+    return rc;
+  }
+
+ // the 31-byte packet & the packet #
+ // int interpretPacket(int blocknow, unsigned char pkt[], int size)
+ //
+ // RETURNS:  0 if the packet is fully valid
+ // RETURNS: <0 if the packet is invalid
+ // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
+ //
+ // 
+ // the following functions may augment the amount in question (nValue):
+ // DEx_offerCreate()
+ // DEx_offerUpdate()
+ // DEx_acceptCreate()
+ // DEx_payment() -- DOES NOT fit nicely into the model, as it currently is NOT a MP TX (not even in leveldb) -- gotta rethink
+ //
+ // optional: provide the pointer to the CMPOffer object, it will get filled in
+ // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
+ //
+ int interpretPacket(CMPOffer *obj_o = NULL)
+ {
+ int rc = PKT_ERROR;
+ int step_rc;
+
+  if (0>step1()) return -98765;
+
+  if ((obj_o) && (MSC_TYPE_TRADE_OFFER != type)) return -777; // can't fill in the Offer object !
+
+  // further processing for complex types
+  // TODO: version may play a role here !
+  switch(type)
+  {
+    case MSC_TYPE_SIMPLE_SEND:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_SimpleSend();
       break;
-    } // end of TRADE_OFFER
+
+    case MSC_TYPE_TRADE_OFFER:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_TradeOffer(obj_o);
+      break;
 
     case MSC_TYPE_ACCEPT_OFFER_BTC:
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
-      // the min fee spec requirement is checked in the following function
-      rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, &nNewValue);
+      rc = logicMath_AcceptOffer_BTC();
       break;
 
     case MSC_TYPE_CREATE_PROPERTY_FIXED:
@@ -2164,169 +2345,9 @@ public:
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
-      if (MASTERCOIN_CURRENCY_BTC == currency)
-      {
-        rc = (PKT_ERROR_STO -100);
-        break;
-      }
-
-      // totalTokens will be 0 for non-existing currency
-      int64_t totalTokens = getTotalTokens(currency);
-      bool bDivisible = isPropertyDivisible(currency);
-
-      if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
-      else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
-
-      if (0 >= totalTokens)
-      {
-        rc = (PKT_ERROR_STO -2);
-        break;
-      }
-
-      // does the sender have enough of the property he's trying to "Send To Owners" ?
-      if (getMPbalance(sender, currency, MONEY) < nValue)
-      {
-        rc = (PKT_ERROR_STO -3);
-        break;
-      }
-
-      totalTokens = 0;
-      int64_t n_owners = 0;
-
-      typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
-      OwnerAddrType OwnerAddrSet;
-
-      {
-        for(map<string, CMPTally>::reverse_iterator my_it = mp_tally_map.rbegin(); my_it != mp_tally_map.rend(); ++my_it)
-        {
-          const string address = (my_it->first).c_str();
-
-          // do not count the sender
-          if (address == sender) continue;
-
-          // do not count the Exodus either
-//          if (address == exodus) continue;
-
-          int64_t tokens = 0;
-
-          tokens += getMPbalance(address, currency, MONEY);
-          tokens += getMPbalance(address, currency, SELLOFFER_RESERVE);
-          tokens += getMPbalance(address, currency, ACCEPT_RESERVE);
-
-          if (tokens)
-          {
-            OwnerAddrSet.insert(make_pair(tokens, address));
-            totalTokens += tokens;
-          }
-        }
-      }
-
-      if (!bDivisible)fprintf(mp_fp, " Total Tokens Excluding Sender: %lu\n", totalTokens);
-      else fprintf(mp_fp, " Total Tokens Excluding Sender: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
-
-      // loop #1 -- count the actual number of owners to receive the payment
-      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
-        n_owners++;
-        printf("#%ld: %lu = %s\n", n_owners, (my_it->first), (my_it->second).c_str());
-      }
-
-      fprintf(mp_fp, "\t          Owners: %lu\n", n_owners);
-
-      // make sure we found some owners
-      if (0 >= n_owners)
-      {
-        rc = (PKT_ERROR_STO -4);
-        break;
-      }
-
-      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
-
-      // determine which currency the fee will be paid in
-      const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
-
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
-
-      // enough coins to pay the fee?
-      if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
-      {
-        rc = (PKT_ERROR_STO -5);
-        break;
-      }
-
-      // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
-      if (feeCurrency == currency)
-      {
-        if (getMPbalance(sender, feeCurrency, MONEY) < (nValue + nXferFee))
-        {
-          rc = (PKT_ERROR_STO -55);
-          break;
-        }
-      }
-
-      // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeCurrency, - nXferFee, MONEY))
-      {
-        // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
-        rc = (PKT_ERROR_STO -500);
-        break;
-      }
-
-      // loop #2
-      // split up what was taken and distribute between all holders
-      uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
-      double percentage, piece;
-      rc = 0; // almost good, the for-loop will set the error code
-      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
-      const string address = my_it->second;
-
-        owns = my_it->first;
-        percentage = (double) owns / (double) totalTokens;
-        piece = percentage * nValue;
-        should_receive = ceil(piece);
-
-        // ensure that much is still available
-        if ((nValue - sent_so_far) < should_receive)
-        {
-          will_really_receive = nValue - sent_so_far;
-        }
-        else
-        {
-          will_really_receive = should_receive;
-        }
-
-        sent_so_far += will_really_receive;
-
-        fprintf(mp_fp, "%14lu = %s, percentage= %20.10lf, piece= %20.10lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
-         owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
-
-        if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
-        {
-          rc = (PKT_ERROR_STO -1);
-          break;
-        }
-
-        update_tally_map(address, currency, will_really_receive, MONEY);
-
-        if (sent_so_far >= nValue)
-        {
-          printf("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
-          break; // done here, everybody who could get paid got paid
-        }
-      }
-
-      // sent_so_far must equal nValue here
-      if (sent_so_far != nValue)
-      {
-        fprintf(mp_fp, "send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n",
-         sent_so_far, nValue, n_owners);
-
-        // rc = ???
-      }
-
-      break;
+      rc = logicMath_SendToOwners();
     }
+    break;
 
     default:
 

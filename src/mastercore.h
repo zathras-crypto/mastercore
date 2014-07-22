@@ -91,15 +91,17 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 };
 
 #define PKT_RETURN_OFFER    (1000)
-#define PKT_RETURN_ACCEPT   (2000)
+// #define PKT_RETURN_ACCEPT   (2000)
 
-#define PKT_ERROR           ( -9000)
-#define DEX_ERROR_SELLOFFER (-10000)
-#define DEX_ERROR_ACCEPT    (-20000)
-#define DEX_ERROR_PAYMENT   (-30000)
-#define PKT_ERROR_SP        (-40000)
+#define PKT_ERROR             ( -9000)
+#define DEX_ERROR_SELLOFFER   (-10000)
+#define DEX_ERROR_ACCEPT      (-20000)
+#define DEX_ERROR_PAYMENT     (-30000)
+#define PKT_ERROR_SP          (-40000)
 // Send To Owners
-#define PKT_ERROR_STO       (-50000)
+#define PKT_ERROR_STO         (-50000)
+#define PKT_ERROR_SEND        (-60000)
+#define PKT_ERROR_TRADEOFFER  (-70000)
 
 #define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
