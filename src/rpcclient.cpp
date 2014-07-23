@@ -190,6 +190,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "listtransactions_MP"    && n > 3) ConvertTo<int64_t>(params[3]);
     if (strMethod == "listtransactions_MP"    && n > 4) ConvertTo<int64_t>(params[4]);
     if (strMethod == "getallbalancesforid_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "listblocktransactions_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
 
     return params;
 }
