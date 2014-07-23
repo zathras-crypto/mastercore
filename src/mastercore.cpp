@@ -93,7 +93,7 @@ int msc_debug_script= 0;
 int msc_debug_dex   = 0;
 int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
-int msc_debug_exo   = 1;
+int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 
@@ -2805,7 +2805,7 @@ vector<vector<unsigned char> > vSolutions;
 }
 
 
-int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
+int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
 {
   if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (TestNet()))
   { //Exodus Fundraiser start/end blocks
@@ -2813,7 +2813,12 @@ int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHig
     int deadline_timeleft=1377993600-nTime;
     double bonus= 1 + std::max( 0.10 * deadline_timeleft / (60 * 60 * 24 * 7), 0.0 );
 
-    if (TestNet()) bonus = 1;
+    if (TestNet())
+    {
+      bonus = 1;
+
+      if (sender == exodus) return 1; // sending from Exodus should not be fundraising anything
+    }
 
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
@@ -3826,12 +3831,14 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
   return res;
 }
 
+/*
 static int msc_preseed_file_load(int what)
 {
   // uses boost::filesystem::path
   const string filename = (GetDataDir() / mastercore_filenames[what]).string();
   return msc_file_load(filename, what);
 }
+*/
 
 static char const * const statePrefix[NUM_FILETYPES] = {
     "balances",
@@ -4112,6 +4119,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
 int mastercore_init()
 {
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
+
 #ifdef  WIN32
 #error  Need boost path here too
 #else
