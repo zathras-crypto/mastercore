@@ -82,18 +82,18 @@ static boost::filesystem::path MPPersistencePath;
 int msc_debug0 = 1;
 int msc_debug1 = 0;
 int msc_debug2 = 1;
-int msc_debug3 = 0;
 int msc_debug4 = 1;
 int msc_debug5 = 1;
 int msc_debug6 = 0;
 
+int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 0;
 int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
-int msc_debug_exo   = 0;
+int msc_debug_exo   = 1;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 
@@ -2005,6 +2005,8 @@ public:
   {
   int rc = PKT_ERROR_STO -1000;
 
+    if ((!isTestEcosystemProperty(currency)) && (MSC_STO_BLOCK > block)) return (PKT_ERROR_STO -888);
+
       if (MASTERCOIN_CURRENCY_BTC == currency)
       {
         return (PKT_ERROR_STO -100);
@@ -2109,14 +2111,14 @@ public:
       // loop #2
       // split up what was taken and distribute between all holders
       uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
-      double percentage, piece;
+      long double percentage, piece;
       rc = 0; // almost good, the for-loop will set the error code
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
       {
       const string address = my_it->second;
 
         owns = my_it->first;
-        percentage = (double) owns / (double) totalTokens;
+        percentage = (long double) owns / (long double) totalTokens;
         piece = percentage * nValue;
         should_receive = ceil(piece);
 
@@ -2132,7 +2134,7 @@ public:
 
         sent_so_far += will_really_receive;
 
-        fprintf(mp_fp, "%14lu = %s, percentage= %20.10lf, piece= %20.10lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
+        fprintf(mp_fp, "%14lu = %s, percentage= %20.10Lf, piece= %20.10Lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
          owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
@@ -2805,10 +2807,14 @@ vector<vector<unsigned char> > vSolutions;
 
 int TXExodusFundraiser(const CTransaction &wtx, string sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
 {
-  if (nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) { //Exodus Fundraiser start/end blocks
+  if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (TestNet()))
+  { //Exodus Fundraiser start/end blocks
     //printf("transaction: %s\n", wtx.ToString().c_str() );
     int deadline_timeleft=1377993600-nTime;
     double bonus= 1 + std::max( 0.10 * deadline_timeleft / (60 * 60 * 24 * 7), 0.0 );
+
+    if (TestNet()) bonus = 1;
+
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
@@ -2882,7 +2888,7 @@ uint64_t txFee = 0;
 
             fprintf(mp_fp, "____________________________________________________________________________________________________________________________________\n");
             fprintf(mp_fp, "%s(block=%d, idx= %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
-            if (msc_debug3) fprintf(mp_fp, "================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            if (msc_debug_parser_data) fprintf(mp_fp, "================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -2902,7 +2908,7 @@ uint64_t txFee = 0;
 
                 if ((exodus != strAddress) && (validType))
                 {
-                  if (msc_debug3) fprintf(mp_fp, "saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
+                  if (msc_debug_parser_data) fprintf(mp_fp, "saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
 
                   // saving for Class A processing or reference
                   wtx.vout[i].scriptPubKey.mscore_parse(script_data);
@@ -2924,7 +2930,7 @@ uint64_t txFee = 0;
               }
             }
 
-            if (msc_debug3)
+            if (msc_debug_parser_data)
             {
               fprintf(mp_fp, "address_data.size=%lu\n", address_data.size());
               fprintf(mp_fp, "script_data.size=%lu\n", script_data.size());
@@ -3094,13 +3100,13 @@ uint64_t txFee = 0;
                           strDataAddress = address_data[k]; // record data address
                           dataAddressSeq = seq; // record data address seq num for reference matching
                           dataAddressValue = value_data[k]; // record data address amount for reference matching
-                          if (msc_debug3) fprintf(mp_fp, "Data Address located - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                          if (msc_debug_parser_data) fprintf(mp_fp, "Data Address located - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                       }
                       else
                       {
                           // invalidate - Class A cannot be more than one data packet - possible collision, treat as default (BTC payment)
                           strDataAddress = ""; //empty strScriptData to block further parsing
-                          if (msc_debug3) fprintf(mp_fp, "Multiple Data Addresses found (collision?) Class A invalidated, defaulting to BTC payment\n");
+                          if (msc_debug_parser_data) fprintf(mp_fp, "Multiple Data Addresses found (collision?) Class A invalidated, defaulting to BTC payment\n");
                           break;
                       }
                   }
@@ -3123,13 +3129,13 @@ uint64_t txFee = 0;
                           if (strRefAddress.empty()) // confirm we have not already located a reference address
                           {
                               strRefAddress = address_data[k]; // set ref address
-                              if (msc_debug3) fprintf(mp_fp, "Reference Address located via seqnum - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                              if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address located via seqnum - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                           }
                           else
                           {
                               // can't trust sequence numbers to provide reference address, there is a collision with >1 address with expected seqnum
                               strRefAddress = ""; // blank ref address
-                              if (msc_debug3) fprintf(mp_fp, "Reference Address sequence number collision, will fall back to evaluating matching output amounts\n");
+                              if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address sequence number collision, will fall back to evaluating matching output amounts\n");
                               break;
                           }
                       }
@@ -3152,12 +3158,12 @@ uint64_t txFee = 0;
                                        if (strRefAddress.empty())
                                        {
                                            strRefAddress = address_data[k];
-                                           if (msc_debug3) fprintf(mp_fp, "Reference Address located via matching amounts - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                                           if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address located via matching amounts - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                                        }
                                        else
                                        {
                                            strRefAddress = "";
-                                           if (msc_debug3) fprintf(mp_fp, "Reference Address collision, multiple potential candidates. Class A invalidated, defaulting to BTC payment\n");
+                                           if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address collision, multiple potential candidates. Class A invalidated, defaulting to BTC payment\n");
                                            break;
                                        }
                                   }
@@ -3211,7 +3217,7 @@ uint64_t txFee = 0;
             else
             {
             // valid Class A packet almost ready
-              if (msc_debug3) fprintf(mp_fp, "valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
+              if (msc_debug_parser_data) fprintf(mp_fp, "valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
               packet_size = PACKET_SIZE_CLASS_A;
               memcpy(single_pkt, &ParseHex(strScriptData)[0], packet_size);
             }
@@ -3221,7 +3227,7 @@ uint64_t txFee = 0;
             unsigned int k = 0;
             // gotta find the Reference - Z rewrite - scrappy & inefficient, can be optimized
 
-            if (msc_debug3) fprintf(mp_fp, "Beginning reference identification\n");
+            if (msc_debug_parser_data) fprintf(mp_fp, "Beginning reference identification\n");
 
             bool referenceFound = false; // bool to hold whether we've found the reference yet
             bool changeRemoved = false; // bool to hold whether we've ignored the first output to sender as change
@@ -3231,7 +3237,7 @@ uint64_t txFee = 0;
             BOOST_FOREACH(const string &addr, address_data)
             {
                 // keep Michael's original debug info & k int as used elsewhere
-                if (msc_debug3) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n",
+                if (msc_debug_parser_data) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n",
                  k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
                 ++k;
 
@@ -3242,13 +3248,13 @@ uint64_t txFee = 0;
                         {
                                 strReference = addr;
                                 referenceFound = true;
-                                if (msc_debug3) fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
+                                if (msc_debug_parser_data) fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
                         }
                         else //as soon as potentialReferenceOutputs > 1 we need to go fishing
                         {
                                 strReference = ""; // avoid leaving strReference populated for sanity
                                 referenceFound = false;
-                                if (msc_debug3) fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
+                                if (msc_debug_parser_data) fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
                         }
                 }
             }
@@ -3256,7 +3262,7 @@ uint64_t txFee = 0;
             // do we have a reference now? or do we need to dig deeper
             if (!referenceFound) // multiple possible reference addresses
             {
-                if (msc_debug3) fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
+                if (msc_debug_parser_data) fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
 
                 BOOST_FOREACH(const string &addr, address_data)
                 {
@@ -3267,20 +3273,20 @@ uint64_t txFee = 0;
                                 {
                                         // per spec ignore first output to sender as change if multiple possible ref addresses
                                         changeRemoved = true;
-                                        if (msc_debug3) fprintf(mp_fp, "Removed change\n");
+                                        if (msc_debug_parser_data) fprintf(mp_fp, "Removed change\n");
                                 }
                                 else
                                 {
                                         // this may be set several times, but last time will be highest vout
                                         strReference = addr;
-                                        if (msc_debug3) fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
+                                        if (msc_debug_parser_data) fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
                                 }
                         }
                 }
             }
 
-          if (msc_debug3) fprintf(mp_fp, "Ending reference identification\n");
-          if (msc_debug3) fprintf(mp_fp, "Final decision on reference identification is: %s\n", strReference.c_str());
+          if (msc_debug_parser_data) fprintf(mp_fp, "Ending reference identification\n");
+          if (msc_debug_parser_data) fprintf(mp_fp, "Final decision on reference identification is: %s\n", strReference.c_str());
 
           if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets that are found here
@@ -3315,7 +3321,7 @@ uint64_t txFee = 0;
                 }
             }
 
-          if (msc_debug3) fprintf(mp_fp, "multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
+          if (msc_debug_parser_data) fprintf(mp_fp, "multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
 
             if (!strPacket.empty())
             {
@@ -4105,9 +4111,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
-const bool bTestnet = TestNet();
-
-  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, bTestnet ? "TESTNET":"", __LINE__, __FILE__);
+  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
 #ifdef  WIN32
 #error  Need boost path here too
 #else
@@ -4119,7 +4123,7 @@ const bool bTestnet = TestNet();
 #endif
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
-  if (bTestnet)
+  if (TestNet())
   {
     exodus = exodus_testnet;
   }
@@ -4143,8 +4147,10 @@ const bool bTestnet = TestNet();
     if (nWaterlineBlock < snapshotHeight)
     {
       // the DEX block, using Zathras' msc_balances*.txt
+/*
       (void) msc_preseed_file_load(FILETYPE_BALANCES);
       (void) msc_preseed_file_load(FILETYPE_OFFERS);
+*/
       nWaterlineBlock = snapshotHeight;
       exodus_prev=snapshotDevMSC;
     }
@@ -4183,7 +4189,7 @@ const bool bTestnet = TestNet();
     nWaterlineBlock = 304000;
 #endif
 
-    if (bTestnet) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
+    if (TestNet()) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
 
   }
 
@@ -4191,7 +4197,7 @@ const bool bTestnet = TestNet();
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
-  if (!bTestnet)
+  if (!TestNet())
   {
     (void) msc_initial_scan(nWaterlineBlock);
   }
