@@ -5856,6 +5856,53 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
 return response;
 }
 
+Value listblocktransactions_MP(const Array& params, bool fHelp)
+{
+   if (fHelp)
+        throw runtime_error(
+            "listblocktransactions_MP\n"
+            "\nList MP TXIDs in a block\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"txid\" : \"txid\",     (string) MP txid\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("listblocktransactions_MP", "")
+            + HelpExampleRpc("listblocktransactions_MP", "")
+        );
+
+  // firstly let's get the block height given in the param
+  int blockHeight = params[0].get_int();
+  if (blockHeight < 0 || blockHeight > chainActive.Height())
+        throw runtime_error("Cannot display MP transactions for a non-existent block.");
+
+  // next let's obtain the block for this height
+  CBlockIndex* mpBlockIndex = chainActive[blockHeight];
+  CBlock mpBlock;
+
+  // now let's read this block in from disk so we can loop its transactions
+  if(!ReadBlockFromDisk(mpBlock, mpBlockIndex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal Error: Failed to read block from disk");
+
+  // create an array to hold our response
+  Array response;
+
+  // now we want to loop through each of the transactions in the block and run against CMPTxList::exists
+  // those that return positive add to our response array
+  BOOST_FOREACH(const CTransaction&tx, mpBlock.vtx)
+  {
+       bool mptx = p_txlistdb->exists(tx.GetHash());
+       if (mptx)
+       {
+            // later we can add a verbose flag to decode here, but for now callers can send returned txids into gettransaction_MP
+            // add the txid into the response as it's an MP transaction
+            response.push_back(tx.GetHash().GetHex());
+       }
+  }
+return response;
+}
+
 std::string CScript::mscore_parse(std::vector<std::string>&msc_parsed, bool bNoBypass) const
 {
     int count = 0;
