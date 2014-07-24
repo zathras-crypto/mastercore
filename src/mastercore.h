@@ -45,17 +45,19 @@
 #define MAX_PACKETS         64
 
 // Transaction types, from the spec
-#define MSC_TYPE_SIMPLE_SEND              0
-#define MSC_TYPE_RESTRICTED_SEND          2
-#define MSC_TYPE_SEND_TO_OWNERS           3
-#define MSC_TYPE_AUTOMATIC_DISPENSARY     15
-#define MSC_TYPE_TRADE_OFFER              20
-#define MSC_TYPE_METADEX                  21
-#define MSC_TYPE_ACCEPT_OFFER_BTC         22
-#define MSC_TYPE_CREATE_PROPERTY_FIXED    50
-#define MSC_TYPE_CREATE_PROPERTY_VARIABLE 51
-#define MSC_TYPE_PROMOTE_PROPERTY         52
-#define MSC_TYPE_CLOSE_CROWDSALE          53
+enum TransactionType {
+  MSC_TYPE_SIMPLE_SEND              =  0,
+  MSC_TYPE_RESTRICTED_SEND          =  2,
+  MSC_TYPE_SEND_TO_OWNERS           =  3,
+  MSC_TYPE_AUTOMATIC_DISPENSARY     = 15,
+  MSC_TYPE_TRADE_OFFER              = 20,
+  MSC_TYPE_METADEX                  = 21,
+  MSC_TYPE_ACCEPT_OFFER_BTC         = 22,
+  MSC_TYPE_CREATE_PROPERTY_FIXED    = 50,
+  MSC_TYPE_CREATE_PROPERTY_VARIABLE = 51,
+  MSC_TYPE_PROMOTE_PROPERTY         = 52,
+  MSC_TYPE_CLOSE_CROWDSALE          = 53,
+};
 
 #define MSC_PROPERTY_TYPE_INDIVISIBLE             1
 #define MSC_PROPERTY_TYPE_DIVISIBLE               2
@@ -64,6 +66,7 @@
 #define MSC_PROPERTY_TYPE_INDIVISIBLE_APPENDING   129
 #define MSC_PROPERTY_TYPE_DIVISIBLE_APPENDING     130
 
+// block height (MainNet) with which the corresponding transaction is considered valid, per spec
 enum BLOCKHEIGHTRESTRICTIONS {
   SOME_TESTNET_BLOCK= 253728,
   POST_EXODUS_BLOCK = 255366,
@@ -72,6 +75,19 @@ enum BLOCKHEIGHTRESTRICTIONS {
   GENESIS_BLOCK     = 249498,
   LAST_EXODUS_BLOCK = 255365,
   MSC_STO_BLOCK     = 999999,
+};
+
+int txBlockRestrictions[][2] = {
+  {MSC_TYPE_SIMPLE_SEND,              GENESIS_BLOCK},
+  {MSC_TYPE_TRADE_OFFER,              MSC_DEX_BLOCK},
+  {MSC_TYPE_ACCEPT_OFFER_BTC,         MSC_DEX_BLOCK},
+  {MSC_TYPE_CREATE_PROPERTY_FIXED,    MSC_SP_BLOCK},
+  {MSC_TYPE_CREATE_PROPERTY_VARIABLE, MSC_SP_BLOCK},
+  {MSC_TYPE_CLOSE_CROWDSALE,          MSC_SP_BLOCK},
+  {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK},
+
+// end of array marker, in addition to sizeof/sizeof
+  {-1,-1},
 };
 
 enum FILETYPES {
@@ -98,6 +114,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define DEX_ERROR_SELLOFFER   (-10000)
 #define DEX_ERROR_ACCEPT      (-20000)
 #define DEX_ERROR_PAYMENT     (-30000)
+// Smart Properties
 #define PKT_ERROR_SP          (-40000)
 // Send To Owners
 #define PKT_ERROR_STO         (-50000)

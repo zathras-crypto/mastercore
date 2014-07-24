@@ -79,15 +79,9 @@ static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
 
-int msc_debug0 = 1;
-int msc_debug1 = 0;
-int msc_debug2 = 1;
-int msc_debug4 = 1;
-int msc_debug5 = 1;
-int msc_debug6 = 0;
-
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
+int msc_debug_verbose=0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 0;
@@ -96,6 +90,8 @@ int msc_debug_spec  = 1;
 int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
+int msc_debug_sto   = 1;
+int msc_debug_txdb  = 0;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -234,7 +230,7 @@ public:
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),currency(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
-    if (msc_debug4) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
+    if (msc_debug_dex) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
   }
 
   void Set(uint64_t d, uint64_t fee, unsigned char btl, unsigned char suba)
@@ -1692,6 +1688,32 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   }
 }
 
+// certain transaction types are not live on the network until some specific block height
+bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType)
+{
+unsigned int type;
+int block_FirstAllowed;
+
+  if ((TestNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
+
+  // BTC as currency/property is never allowed
+  if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
+
+  for (unsigned int i = 0; i < sizeof(txBlockRestrictions)/sizeof(txBlockRestrictions[0]); i++)
+  {
+    type = txBlockRestrictions[i][0];
+    block_FirstAllowed = txBlockRestrictions[i][1];
+
+    if (txType != type) continue;
+
+    if (0 > block_FirstAllowed) break;
+
+    if (block_FirstAllowed <= txBlock) return true;
+  }
+
+  return false;
+}
+
 // The class responsible for tx interpreting/parsing.
 //
 // It invokes other classes & methods: offers, accepts, tallies (balances).
@@ -1890,7 +1912,7 @@ public:
       }
 
       // block height checks, for instance DEX is only available on MSC starting with block 290630
-      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MSC_DEX_BLOCK > block)) return -88888;
+      if (!isTransactionTypeAllowed(block, currency, type)) return -88888;
 
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
@@ -2005,12 +2027,7 @@ public:
   {
   int rc = PKT_ERROR_STO -1000;
 
-    if ((!isTestEcosystemProperty(currency)) && (MSC_STO_BLOCK > block)) return (PKT_ERROR_STO -888);
-
-      if (MASTERCOIN_CURRENCY_BTC == currency)
-      {
-        return (PKT_ERROR_STO -100);
-      }
+      if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_STO -888);
 
       // totalTokens will be 0 for non-existing currency
       int64_t totalTokens = getTotalTokens(currency);
@@ -2134,8 +2151,9 @@ public:
 
         sent_so_far += will_really_receive;
 
-        fprintf(mp_fp, "%14lu = %s, percentage= %20.10Lf, piece= %20.10Lf, should_receive= %14lu, will_really_receive= %14lu, sent_so_far= %14lu\n",
-         owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+        if (msc_debug_sto)
+         fprintf(mp_fp, "%14lu = %s, perc= %20.10Lf, piece= %20.10Lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+          owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
         {
@@ -2430,9 +2448,7 @@ public:
  const char *p = 11 + (char *)&pkt;
  std::vector<std::string>spstr;
  unsigned int i;
- unsigned int id;
-
-  (void) isOverrun(p, __LINE__);
+ unsigned int prop_id;
 
   error_code = 0;
 
@@ -2446,7 +2462,7 @@ public:
     return NULL;
   }
 
-  id = _my_sps->peekNextSPID(ecosystem);
+  prop_id = _my_sps->peekNextSPID(ecosystem);
 
   memcpy(&prop_type, &pkt[5], 2);
   swapByteOrder16(prop_type);
@@ -2454,7 +2470,7 @@ public:
   memcpy(&prev_prop_id, &pkt[7], 4);
   swapByteOrder32(prev_prop_id);
 
-  fprintf(mp_fp, "\t     Property ID: %u (%s)\n", id, strMPCurrency(id).c_str());
+  fprintf(mp_fp, "\t     Property ID: %u (%s)\n", prop_id, strMPCurrency(prop_id).c_str());
   fprintf(mp_fp, "\t   Property type: %u (%s)\n", prop_type, c_strPropertyType(prop_type));
   fprintf(mp_fp, "\tPrev Property ID: %u\n", prev_prop_id);
 
@@ -2465,14 +2481,10 @@ public:
     return NULL;
   }
 
-  (void) isOverrun(p, __LINE__);
-
   for (i = 0; i<5; i++)
   {
     spstr.push_back(std::string(p));
     p += spstr.back().size() + 1;
-
-    (void) isOverrun(p, __LINE__);
   }
 
   i = 0;
@@ -2488,9 +2500,7 @@ public:
   fprintf(mp_fp, "\t             URL: %s\n", url);
   fprintf(mp_fp, "\t            Data: %s\n", data);
 
-  (void) isOverrun(p, __LINE__);
-
-  if ((MASTERCOIN_CURRENCY_MSC == ecosystem) && (MSC_SP_BLOCK > block))
+  if (!isTransactionTypeAllowed(block, prop_id, type))
   {
     error_code = (PKT_ERROR_SP -503);
     return NULL;
@@ -2503,9 +2513,7 @@ public:
     return NULL;
   }
 
-  (void) isOverrun(p, __LINE__);
   if (!p) error_code = (PKT_ERROR_SP -510);
-  (void) isOverrun(p, __LINE__);
 
   if (isOverrun(p, __LINE__))
   {
@@ -2553,8 +2561,6 @@ public:
  {
   if (!p) return (PKT_ERROR_SP -1);
 
-  (void) isOverrun(p, __LINE__);
-
   memcpy(&currency, p, 4);  // currency desired
   swapByteOrder32(currency);
   p += 4;
@@ -2590,14 +2596,10 @@ public:
   p += 8;
   fprintf(mp_fp, "\t        Deadline: %s (%lX)\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
 
-  (void) isOverrun(p, __LINE__);
-
   if (!deadline) return (PKT_ERROR_SP -203);  // deadline cannot be 0
 
   // deadline can not be smaller than the timestamp of the current block
   if (deadline < (uint64_t)blockTime) return (PKT_ERROR_SP -204);
-
-  (void) isOverrun(p, __LINE__);
 
   memcpy(&early_bird, p++, 1);
   fprintf(mp_fp, "\tEarly Bird Bonus: %u\n", early_bird);
@@ -2790,7 +2792,7 @@ vector<unsigned char> vec_chars;
       ObfsHashes[j] = HexStr(vec_chars);
       boost::to_upper(ObfsHashes[j]); // uppercase per spec
 
-      if (msc_debug6) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      if (msc_debug_verbose) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
       strcpy((char *)sha_input, ObfsHashes[j].c_str());
   }
 }
@@ -2892,8 +2894,7 @@ uint64_t txFee = 0;
             }
 
             fprintf(mp_fp, "____________________________________________________________________________________________________________________________________\n");
-            fprintf(mp_fp, "%s(block=%d, idx= %d), line %d, file: %s\n", __FUNCTION__, nBlock, idx, __LINE__, __FILE__);
-            if (msc_debug_parser_data) fprintf(mp_fp, "================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+            fprintf(mp_fp, "%s(block=%d, idx= %d); txid: %s\n", __FUNCTION__, nBlock, idx, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
             // also determine if there is a multisig in there, if so = Class B
@@ -3010,7 +3011,7 @@ uint64_t txFee = 0;
 
             if (!strSender.empty())
             {
-              if (msc_debug2) fprintf(mp_fp, "The Sender: %s : His Input Sum of Values= %lu.%08lu ; fee= %lu.%08lu\n",
+              if (msc_debug_verbose) fprintf(mp_fp, "The Sender: %s : His Input Sum of Values= %lu.%08lu ; fee= %lu.%08lu\n",
                strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
             }
             else
@@ -3191,7 +3192,7 @@ uint64_t txFee = 0;
               // this must be the BTC payment - validate (?)
               // TODO
               // ...
-              if (msc_debug2 || msc_debug4) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
               fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
               fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
               fprintf(mp_fp, "!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -3361,7 +3362,7 @@ uint64_t txFee = 0;
               memcpy(m*(PACKET_SIZE-1)+single_pkt, 1+packets[m], PACKET_SIZE-1);
             }
 
-  if (msc_debug2) fprintf(mp_fp, "single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
+  if (msc_debug_verbose) fprintf(mp_fp, "single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
 
   mp_tx->Set(strSender, strReference, 0, wtx.GetHash(), nBlock, idx, (unsigned char *)&single_pkt, packet_size, fMultisig, (inAll-outAll));  
 
@@ -3492,7 +3493,6 @@ const int max_block = GetHeight();
     }
     
     n_total += tx_count;
-    if (msc_debug1) fprintf(mp_fp, "%4d:n_total= %d, n_found= %d\n", blockNum, n_total, n_found);
 
     mastercore_handler_block_end(blockNum, pblockindex);
 #ifdef  MY_DIV_HACK
@@ -3729,10 +3729,6 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 {
   int lines = 0;
   int (*inputLineFunc)(const string &) = NULL;
-
-  // TODO: think about placement for preseed files -- perhaps the directory where executables live is better?
-  // these files are read-only preseeds
-  // all run-time updates should go to a KV-store (leveldb is envisioned)
 
   SHA256_CTX shaCtx;
   SHA256_Init(&shaCtx);
@@ -4141,8 +4137,7 @@ int mastercore_init()
   MPPersistencePath = GetDataDir() / "MP_persist";
   boost::filesystem::create_directories(MPPersistencePath);
 
-
-  //no more preseed, so legacy code, setting to pre-genesis-block
+  // legacy code, setting to pre-genesis-block
   static const int snapshotHeight = (GENESIS_BLOCK - 1);
   static const uint64_t snapshotDevMSC = 0;
 
@@ -4154,11 +4149,6 @@ int mastercore_init()
 
     if (nWaterlineBlock < snapshotHeight)
     {
-      // the DEX block, using Zathras' msc_balances*.txt
-/*
-      (void) msc_preseed_file_load(FILETYPE_BALANCES);
-      (void) msc_preseed_file_load(FILETYPE_OFFERS);
-*/
       nWaterlineBlock = snapshotHeight;
       exodus_prev=snapshotDevMSC;
     }
@@ -4168,7 +4158,7 @@ int mastercore_init()
   }
   else
   {
-  // my old preseed way
+  // my old way
 
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
 
@@ -4708,7 +4698,7 @@ Status status;
   {
     status = pdb->Put(writeoptions, key, value);
     ++nWritten;
-    if (msc_debug1) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    if (msc_debug_txdb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
   }
 }
 
@@ -4773,7 +4763,7 @@ bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = N
 string result;
 int validity = 0;
 
-  if (msc_debug6) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+  if (msc_debug_txdb) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 
   if (!p_txlistdb) return false;
 
