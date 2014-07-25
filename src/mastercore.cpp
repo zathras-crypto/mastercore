@@ -72,6 +72,7 @@ int nWaterlineBlock = 0;  //
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static const string exodus_testnet = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
+static const string getmoney_testnet = "moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP";
 
 static uint64_t exodus_prev = 0;
 // static uint64_t exodus_prev = 0; // Bart has 0 for some reason ???
@@ -2847,11 +2848,12 @@ vector<string>address_data;
 // vector<uint64_t>value_data;
 vector<int64_t>value_data;
 int64_t ExodusValues[MAX_BTC_OUTPUTS];
+int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
 unsigned int packet_size = 0;
 int fMultisig = 0;
-int marker_count = 0;
+int marker_count = 0, getmoney_count = 0;
 // class B: multisig data storage
 vector<string>multisig_script_data;
 uint64_t inAll = 0;
@@ -2874,22 +2876,20 @@ uint64_t txFee = 0;
 
                 if (exodus == strAddress)
                 {
-                  // TODO: add other checks to verify a mastercoin tx !!!
                   ExodusValues[marker_count++] = wtx.vout[i].nValue;
+                }
+                else if (TestNet() && (getmoney_testnet == strAddress))
+                {
+                  TestNetMoneyValues[getmoney_count++] = wtx.vout[i].nValue;
                 }
               }
             }
 
-            // TODO: ensure only 1 output to the Exodus address is allowed (corner case?)
-//            if (1 != marker_count)
-            if (!marker_count)  // 1Exodus is a special case, TODO: resolve later after PoC Sprint
-// https://github.com/m21/mastercore/commit/fbf06f6dbda06b5a8cf061414ff76f42194544d8#diff-7322bd4b20fe7eed15aa568e8905f657R607
+            if ((TestNet() && getmoney_count))
             {
-              // not Mastercoin -- no output to the 'marker' Exodus or more than 1 -- more than 1 is OK per Zathras, May 2014
-              // TODO: if multiple markers are visible : how is nExodusValue calculated?
-  // [11:33:08 PM] my99key: I don't have a case -- so if multiple outputs to 1Exodus are found in a Class A TX -- it is not a valid MP TX?
-  // [11:33:36 PM] faiz: as far as i know, the only case that it would be valid is if the TX was actually also sent by exodus
-  // So, send from 1Exodus to self may have multiple outputs in a Class A TX !!!
+            }
+            else if (!marker_count)
+            {
               return -1;
             }
 
@@ -3021,7 +3021,15 @@ uint64_t txFee = 0;
             }
             
             //This calculates exodus fundraiser for each tx within a given block
-            TXExodusFundraiser(wtx, strSender, ExodusValues[0], nBlock, nTime);
+            int64_t BTC_amount = ExodusValues[0];
+            if (TestNet())
+            {
+              if (MONEYMAN_TESTNET_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
+            }
+
+            fprintf(mp_fp, "%s()amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
+
+            if (0 < BTC_amount) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
 
             // go through the outputs
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -3192,7 +3200,7 @@ uint64_t txFee = 0;
               // this must be the BTC payment - validate (?)
               // TODO
               // ...
-              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+//              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
               fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
               fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
               fprintf(mp_fp, "!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -4138,8 +4146,10 @@ int mastercore_init()
   boost::filesystem::create_directories(MPPersistencePath);
 
   // legacy code, setting to pre-genesis-block
-  static const int snapshotHeight = (GENESIS_BLOCK - 1);
+  static int snapshotHeight = (GENESIS_BLOCK - 1);
   static const uint64_t snapshotDevMSC = 0;
+
+  if (TestNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
 
   ++mastercoreInitialized;
 
@@ -4187,14 +4197,15 @@ int mastercore_init()
     nWaterlineBlock = 304000;
 #endif
 
-    if (TestNet()) nWaterlineBlock = SOME_TESTNET_BLOCK; //testnet3
-
+    if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
   }
 
   // collect the real Exodus balances available at the snapshot time
   exodus_balance = getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
+  (void) msc_initial_scan(nWaterlineBlock);
+/*
   if (!TestNet())
   {
     (void) msc_initial_scan(nWaterlineBlock);
@@ -4204,6 +4215,7 @@ int mastercore_init()
     // testnet
     (void) msc_initial_scan(GetHeight()-10000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
   }
+*/
 
   if (mp_fp) fflush(mp_fp);
 
@@ -4887,7 +4899,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
-                if ((TestNet()) && (blockHeight < SOME_TESTNET_BLOCK))
+                if ((TestNet()) && (blockHeight < START_TESTNET_BLOCK))
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
 
                 mp_obj.SetNull();
@@ -5118,7 +5130,7 @@ bool addressFilter;
                 int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
                 int blockIndex = pwtx->nIndex;
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
-                if ((TestNet()) && (blockHeight < SOME_TESTNET_BLOCK)) continue;
+                if ((TestNet()) && (blockHeight < START_TESTNET_BLOCK)) continue;
 
                 //ignore transactions not between nStartBlock and nEndBlock
                 if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue;

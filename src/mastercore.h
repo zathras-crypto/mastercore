@@ -68,7 +68,10 @@ enum TransactionType {
 
 // block height (MainNet) with which the corresponding transaction is considered valid, per spec
 enum BLOCKHEIGHTRESTRICTIONS {
-  SOME_TESTNET_BLOCK= 253728,
+// starting block for parsing on TestNet
+//  START_TESTNET_BLOCK= 253728,
+  START_TESTNET_BLOCK=263000,
+  MONEYMAN_TESTNET_BLOCK= 270775, // new address to assign MSC & TMSC on TestNet
   POST_EXODUS_BLOCK = 255366,
   MSC_DEX_BLOCK     = 290630,
   MSC_SP_BLOCK      = 297110,
