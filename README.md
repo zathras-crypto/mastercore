@@ -31,7 +31,7 @@ Testnet
 -------------------
 
 1. To run Master Core in testnet mode, run mastercore with the following option in place: ``` -testnet ```.
-2. Add your address to the list of addresses in your Bitcoin data Testnet dir (usually: ~/.bitcoin/testnet3/mastercoin_balances.txt) to give yourself testnet MSC. 
+2. To receive MSC (and TMSC) on TestNet please send TBTC to moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP. For each 1 TBTC you will receive 100 MSC & 100 TMSC.
 
 All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
