@@ -4057,7 +4057,7 @@ static void prune_state_files( CBlockIndex const *topIndex )
   boost::filesystem::directory_iterator dIter(MPPersistencePath);
   boost::filesystem::directory_iterator endIter;
   for (; dIter != endIter; ++dIter) {
-    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).c_str();
+    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).string();
     if (false == boost::filesystem::is_regular_file(dIter->status())) {
       // skip funny business
       fprintf(mp_fp, "Non-regular file found in persistence directory : %s\n", fName.c_str());
