@@ -4124,15 +4124,15 @@ int mastercore_init()
 {
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
 
-#ifdef  WIN32
-#error  Need boost path here too
-#else
+//#ifdef  WIN32
+//#error  Need boost path here too
+//#else
 #ifndef  DISABLE_LOG_FILE
   mp_fp = fopen ("/tmp/mastercore.log", "a");
 #else
   mp_fp = stdout;
 #endif
-#endif
+//#endif
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (TestNet())
