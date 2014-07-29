@@ -88,7 +88,7 @@ int msc_debug_script= 0;
 int msc_debug_dex   = 0;
 int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
-int msc_debug_exo   = 0;
+int msc_debug_exo   = 1;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
@@ -4676,6 +4676,8 @@ Slice skey, svalue;
   delete it;
 }
 
+// figure out if there was at least 1 Master Protocol transaction within the block range, or a block if starting equals ending
+// block numbers are inclusive
 bool CMPTxList::isMPinBlockRange(int starting_block, int ending_block)
 {
 leveldb::Slice skey, svalue;
@@ -4716,6 +4718,7 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+// global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
 bool isMPinBlockRange(int starting_block, int ending_block)
 {
   if (!p_txlistdb) return false;
