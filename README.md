@@ -38,13 +38,27 @@ All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 Installation
 ------------
 
-*NOTE: This will only build on Linux for now.*
+*NOTE: This will only build on Ubuntu Linux for now.*
+
+You will need appropriate libraries to run Mastercore on Unix, 
+please see doc/build-unix.md for the full listing.
+
+Then, run
 
 ```
 ./autogen
 ./configure
 make
 ```
+
+and start Mastercore using ```./bitcoind -txindex ```. The inital parse step for a first time run
+will take approximately 10-15 minutes, during this time your client will scan the blockchain for
+Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
+located in ```/tmp/mastercore.log```.
+
+After this step completes, check that the installation went smoothly by issuing the following
+command ```./bitcoind getinfo``` which should return the 'mastercore version' as well as some
+additional information related to the Bitcoin Network.
 
 Known Issues:
 ----------------
