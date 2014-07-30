@@ -82,13 +82,13 @@ static boost::filesystem::path MPPersistencePath;
 
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
-int msc_debug_verbose=0;
+int msc_debug_verbose=1;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
-int msc_debug_dex   = 0;
+int msc_debug_dex   = 1;
 int msc_debug_send  = 1;
 int msc_debug_spec  = 1;
-int msc_debug_exo   = 1;
+int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
@@ -1078,6 +1078,12 @@ bool update_tally_map(string who, unsigned int which_currency, int64_t amount, T
 bool bRet = false;
 uint64_t before, after;
 
+  if (0 == amount)
+  {
+    fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) 0 FUNDS !\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
+    return false;
+  }
+
   LOCK(cs_tally);
 
   before = getMPbalance(who, which_currency, ttype);
@@ -1696,10 +1702,10 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int
 unsigned int type;
 int block_FirstAllowed;
 
-  if ((TestNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
-
   // BTC as currency/property is never allowed
   if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
+
+  if ((TestNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
 
   for (unsigned int i = 0; i < sizeof(txBlockRestrictions)/sizeof(txBlockRestrictions[0]); i++)
   {
@@ -1817,6 +1823,8 @@ public:
   int logicMath_SimpleSend()
   {
   int rc = PKT_ERROR_SEND -1000;
+
+      if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_SEND -22);
 
       if (sender.empty()) ++InvalidCount_per_spec;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -2647,7 +2655,7 @@ public:
 
   void print()
   {
-    fprintf(mp_fp, "===BLOCK: %d =txid: %s =fee: %1.8lf ====\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
+    fprintf(mp_fp, "BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
     fprintf(mp_fp, "sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
 
     if (0<pkt_size)
@@ -3681,13 +3689,13 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       return -1;
   }
 
-  LogPrintf("Loading %s ... \n", filename);
+  if (msc_debug_persistence) LogPrintf("Loading %s ... \n", filename);
 
   ifstream file;
   file.open(filename.c_str());
   if (!file.is_open())
   {
-    LogPrintf("%s(): file not found, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    if (msc_debug_persistence) LogPrintf("%s(): file not found, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
     return -1;
   }
 
@@ -4229,7 +4237,7 @@ CWallet *wallet = pwalletMain;
 
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
-//
+// returns 0 if everything is OK, the transaction was sent
 static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &data_packet, CCoinControl &coinControl, uint256 & txid)
 {
 const int n_keys = 2;
@@ -4321,9 +4329,14 @@ CWallet *wallet = pwalletMain;
 CCoinControl coinControl; // I am using coin control to send from
 int rc = 0;
 uint256 txid = 0;
+// const int64_t n_max = CTransaction::nMinRelayTxFee * 10000; // maximum funds needed to send (insane fee)
+// from http://bitcoinfees.com : 148 * number_of_inputs + 34 * number_of_outputs + 10 // 8KByte fee is enough for 50 inputs & 20 outputs
+const int64_t n_max = (COIN*(20*(0.0001))); // assume 20KBytes max TX size at 0.0001 per kilobyte
+// FUTURE: remove n_max and try 1st smallest input, then 2 smallest inputs etc. -- i.e. move Coin Control selection closer to CreateTransaction
+int64_t n_total = 0;  // total output funds collected
 
-  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu), line %d, file: %s\n",
-   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, __LINE__, __FILE__);
+  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu); n_max = %ld\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, n_max);
 
   LOCK(wallet->cs_wallet);
 
@@ -4340,6 +4353,7 @@ uint256 txid = 0;
     {
     string sAddress="";
 
+        // iterate over the wallet
         for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
         {
         const uint256& wtxid = it->first;
@@ -4353,8 +4367,8 @@ uint256 txid = 0;
 
               if (!nAvailable) continue;
 
-     for (unsigned int i = 0; i < pcoin->vout.size(); i++)
-        {
+              for (unsigned int i = 0; i < pcoin->vout.size(); i++)
+              {
                 CTxDestination dest;
 
                 if(!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
@@ -4371,16 +4385,22 @@ uint256 txid = 0;
                 if (msc_debug_send) fprintf(mp_fp, "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
                  sAddress.c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", wtxid.ToString().c_str(), i, n);
 
-            // only use funds from the Sender's address for our MP transaction
-            // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
-            if (FromAddress == sAddress)
-            {
-              COutPoint outpt(wtxid, i);
-              coinControl.Select(outpt);
+                // only use funds from the Sender's address for our MP transaction
+                // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
+                if (FromAddress == sAddress)
+                {
+                  COutPoint outpt(wtxid, i);
+                  coinControl.Select(outpt);
+
+                  n_total += n;
+
+                  if (n_max <= n_total) break;
+                }
+              } // for pcoin end
             }
-        }
-            }
-        }
+
+          if (n_max <= n_total) break;
+        } // for iterate over the wallet end
     }
 
   string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
@@ -4430,7 +4450,7 @@ uint256 txid = 0;
   }
 
   rc = ClassB_send(FromAddress, ToAddress, HexStr(vec_pkt), coinControl, txid);
-  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
+  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d; n_total= %ld\n", rc, n_total);
 
   return txid;
 }
@@ -4678,7 +4698,8 @@ Slice skey, svalue;
 
 // figure out if there was at least 1 Master Protocol transaction within the block range, or a block if starting equals ending
 // block numbers are inclusive
-bool CMPTxList::isMPinBlockRange(int starting_block, int ending_block)
+// pass in bDeleteFound = true to erase each entry found within the block range
+bool CMPTxList::isMPinBlockRange(int starting_block, int ending_block, bool bDeleteFound)
 {
 leveldb::Slice skey, svalue;
 unsigned int count = 0;
@@ -4707,7 +4728,11 @@ unsigned int n_found = 0;
     {
       block = atoi(vstr[1]);
 
-      if ((starting_block <= block) && (block <= ending_block)) ++n_found;
+      if ((starting_block <= block) && (block <= ending_block))
+      {
+        ++n_found;
+        if (bDeleteFound) pdb->Delete(writeoptions, skey);
+      }
     }
   }
 
@@ -4719,13 +4744,13 @@ unsigned int n_found = 0;
 }
 
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
-bool isMPinBlockRange(int starting_block, int ending_block)
+bool isMPinBlockRange(int starting_block, int ending_block, bool bDeleteFound)
 {
   if (!p_txlistdb) return false;
 
   if (0 == ending_block) ending_block = GetHeight(); // will scan 'til the end
 
-  return p_txlistdb->isMPinBlockRange(starting_block, ending_block);
+  return p_txlistdb->isMPinBlockRange(starting_block, ending_block, bDeleteFound);
 }
 
 // call it like so (variable # of parameters):
@@ -4859,7 +4884,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 if (NULL == pBlockIndex)
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: pBlockIndex is NULL");
                 int blockHeight = pBlockIndex->nHeight;
-                int confirmations =  1 + chainActive.Height() - pBlockIndex->nHeight;
+                int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[blockHash]->nTime; 
 
                 if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
@@ -5851,7 +5876,7 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
 
   // firstly let's get the block height given in the param
   int blockHeight = params[0].get_int();
-  if (blockHeight < 0 || blockHeight > chainActive.Height())
+  if (blockHeight < 0 || blockHeight > GetHeight())
         throw runtime_error("Cannot display MP transactions for a non-existent block.");
 
   // next let's obtain the block for this height
@@ -5918,8 +5943,6 @@ int extra2 = 0, extra3 = 0;
         }
 */
 
-        fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
         // display all balances
         for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
         {
@@ -5970,7 +5993,7 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 5:
-      printf("isMPinBlockRange(%d,%d)=%s\n", extra2, extra3, isMPinBlockRange(extra2, extra3) ? "YES":"NO");
+      printf("isMPinBlockRange(%d,%d)=%s\n", extra2, extra3, isMPinBlockRange(extra2, extra3, false) ? "YES":"NO");
       break;
   }
 
