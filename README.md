@@ -41,7 +41,21 @@ Installation
 *NOTE: This will only build on Ubuntu Linux for now.*
 
 You will need appropriate libraries to run Mastercore on Unix, 
-please see doc/build-unix.md for the full listing.
+please see [doc/build-unix.md](doc/build-unix.md) for the full listing.
+
+You will need to install git & pkg-config.
+
+```
+sudo apt-get install git
+sudo apt-get install pkg-config
+```
+
+Clone the Mastercore repo.
+
+```
+ git clone https://github.com/mastercoin-MSC/mastercore.git
+ cd mastercore/
+```
 
 Then, run
 
@@ -50,7 +64,11 @@ Then, run
 ./configure
 make
 ```
+Once complete
 
+```
+cd src/
+```
 and start Mastercore using ```./bitcoind -txindex ```. The inital parse step for a first time run
 will take approximately 10-15 minutes, during this time your client will scan the blockchain for
 Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
