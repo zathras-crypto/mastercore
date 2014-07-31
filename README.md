@@ -43,6 +43,19 @@ Installation
 You will need appropriate libraries to run Mastercore on Unix, 
 please see doc/build-unix.md for the full listing.
 
+You will need to install git.
+
+```
+sudo apt-get install git
+```
+
+Clone the Mastercore repo.
+
+```
+ git clone https://github.com/mastercoin-MSC/mastercore.git
+ cd mastercore/
+```
+
 Then, run
 
 ```
