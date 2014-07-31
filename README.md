@@ -124,4 +124,4 @@ Pending additions:
 Support:
 ------------------
 
-* Email dev@mastercoin.org or open a Github Issue to file a bug submission.
+* Email <mastercore@mastercoin.org> or open a Github Issue to file a bug submission.
