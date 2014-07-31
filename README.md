@@ -43,10 +43,11 @@ Installation
 You will need appropriate libraries to run Mastercore on Unix, 
 please see doc/build-unix.md for the full listing.
 
-You will need to install git.
+You will need to install git & pkg-config.
 
 ```
 sudo apt-get install git
+sudo apt-get install pkg-config
 ```
 
 Clone the Mastercore repo.
