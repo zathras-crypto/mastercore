@@ -3868,7 +3868,7 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
   for (iter = my_accepts.begin(); iter != my_accepts.end(); ++iter) {
     // decompose the key for address
     std::vector<std::string> vstr;
-    boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
+    boost::split(vstr, (*iter).first, boost::is_any_of("-+"), token_compress_on);
     CMPAccept const &accept = (*iter).second;
     accept.saveAccept(file, shaCtx, vstr[0], vstr[1]);
   }
