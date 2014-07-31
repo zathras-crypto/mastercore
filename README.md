@@ -41,7 +41,7 @@ Installation
 *NOTE: This will only build on Ubuntu Linux for now.*
 
 You will need appropriate libraries to run Mastercore on Unix, 
-please see doc/build-unix.md for the full listing.
+please see [doc/build-unix.md](doc/build-unix.md) for the full listing.
 
 You will need to install git & pkg-config.
 
