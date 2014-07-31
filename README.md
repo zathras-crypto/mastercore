@@ -64,7 +64,11 @@ Then, run
 ./configure
 make
 ```
+Once complete
 
+```
+cd src/
+```
 and start Mastercore using ```./bitcoind -txindex ```. The inital parse step for a first time run
 will take approximately 10-15 minutes, during this time your client will scan the blockchain for
 Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
