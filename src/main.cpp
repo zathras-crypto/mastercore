@@ -26,6 +26,8 @@
 using namespace std;
 using namespace boost;
 
+int mastercore_handler_disc_begin(int nBlockNow, CBlockIndex const * pBlockIndex);
+int mastercore_handler_disc_end(int nBlockNow, CBlockIndex const * pBlockIndex);
 int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockIndex);
 int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex);
 int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, CBlockIndex const * pBlockIndex );
@@ -1952,6 +1954,8 @@ void static UpdateTip(CBlockIndex *pindexNew) {
 bool static DisconnectTip(CValidationState &state) {
     CBlockIndex *pindexDelete = chainActive.Tip();
     assert(pindexDelete);
+
+    printf("\nDisconnectTip() called... (%s) \n", pindexDelete->GetBlockHash().ToString().c_str());
     mempool.check(pcoinsTip);
     // Read block from disk.
     CBlock block;
@@ -1982,17 +1986,21 @@ bool static DisconnectTip(CValidationState &state) {
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
     UpdateTip(pindexDelete->pprev);
+    
+    (void) mastercore_handler_disc_begin(GetHeight(), pindexDelete);
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         SyncWithWallets(tx.GetHash(), tx, NULL);
     }
+    (void) mastercore_handler_disc_end(GetHeight(), pindexDelete);
     return true;
 }
 
 // Connect a new block to chainActive.
 bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew) {
     assert(pindexNew->pprev == chainActive.Tip());
+    printf("\nConnectTip() called... (%s)\n", pindexNew->GetBlockHash().ToString().c_str());
     mempool.check(pcoinsTip);
     // Read block from disk.
     CBlock block;
