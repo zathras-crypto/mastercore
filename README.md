@@ -1,4 +1,4 @@
-Master Core integration/staging tree
+Master Core (Beta) integration/staging tree
 =================================================
 
 What is the Master Protocol
@@ -38,7 +38,12 @@ All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 Installation
 ------------
 
-*NOTE: This will only build on Linux for now.*
+*NOTE: This will only build on Ubuntu Linux for now.*
+
+You will need appropriate libraries to run Mastercore on Unix, 
+please see doc/build-unix.md for the full listing.
+
+Then, run
 
 ```
 ./autogen
@@ -46,17 +51,59 @@ Installation
 make
 ```
 
+and start Mastercore using ```./bitcoind -txindex ```. The inital parse step for a first time run
+will take approximately 10-15 minutes, during this time your client will scan the blockchain for
+Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
+located in ```/tmp/mastercore.log```.
+
+After this step completes, check that the installation went smoothly by issuing the following
+command ```./bitcoind getinfo``` which should return the 'mastercore version' as well as some
+additional information related to the Bitcoin Network.
+
+*NOTE: This release of Mastercore _does not contain a UI_, please do not try to compile/use 'bitcoinqt' for Master Protocol functionality. The full documentation for the command-line is located in doc/apidocumentation.md.* 
+
+Current Featureset:
+--------------------
+
+* Broadcasting of simple send (tx0), and send to owners (tx3)
+
+* Obtaining a Master Protocol balance
+
+* Obtaining all MP (including Smart property) balances for an address
+
+* Obtaining all balances for a specific Smart property ID
+
+* Retrieving information about any Master Protocol Transaction
+
+* Listing historical transactions of addresses in the wallet
+
+* Retreiving MP information about a Smart Property
+
+* Retreiving active and expired crowdsale information
+
 Known Issues:
 ----------------
-* Payments for DEx transactions not currently available in history
+
+* Make sure send_MP returns an appropriate error code when out of funds
 
 * Feel free to open more Github issues with other new bugs or improvement suggestions
 
-* Make sure send_MP returns an appropriate error code when out of funds
-Pending additions:
-
 * Bug on fee calculation in gettransaction_MP - unreliable
-------------------
 
 * gettransaction_MP output should display matched sell offer txid
 
+Pending additions:
+-------------------
+
+* Payments for DEx transactions not currently available in history
+
+* Need to finish adding protections for blockchain orphans (re-orgs)
+
+* Fully functional UI
+
+* MetaDex support
+
+Support:
+------------------
+
+* Email dev@mastercoin.org or open a Github Issue to file a bug submission.
