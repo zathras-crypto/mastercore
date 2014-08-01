@@ -292,7 +292,6 @@ public:
   unsigned int getCurrency() const { return currency; }
 
   int getAcceptBlock()  { return block; }
-  uint64_t getAcceptAmount()  { return accept_amount_remaining; }
 
   CMPAccept(uint64_t a, int b, unsigned char blt, unsigned int c, uint64_t o, uint64_t btc, const uint256 &txid):accept_amount_remaining(a),blocktimelimit(blt),currency(c),
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
@@ -5988,7 +5987,7 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
                   //split acceptCombo out to get the buyer address
                   string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
                   uint64_t acceptBlock = accept.getAcceptBlock();
-                  uint64_t acceptAmount = accept.getAcceptAmount();
+                  uint64_t acceptAmount = accept.getAcceptAmountRemaining();
                   matchedAccept.push_back(Pair("buyer", buyer));
                   matchedAccept.push_back(Pair("block", acceptBlock));
                   matchedAccept.push_back(Pair("amount", ValueFromAmount(acceptAmount)));
