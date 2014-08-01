@@ -3869,7 +3869,7 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
   for (iter = my_accepts.begin(); iter != my_accepts.end(); ++iter) {
     // decompose the key for address
     std::vector<std::string> vstr;
-    boost::split(vstr, (*iter).first, boost::is_any_of("-"), token_compress_on);
+    boost::split(vstr, (*iter).first, boost::is_any_of("-+"), token_compress_on);
     CMPAccept const &accept = (*iter).second;
     accept.saveAccept(file, shaCtx, vstr[0], vstr[1]);
   }
@@ -4123,6 +4123,7 @@ int mastercore_init()
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
     update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
     nWaterlineBlock = 304000;
+    nWaterlineBlock = 310000;
 #endif
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
@@ -6043,7 +6044,9 @@ int mastercore_handler_disc_end(int nBlockNow, CBlockIndex const * pBlockIndex) 
     //delete entry from MP_txlist
     bool foundMPTX = p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, pBlockIndex->nHeight, false);
     if( foundMPTX ) {
-      printf("\n  MProtocol TX was found in block, please remove ~/.bitcoin/MP_* and restart your client. \n");
+      printf("\n  MProtocol TX was found in orphaned block, please remove ~/.bitcoin/MP_* and restart your client. \n");
+      fprintf(mp_fp,"\n  MProtocol TX was found in orphaned block, please remove ~/.bitcoin/MP_* and restart your client. \n");
+      AbortNode("\n  MProtocol TX was found in orphaned block, please remove ~/.bitcoin/MP_* and restart your client. \n");
     }
     
     return 0;
