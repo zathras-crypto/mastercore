@@ -291,6 +291,9 @@ public:
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
   unsigned int getCurrency() const { return currency; }
 
+  int getAcceptBlock()  { return block; }
+  uint64_t getAcceptAmount()  { return accept_amount_remaining; }
+
   CMPAccept(uint64_t a, int b, unsigned char blt, unsigned int c, uint64_t o, uint64_t btc, const uint256 &txid):accept_amount_remaining(a),blocktimelimit(blt),currency(c),
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
   {
@@ -5903,6 +5906,101 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
             response.push_back(tx.GetHash().GetHex());
        }
   }
+return response;
+}
+
+Value getactivedexsells_MP(const Array& params, bool fHelp)
+{
+   if (fHelp)
+        throw runtime_error(
+            "getactivedexsells_MP\n"
+            "\nGet currently active distributed exchange sell offers\n"
+            "\nResult:\n"
+            "{\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getactivedexsells_MP", "")
+            + HelpExampleRpc("getactivedexsells_MP", "")
+        );
+
+      //if 0 params list all sells, otherwise first param is filter address
+      bool addressFilter = false;
+      string addressParam;
+
+      if (params.size() > 0)
+      {
+          addressParam = params[0].get_str();
+          addressFilter = true;
+      }
+
+      Array response;
+
+      for(map<string, CMPOffer>::iterator it = my_offers.begin(); it != my_offers.end(); ++it)
+      {
+          CMPOffer selloffer = it->second;
+          string sellCombo = it->first;
+          string seller = sellCombo.substr(0, sellCombo.size()-2);
+
+          //filtering
+          if ((addressFilter) && (seller != addressParam)) continue;
+
+          uint256 sellHash = selloffer.getHash();
+          string txid = sellHash.GetHex();
+          uint64_t propertyId = selloffer.getCurrency();
+          uint64_t minFee = selloffer.getMinFee();
+          unsigned char timeLimit = selloffer.getBlockTimeLimit();
+          uint64_t sellOfferAmount = selloffer.getOfferAmountOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+          uint64_t sellBitcoinDesired = selloffer.getBTCDesiredOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+          uint64_t amountAvailable = getMPbalance(seller, propertyId, SELLOFFER_RESERVE);
+          uint64_t amountAccepted = getMPbalance(seller, propertyId, ACCEPT_RESERVE);
+
+          //unit price & updated bitcoin desired calcs
+          double unitPriceFloat = 0;
+          if ((sellOfferAmount>0) && (sellBitcoinDesired > 0)) unitPriceFloat = (double)sellBitcoinDesired/(double)sellOfferAmount; //divide by zero protection
+          uint64_t unitPrice = rounduint64(unitPriceFloat * COIN);
+          uint64_t bitcoinDesired = rounduint64(amountAvailable*unitPriceFloat);
+
+          Object responseObj;
+
+          responseObj.push_back(Pair("txid", txid));
+          responseObj.push_back(Pair("propertyid", propertyId));
+          responseObj.push_back(Pair("seller", seller));
+          responseObj.push_back(Pair("amountavailable", ValueFromAmount(amountAvailable)));
+          responseObj.push_back(Pair("bitcoindesired", ValueFromAmount(bitcoinDesired)));
+          responseObj.push_back(Pair("unitprice", ValueFromAmount(unitPrice)));
+          responseObj.push_back(Pair("timelimit", timeLimit));
+          responseObj.push_back(Pair("minimumfee", ValueFromAmount(minFee)));
+
+          // display info about accepts related to sell
+          responseObj.push_back(Pair("amountaccepted", ValueFromAmount(amountAccepted)));
+          Array acceptsMatched;
+          for(map<string, CMPAccept>::iterator ait = my_accepts.begin(); ait != my_accepts.end(); ++ait)
+          {
+              Object matchedAccept;
+
+              CMPAccept accept = ait->second;
+              string acceptCombo = ait->first;
+              uint256 matchedHash = accept.getHash();
+              // does this accept match the sell?
+              if (matchedHash == sellHash)
+              {
+                  //split acceptCombo out to get the buyer address
+                  string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
+                  uint64_t acceptBlock = accept.getAcceptBlock();
+                  uint64_t acceptAmount = accept.getAcceptAmount();
+                  matchedAccept.push_back(Pair("buyer", buyer));
+                  matchedAccept.push_back(Pair("block", acceptBlock));
+                  matchedAccept.push_back(Pair("amount", ValueFromAmount(acceptAmount)));
+                  acceptsMatched.push_back(matchedAccept);
+              }
+          }
+          responseObj.push_back(Pair("accepts", acceptsMatched));
+
+          // add sell object into response array
+          response.push_back(responseObj);
+      }
+
 return response;
 }
 
