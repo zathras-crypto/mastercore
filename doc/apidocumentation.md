@@ -453,3 +453,44 @@ $src/mastercored sendtoowners_MP "1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb" 2147483668
 ```
 *Please note, the private key for the requested sender address must be available in the wallet.*
 
+###Listing currently active DeX sell offers
+The **getactivedexsells_MP** call allows for listing all currently active Master Protocol DeX sell offers.
+
+**Required Parameters**
+- There are no required parameters for this call.
+
+**Additional Optional Parameters**
+- You may pass in (1) parameter, which is the address to filter by/on.
+
+**Examples**
+```
+$src/mastercored getactivedexsells_MP
+[
+    {
+        "txid" : "9133dc9f042a4edd92a8bc1f1764a9cc5e0b1f04061ccb74e5fce34981f664a1",
+        "propertyid" : 1,
+        "seller" : "1Ji1E3r4paY8ZqtudraKYvc7cfN1fyEfNo",
+        "amountavailable" : 0.01000000,
+        "bitcoindesired" : 0.00200000,
+        "unitprice" : 0.20000000,
+        "timelimit" : 6,
+        "minimumfee" : 0.00010000,
+        "amountaccepted" : 0.00000000,
+        "accepts" : [
+        ]
+    },
+    {
+        "txid" : "28d951ac4b48c31706561dac62fd0ea065a7873faede5316ff04817e1057315f",
+        "propertyid" : 1,
+        "seller" : "1K5Tofy7UTfcrpWBnXcJhHZzvLTksDdasQ",
+        "amountavailable" : 0.00000001,
+        "bitcoindesired" : 0.00000000,
+        "unitprice" : 0.12000000,
+        "timelimit" : 100,
+        "minimumfee" : 0.00010000,
+        "amountaccepted" : 0.00000000,
+        "accepts" : [
+        ]
+    }
+]
+```
