@@ -3035,6 +3035,7 @@ uint64_t txFee = 0;
             if (RegTest() || TestNet())
             {
               if (MONEYMAN_TESTNET_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
+              if (RegTest() && (MONEYMAN_REGTEST_BLOCK <= nBlock)) BTC_amount = TestNetMoneyValues[0];
             }
 
             fprintf(mp_fp, "%s()amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
