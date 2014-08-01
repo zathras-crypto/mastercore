@@ -83,35 +83,33 @@ additional information related to the Bitcoin Network.
 Current Featureset:
 --------------------
 
-* Broadcasting of simple send (tx0), and send to owners (tx3)
+* Broadcasting of simple send (tx0), and send to owners (tx3) [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#broadcasting-a-simple-send-transaction)
 
-* Obtaining a Master Protocol balance
+* Obtaining a Master Protocol balance [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#obtaining-a-master-protocol-balance)
 
-* Obtaining all MP (including Smart property) balances for an address
+* Obtaining all MP (including Smart property) balances for an address [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-an-address)
 
-* Obtaining all balances for a specific Smart property ID
+* Obtaining all balances for a specific Smart property ID [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-a-property-id)
 
-* Retrieving information about any Master Protocol Transaction
+* Retrieving information about any Master Protocol Transaction [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#retrieving-a-master-protocol-transaction)
 
-* Listing historical transactions of addresses in the wallet
+* Listing historical transactions of addresses in the wallet [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#listing-historical-transactions)                            
 
-* Retreiving MP information about a Smart Property
+* Retreiving MP information about a Smart Property [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#retrieving-information-about-a-master-protocol-property)
 
-* Retreiving active and expired crowdsale information
+* Retreiving active and expired crowdsale information [doc] (https://github.com/mastercoin-MSC/mastercore/blob/michael-0921/doc/apidocumentation.md#retrieving-information-for-a-master-protocol-crowdsale)
 
 Known Issues:
 ----------------
 
-* Make sure send_MP returns an appropriate error code when out of funds
+* Bug on fee calculation in gettransaction_MP 
 
-* Feel free to open more Github issues with other new bugs or improvement suggestions
-
-* Bug on fee calculation in gettransaction_MP - unreliable
-
-* gettransaction_MP output should display matched sell offer txid
+* gettransaction_MP output should include matched sell offer txid
 
 Pending additions:
 -------------------
+
+* Make sure send_MP returns an appropriate error code when out of funds
 
 * Payments for DEx transactions not currently available in history
 
@@ -120,6 +118,10 @@ Pending additions:
 * Fully functional UI
 
 * MetaDex support
+
+* Dex support ( making offer, making accept, making payment)
+
+* Crowdsales ( issuing SP, fundraisers, changing currency, closing fundraisers)
 
 Support:
 ------------------
