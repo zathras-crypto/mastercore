@@ -1867,6 +1867,18 @@ public:
             //get txid
             string sp_txid =  sp.txid.GetHex().c_str();
 
+            //Units going into the calculateFundraiser function must
+            //match the unit of the fundraiser's property_type.
+            //By default this means Satoshis in and satoshis out.
+            //In the condition that your fundraiser is Divisible,
+            //but you are accepting indivisible tokens, you must
+            //account for 1.0 Div != 1 Indiv but actually 1.0 Div == 100000000 Indiv.
+            //The unit must be shifted or your values will be incorrect,
+            //that is what we check for below.
+            if ( !(isPropertyDivisible(currency)) && (sp.isDivisible()) ) {
+              nValue = nValue * 1e8;
+            }
+
             //fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
 
             // calc tokens per this fundraise
