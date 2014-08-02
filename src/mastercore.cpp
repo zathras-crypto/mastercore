@@ -4118,7 +4118,10 @@ int mastercore_init()
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
     update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
     nWaterlineBlock = 304000;
-    nWaterlineBlock = 310000;
+
+    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
+    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    nWaterlineBlock = 310500;
 #endif
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
