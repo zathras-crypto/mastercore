@@ -74,6 +74,17 @@ will take approximately 10-15 minutes, during this time your client will scan th
 Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
 located in ```/tmp/mastercore.log```.
 
+If a message is returned asking you to reindex, pass the ```-reindex``` flag to bitcoind. The reindexing process can take serveral hours.
+
+Note: To avoid passing 'txindex' to the binary, you can use the sample bitcoin.conf (located in 
+~/.bitcoin/ by default) to pass the option on load, avoiding the need for the CLI flag.
+
+In bitcoin.conf:
+```
+server=1
+txindex=1
+```
+
 After this step completes, check that the installation went smoothly by issuing the following
 command ```./bitcoind getinfo``` which should return the 'mastercore version' as well as some
 additional information related to the Bitcoin Network.
