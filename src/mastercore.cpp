@@ -82,7 +82,6 @@ static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
 
-/*
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_verbose=1;
@@ -96,21 +95,6 @@ int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
-int msc_debug_persistence = 0;
-*/
-int msc_debug_parser_data = 1;
-int msc_debug_parser= 1;
-int msc_debug_verbose=1;
-int msc_debug_vin   = 1;
-int msc_debug_script= 1;
-int msc_debug_dex   = 1;
-int msc_debug_send  = 1;
-int msc_debug_spec  = 1;
-int msc_debug_exo   = 1;
-int msc_debug_tally = 1;
-int msc_debug_sp    = 1;
-int msc_debug_sto   = 1;
-int msc_debug_txdb  = 1;
 int msc_debug_persistence = 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
