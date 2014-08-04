@@ -65,6 +65,8 @@ using namespace boost::assign;
 using namespace json_spirit;
 using namespace leveldb;
 
+// static const int nBlockTop = 271000;
+static const int nBlockTop = 0;
 int nWaterlineBlock = 0;  //
 
 // uint64_t global_MSC_total = 0;
@@ -80,6 +82,7 @@ static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
 
+/*
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_verbose=1;
@@ -94,6 +97,21 @@ int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
 int msc_debug_persistence = 0;
+*/
+int msc_debug_parser_data = 1;
+int msc_debug_parser= 1;
+int msc_debug_verbose=1;
+int msc_debug_vin   = 1;
+int msc_debug_script= 1;
+int msc_debug_dex   = 1;
+int msc_debug_send  = 1;
+int msc_debug_spec  = 1;
+int msc_debug_exo   = 1;
+int msc_debug_tally = 1;
+int msc_debug_sp    = 1;
+int msc_debug_sto   = 1;
+int msc_debug_txdb  = 1;
+int msc_debug_persistence = 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -102,12 +120,6 @@ static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns o
 static int disable_Divs = 0;
 
 static int disableLevelDB = 0;
-
-#ifdef  MY_DIV_HACK
-static int disable_Persistence = 1;
-#else
-static int disable_Persistence = 0;
-#endif
 
 static int mastercoreInitialized = 0;
 
@@ -120,8 +132,28 @@ static CMPTxList *p_txlistdb;
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 static int GetHeight()
 {
-    LOCK(cs_main);
-    return chainActive.Height();
+  if (0 < nBlockTop) return nBlockTop;
+
+  LOCK(cs_main);
+  return chainActive.Height();
+}
+
+// indicate whether persistence is enabled at this point, or not
+// used to write/read files, for breakout mode, debugging, etc.
+static bool readPersistence()
+{
+//  return false;
+  return true;
+}
+
+// indicate whether persistence is enabled at this point, or not
+// used to write/read files, for breakout mode, debugging, etc.
+static bool writePersistence(int block_now)
+{
+  // if too far away from the top -- do not write
+  if (GetHeight() > (block_now + MAX_STATE_HISTORY)) return false;
+
+  return true;
 }
 
 string strMPCurrency(unsigned int i)
@@ -700,7 +732,7 @@ public:
     Object spInfo = info.toJSON();
 
     // generate the SP id
-    string spKey = (boost::format("sp-%d") % propertyID).str();
+    string spKey = (boost::format(FORMAT_BOOST_SPKEY) % propertyID).str();
     string spValue = write_string(Value(spInfo), false);
     string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
     string txValue = (boost::format("%d") % propertyID).str();
@@ -2759,6 +2791,8 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
 
 int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockIndex)
 {
+  if (0 < nBlockTop) if (nBlockTop < nBlockNow) return 0;
+
   (void) eraseExpiredCrowdsale(pBlockIndex->GetBlockTime());
 
   return 0;
@@ -2772,6 +2806,9 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex)
   if (!mastercoreInitialized) {
     mastercore_init();
   }
+
+  if (0 < nBlockTop) if (nBlockTop < nBlockNow) return 0;
+
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
 // 2) update the amount in the Exodus address
@@ -2794,7 +2831,7 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
   if (mp_fp) fflush(mp_fp);
 
   // save out the state after this block
-  if (!disable_Persistence) mastercore_save_state(pBlockIndex);
+  if (writePersistence(nBlockNow)) mastercore_save_state(pBlockIndex);
 
   return 0;
 }
@@ -3506,9 +3543,9 @@ int input_msc_balances_string(const string &s)
       continue;
     }
 
-    update_tally_map(strAddress, currency, balance, MONEY);
-    update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
-    update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
+    if (balance) update_tally_map(strAddress, currency, balance, MONEY);
+    if (sellReserved) update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
+    if (acceptReserved) update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
   }
 
   return 1;
@@ -3703,13 +3740,17 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       return -1;
   }
 
-  if (msc_debug_persistence) LogPrintf("Loading %s ... \n", filename);
+  if (msc_debug_persistence)
+  {
+    LogPrintf("Loading %s ... \n", filename);
+    fprintf(mp_fp, "%s(%s), line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
+  }
 
   ifstream file;
   file.open(filename.c_str());
   if (!file.is_open())
   {
-    if (msc_debug_persistence) LogPrintf("%s(): file not found, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    if (msc_debug_persistence) LogPrintf("%s(%s): file not found, line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
     return -1;
   }
 
@@ -3761,7 +3802,7 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
     }
   }
 
-  printf("%s(): file: %s , loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
+  fprintf(mp_fp, "%s(%s), loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
   LogPrintf("%s(): file: %s , loaded lines= %d\n", __FUNCTION__, filename, lines);
 
   return res;
@@ -3981,8 +4022,6 @@ static bool is_state_prefix( std::string const &str )
 
 static void prune_state_files( CBlockIndex const *topIndex )
 {
-  static int const MAX_STATE_HISTORY = 50;
-
   // build a set of blockHashes for which we have any state files
   std::set<uint256> statefulBlockHashes;
 
@@ -4088,7 +4127,7 @@ int mastercore_init()
 
   ++mastercoreInitialized;
 
-  if (!disable_Persistence)
+  if (readPersistence())
   {
     nWaterlineBlock = load_most_relevant_state();
 
@@ -4144,17 +4183,6 @@ int mastercore_init()
   printf("Exodus balance: %lu\n", exodus_balance);
 
   (void) msc_initial_scan(nWaterlineBlock);
-/*
-  if (!TestNet())
-  {
-    (void) msc_initial_scan(nWaterlineBlock);
-  }
-  else
-  {
-    // testnet
-    (void) msc_initial_scan(GetHeight()-10000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
-  }
-*/
 
   if (mp_fp) fflush(mp_fp);
 

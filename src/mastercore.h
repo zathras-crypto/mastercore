@@ -9,6 +9,8 @@
 #include "netbase.h"
 #include "protocol.h"
 
+int const MAX_STATE_HISTORY = 50;
+
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
@@ -127,8 +129,6 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
-
-#define MSC_MAX_KNOWN_CURRENCIES  64  // TODO, FIXME: take this away, used to write persistent files
 
 inline uint64_t rounduint64(double d)
 {
