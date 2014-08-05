@@ -95,7 +95,7 @@ int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
-int msc_debug_persistence = 1;
+int msc_debug_persistence = 0;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -893,6 +893,7 @@ static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
 static CMPSPInfo *_my_sps;
 CrowdMap my_crowds;
+static MetaDExMap metadex;
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
@@ -1777,6 +1778,10 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  // METADEX additions
+  unsigned int desired_currency;
+  uint64_t desired_value;
+
   class SendToOwners_compare
   {
   public:
@@ -2101,9 +2106,6 @@ public:
           // do not count the sender
           if (address == sender) continue;
 
-          // do not count the Exodus either
-//          if (address == exodus) continue;
-
           int64_t tokens = 0;
 
           tokens += getMPbalance(address, currency, MONEY);
@@ -2217,6 +2219,53 @@ public:
 
         // rc = ???
       }
+
+    return rc;
+  }
+
+  int logicMath_Metadex()
+  {
+  int rc = PKT_ERROR_METADEX -1000;
+  unsigned char action = 0;
+
+    if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_METADEX -888);
+
+    memcpy(&currency, &pkt[16], 4);
+    swapByteOrder32(desired_currency);
+
+    memcpy(&nValue, &pkt[20], 8);
+    swapByteOrder64(desired_value);
+
+    if (!isTransactionTypeAllowed(block, desired_currency, type)) return (PKT_ERROR_METADEX -889);
+
+    memcpy(&action, &pkt[28], 1);
+
+    fprintf(mp_fp, "\tdesired currency: %u (%s)\n", desired_currency, strMPCurrency(desired_currency).c_str());
+    fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
+    fprintf(mp_fp, "\t          action: %u\n", action);
+
+    // Check: The purchaser's address must be different than the seller's address.
+    if (sender == receiver) return (PKT_ERROR_METADEX -1);
+    if (receiver.empty()) return (PKT_ERROR_METADEX -2);
+
+    // Does the sender have any money?
+    nNewValue = getMPbalance(exodus, currency, MONEY);
+    if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
+
+    // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+    if (nNewValue > nValue) nNewValue = nValue;
+
+    // ensure no cross-over of currencies from Test Eco to normal
+    if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+
+    // TODO: check
+    // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
+    // ...
+
+    // use the nNewValue as the amount the seller/sender actually has to trade with
+    // ...
+
+    // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
 
     return rc;
   }
@@ -2408,6 +2457,13 @@ public:
       rc = logicMath_SendToOwners();
     }
     break;
+
+    case MSC_TYPE_METADEX:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_Metadex();
+      break;
 
     default:
 

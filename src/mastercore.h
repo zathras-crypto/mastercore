@@ -80,6 +80,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
   GENESIS_BLOCK     = 249498,
   LAST_EXODUS_BLOCK = 255365,
   MSC_STO_BLOCK     = 999999,
+  MSC_METADEX_BLOCK = 999999,
 };
 
 int txBlockRestrictions[][2] = {
@@ -90,6 +91,7 @@ int txBlockRestrictions[][2] = {
   {MSC_TYPE_CREATE_PROPERTY_VARIABLE, MSC_SP_BLOCK},
   {MSC_TYPE_CLOSE_CROWDSALE,          MSC_SP_BLOCK},
   {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK},
+  {MSC_TYPE_METADEX,                  MSC_METADEX_BLOCK},
 
 // end of array marker, in addition to sizeof/sizeof
   {-1,-1},
@@ -125,6 +127,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define PKT_ERROR_STO         (-50000)
 #define PKT_ERROR_SEND        (-60000)
 #define PKT_ERROR_TRADEOFFER  (-70000)
+#define PKT_ERROR_METADEX     (-80000)
 
 #define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
@@ -320,6 +323,25 @@ public:
 
     bool isMPinBlockRange(int, int, bool);
 };
+
+// a metadex trade
+class CMPMetaDex
+{
+private:
+  int block;
+  uint256 txid;
+  unsigned int currency;
+  uint64_t amount_original; // the amount for sale specified when the offer was placed
+  unsigned int desired_currency;
+  uint64_t desired_amount_original;
+  unsigned char subaction;
+
+public:
+  uint256 getHash() const { return txid; }
+  unsigned int getCurrency() const { return currency; }
+};
+
+typedef std::map<string, CMPMetaDex> MetaDExMap;
 
 // extern map<string, CMPTally> mp_tally_map;
 extern uint64_t global_MSC_total;
