@@ -1875,7 +1875,7 @@ public:
             //account for 1.0 Div != 1 Indiv but actually 1.0 Div == 100000000 Indiv.
             //The unit must be shifted or your values will be incorrect,
             //that is what we check for below.
-            if ( !(isPropertyDivisible(currency)) && (sp.isDivisible()) ) {
+            if ( !(isPropertyDivisible(currency)) ) {
               nValue = nValue * 1e8;
             }
 
