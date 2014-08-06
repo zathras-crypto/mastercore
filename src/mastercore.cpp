@@ -5500,9 +5500,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatMoneyMP(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", FormatMoneyMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatMoneyMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
         }
         else
         {
