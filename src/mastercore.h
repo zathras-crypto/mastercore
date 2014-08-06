@@ -138,6 +138,24 @@ inline uint64_t rounduint64(double d)
   return (uint64_t)(abs(0.5 + d));
 }
 
+string FormatMoneyMP(int64_t n, bool fSign = false)
+{
+// Note: not using straight sprintf here because we do NOT want
+// localized number formatting.
+int64_t n_abs = (n > 0 ? n : -n);
+int64_t quotient = n_abs/COIN;
+int64_t remainder = n_abs%COIN;
+string str = strprintf("%d.%08d", quotient, remainder);
+
+  if (!fSign) return str;
+
+  if (n < 0)
+      str.insert((unsigned int)0, 1, '-');
+  else
+      str.insert((unsigned int)0, 1, '+');
+  return str;
+}
+
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
@@ -241,8 +259,13 @@ public:
 
     if (bDivisible)
     {
-      printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
-       (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
+//      printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
+//       (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
+
+//      printf("%+12ld.%08lu [SO_RESERVE= %+12ld.%08lu , ACCEPT_RESERVE= %+12ld.%08lu ]\n",
+//       money/COIN, money%COIN, so_r/COIN, so_r%COIN, a_r/COIN, a_r%COIN);
+      printf("%22s [SO_RESERVE= %22s , ACCEPT_RESERVE= %22s ]\n",
+       FormatMoneyMP(money).c_str(), FormatMoneyMP(so_r).c_str(), FormatMoneyMP(a_r).c_str());
     }
     else
     {

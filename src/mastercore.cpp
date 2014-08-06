@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_DIV_HACK & others here - used for Unit Testing only !
-// #define MY_DIV_HACK
+// #define MY_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -85,6 +85,7 @@ static boost::filesystem::path MPPersistencePath;
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_verbose=1;
+int msc_debug_verbose2=0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 1;
@@ -96,6 +97,7 @@ int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
 int msc_debug_persistence = 0;
+int msc_debug_metadex= 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
@@ -126,8 +128,11 @@ static int GetHeight()
 // used to write/read files, for breakout mode, debugging, etc.
 static bool readPersistence()
 {
-//  return false;
+#ifdef  MY_HACK
+  return false;
+#else
   return true;
+#endif
 }
 
 // indicate whether persistence is enabled at this point, or not
@@ -895,6 +900,18 @@ static CMPSPInfo *_my_sps;
 CrowdMap my_crowds;
 static MetaDExMap metadex;
 
+CMPMetaDex *getMetaDEx(const string &sender_addr, unsigned int curr)
+{
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+map<string, CMPMetaDex>::iterator it = metadex.find(combo);
+
+  if (it != metadex.end()) return &(it->second);
+
+  return (CMPMetaDex *) NULL;
+}
+
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
 
@@ -1147,7 +1164,7 @@ map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 // TODO: locks are needed around map's insert & erase
 CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int curr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, seller_addr.c_str(), curr);
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
 map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 
@@ -1156,11 +1173,10 @@ map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
   return (CMPOffer *) NULL;
 }
 
-// getAccept may replace DEx_acceptExists() in the near future
 // TODO: locks are needed around map's insert & erase
 CMPAccept *DEx_getAccept(const string &seller_addr, unsigned int curr, const string &buyer_addr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u, %s)\n", __FUNCTION__, seller_addr.c_str(), curr, buyer_addr.c_str());
 const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller_addr, buyer_addr);
 map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 
@@ -1178,7 +1194,7 @@ int rc = DEX_ERROR_SELLOFFER;
   // sanity check our params are OK
   if ((!btl) || (!amount_desired)) return (DEX_ERROR_SELLOFFER -101); // time limit or amount desired empty
 
-  if (DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
+  if (DEx_getOffer(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
 
@@ -1263,16 +1279,6 @@ int rc = DEX_ERROR_SELLOFFER;
   return rc;
 }
 
-// check to see if such an accept exists
-bool DEx_acceptExists(const string &seller_addr, unsigned int curr, const string &buyer_addr)
-{
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller_addr, buyer_addr);
-map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
-
-  return !(my_it == my_accepts.end());
-}
-
 // returns 0 if everything is OK
 int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL)
 {
@@ -1299,8 +1305,8 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 
   fprintf(mp_fp, "%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, selloffer_combo.c_str(), __LINE__, __FILE__);
 
-  // Zathras said the older accept is the valid one !!!!!!!! do not accept any new ones!
-  if (DEx_acceptExists(seller, curr, buyer))
+  // the older accept is the valid one: do not accept any new ones!
+  if (DEx_getAccept(seller, curr, buyer))
   {
     fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
     return -205;
@@ -1793,6 +1799,8 @@ private:
     }
   };
 
+  enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
+
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
@@ -1947,13 +1955,12 @@ public:
   int rc = PKT_ERROR_TRADEOFFER;
   uint64_t amount_desired, min_fee;
   unsigned char blocktimelimit, subaction = 0;
-  enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
-  const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
+  static const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
       if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
       {
         fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
-        return -90972;
+        return PKT_ERROR_TRADEOFFER -72;
       }
 
       // block height checks, for instance DEX is only available on MSC starting with block 290630
@@ -2013,6 +2020,7 @@ public:
             {
               fprintf(mp_fp, "%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
               ++InvalidCount_per_spec;
+              rc = PKT_ERROR_TRADEOFFER -11;
               break;
             }
           }
@@ -2023,6 +2031,7 @@ public:
             {
               fprintf(mp_fp, "%s() INVALID SELL OFFER -- UPDATE OR CANCEL ACTION WHEN NONE IS POSSIBLE\n", __FUNCTION__);
               ++InvalidCount_per_spec;
+              rc = PKT_ERROR_TRADEOFFER -12;
               break;
             }
           }
@@ -2223,6 +2232,34 @@ public:
     return rc;
   }
 
+/*
+[12:16:00 PM] ... some open spec issues
+[12:16:05 PM] zathrasc: just picked these out real quick
+[12:16:10 PM] zathrasc: should be mostly related to metadex
+https://github.com/mastercoin-MSC/spec/issues/187
+
+https://github.com/mastercoin-MSC/spec/issues/184
+
+https://github.com/mastercoin-MSC/spec/issues/179
+
+https://github.com/mastercoin-MSC/spec/issues/175
+
+https://github.com/mastercoin-MSC/spec/issues/173
+
+https://github.com/mastercoin-MSC/spec/issues/155
+
+https://github.com/mastercoin-MSC/spec/issues/142
+
+big one
+
+https://github.com/mastercoin-MSC/spec/issues/170
+[12:16:26 PM] zathrasc: but yeah for thorough would be a fishing expedition mate
+
+Marv has this big ass PR request that's not merged, specifically relating to MetaDEx - suggest for one that needs to be decided upon
+[12:27:16 PM] zathrasc: https://github.com/mastercoin-MSC/spec/pull/165
+[12:27:58 PM] zathrasc: last post says JR reviewed Jun 26 and gave it the nod
+*/
+
   int logicMath_Metadex()
   {
   int rc = PKT_ERROR_METADEX -1000;
@@ -2258,14 +2295,29 @@ public:
     // ensure no cross-over of currencies from Test Eco to normal
     if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
 
-    // TODO: check
-    // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
+    CMPMetaDex *p_metadex = getMetaDEx(sender, currency);
+
+    // TODO: use the nNewValue as the amount the seller/sender actually has to trade with
     // ...
 
-    // use the nNewValue as the amount the seller/sender actually has to trade with
-    // ...
+    switch (action)
+    {
+      case NEW:
+        // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
+        if (p_metadex) return (PKT_ERROR_METADEX -10);
 
-    // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
+        // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
+        // ...
+
+        // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
+        // ...
+
+        break;
+
+      case UPDATE:
+      case CANCEL:
+      default: return (PKT_ERROR_METADEX -999);
+    }
 
     return rc;
   }
@@ -2893,7 +2945,7 @@ vector<unsigned char> vec_chars;
       ObfsHashes[j] = HexStr(vec_chars);
       boost::to_upper(ObfsHashes[j]); // uppercase per spec
 
-      if (msc_debug_verbose) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      if (msc_debug_verbose2) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
       strcpy((char *)sha_input, ObfsHashes[j].c_str());
   }
 }
@@ -4184,9 +4236,9 @@ int mastercore_init()
   {
   // my old way
 
-    nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
+    nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block
 
-#ifdef  MY_DIV_HACK     //
+#ifdef  MY_HACK
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
@@ -4213,6 +4265,15 @@ int mastercore_init()
     update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
     update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
     nWaterlineBlock = 310500;
+
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", 24, COIN*55555, MONEY);
+
+    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    nWaterlineBlock = 310000;
 #endif
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
