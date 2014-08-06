@@ -959,6 +959,16 @@ bool isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
+string FormatDivisible(int64_t n)
+{
+    // Note: not using straight sprintf here because we do NOT want
+    // localized number formatting.
+    int64_t quotient = n/COIN;
+    int64_t remainder = n%COIN;
+    string str = strprintf("%d.%08d", quotient, remainder);
+    return str;
+}
+
 bool isPropertyDivisible(unsigned int propertyId)
 {
 // TODO: is a lock here needed
@@ -5500,9 +5510,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatDivisible(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", FormatDivisible(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisible(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
         }
         else
         {
@@ -6289,3 +6299,4 @@ int mastercore_handler_disc_end(int nBlockNow, CBlockIndex const * pBlockIndex) 
     
     return 0;
 }
+
