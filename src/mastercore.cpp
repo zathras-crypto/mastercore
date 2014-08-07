@@ -5111,11 +5111,6 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[blockHash]->nTime; 
 
-                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
-                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
-                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK))
-                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
-
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
                 if (0 == parseTransaction(wtx, blockHeight, 0, &mp_obj))
@@ -5343,8 +5338,6 @@ bool addressFilter;
                 int blockHeight = pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
                 int blockIndex = pwtx->nIndex;
-                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
-                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK)) continue;
 
                 //ignore transactions not between nStartBlock and nEndBlock
                 if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue;
