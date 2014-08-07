@@ -5277,9 +5277,10 @@ string sAddress = "";
 
     if (fHelp || params.size() > 5)
         throw runtime_error(
-            "*** SOME *** HELP *** GOES *** HERE ***\n"
-            + HelpExampleCli("*************_MP", "\"-------------\"")
-            + HelpExampleRpc("*****************_MP", "\"-----------------\"")
+            "listtransactions_MP\n" //todo increase verbosity in help
+            "\nList wallet transactions filtered on counts and block boundaries\n"
+            + HelpExampleCli("listtransactions_MP", "")
+            + HelpExampleRpc("listtransactions_MP", "")
         );
 
         int64_t nCount = 10;
@@ -5495,9 +5496,10 @@ bool addressFilter;
 
     if (fHelp || params.size() > 5)
         throw runtime_error(
-            "*** SOME *** HELP *** GOES *** HERE ***\n"
-            + HelpExampleCli("*************_MP", "\"-------------\"")
-            + HelpExampleRpc("*****************_MP", "\"-----------------\"")
+            "searchtransactions_MP\n" //todo increase verbosity in help
+            "\nSearch wallet history for transactions filtered on address, counts and block boundaries\n"
+            + HelpExampleCli("searchtransactions_MP", "")
+            + HelpExampleRpc("searchtransactions_MP", "")
         );
 
         //if 0 params consider all addresses in wallet, otherwise first param is filter address
