@@ -959,16 +959,6 @@ bool isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
-string FormatDivisible(int64_t n)
-{
-    // Note: not using straight sprintf here because we do NOT want
-    // localized number formatting.
-    int64_t quotient = n/COIN;
-    int64_t remainder = n%COIN;
-    string str = strprintf("%d.%08d", quotient, remainder);
-    return str;
-}
-
 bool isPropertyDivisible(unsigned int propertyId)
 {
 // TODO: is a lock here needed
@@ -4777,7 +4767,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     if (divisible)
     {
-        return ValueFromAmount(tmpbal);
+        return FormatDivisibleMP(tmpbal);
     }
     else
     {
@@ -5162,7 +5152,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         txobj.push_back(Pair("divisible", divisible));
                         if (divisible)
                         {
-                                txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                txobj.push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
                         }
                         else
                         {
@@ -5174,7 +5164,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 txobj.push_back(Pair("purchasedpropertyname", crowdName));
                                 if (crowdDivisible)
                                 {
-                                     txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                     txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
                                 }
                                 else
                                 {
@@ -5412,7 +5402,7 @@ bool addressFilter;
                                 txobj.push_back(Pair("divisible", divisible));
                                 if (divisible)
                                 {
-                                        txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                        txobj.push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
                                 }
                                 else
                                 {
@@ -5424,7 +5414,7 @@ bool addressFilter;
                                     txobj.push_back(Pair("purchasedpropertyname", crowdName));
                                     if (crowdDivisible)
                                     {
-                                        txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                        txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
                                     }
                                     else
                                     {
@@ -5510,9 +5500,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", FormatDivisible(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", FormatDivisible(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisible(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
         }
         else
         {
@@ -5576,9 +5566,9 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
             propertyBal.push_back(Pair("propertyid", propertyId));
             if (divisible)
             {
-                    propertyBal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
+                    propertyBal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
             }
             else
             {
@@ -5653,7 +5643,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("fixedissuance", fixedIssuance));
         if (divisible)
         {
-            response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
+            response.push_back(Pair("totaltokens", FormatDivisibleMP(totalTokens)));
         }
         else
         {
@@ -5865,7 +5855,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
         if (divisibleDesired)
         {
-             participanttx.push_back(Pair("amountsent", ValueFromAmount(amountSent)));
+             participanttx.push_back(Pair("amountsent", FormatDivisibleMP(amountSent)));
         }
         else
         {
@@ -5873,7 +5863,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         if (divisible)
         {
-             participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
+             participanttx.push_back(Pair("participanttokens", FormatDivisibleMP(userTokens)));
         }
         else
         {
@@ -5881,7 +5871,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         if (divisible)
         {
-             participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
+             participanttx.push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
         }
         else
         {
@@ -5896,7 +5886,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     response.push_back(Pair("propertyiddesired", propertyIdDesired));
     if (divisible)
     {
-        response.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+        response.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
     }
     else
     {
@@ -5909,7 +5899,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
     if (divisibleDesired)
     {
-        response.push_back(Pair("amountraised", ValueFromAmount(amountRaised)));
+        response.push_back(Pair("amountraised", FormatDivisibleMP(amountRaised)));
     }
     else
     {
@@ -5917,7 +5907,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     if (divisible)
     {
-        response.push_back(Pair("tokensissued", ValueFromAmount(tokensIssued)));
+        response.push_back(Pair("tokensissued", FormatDivisibleMP(tokensIssued)));
     }
     else
     {
@@ -5997,7 +5987,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               responseObj.push_back(Pair("propertyiddesired", propertyIdDesired));
               if (divisible)
               {
-                  responseObj.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+                  responseObj.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
               }
               else
               {
@@ -6119,14 +6109,14 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
           responseObj.push_back(Pair("txid", txid));
           responseObj.push_back(Pair("propertyid", propertyId));
           responseObj.push_back(Pair("seller", seller));
-          responseObj.push_back(Pair("amountavailable", ValueFromAmount(amountAvailable)));
-          responseObj.push_back(Pair("bitcoindesired", ValueFromAmount(bitcoinDesired)));
-          responseObj.push_back(Pair("unitprice", ValueFromAmount(unitPrice)));
+          responseObj.push_back(Pair("amountavailable", FormatDivisibleMP(amountAvailable)));
+          responseObj.push_back(Pair("bitcoindesired", FormatDivisibleMP(bitcoinDesired)));
+          responseObj.push_back(Pair("unitprice", FormatDivisibleMP(unitPrice)));
           responseObj.push_back(Pair("timelimit", timeLimit));
-          responseObj.push_back(Pair("minimumfee", ValueFromAmount(minFee)));
+          responseObj.push_back(Pair("minimumfee", FormatDivisibleMP(minFee)));
 
           // display info about accepts related to sell
-          responseObj.push_back(Pair("amountaccepted", ValueFromAmount(amountAccepted)));
+          responseObj.push_back(Pair("amountaccepted", FormatDivisibleMP(amountAccepted)));
           Array acceptsMatched;
           for(map<string, CMPAccept>::iterator ait = my_accepts.begin(); ait != my_accepts.end(); ++ait)
           {
@@ -6144,7 +6134,7 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
                   uint64_t acceptAmount = accept.getAcceptAmountRemaining();
                   matchedAccept.push_back(Pair("buyer", buyer));
                   matchedAccept.push_back(Pair("block", acceptBlock));
-                  matchedAccept.push_back(Pair("amount", ValueFromAmount(acceptAmount)));
+                  matchedAccept.push_back(Pair("amount", FormatDivisibleMP(acceptAmount)));
                   acceptsMatched.push_back(matchedAccept);
               }
           }

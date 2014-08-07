@@ -138,7 +138,7 @@ inline uint64_t rounduint64(double d)
   return (uint64_t)(abs(0.5 + d));
 }
 
-string FormatMoneyMP(int64_t n, bool fSign = false)
+string FormatDivisibleMP(int64_t n, bool fSign = false)
 {
 // Note: not using straight sprintf here because we do NOT want
 // localized number formatting.
@@ -265,7 +265,7 @@ public:
 //      printf("%+12ld.%08lu [SO_RESERVE= %+12ld.%08lu , ACCEPT_RESERVE= %+12ld.%08lu ]\n",
 //       money/COIN, money%COIN, so_r/COIN, so_r%COIN, a_r/COIN, a_r%COIN);
       printf("%22s [SO_RESERVE= %22s , ACCEPT_RESERVE= %22s ]\n",
-       FormatMoneyMP(money).c_str(), FormatMoneyMP(so_r).c_str(), FormatMoneyMP(a_r).c_str());
+       FormatDivisibleMP(money).c_str(), FormatDivisibleMP(so_r).c_str(), FormatDivisibleMP(a_r).c_str());
     }
     else
     {
