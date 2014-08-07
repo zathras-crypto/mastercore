@@ -9,6 +9,8 @@
 #include "netbase.h"
 #include "protocol.h"
 
+int const MAX_STATE_HISTORY = 50;
+
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
@@ -80,6 +82,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
   GENESIS_BLOCK     = 249498,
   LAST_EXODUS_BLOCK = 255365,
   MSC_STO_BLOCK     = 999999,
+  MSC_METADEX_BLOCK = 999999,
 };
 
 int txBlockRestrictions[][2] = {
@@ -90,6 +93,7 @@ int txBlockRestrictions[][2] = {
   {MSC_TYPE_CREATE_PROPERTY_VARIABLE, MSC_SP_BLOCK},
   {MSC_TYPE_CLOSE_CROWDSALE,          MSC_SP_BLOCK},
   {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK},
+  {MSC_TYPE_METADEX,                  MSC_METADEX_BLOCK},
 
 // end of array marker, in addition to sizeof/sizeof
   {-1,-1},
@@ -125,16 +129,40 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define PKT_ERROR_STO         (-50000)
 #define PKT_ERROR_SEND        (-60000)
 #define PKT_ERROR_TRADEOFFER  (-70000)
+#define PKT_ERROR_METADEX     (-80000)
+#define METADEX_ERROR         (-81000)
 
 #define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
 
-#define MSC_MAX_KNOWN_CURRENCIES  64  // TODO, FIXME: take this away, used to write persistent files
-
 inline uint64_t rounduint64(double d)
 {
   return (uint64_t)(abs(0.5 + d));
+}
+
+// mostly taken from Bitcoin's FormatMoney()
+string FormatDivisibleMP(int64_t n, bool fSign = false)
+{
+// Note: not using straight sprintf here because we do NOT want
+// localized number formatting.
+int64_t n_abs = (n > 0 ? n : -n);
+int64_t quotient = n_abs/COIN;
+int64_t remainder = n_abs%COIN;
+string str = strprintf("%d.%08d", quotient, remainder);
+
+  if (!fSign) return str;
+
+  if (n < 0)
+      str.insert((unsigned int)0, 1, '-');
+  else
+      str.insert((unsigned int)0, 1, '+');
+  return str;
+}
+
+inline bool isNonMainNet()
+{
+  return (TestNet() || RegTest());
 }
 
 extern CCriticalSection cs_tally;
@@ -154,8 +182,6 @@ typedef struct
   TokenMap mp_token;
   TokenMap::iterator my_it;
 
-//  bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
-
   bool propertyExists(unsigned int which_currency) const
   {
   const TokenMap::const_iterator it = mp_token.find(which_currency);
@@ -164,16 +190,13 @@ typedef struct
   }
 
 public:
-//  bool isDivisible() const { return divisible; }
 
   unsigned int init()
   {
   unsigned int ret = 0;
 
-//    printf("%s();size = %lu, line %d, file: %s\n", __FUNCTION__, mp_token.size(), __LINE__, __FILE__);
     my_it = mp_token.begin();
     if (my_it != mp_token.end()) ret = my_it->first;
-//    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
 
     return ret;
   }
@@ -182,13 +205,9 @@ public:
   {
   unsigned int ret;
 
-//    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
     if (my_it == mp_token.end()) return 0;
 
     ret = my_it->first;
-
-//    printf("%s();ret =%u, line %d, file: %s\n", __FUNCTION__, ret, __LINE__, __FILE__);
 
     ++my_it;
 
@@ -221,7 +240,6 @@ public:
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
-//    divisible = true; // TODO: re-think, but currently hard-coded
     my_it = mp_token.begin();
   }
 
@@ -240,8 +258,8 @@ public:
 
     if (bDivisible)
     {
-      printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
-       (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
+      printf("%22s [SO_RESERVE= %22s , ACCEPT_RESERVE= %22s ]\n",
+       FormatDivisibleMP(money).c_str(), FormatDivisibleMP(so_r).c_str(), FormatDivisibleMP(a_r).c_str());
     }
     else
     {
@@ -323,7 +341,26 @@ public:
     bool isMPinBlockRange(int, int, bool);
 };
 
-// extern map<string, CMPTally> mp_tally_map;
+// a metadex trade
+// TODO: finish soon... incomplete for now
+class CMPMetaDex
+{
+private:
+  int block;
+  uint256 txid;
+  unsigned int currency;
+  uint64_t amount_original; // the amount for sale specified when the offer was placed
+  unsigned int desired_currency;
+  uint64_t desired_amount_original;
+  unsigned char subaction;
+
+public:
+  uint256 getHash() const { return txid; }
+  unsigned int getCurrency() const { return currency; }
+};
+
+typedef std::map<string, CMPMetaDex> MetaDExMap;
+
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 

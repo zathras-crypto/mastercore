@@ -51,8 +51,8 @@
 
 #include <openssl/sha.h>
 
-// comment out MY_DIV_HACK & others here - used for Unit Testing only !
-// #define MY_DIV_HACK
+// comment out MY_HACK & others here - used for Unit Testing only !
+// #define MY_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -64,6 +64,10 @@ using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 using namespace leveldb;
+
+// part of 'breakout' feature
+static const int nBlockTop = 0;
+// static const int nBlockTop = 271000;
 
 int nWaterlineBlock = 0;  //
 
@@ -83,6 +87,7 @@ static boost::filesystem::path MPPersistencePath;
 int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_verbose=1;
+int msc_debug_verbose2=0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 1;
@@ -94,20 +99,14 @@ int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
 int msc_debug_persistence = 0;
+int msc_debug_metadex= 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
-static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disable_Divs = 0;
 
 static int disableLevelDB = 0;
-
-#ifdef  MY_DIV_HACK
-static int disable_Persistence = 1;
-#else
-static int disable_Persistence = 0;
-#endif
 
 static int mastercoreInitialized = 0;
 
@@ -120,8 +119,31 @@ static CMPTxList *p_txlistdb;
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 static int GetHeight()
 {
-    LOCK(cs_main);
-    return chainActive.Height();
+  if (0 < nBlockTop) return nBlockTop;
+
+  LOCK(cs_main);
+  return chainActive.Height();
+}
+
+// indicate whether persistence is enabled at this point, or not
+// used to write/read files, for breakout mode, debugging, etc.
+static bool readPersistence()
+{
+#ifdef  MY_HACK
+  return false;
+#else
+  return true;
+#endif
+}
+
+// indicate whether persistence is enabled at this point, or not
+// used to write/read files, for breakout mode, debugging, etc.
+static bool writePersistence(int block_now)
+{
+  // if too far away from the top -- do not write
+  if (GetHeight() > (block_now + MAX_STATE_HISTORY)) return false;
+
+  return true;
 }
 
 string strMPCurrency(unsigned int i)
@@ -176,12 +198,14 @@ char *c_strPropertyType(int i)
   return (char *) "*** property type error ***";
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder16(unsigned short& us)
 {
     us = (us >> 8) |
          (us << 8);
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder32(unsigned int& ui)
 {
     ui = (ui >> 24) |
@@ -190,6 +214,7 @@ void swapByteOrder32(unsigned int& ui)
          (ui << 24);
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder64(uint64_t& ull)
 {
     ull = (ull >> 56) |
@@ -290,6 +315,8 @@ public:
 
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
   unsigned int getCurrency() const { return currency; }
+
+  int getAcceptBlock()  { return block; }
 
   CMPAccept(uint64_t a, int b, unsigned char blt, unsigned int c, uint64_t o, uint64_t btc, const uint256 &txid):accept_amount_remaining(a),blocktimelimit(blt),currency(c),
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
@@ -698,7 +725,7 @@ public:
     Object spInfo = info.toJSON();
 
     // generate the SP id
-    string spKey = (boost::format("sp-%d") % propertyID).str();
+    string spKey = (boost::format(FORMAT_BOOST_SPKEY) % propertyID).str();
     string spValue = write_string(Value(spInfo), false);
     string txIndexKey = (boost::format("index-tx-%s") % info.txid.ToString() ).str();
     string txValue = (boost::format("%d") % propertyID).str();
@@ -875,6 +902,19 @@ static map<string, CMPOffer> my_offers;
 static map<string, CMPAccept> my_accepts;
 static CMPSPInfo *_my_sps;
 CrowdMap my_crowds;
+static MetaDExMap metadex;
+
+CMPMetaDex *getMetaDEx(const string &sender_addr, unsigned int curr)
+{
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+map<string, CMPMetaDex>::iterator it = metadex.find(combo);
+
+  if (it != metadex.end()) return &(it->second);
+
+  return (CMPMetaDex *) NULL;
+}
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 map<string, CMPTally> mp_tally_map;
@@ -1128,7 +1168,7 @@ map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 // TODO: locks are needed around map's insert & erase
 CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int curr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, seller_addr.c_str(), curr);
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
 map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
 
@@ -1137,11 +1177,10 @@ map<string, CMPOffer>::iterator my_it = my_offers.find(combo);
   return (CMPOffer *) NULL;
 }
 
-// getAccept may replace DEx_acceptExists() in the near future
 // TODO: locks are needed around map's insert & erase
 CMPAccept *DEx_getAccept(const string &seller_addr, unsigned int curr, const string &buyer_addr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u, %s)\n", __FUNCTION__, seller_addr.c_str(), curr, buyer_addr.c_str());
 const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller_addr, buyer_addr);
 map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
 
@@ -1159,7 +1198,7 @@ int rc = DEX_ERROR_SELLOFFER;
   // sanity check our params are OK
   if ((!btl) || (!amount_desired)) return (DEX_ERROR_SELLOFFER -101); // time limit or amount desired empty
 
-  if (DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
+  if (DEx_getOffer(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
 
@@ -1244,21 +1283,13 @@ int rc = DEX_ERROR_SELLOFFER;
   return rc;
 }
 
-// check to see if such an accept exists
-bool DEx_acceptExists(const string &seller_addr, unsigned int curr, const string &buyer_addr)
-{
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller_addr, buyer_addr);
-map<string, CMPAccept>::iterator my_it = my_accepts.find(combo);
-
-  return !(my_it == my_accepts.end());
-}
-
 // returns 0 if everything is OK
 int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_ACCEPT - 10;
+
+  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
 map<string, CMPOffer>::iterator my_it;
 const string selloffer_combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller);
 const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
@@ -1266,7 +1297,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 
   my_it = my_offers.find(selloffer_combo);
 
-  if (my_it == my_offers.end()) return -15;
+  if (my_it == my_offers.end()) return DEX_ERROR_ACCEPT -15;
 
   CMPOffer &offer = my_it->second;
 
@@ -1275,16 +1306,16 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   {
     fprintf(mp_fp, "ERROR: fee too small -- the ACCEPT is rejected! (%lu is smaller than %lu)\n", fee_paid, offer.getMinFee());
     ++InvalidCount_per_spec;
-    return -105;
+    return DEX_ERROR_ACCEPT -105;
   }
 
   fprintf(mp_fp, "%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, selloffer_combo.c_str(), __LINE__, __FILE__);
 
-  // Zathras said the older accept is the valid one !!!!!!!! do not accept any new ones!
-  if (DEx_acceptExists(seller, curr, buyer))
+  // the older accept is the valid one: do not accept any new ones!
+  if (DEx_getAccept(seller, curr, buyer))
   {
     fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
-    return -205;
+    return DEX_ERROR_ACCEPT -205;
   }
 
   if (nActualAmount > nValue)
@@ -1499,6 +1530,64 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
+int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
+  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+{
+int rc = METADEX_ERROR -1;
+
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, nValue);
+
+  // TODO: add the code
+  // ...
+
+  return rc;
+}
+
+// returns 0 if everything is OK
+int MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
+{
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), curr);
+
+  if (!getMetaDEx(sender_addr, curr)) return (METADEX_ERROR -11); // does the trade exist?
+
+  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+
+  MetaDExMap::iterator my_it;
+
+  my_it = metadex.find(combo);
+
+  const uint64_t amount = getMPbalance(sender_addr, curr, SELLOFFER_RESERVE);
+
+  if (amount)
+  {
+    update_tally_map(sender_addr, curr, amount, MONEY);   // give money back to the sender from SellOffer-Reserve
+    update_tally_map(sender_addr, curr, - amount, SELLOFFER_RESERVE);
+  }
+
+  // delete the offer
+  metadex.erase(my_it);
+
+  if (msc_debug_metadex)
+   fprintf(mp_fp, "%s(%s|%s), line %d, file: %s\n", __FUNCTION__, sender_addr.c_str(), combo.c_str(), __LINE__, __FILE__);
+
+  return 0;
+}
+
+int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
+  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+{
+int rc = METADEX_ERROR -8;
+
+  rc = MetaDEx_Destroy(sender_addr, curr);
+
+  if (!rc)
+  {
+    rc = MetaDEx_Create(sender_addr, curr, nValue, block, currency_desired, amount_desired, txid);
+  }
+
+  return rc;
+}
+
 // save info from the crowdsale that's being erased
 void dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool bExpired = false)
 {
@@ -1705,7 +1794,7 @@ int block_FirstAllowed;
   // BTC as currency/property is never allowed
   if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
 
-  if ((RegTest() || TestNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
+  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
 
   for (unsigned int i = 0; i < sizeof(txBlockRestrictions)/sizeof(txBlockRestrictions[0]); i++)
   {
@@ -1759,6 +1848,10 @@ private:
   unsigned char early_bird;
   unsigned char percentage;
 
+  // METADEX additions
+  unsigned int desired_currency;
+  uint64_t desired_value;
+
   class SendToOwners_compare
   {
   public:
@@ -1769,6 +1862,8 @@ private:
       else return p1.first < p2.first;
     }
   };
+
+  enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
 
 public:
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
@@ -1865,6 +1960,18 @@ public:
             //get txid
             string sp_txid =  sp.txid.GetHex().c_str();
 
+            //Units going into the calculateFundraiser function must
+            //match the unit of the fundraiser's property_type.
+            //By default this means Satoshis in and satoshis out.
+            //In the condition that your fundraiser is Divisible,
+            //but you are accepting indivisible tokens, you must
+            //account for 1.0 Div != 1 Indiv but actually 1.0 Div == 100000000 Indiv.
+            //The unit must be shifted or your values will be incorrect,
+            //that is what we check for below.
+            if ( !(isPropertyDivisible(currency)) ) {
+              nValue = nValue * 1e8;
+            }
+
             //fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
 
             // calc tokens per this fundraise
@@ -1912,13 +2019,12 @@ public:
   int rc = PKT_ERROR_TRADEOFFER;
   uint64_t amount_desired, min_fee;
   unsigned char blocktimelimit, subaction = 0;
-  enum ActionTypes { INVALID = 0, NEW = 1, UPDATE = 2, CANCEL = 3 };
-  const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
+  static const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
       if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
       {
         fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
-        return -90972;
+        return PKT_ERROR_TRADEOFFER -72;
       }
 
       // block height checks, for instance DEX is only available on MSC starting with block 290630
@@ -1929,7 +2035,6 @@ public:
       memcpy(&min_fee, &pkt[25], 8);
       memcpy(&subaction, &pkt[33], 1);
 
-      // FIXME: only do swaps for little-endian system(s) !
       swapByteOrder64(amount_desired);
       swapByteOrder64(min_fee);
 
@@ -1978,6 +2083,7 @@ public:
             {
               fprintf(mp_fp, "%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
               ++InvalidCount_per_spec;
+              rc = PKT_ERROR_TRADEOFFER -11;
               break;
             }
           }
@@ -1988,6 +2094,7 @@ public:
             {
               fprintf(mp_fp, "%s() INVALID SELL OFFER -- UPDATE OR CANCEL ACTION WHEN NONE IS POSSIBLE\n", __FUNCTION__);
               ++InvalidCount_per_spec;
+              rc = PKT_ERROR_TRADEOFFER -12;
               break;
             }
           }
@@ -2070,9 +2177,6 @@ public:
 
           // do not count the sender
           if (address == sender) continue;
-
-          // do not count the Exodus either
-//          if (address == exodus) continue;
 
           int64_t tokens = 0;
 
@@ -2187,6 +2291,119 @@ public:
 
         // rc = ???
       }
+
+    return rc;
+  }
+
+/*
+[12:16:00 PM] ... some open spec issues
+[12:16:05 PM] zathrasc: just picked these out real quick
+[12:16:10 PM] zathrasc: should be mostly related to metadex
+https://github.com/mastercoin-MSC/spec/issues/187
+
+https://github.com/mastercoin-MSC/spec/issues/184
+
+https://github.com/mastercoin-MSC/spec/issues/179
+
+https://github.com/mastercoin-MSC/spec/issues/175
+
+https://github.com/mastercoin-MSC/spec/issues/173
+
+https://github.com/mastercoin-MSC/spec/issues/155
+
+https://github.com/mastercoin-MSC/spec/issues/142
+
+big one
+
+https://github.com/mastercoin-MSC/spec/issues/170
+[12:16:26 PM] zathrasc: but yeah for thorough would be a fishing expedition mate
+
+Marv has this big ass PR request that's not merged, specifically relating to MetaDEx - suggest for one that needs to be decided upon
+[12:27:16 PM] zathrasc: https://github.com/mastercoin-MSC/spec/pull/165
+[12:27:58 PM] zathrasc: last post says JR reviewed Jun 26 and gave it the nod
+*/
+
+  int logicMath_Metadex()
+  {
+  int rc = PKT_ERROR_METADEX -1000;
+  unsigned char action = 0;
+
+    if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_METADEX -888);
+
+    memcpy(&currency, &pkt[16], 4);
+    swapByteOrder32(desired_currency);
+
+    memcpy(&nValue, &pkt[20], 8);
+    swapByteOrder64(desired_value);
+
+    if (!isTransactionTypeAllowed(block, desired_currency, type)) return (PKT_ERROR_METADEX -889);
+
+    memcpy(&action, &pkt[28], 1);
+
+    fprintf(mp_fp, "\tdesired currency: %u (%s)\n", desired_currency, strMPCurrency(desired_currency).c_str());
+    fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
+    fprintf(mp_fp, "\t          action: %u\n", action);
+
+    // !!!!!!!!!!!!!!!!!!!
+    // NO LONGER TRUE?: The purchaser's address must be different than the seller's address.
+    // !!!!!!!!!!!!!!!!!!!
+    // FIXME: https://github.com/mastercoin-MSC/spec/pull/165/files
+    //  "It is valid for the purchaser's address to be the same as the seller's address." ouch
+    // TODO: this needs to be tested !!!
+    if (sender == receiver) return (PKT_ERROR_METADEX -1);
+    // !!!!!!!!!!!!!!!!!!!
+
+    if (receiver.empty()) return (PKT_ERROR_METADEX -2);
+
+    // Does the sender have any money?
+    nNewValue = getMPbalance(exodus, currency, MONEY);
+    if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
+
+    // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
+    if (nNewValue > nValue) nNewValue = nValue;
+
+    // ensure no cross-over of currencies from Test Eco to normal
+    if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+
+    // ensure the desired currency exists in our universe
+    if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
+
+    CMPMetaDex *p_metadex = getMetaDEx(sender, currency);
+
+    // TODO: use the nNewValue as the amount the seller/sender actually has to trade with
+    // ...
+
+    switch (action)
+    {
+      case NEW:
+        // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
+        if (p_metadex) return (PKT_ERROR_METADEX -10);
+
+        // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
+        // ...
+
+        // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
+
+        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid);
+
+        // ...
+
+        break;
+
+      case UPDATE:
+        if (!p_metadex) return (PKT_ERROR_METADEX -105);  // not found, nothing to update
+
+        break;
+
+      case CANCEL:
+        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
+
+        rc = MetaDEx_Destroy(sender, currency);
+
+        break;
+
+      default: return (PKT_ERROR_METADEX -999);
+    }
 
     return rc;
   }
@@ -2379,6 +2596,13 @@ public:
     }
     break;
 
+    case MSC_TYPE_METADEX:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_Metadex();
+      break;
+
     default:
 
       return (PKT_ERROR -100);
@@ -2405,7 +2629,6 @@ public:
   
   memcpy(&type, &pkt[0], 4);
 
-  // FIXME: only do swaps for little-endian system(s) !
   swapByteOrder32(type);
 
   fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
@@ -2672,15 +2895,8 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// THE TODO LIST, WHAT'S MISSING, NOT DONE YET:
-//  1) checks to ensure the seller has enough funds
-//  2) checks to ensure the sender has enough funds
-//  3) checks to ensure there are enough funds when the 'accept' message is received
-//  4) partial order fulfilment is not yet handled (spec says all is sold if larger than available is put on sale, etc.)
-//  5) return false as needed and check returns of msc_update_* functions
+// some old TODOs
 //  6) verify large-number calculations (especially divisions & multiplications)
-//  7) need to detect cancelations & updates of sell offers -- and handle partially fullfilled offers...
-//  8) most important: figure out all the coins in existence and add all that prebuilt data
 //  9) build in consesus checks with the masterchain.info & masterchest.info -- possibly run them automatically, daily (?)
 // 10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
 //
@@ -2745,6 +2961,8 @@ const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for
 
 int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockIndex)
 {
+  if (0 < nBlockTop) if (nBlockTop < nBlockNow) return 0;
+
   (void) eraseExpiredCrowdsale(pBlockIndex->GetBlockTime());
 
   return 0;
@@ -2758,6 +2976,9 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex)
   if (!mastercoreInitialized) {
     mastercore_init();
   }
+
+  if (0 < nBlockTop) if (nBlockTop < nBlockNow) return 0;
+
 // for every new received block must do:
 // 1) remove expired entries from the accept list (per spec accept entries are valid until their blocklimit expiration; because the customer can keep paying BTC for the offer in several installments)
 // 2) update the amount in the Exodus address
@@ -2780,7 +3001,7 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
   if (mp_fp) fflush(mp_fp);
 
   // save out the state after this block
-  if (!disable_Persistence) mastercore_save_state(pBlockIndex);
+  if (writePersistence(nBlockNow)) mastercore_save_state(pBlockIndex);
 
   return 0;
 }
@@ -2802,7 +3023,7 @@ vector<unsigned char> vec_chars;
       ObfsHashes[j] = HexStr(vec_chars);
       boost::to_upper(ObfsHashes[j]); // uppercase per spec
 
-      if (msc_debug_verbose) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      if (msc_debug_verbose2) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
       strcpy((char *)sha_input, ObfsHashes[j].c_str());
   }
 }
@@ -2819,13 +3040,13 @@ vector<vector<unsigned char> > vSolutions;
 
 int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
 {
-  if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (TestNet()) || (RegTest()))
+  if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (isNonMainNet()))
   { //Exodus Fundraiser start/end blocks
     //printf("transaction: %s\n", wtx.ToString().c_str() );
     int deadline_timeleft=1377993600-nTime;
     double bonus= 1 + std::max( 0.10 * deadline_timeleft / (60 * 60 * 24 * 7), 0.0 );
 
-    if (TestNet() || RegTest())
+    if (isNonMainNet())
     {
       bonus = 1;
 
@@ -2857,7 +3078,7 @@ vector<string>address_data;
 // vector<uint64_t>value_data;
 vector<int64_t>value_data;
 int64_t ExodusValues[MAX_BTC_OUTPUTS];
-int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };
+int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
 unsigned int packet_size = 0;
@@ -2887,15 +3108,13 @@ uint64_t txFee = 0;
                 {
                   ExodusValues[marker_count++] = wtx.vout[i].nValue;
                 }
-                else if (( RegTest() || TestNet()) && (getmoney_testnet == strAddress))
+                else if (isNonMainNet() && (getmoney_testnet == strAddress))
                 {
                   TestNetMoneyValues[getmoney_count++] = wtx.vout[i].nValue;
                 }
               }
             }
-
-            if ((RegTest() || TestNet()) && getmoney_count)
-
+            if ((isNonMainNet() && getmoney_count))
             {
             }
             else if (!marker_count)
@@ -2967,7 +3186,6 @@ uint64_t txFee = 0;
             uint256 hashBlock;
             if (!GetTransaction(wtx.vin[i].prevout.hash, txPrev, hashBlock, true))  // get the vin's previous transaction 
             {
-              ++BitcoinCore_errors;
               return -101;
             }
 
@@ -3032,7 +3250,7 @@ uint64_t txFee = 0;
             
             //This calculates exodus fundraiser for each tx within a given block
             int64_t BTC_amount = ExodusValues[0];
-            if (TestNet())
+            if (isNonMainNet())
             {
               if (MONEYMAN_TESTNET_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
             }
@@ -3498,9 +3716,9 @@ int input_msc_balances_string(const string &s)
       continue;
     }
 
-    update_tally_map(strAddress, currency, balance, MONEY);
-    update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
-    update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
+    if (balance) update_tally_map(strAddress, currency, balance, MONEY);
+    if (sellReserved) update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
+    if (acceptReserved) update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
   }
 
   return 1;
@@ -3695,13 +3913,17 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
       return -1;
   }
 
-  if (msc_debug_persistence) LogPrintf("Loading %s ... \n", filename);
+  if (msc_debug_persistence)
+  {
+    LogPrintf("Loading %s ... \n", filename);
+    fprintf(mp_fp, "%s(%s), line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
+  }
 
   ifstream file;
   file.open(filename.c_str());
   if (!file.is_open())
   {
-    if (msc_debug_persistence) LogPrintf("%s(): file not found, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    if (msc_debug_persistence) LogPrintf("%s(%s): file not found, line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
     return -1;
   }
 
@@ -3753,7 +3975,7 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
     }
   }
 
-  printf("%s(): file: %s , loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
+  fprintf(mp_fp, "%s(%s), loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
   LogPrintf("%s(): file: %s , loaded lines= %d\n", __FUNCTION__, filename, lines);
 
   return res;
@@ -3973,8 +4195,6 @@ static bool is_state_prefix( std::string const &str )
 
 static void prune_state_files( CBlockIndex const *topIndex )
 {
-  static int const MAX_STATE_HISTORY = 50;
-
   // build a set of blockHashes for which we have any state files
   std::set<uint256> statefulBlockHashes;
 
@@ -4049,7 +4269,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
-  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
+  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
 #ifdef  WIN32
 #error  Need boost path here too
@@ -4062,14 +4282,15 @@ int mastercore_init()
 #endif
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
-  if (TestNet())
+  if (isNonMainNet())
   {
     exodus = exodus_testnet;
   }
-  if (RegTest())
+  //If interested in changing regtest address do so here and uncomment
+  /*if (RegTest())
   {
     exodus = exodus_testnet;
-  }
+  }*/
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
@@ -4080,13 +4301,13 @@ int mastercore_init()
   static int snapshotHeight = (GENESIS_BLOCK - 1);
   static const uint64_t snapshotDevMSC = 0;
 
-  if (TestNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
+  if (isNonMainNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
 
   if (RegTest()) snapshotHeight = START_REGTEST_BLOCK - 1;
 
   ++mastercoreInitialized;
 
-  if (!disable_Persistence)
+  if (readPersistence())
   {
     nWaterlineBlock = load_most_relevant_state();
 
@@ -4103,9 +4324,9 @@ int mastercore_init()
   {
   // my old way
 
-    nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block, using Zathras' msc_balances_290629.txt
+    nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block
 
-#ifdef  MY_DIV_HACK     //
+#ifdef  MY_HACK
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
@@ -4128,6 +4349,18 @@ int mastercore_init()
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
     update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
     nWaterlineBlock = 304000;
+
+    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
+    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    nWaterlineBlock = 310500;
+
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+
+    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", 24, COIN*55555, MONEY);
+
+    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
     nWaterlineBlock = 310000;
 #endif
 
@@ -4141,17 +4374,6 @@ int mastercore_init()
   printf("Exodus balance: %lu\n", exodus_balance);
 
   (void) msc_initial_scan(nWaterlineBlock);
-/*
-  if (!TestNet())
-  {
-    (void) msc_initial_scan(nWaterlineBlock);
-  }
-  else
-  {
-    // testnet
-    (void) msc_initial_scan(GetHeight()-10000); // sometimes testnet blocks get generated very fast, scan the last 1000 just for fun
-  }
-*/
 
   if (mp_fp) fflush(mp_fp);
 
@@ -4635,7 +4857,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
     if (divisible)
     {
-        return ValueFromAmount(tmpbal);
+        return FormatDivisibleMP(tmpbal);
     }
     else
     {
@@ -4902,6 +5124,10 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[blockHash]->nTime; 
 
+                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
+                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK))
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
@@ -5016,7 +5242,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         txobj.push_back(Pair("divisible", divisible));
                         if (divisible)
                         {
-                                txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                txobj.push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
                         }
                         else
                         {
@@ -5028,7 +5254,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 txobj.push_back(Pair("purchasedpropertyname", crowdName));
                                 if (crowdDivisible)
                                 {
-                                     txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                     txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
                                 }
                                 else
                                 {
@@ -5130,6 +5356,8 @@ bool addressFilter;
                 int blockHeight = pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
                 int blockIndex = pwtx->nIndex;
+                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
+                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK)) continue;
 
                 //ignore transactions not between nStartBlock and nEndBlock
                 if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue;
@@ -5264,7 +5492,7 @@ bool addressFilter;
                                 txobj.push_back(Pair("divisible", divisible));
                                 if (divisible)
                                 {
-                                        txobj.push_back(Pair("amount", ValueFromAmount(amount))); //divisible, format w/ bitcoins VFA func
+                                        txobj.push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
                                 }
                                 else
                                 {
@@ -5276,7 +5504,7 @@ bool addressFilter;
                                     txobj.push_back(Pair("purchasedpropertyname", crowdName));
                                     if (crowdDivisible)
                                     {
-                                        txobj.push_back(Pair("purchasedtokens", ValueFromAmount(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                        txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
                                     }
                                     else
                                     {
@@ -5362,9 +5590,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
         }
         else
         {
@@ -5428,9 +5656,9 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
             propertyBal.push_back(Pair("propertyid", propertyId));
             if (divisible)
             {
-                    propertyBal.push_back(Pair("balance", ValueFromAmount(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", ValueFromAmount(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", ValueFromAmount(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
+                    propertyBal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
             }
             else
             {
@@ -5505,7 +5733,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("fixedissuance", fixedIssuance));
         if (divisible)
         {
-            response.push_back(Pair("totaltokens", ValueFromAmount(totalTokens)));
+            response.push_back(Pair("totaltokens", FormatDivisibleMP(totalTokens)));
         }
         else
         {
@@ -5717,7 +5945,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
         if (divisibleDesired)
         {
-             participanttx.push_back(Pair("amountsent", ValueFromAmount(amountSent)));
+             participanttx.push_back(Pair("amountsent", FormatDivisibleMP(amountSent)));
         }
         else
         {
@@ -5725,7 +5953,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         if (divisible)
         {
-             participanttx.push_back(Pair("participanttokens", ValueFromAmount(userTokens)));
+             participanttx.push_back(Pair("participanttokens", FormatDivisibleMP(userTokens)));
         }
         else
         {
@@ -5733,7 +5961,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         if (divisible)
         {
-             participanttx.push_back(Pair("issuertokens", ValueFromAmount(issuerTokens)));
+             participanttx.push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
         }
         else
         {
@@ -5748,7 +5976,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     response.push_back(Pair("propertyiddesired", propertyIdDesired));
     if (divisible)
     {
-        response.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+        response.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
     }
     else
     {
@@ -5761,7 +5989,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
     if (divisibleDesired)
     {
-        response.push_back(Pair("amountraised", ValueFromAmount(amountRaised)));
+        response.push_back(Pair("amountraised", FormatDivisibleMP(amountRaised)));
     }
     else
     {
@@ -5769,7 +5997,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     if (divisible)
     {
-        response.push_back(Pair("tokensissued", ValueFromAmount(tokensIssued)));
+        response.push_back(Pair("tokensissued", FormatDivisibleMP(tokensIssued)));
     }
     else
     {
@@ -5849,7 +6077,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               responseObj.push_back(Pair("propertyiddesired", propertyIdDesired));
               if (divisible)
               {
-                  responseObj.push_back(Pair("tokensperunit", ValueFromAmount(tokensPerUnit)));
+                  responseObj.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
               }
               else
               {
@@ -5911,6 +6139,101 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
             response.push_back(tx.GetHash().GetHex());
        }
   }
+return response;
+}
+
+Value getactivedexsells_MP(const Array& params, bool fHelp)
+{
+   if (fHelp)
+        throw runtime_error(
+            "getactivedexsells_MP\n"
+            "\nGet currently active distributed exchange sell offers\n"
+            "\nResult:\n"
+            "{\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getactivedexsells_MP", "")
+            + HelpExampleRpc("getactivedexsells_MP", "")
+        );
+
+      //if 0 params list all sells, otherwise first param is filter address
+      bool addressFilter = false;
+      string addressParam;
+
+      if (params.size() > 0)
+      {
+          addressParam = params[0].get_str();
+          addressFilter = true;
+      }
+
+      Array response;
+
+      for(map<string, CMPOffer>::iterator it = my_offers.begin(); it != my_offers.end(); ++it)
+      {
+          CMPOffer selloffer = it->second;
+          string sellCombo = it->first;
+          string seller = sellCombo.substr(0, sellCombo.size()-2);
+
+          //filtering
+          if ((addressFilter) && (seller != addressParam)) continue;
+
+          uint256 sellHash = selloffer.getHash();
+          string txid = sellHash.GetHex();
+          uint64_t propertyId = selloffer.getCurrency();
+          uint64_t minFee = selloffer.getMinFee();
+          unsigned char timeLimit = selloffer.getBlockTimeLimit();
+          uint64_t sellOfferAmount = selloffer.getOfferAmountOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+          uint64_t sellBitcoinDesired = selloffer.getBTCDesiredOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+          uint64_t amountAvailable = getMPbalance(seller, propertyId, SELLOFFER_RESERVE);
+          uint64_t amountAccepted = getMPbalance(seller, propertyId, ACCEPT_RESERVE);
+
+          //unit price & updated bitcoin desired calcs
+          double unitPriceFloat = 0;
+          if ((sellOfferAmount>0) && (sellBitcoinDesired > 0)) unitPriceFloat = (double)sellBitcoinDesired/(double)sellOfferAmount; //divide by zero protection
+          uint64_t unitPrice = rounduint64(unitPriceFloat * COIN);
+          uint64_t bitcoinDesired = rounduint64(amountAvailable*unitPriceFloat);
+
+          Object responseObj;
+
+          responseObj.push_back(Pair("txid", txid));
+          responseObj.push_back(Pair("propertyid", propertyId));
+          responseObj.push_back(Pair("seller", seller));
+          responseObj.push_back(Pair("amountavailable", FormatDivisibleMP(amountAvailable)));
+          responseObj.push_back(Pair("bitcoindesired", FormatDivisibleMP(bitcoinDesired)));
+          responseObj.push_back(Pair("unitprice", FormatDivisibleMP(unitPrice)));
+          responseObj.push_back(Pair("timelimit", timeLimit));
+          responseObj.push_back(Pair("minimumfee", FormatDivisibleMP(minFee)));
+
+          // display info about accepts related to sell
+          responseObj.push_back(Pair("amountaccepted", FormatDivisibleMP(amountAccepted)));
+          Array acceptsMatched;
+          for(map<string, CMPAccept>::iterator ait = my_accepts.begin(); ait != my_accepts.end(); ++ait)
+          {
+              Object matchedAccept;
+
+              CMPAccept accept = ait->second;
+              string acceptCombo = ait->first;
+              uint256 matchedHash = accept.getHash();
+              // does this accept match the sell?
+              if (matchedHash == sellHash)
+              {
+                  //split acceptCombo out to get the buyer address
+                  string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
+                  uint64_t acceptBlock = accept.getAcceptBlock();
+                  uint64_t acceptAmount = accept.getAcceptAmountRemaining();
+                  matchedAccept.push_back(Pair("buyer", buyer));
+                  matchedAccept.push_back(Pair("block", acceptBlock));
+                  matchedAccept.push_back(Pair("amount", FormatDivisibleMP(acceptAmount)));
+                  acceptsMatched.push_back(matchedAccept);
+              }
+          }
+          responseObj.push_back(Pair("accepts", acceptsMatched));
+
+          // add sell object into response array
+          response.push_back(responseObj);
+      }
+
 return response;
 }
 
@@ -6056,3 +6379,4 @@ int mastercore_handler_disc_end(int nBlockNow, CBlockIndex const * pBlockIndex) 
     
     return 0;
 }
+
