@@ -128,6 +128,7 @@ const char *mastercore_filenames[NUM_FILETYPES]={
 #define PKT_ERROR_SEND        (-60000)
 #define PKT_ERROR_TRADEOFFER  (-70000)
 #define PKT_ERROR_METADEX     (-80000)
+#define METADEX_ERROR         (-81000)
 
 #define MASTERCOIN_CURRENCY_BTC   0
 #define MASTERCOIN_CURRENCY_MSC   1
@@ -138,6 +139,7 @@ inline uint64_t rounduint64(double d)
   return (uint64_t)(abs(0.5 + d));
 }
 
+// mostly taken from Bitcoin's FormatMoney()
 string FormatMoneyMP(int64_t n, bool fSign = false)
 {
 // Note: not using straight sprintf here because we do NOT want
@@ -173,8 +175,6 @@ typedef struct
   TokenMap mp_token;
   TokenMap::iterator my_it;
 
-//  bool    divisible;	// mainly for human-interaction purposes; when divisible: multiply by COIN
-
   bool propertyExists(unsigned int which_currency) const
   {
   const TokenMap::const_iterator it = mp_token.find(which_currency);
@@ -183,16 +183,13 @@ typedef struct
   }
 
 public:
-//  bool isDivisible() const { return divisible; }
 
   unsigned int init()
   {
   unsigned int ret = 0;
 
-//    printf("%s();size = %lu, line %d, file: %s\n", __FUNCTION__, mp_token.size(), __LINE__, __FILE__);
     my_it = mp_token.begin();
     if (my_it != mp_token.end()) ret = my_it->first;
-//    printf("%s();size = %lu, ret= %u, line %d, file: %s\n", __FUNCTION__, mp_token.size(), ret, __LINE__, __FILE__);
 
     return ret;
   }
@@ -201,13 +198,9 @@ public:
   {
   unsigned int ret;
 
-//    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
     if (my_it == mp_token.end()) return 0;
 
     ret = my_it->first;
-
-//    printf("%s();ret =%u, line %d, file: %s\n", __FUNCTION__, ret, __LINE__, __FILE__);
 
     ++my_it;
 
@@ -240,7 +233,6 @@ public:
   // the constructor -- create an empty tally for an address
   CMPTally()
   {
-//    divisible = true; // TODO: re-think, but currently hard-coded
     my_it = mp_token.begin();
   }
 
@@ -259,11 +251,6 @@ public:
 
     if (bDivisible)
     {
-//      printf("%+20.8lf [SO_RESERVE= %+20.8lf , ACCEPT_RESERVE= %+20.8lf ]\n",
-//       (double)money/(double)COIN, (double)so_r/(double)COIN, (double)a_r/(double)COIN);
-
-//      printf("%+12ld.%08lu [SO_RESERVE= %+12ld.%08lu , ACCEPT_RESERVE= %+12ld.%08lu ]\n",
-//       money/COIN, money%COIN, so_r/COIN, so_r%COIN, a_r/COIN, a_r%COIN);
       printf("%22s [SO_RESERVE= %22s , ACCEPT_RESERVE= %22s ]\n",
        FormatMoneyMP(money).c_str(), FormatMoneyMP(so_r).c_str(), FormatMoneyMP(a_r).c_str());
     }
@@ -348,6 +335,7 @@ public:
 };
 
 // a metadex trade
+// TODO: finish soon... incomplete for now
 class CMPMetaDex
 {
 private:
@@ -366,7 +354,6 @@ public:
 
 typedef std::map<string, CMPMetaDex> MetaDExMap;
 
-// extern map<string, CMPTally> mp_tally_map;
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
 

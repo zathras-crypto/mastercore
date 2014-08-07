@@ -51,7 +51,7 @@
 
 #include <openssl/sha.h>
 
-// comment out MY_DIV_HACK & others here - used for Unit Testing only !
+// comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
 // #define DISABLE_LOG_FILE 
 
@@ -65,8 +65,10 @@ using namespace boost::assign;
 using namespace json_spirit;
 using namespace leveldb;
 
-// static const int nBlockTop = 271000;
+// part of 'breakout' feature
 static const int nBlockTop = 0;
+// static const int nBlockTop = 271000;
+
 int nWaterlineBlock = 0;  //
 
 // uint64_t global_MSC_total = 0;
@@ -101,7 +103,6 @@ int msc_debug_metadex= 1;
 
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
-static int BitcoinCore_errors = 0;    // TODO: watch this count, check returns of all/most Bitcoin core functions !
 
 static int disable_Divs = 0;
 
@@ -197,12 +198,14 @@ char *c_strPropertyType(int i)
   return (char *) "*** property type error ***";
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder16(unsigned short& us)
 {
     us = (us >> 8) |
          (us << 8);
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder32(unsigned int& ui)
 {
     ui = (ui >> 24) |
@@ -211,6 +214,7 @@ void swapByteOrder32(unsigned int& ui)
          (ui << 24);
 }
 
+// TODO: FIXME: only do swaps for little-endian system(s) !
 void swapByteOrder64(uint64_t& ull)
 {
     ull = (ull >> 56) |
@@ -1282,8 +1286,10 @@ int rc = DEX_ERROR_SELLOFFER;
 // returns 0 if everything is OK
 int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_ACCEPT - 10;
+
+  if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
 map<string, CMPOffer>::iterator my_it;
 const string selloffer_combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller);
 const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
@@ -1291,7 +1297,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 
   my_it = my_offers.find(selloffer_combo);
 
-  if (my_it == my_offers.end()) return -15;
+  if (my_it == my_offers.end()) return DEX_ERROR_ACCEPT -15;
 
   CMPOffer &offer = my_it->second;
 
@@ -1300,7 +1306,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   {
     fprintf(mp_fp, "ERROR: fee too small -- the ACCEPT is rejected! (%lu is smaller than %lu)\n", fee_paid, offer.getMinFee());
     ++InvalidCount_per_spec;
-    return -105;
+    return DEX_ERROR_ACCEPT -105;
   }
 
   fprintf(mp_fp, "%s(%s) OFFER FOUND, line %d, file: %s\n", __FUNCTION__, selloffer_combo.c_str(), __LINE__, __FILE__);
@@ -1309,7 +1315,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   if (DEx_getAccept(seller, curr, buyer))
   {
     fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
-    return -205;
+    return DEX_ERROR_ACCEPT -205;
   }
 
   if (nActualAmount > nValue)
@@ -1522,6 +1528,64 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   }
 
   return how_many_erased;
+}
+
+int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
+  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+{
+int rc = METADEX_ERROR -1;
+
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, nValue);
+
+  // TODO: add the code
+  // ...
+
+  return rc;
+}
+
+// returns 0 if everything is OK
+int MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
+{
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), curr);
+
+  if (!getMetaDEx(sender_addr, curr)) return (METADEX_ERROR -11); // does the trade exist?
+
+  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+
+  MetaDExMap::iterator my_it;
+
+  my_it = metadex.find(combo);
+
+  const uint64_t amount = getMPbalance(sender_addr, curr, SELLOFFER_RESERVE);
+
+  if (amount)
+  {
+    update_tally_map(sender_addr, curr, amount, MONEY);   // give money back to the sender from SellOffer-Reserve
+    update_tally_map(sender_addr, curr, - amount, SELLOFFER_RESERVE);
+  }
+
+  // delete the offer
+  metadex.erase(my_it);
+
+  if (msc_debug_metadex)
+   fprintf(mp_fp, "%s(%s|%s), line %d, file: %s\n", __FUNCTION__, sender_addr.c_str(), combo.c_str(), __LINE__, __FILE__);
+
+  return 0;
+}
+
+int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
+  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+{
+int rc = METADEX_ERROR -8;
+
+  rc = MetaDEx_Destroy(sender_addr, curr);
+
+  if (!rc)
+  {
+    rc = MetaDEx_Create(sender_addr, curr, nValue, block, currency_desired, amount_desired, txid);
+  }
+
+  return rc;
 }
 
 // save info from the crowdsale that's being erased
@@ -1971,7 +2035,6 @@ public:
       memcpy(&min_fee, &pkt[25], 8);
       memcpy(&subaction, &pkt[33], 1);
 
-      // FIXME: only do swaps for little-endian system(s) !
       swapByteOrder64(amount_desired);
       swapByteOrder64(min_fee);
 
@@ -2281,8 +2344,15 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
     fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
     fprintf(mp_fp, "\t          action: %u\n", action);
 
-    // Check: The purchaser's address must be different than the seller's address.
+    // !!!!!!!!!!!!!!!!!!!
+    // NO LONGER TRUE?: The purchaser's address must be different than the seller's address.
+    // !!!!!!!!!!!!!!!!!!!
+    // FIXME: https://github.com/mastercoin-MSC/spec/pull/165/files
+    //  "It is valid for the purchaser's address to be the same as the seller's address." ouch
+    // TODO: this needs to be tested !!!
     if (sender == receiver) return (PKT_ERROR_METADEX -1);
+    // !!!!!!!!!!!!!!!!!!!
+
     if (receiver.empty()) return (PKT_ERROR_METADEX -2);
 
     // Does the sender have any money?
@@ -2294,6 +2364,9 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
 
     // ensure no cross-over of currencies from Test Eco to normal
     if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+
+    // ensure the desired currency exists in our universe
+    if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
 
     CMPMetaDex *p_metadex = getMetaDEx(sender, currency);
 
@@ -2310,12 +2383,25 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
         // ...
 
         // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
+
+        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid);
+
         // ...
 
         break;
 
       case UPDATE:
+        if (!p_metadex) return (PKT_ERROR_METADEX -105);  // not found, nothing to update
+
+        break;
+
       case CANCEL:
+        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
+
+        rc = MetaDEx_Destroy(sender, currency);
+
+        break;
+
       default: return (PKT_ERROR_METADEX -999);
     }
 
@@ -2543,7 +2629,6 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
   
   memcpy(&type, &pkt[0], 4);
 
-  // FIXME: only do swaps for little-endian system(s) !
   swapByteOrder32(type);
 
   fprintf(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
@@ -2810,15 +2895,8 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// THE TODO LIST, WHAT'S MISSING, NOT DONE YET:
-//  1) checks to ensure the seller has enough funds
-//  2) checks to ensure the sender has enough funds
-//  3) checks to ensure there are enough funds when the 'accept' message is received
-//  4) partial order fulfilment is not yet handled (spec says all is sold if larger than available is put on sale, etc.)
-//  5) return false as needed and check returns of msc_update_* functions
+// some old TODOs
 //  6) verify large-number calculations (especially divisions & multiplications)
-//  7) need to detect cancelations & updates of sell offers -- and handle partially fullfilled offers...
-//  8) most important: figure out all the coins in existence and add all that prebuilt data
 //  9) build in consesus checks with the masterchain.info & masterchest.info -- possibly run them automatically, daily (?)
 // 10) need a locking mechanism between Core & Qt -- to retrieve the tally, for instance, this and similar to this: LOCK(wallet->cs_wallet);
 //
@@ -3000,7 +3078,7 @@ vector<string>address_data;
 // vector<uint64_t>value_data;
 vector<int64_t>value_data;
 int64_t ExodusValues[MAX_BTC_OUTPUTS];
-int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };
+int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
 unsigned int packet_size = 0;
@@ -3109,7 +3187,6 @@ uint64_t txFee = 0;
             uint256 hashBlock;
             if (!GetTransaction(wtx.vin[i].prevout.hash, txPrev, hashBlock, true))  // get the vin's previous transaction 
             {
-              ++BitcoinCore_errors;
               return -101;
             }
 
