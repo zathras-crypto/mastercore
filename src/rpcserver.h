@@ -191,6 +191,7 @@ extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& 
 extern json_spirit::Value getactivedexsells_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value searchtransactions_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listblocktransactions_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value getbestblockhash(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getdifficulty(const json_spirit::Array& params, bool fHelp);
