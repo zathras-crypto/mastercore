@@ -73,6 +73,8 @@ enum BLOCKHEIGHTRESTRICTIONS {
 // starting block for parsing on TestNet
 //  START_TESTNET_BLOCK= 253728,
   START_TESTNET_BLOCK=263000,
+  START_REGTEST_BLOCK=5,
+  MONEYMAN_REGTEST_BLOCK= 101, // new address to assign MSC & TMSC on TestNet
   MONEYMAN_TESTNET_BLOCK= 270775, // new address to assign MSC & TMSC on TestNet
   POST_EXODUS_BLOCK = 255366,
   MSC_DEX_BLOCK     = 290630,

@@ -3114,7 +3114,6 @@ uint64_t txFee = 0;
                 }
               }
             }
-
             if ((isNonMainNet() && getmoney_count))
             {
             }
@@ -3254,6 +3253,11 @@ uint64_t txFee = 0;
             if (isNonMainNet())
             {
               if (MONEYMAN_TESTNET_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
+            }
+
+            if (RegTest()) 
+            { 
+              if (MONEYMAN_REGTEST_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
             }
 
             fprintf(mp_fp, "%s()amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
@@ -4282,6 +4286,11 @@ int mastercore_init()
   {
     exodus = exodus_testnet;
   }
+  //If interested in changing regtest address do so here and uncomment
+  /*if (RegTest())
+  {
+    exodus = exodus_testnet;
+  }*/
 
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
@@ -4293,6 +4302,8 @@ int mastercore_init()
   static const uint64_t snapshotDevMSC = 0;
 
   if (isNonMainNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
+
+  if (RegTest()) snapshotHeight = START_REGTEST_BLOCK - 1;
 
   ++mastercoreInitialized;
 
@@ -4353,7 +4364,9 @@ int mastercore_init()
     nWaterlineBlock = 310000;
 #endif
 
-    if (isNonMainNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
+    if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
+
+    if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
   }
 
   // collect the real Exodus balances available at the snapshot time
