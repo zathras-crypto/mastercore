@@ -1786,10 +1786,13 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 }
 
 // certain transaction types are not live on the network until some specific block height
-bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType)
+// certain transactions will be unknown to the client, i.e. "black holes" based on their version
+// the Restrictions array is as such: type, block-allowed-in, top-version-allowed
+bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType, unsigned short version)
 {
 unsigned int type;
 int block_FirstAllowed;
+unsigned short version_TopAllowed;
 
   // BTC as currency/property is never allowed
   if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
@@ -1800,10 +1803,11 @@ int block_FirstAllowed;
   {
     type = txBlockRestrictions[i][0];
     block_FirstAllowed = txBlockRestrictions[i][1];
+    version_TopAllowed = txBlockRestrictions[i][2];
 
     if (txType != type) continue;
 
-    if (0 > block_FirstAllowed) break;
+    if (0 > block_FirstAllowed) break;  // array contains a negative -- nothing's allowed
 
     if (block_FirstAllowed <= txBlock) return true;
   }
@@ -1919,7 +1923,7 @@ public:
   {
   int rc = PKT_ERROR_SEND -1000;
 
-      if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_SEND -22);
+      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_SEND -22);
 
       if (sender.empty()) ++InvalidCount_per_spec;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -2028,7 +2032,7 @@ public:
       }
 
       // block height checks, for instance DEX is only available on MSC starting with block 290630
-      if (!isTransactionTypeAllowed(block, currency, type)) return -88888;
+      if (!isTransactionTypeAllowed(block, currency, type, version)) return -88888;
 
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
@@ -2144,7 +2148,7 @@ public:
   {
   int rc = PKT_ERROR_STO -1000;
 
-      if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_STO -888);
+      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_STO -888);
 
       // totalTokens will be 0 for non-existing currency
       int64_t totalTokens = getTotalTokens(currency);
@@ -2328,35 +2332,25 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
   int rc = PKT_ERROR_METADEX -1000;
   unsigned char action = 0;
 
-    if (!isTransactionTypeAllowed(block, currency, type)) return (PKT_ERROR_METADEX -888);
+    if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_METADEX -888);
 
-    memcpy(&currency, &pkt[16], 4);
+    memcpy(&desired_currency, &pkt[16], 4);
     swapByteOrder32(desired_currency);
 
-    memcpy(&nValue, &pkt[20], 8);
+    memcpy(&desired_value, &pkt[20], 8);
     swapByteOrder64(desired_value);
-
-    if (!isTransactionTypeAllowed(block, desired_currency, type)) return (PKT_ERROR_METADEX -889);
-
-    memcpy(&action, &pkt[28], 1);
 
     fprintf(mp_fp, "\tdesired currency: %u (%s)\n", desired_currency, strMPCurrency(desired_currency).c_str());
     fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
+
+    if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
+
+    memcpy(&action, &pkt[28], 1);
+
     fprintf(mp_fp, "\t          action: %u\n", action);
 
-    // !!!!!!!!!!!!!!!!!!!
-    // NO LONGER TRUE?: The purchaser's address must be different than the seller's address.
-    // !!!!!!!!!!!!!!!!!!!
-    // FIXME: https://github.com/mastercoin-MSC/spec/pull/165/files
-    //  "It is valid for the purchaser's address to be the same as the seller's address." ouch
-    // TODO: this needs to be tested !!!
-    if (sender == receiver) return (PKT_ERROR_METADEX -1);
-    // !!!!!!!!!!!!!!!!!!!
-
-    if (receiver.empty()) return (PKT_ERROR_METADEX -2);
-
     // Does the sender have any money?
-    nNewValue = getMPbalance(exodus, currency, MONEY);
+    nNewValue = getMPbalance(sender, currency, MONEY);
     if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
@@ -2733,7 +2727,7 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
   fprintf(mp_fp, "\t             URL: %s\n", url);
   fprintf(mp_fp, "\t            Data: %s\n", data);
 
-  if (!isTransactionTypeAllowed(block, prop_id, type))
+  if (!isTransactionTypeAllowed(block, prop_id, type, version))
   {
     error_code = (PKT_ERROR_SP -503);
     return NULL;
