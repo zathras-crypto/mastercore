@@ -140,7 +140,7 @@ inline uint64_t rounduint64(double d)
 }
 
 // mostly taken from Bitcoin's FormatMoney()
-string FormatMoneyMP(int64_t n, bool fSign = false)
+string FormatDivisibleMP(int64_t n, bool fSign = false)
 {
 // Note: not using straight sprintf here because we do NOT want
 // localized number formatting.
@@ -252,7 +252,7 @@ public:
     if (bDivisible)
     {
       printf("%22s [SO_RESERVE= %22s , ACCEPT_RESERVE= %22s ]\n",
-       FormatMoneyMP(money).c_str(), FormatMoneyMP(so_r).c_str(), FormatMoneyMP(a_r).c_str());
+       FormatDivisibleMP(money).c_str(), FormatDivisibleMP(so_r).c_str(), FormatDivisibleMP(a_r).c_str());
     }
     else
     {
