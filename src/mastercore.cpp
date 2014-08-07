@@ -1794,7 +1794,7 @@ int block_FirstAllowed;
   // BTC as currency/property is never allowed
   if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
 
-  if ((TestNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
+  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
 
   for (unsigned int i = 0; i < sizeof(txBlockRestrictions)/sizeof(txBlockRestrictions[0]); i++)
   {
@@ -3040,13 +3040,13 @@ vector<vector<unsigned char> > vSolutions;
 
 int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t ExodusHighestValue, int nBlock, unsigned int nTime)
 {
-  if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (TestNet()))
+  if ((nBlock >= GENESIS_BLOCK && nBlock <= LAST_EXODUS_BLOCK) || (isNonMainNet()))
   { //Exodus Fundraiser start/end blocks
     //printf("transaction: %s\n", wtx.ToString().c_str() );
     int deadline_timeleft=1377993600-nTime;
     double bonus= 1 + std::max( 0.10 * deadline_timeleft / (60 * 60 * 24 * 7), 0.0 );
 
-    if (TestNet())
+    if (isNonMainNet())
     {
       bonus = 1;
 
@@ -3108,14 +3108,14 @@ uint64_t txFee = 0;
                 {
                   ExodusValues[marker_count++] = wtx.vout[i].nValue;
                 }
-                else if (TestNet() && (getmoney_testnet == strAddress))
+                else if (isNonMainNet() && (getmoney_testnet == strAddress))
                 {
                   TestNetMoneyValues[getmoney_count++] = wtx.vout[i].nValue;
                 }
               }
             }
 
-            if ((TestNet() && getmoney_count))
+            if ((isNonMainNet() && getmoney_count))
             {
             }
             else if (!marker_count)
@@ -3251,7 +3251,7 @@ uint64_t txFee = 0;
             
             //This calculates exodus fundraiser for each tx within a given block
             int64_t BTC_amount = ExodusValues[0];
-            if (TestNet())
+            if (isNonMainNet())
             {
               if (MONEYMAN_TESTNET_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
             }
@@ -4265,7 +4265,7 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
-  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
+  printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
 #ifdef  WIN32
 #error  Need boost path here too
@@ -4278,7 +4278,7 @@ int mastercore_init()
 #endif
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
-  if (TestNet())
+  if (isNonMainNet())
   {
     exodus = exodus_testnet;
   }
@@ -4292,7 +4292,7 @@ int mastercore_init()
   static int snapshotHeight = (GENESIS_BLOCK - 1);
   static const uint64_t snapshotDevMSC = 0;
 
-  if (TestNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
+  if (isNonMainNet()) snapshotHeight = START_TESTNET_BLOCK - 1;
 
   ++mastercoreInitialized;
 
@@ -4353,7 +4353,7 @@ int mastercore_init()
     nWaterlineBlock = 310000;
 #endif
 
-    if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
+    if (isNonMainNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
   }
 
   // collect the real Exodus balances available at the snapshot time
@@ -5111,9 +5111,9 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[blockHash]->nTime; 
 
-                if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
+                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) 
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not available - prior to preseed");
-                if ((TestNet()) && (blockHeight < START_TESTNET_BLOCK))
+                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK))
                         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Testnet transaction not avaiable - prior to preseed");
 
                 mp_obj.SetNull();
@@ -5343,8 +5343,8 @@ bool addressFilter;
                 int blockHeight = pBlockIndex->nHeight;
                 int64_t blockTime = mapBlockIndex[pwtx->hashBlock]->nTime;
                 int blockIndex = pwtx->nIndex;
-                if ((!TestNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
-                if ((TestNet()) && (blockHeight < START_TESTNET_BLOCK)) continue;
+                if ((!isNonMainNet()) && (blockHeight < POST_EXODUS_BLOCK)) continue; //do not display transactions prior to preseed
+                if ((isNonMainNet()) && (blockHeight < START_TESTNET_BLOCK)) continue;
 
                 //ignore transactions not between nStartBlock and nEndBlock
                 if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue;

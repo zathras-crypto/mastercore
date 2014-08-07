@@ -158,6 +158,11 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
+inline bool isNonMainNet()
+{
+  return (TestNet() || RegTest());
+}
+
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
