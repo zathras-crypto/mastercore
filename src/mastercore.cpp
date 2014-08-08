@@ -1807,6 +1807,14 @@ unsigned short version_TopAllowed;
 
     if (txType != type) continue;
 
+    if (version_TopAllowed < version)
+    {
+      fprintf(mp_fp, "Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txCurrency, txType, version);
+      fprintf(mp_fp, "This address will temporarily lose all its funds: it must upgrade the client, erase all persistence data and reparse from Exodus !!!\n");
+
+      return false;
+    }
+
     if (0 > block_FirstAllowed) break;  // array contains a negative -- nothing's allowed
 
     if (block_FirstAllowed <= txBlock) return true;

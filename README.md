@@ -60,7 +60,7 @@ Clone the Mastercore repo.
 Then, run
 
 ```
-./autogen
+./autogen.sh
 ./configure
 make
 ```

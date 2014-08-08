@@ -71,10 +71,9 @@ enum TransactionType {
 // block height (MainNet) with which the corresponding transaction is considered valid, per spec
 enum BLOCKHEIGHTRESTRICTIONS {
 // starting block for parsing on TestNet
-//  START_TESTNET_BLOCK= 253728,
   START_TESTNET_BLOCK=263000,
   START_REGTEST_BLOCK=5,
-  MONEYMAN_REGTEST_BLOCK= 101, // new address to assign MSC & TMSC on TestNet
+  MONEYMAN_REGTEST_BLOCK= 101, // new address to assign MSC & TMSC on RegTest
   MONEYMAN_TESTNET_BLOCK= 270775, // new address to assign MSC & TMSC on TestNet
   POST_EXODUS_BLOCK = 255366,
   MSC_DEX_BLOCK     = 290630,
@@ -87,7 +86,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
 
 int txBlockRestrictions[][3] = {
   {MSC_TYPE_SIMPLE_SEND,              GENESIS_BLOCK,      MP_TX_PKT_V0},
-  {MSC_TYPE_TRADE_OFFER,              MSC_DEX_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_TRADE_OFFER,              MSC_DEX_BLOCK,      MP_TX_PKT_V1},
   {MSC_TYPE_ACCEPT_OFFER_BTC,         MSC_DEX_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_CREATE_PROPERTY_FIXED,    MSC_SP_BLOCK,       MP_TX_PKT_V0},
   {MSC_TYPE_CREATE_PROPERTY_VARIABLE, MSC_SP_BLOCK,       MP_TX_PKT_V0},
