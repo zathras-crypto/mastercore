@@ -1495,9 +1495,8 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
 // save info from the crowdsale that's being erased
 void dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool bExpired = false)
 {
-FILE *fp = fopen("/tmp/dead.log", "a");
-
-  if (!fp) return;
+  boost::filesystem::path pathTempDead = GetTempPath() / "dead.log";
+  FILE *fp = fopen(pathTempDead.string().c_str(), "a");
 
   fprintf(fp, "\nCrowdsale ended: %s\n", bExpired ? "Expired" : "Was closed");
   crowd.print(address, fp);
@@ -4124,15 +4123,13 @@ int mastercore_init()
 {
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, TestNet() ? "TESTNET":"", __LINE__, __FILE__);
 
-//#ifdef  WIN32
-//#error  Need boost path here too
-//#else
 #ifndef  DISABLE_LOG_FILE
-  mp_fp = fopen ("/tmp/mastercore.log", "a");
+  boost::filesystem::path pathTempLog = GetTempPath() / "mastercore.log";
+  mp_fp = fopen(pathTempLog.string().c_str(), "a");
 #else
   mp_fp = stdout;
 #endif
-//#endif
+
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (TestNet())
