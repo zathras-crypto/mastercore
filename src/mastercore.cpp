@@ -113,6 +113,7 @@ static int mastercoreInitialized = 0;
 // this is the internal format for the offer primary key (TODO: replace by a class method)
 #define STR_SELLOFFER_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
 #define STR_ACCEPT_ADDR_CURR_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", curr) + "+" + _buyer)
+#define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
 static CMPTxList *p_txlistdb;
 
@@ -1423,7 +1424,7 @@ const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
 
 // incoming BTC payment for the offer
 // TODO: verify proper partial payment handling
-int DEx_payment(string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL)
+int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL)
 {
   if (msc_debug_dex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 int rc = DEX_ERROR_PAYMENT;
@@ -1471,6 +1472,8 @@ p_accept = DEx_getAccept(seller, curr, buyer);
   {
       update_tally_map(buyer, curr, units_purchased, MONEY);
       rc = 0;
+      bool bValid = true;
+      p_txlistdb->recordPaymentTX(txid, bValid, blockNow, vout, curr, units_purchased, buyer, seller);
 
       fprintf(mp_fp, "#######################################################\n");
   }
@@ -3451,7 +3454,7 @@ uint64_t txFee = 0;
                     fprintf(mp_fp, "payment #%d %s %11.8lf\n", ++count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
                     // check everything & pay BTC for the currency we are buying here...
-                    DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock);
+                    DEx_payment(wtx.GetHash(), i, strAddress, strSender, wtx.vout[i].nValue, nBlock);
                   }
                 }
               }
@@ -4850,6 +4853,109 @@ Value getbalance_MP(const Array& params, bool fHelp)
     {
         return tmpbal;
     }
+}
+
+void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller)
+{
+  if (!pdb) return;
+
+       // Prep - setup vars
+       unsigned int type = 99999999;
+       uint64_t numberOfPayments = 1;
+       unsigned int paymentNumber = 1;
+       uint64_t existingNumberOfPayments = 0;
+
+       // Step 1 - Check TXList to see if this payment TXID exists
+       bool paymentEntryExists = p_txlistdb->exists(txid);
+
+       // Step 2a - If doesn't exist leave number of payments & paymentNumber set to 1
+       // Step 2b - If does exist add +1 to existing number of payments and set this paymentNumber as new numberOfPayments
+       if (paymentEntryExists)
+       {
+           //retrieve old numberOfPayments
+           std::vector<std::string> vstr;
+           string strValue;
+           Status status = pdb->Get(readoptions, txid.ToString(), &strValue);
+           if (status.ok())
+           {
+               // parse the string returned
+               boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+
+               // obtain the existing number of payments
+               if (4 <= vstr.size())
+               {
+                   existingNumberOfPayments = atoi(vstr[3]);
+                   paymentNumber = existingNumberOfPayments + 1;
+                   numberOfPayments = existingNumberOfPayments + 1;
+               }
+           }
+       }
+
+       // Step 3 - Create new/update master record for payment tx in TXList
+       const string key = txid.ToString();
+       const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, numberOfPayments); 
+       Status status;
+       fprintf(mp_fp, "DEXPAYDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of payments= %lu)\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, numberOfPayments);
+       if (pdb)
+       {
+           status = pdb->Put(writeoptions, key, value);
+           fprintf(mp_fp, "DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+       }
+
+       // Step 4 - Write sub-record with payment details
+       const string txidStr = txid.ToString();
+       const string subKey = STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr);
+       const string subValue = strprintf("%d:%s:%s:%d:%lu", vout, buyer, seller, propertyId, nValue);
+       Status subStatus;
+       fprintf(mp_fp, "DEXPAYDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       if (pdb)
+       {
+           subStatus = pdb->Put(writeoptions, subKey, subValue);
+           fprintf(mp_fp, "DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+       }
+
+//  fprintf(mp_fp, "%s(%s, valid=%s, block= %d, type= %d, value= %lu)\n",
+//   __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, nValue);
+
+//  if (pdb)
+//  {
+//    status = pdb->Put(writeoptions, key, value);
+//    ++nWritten;
+//    if (msc_debug_txdb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+//  }
+
+//[4:09:46 PM] Michael: we record it in multiple entries
+//[4:09:46 PM] Michael: 
+//entry #1 is TXID:9999999:x of payments
+//entry #2 is TXID-1:stuff...............
+//entry #3 is TXID-2:more stuff about payments #2
+//and so on
+//[4:10:11 PM] Michael: you find the master record for a TXID and from there you can find all other records for details
+//[4:10:18 PM] zathrasc: potentially
+//[4:10:44 PM] zathrasc: was also thinking would it not be smarter to have a DEx_Payments levelDB seperate?  I mean MP_txlist's purpose is to store MP txs - payments are not MP txs
+//[4:11:09 PM] Michael: nah, overhead of opening closing, files, etc. doesn't make sense
+//[4:11:31 PM] Michael: 1 leveldb can be gigabytes or terrabytes and still very fast
+//[4:11:46 PM] zathrasc: yeah but I don't wanna break all the existing stuff
+//[4:11:47 PM] Michael: it's a B-tree search
+//[4:12:03 PM] Michael: that's where your 999999 comes in
+//[4:12:09 PM] zathrasc: eg how would txlist->exists function in that regard
+//[4:12:13 PM] Michael: and will filter out "-" -- not allow in TXID
+//[4:12:27 PM] Michael: TXID -- the main ones exists
+//[4:12:38 PM] Michael: for payments
+//[4:12:40 PM] zathrasc: yeah ok let me have a think about that
+//[4:12:53 PM] zathrasc: I was gonna do it that way (TXID-1, TXID-2) originally
+//[4:12:57 PM] zathrasc: then tried to KISS haha
+//[4:13:21 PM] Michael: sure : TXID:9999999999:x of 2nd level records, then TXID-1 , etc.
+//[4:13:35 PM] Michael: you did it right, just need the master record
+//[4:13:46 PM] Michael: to know how many TXID-n there are
+//[4:15:36 PM] zathrasc: yeah let me have a play, not sure what direction this will take here - if we have vout3, vout5 and vout8 as 2nd level records (TXID-3, TXID-5, TXID-8) where do you store the 3,5,8 in the master record without breaking the structure
+//[4:15:50 PM] Michael: ok
+//[4:16:01 PM] Michael: I would store the number only : TXID:99999999:n
+//[4:16:19 PM] Michael: then we can go wild on TXID-1:9999999998:3(for vout) etc
+//[4:16:31 PM] zathrasc: ah I see where you're going
+//[4:16:58 PM] Michael: once we get the N number of child records we search for TXID-1 through TXID-n and get all the details
+//[4:17:00 PM] zathrasc: so we'd just read in the current state for that txid, checking for existing records and how many before adding further 2nd level records
+//[4:17:09 PM] Michael: right
 }
 
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)

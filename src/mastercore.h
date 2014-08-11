@@ -140,17 +140,17 @@ inline uint64_t rounduint64(double d)
 }
 
 // mostly taken from Bitcoin's FormatMoney()
-string FormatDivisibleMP(int64_t n, bool fSign = false)
+string FormatDivisibleMP(int64_t n, bool fSign = false) 
 {
 // Note: not using straight sprintf here because we do NOT want
 // localized number formatting.
+
 int64_t n_abs = (n > 0 ? n : -n);
 int64_t quotient = n_abs/COIN;
 int64_t remainder = n_abs%COIN;
 string str = strprintf("%d.%08d", quotient, remainder);
 
   if (!fSign) return str;
-
   if (n < 0)
       str.insert((unsigned int)0, 1, '-');
   else
@@ -326,6 +326,8 @@ public:
     }
 
     void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
+    void recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller);
+
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 
