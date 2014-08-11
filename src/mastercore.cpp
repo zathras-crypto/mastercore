@@ -4913,49 +4913,6 @@ void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, un
            subStatus = pdb->Put(writeoptions, subKey, subValue);
            fprintf(mp_fp, "DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
        }
-
-//  fprintf(mp_fp, "%s(%s, valid=%s, block= %d, type= %d, value= %lu)\n",
-//   __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, nValue);
-
-//  if (pdb)
-//  {
-//    status = pdb->Put(writeoptions, key, value);
-//    ++nWritten;
-//    if (msc_debug_txdb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
-//  }
-
-//[4:09:46 PM] Michael: we record it in multiple entries
-//[4:09:46 PM] Michael: 
-//entry #1 is TXID:9999999:x of payments
-//entry #2 is TXID-1:stuff...............
-//entry #3 is TXID-2:more stuff about payments #2
-//and so on
-//[4:10:11 PM] Michael: you find the master record for a TXID and from there you can find all other records for details
-//[4:10:18 PM] zathrasc: potentially
-//[4:10:44 PM] zathrasc: was also thinking would it not be smarter to have a DEx_Payments levelDB seperate?  I mean MP_txlist's purpose is to store MP txs - payments are not MP txs
-//[4:11:09 PM] Michael: nah, overhead of opening closing, files, etc. doesn't make sense
-//[4:11:31 PM] Michael: 1 leveldb can be gigabytes or terrabytes and still very fast
-//[4:11:46 PM] zathrasc: yeah but I don't wanna break all the existing stuff
-//[4:11:47 PM] Michael: it's a B-tree search
-//[4:12:03 PM] Michael: that's where your 999999 comes in
-//[4:12:09 PM] zathrasc: eg how would txlist->exists function in that regard
-//[4:12:13 PM] Michael: and will filter out "-" -- not allow in TXID
-//[4:12:27 PM] Michael: TXID -- the main ones exists
-//[4:12:38 PM] Michael: for payments
-//[4:12:40 PM] zathrasc: yeah ok let me have a think about that
-//[4:12:53 PM] zathrasc: I was gonna do it that way (TXID-1, TXID-2) originally
-//[4:12:57 PM] zathrasc: then tried to KISS haha
-//[4:13:21 PM] Michael: sure : TXID:9999999999:x of 2nd level records, then TXID-1 , etc.
-//[4:13:35 PM] Michael: you did it right, just need the master record
-//[4:13:46 PM] Michael: to know how many TXID-n there are
-//[4:15:36 PM] zathrasc: yeah let me have a play, not sure what direction this will take here - if we have vout3, vout5 and vout8 as 2nd level records (TXID-3, TXID-5, TXID-8) where do you store the 3,5,8 in the master record without breaking the structure
-//[4:15:50 PM] Michael: ok
-//[4:16:01 PM] Michael: I would store the number only : TXID:99999999:n
-//[4:16:19 PM] Michael: then we can go wild on TXID-1:9999999998:3(for vout) etc
-//[4:16:31 PM] zathrasc: ah I see where you're going
-//[4:16:58 PM] Michael: once we get the N number of child records we search for TXID-1 through TXID-n and get all the details
-//[4:17:00 PM] zathrasc: so we'd just read in the current state for that txid, checking for existing records and how many before adding further 2nd level records
-//[4:17:09 PM] Michael: right
 }
 
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)
