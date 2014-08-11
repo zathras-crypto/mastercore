@@ -2656,8 +2656,6 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
   // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
   nNewValue = nValue;
 
-//  if nNewValue > 9223372036854775807 return 9064 // nvalue is over int64, invalidate 
-
   memcpy(&currency, &pkt[4], 4);
   swapByteOrder32(currency);
 
@@ -3076,11 +3074,11 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
 
 // idx is position within the block, 0-based
 // int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
-
+// INPUT: bRPConly -- set to true to avoid moving funds; to be called from various RPC calls like this
 // RETURNS: 0 if parsed a MP TX
 // RETURNS: < 0 if a non-MP-TX or invalid
 // RETURNS: >0 if 1 or more payments have been made
-int parseTransaction(const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx, unsigned int nTime=0)
+int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx, unsigned int nTime=0)
 {
 string strSender;
 // class A: data & address storage -- combine them into a structure or something
@@ -3466,7 +3464,8 @@ uint64_t txFee = 0;
                     fprintf(mp_fp, "payment #%d %s %11.8lf\n", count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
                     // check everything & pay BTC for the currency we are buying here...
-                    if (0 == DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock)) ++count;
+                    if (bRPConly) count = 55555;  // no real way to validate a payment during simple RPC call
+                    else if (0 == DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock)) ++count;
                   }
                 }
               }
@@ -4429,7 +4428,7 @@ int interp_ret = -555555, pop_ret;
 
   if (nBlock < nWaterlineBlock) return -1;  // we do not care about parsing blocks prior to our waterline (empty blockchain defense)
 
-  pop_ret = parseTransaction(tx, nBlock, idx, &mp_obj, pBlockIndex->GetBlockTime() );
+  pop_ret = parseTransaction(false, tx, nBlock, idx, &mp_obj, pBlockIndex->GetBlockTime() );
   if (0 == pop_ret)
   {
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
@@ -5137,7 +5136,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(wtx, blockHeight, 0, &mp_obj))
+                if (0 == parseTransaction(true, wtx, blockHeight, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
@@ -5359,7 +5358,7 @@ string sAddress = "";
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(*pwtx, blockHeight, 0, &mp_obj))
+                if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
@@ -5592,7 +5591,7 @@ bool addressFilter;
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(*pwtx, blockHeight, 0, &mp_obj))
+                if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
                 {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
