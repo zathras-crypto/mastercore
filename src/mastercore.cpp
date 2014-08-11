@@ -1790,6 +1790,8 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
 bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType, unsigned short version)
 {
+bool bAllowed = false;
+bool bBlackHole = false;
 unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
@@ -1797,30 +1799,36 @@ unsigned short version_TopAllowed;
   // BTC as currency/property is never allowed
   if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
 
-  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency)) return true; // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
-
-  for (unsigned int i = 0; i < sizeof(txBlockRestrictions)/sizeof(txBlockRestrictions[0]); i++)
+  // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
+  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency))
   {
-    type = txBlockRestrictions[i][0];
-    block_FirstAllowed = txBlockRestrictions[i][1];
-    version_TopAllowed = txBlockRestrictions[i][2];
+    bAllowed = true;
+  }
+
+  for (unsigned int i = 0; i < sizeof(txRestrictionsRules)/sizeof(txRestrictionsRules[0]); i++)
+  {
+    type = txRestrictionsRules[i][0];
+    block_FirstAllowed = txRestrictionsRules[i][1];
+    version_TopAllowed = txRestrictionsRules[i][2];
 
     if (txType != type) continue;
 
     if (version_TopAllowed < version)
     {
       fprintf(mp_fp, "Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txCurrency, txType, version);
-      fprintf(mp_fp, "This address will temporarily lose all its funds: it must upgrade the client, erase all persistence data and reparse from Exodus !!!\n");
 
-      return false;
+      bBlackHole = true;
+
+      // TODO: what else?
+      // ...
     }
 
-    if (0 > block_FirstAllowed) break;  // array contains a negative -- nothing's allowed
+    if (0 > block_FirstAllowed) break;  // array contains a negative -- nothing's allowed or done parsing
 
-    if (block_FirstAllowed <= txBlock) return true;
+    if (block_FirstAllowed <= txBlock) bAllowed = true;
   }
 
-  return false;
+  return bAllowed && !bBlackHole;
 }
 
 // The class responsible for tx interpreting/parsing.
