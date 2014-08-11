@@ -3078,7 +3078,8 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
 // int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
 
 // RETURNS: 0 if parsed a MP TX
-
+// RETURNS: < 0 if a non-MP-TX or invalid
+// RETURNS: >0 if 1 or more payments have been made
 int parseTransaction(const CTransaction &wtx, int nBlock, unsigned int idx, CMPTransaction *mp_tx, unsigned int nTime=0)
 {
 string strSender;
@@ -3462,14 +3463,14 @@ uint64_t txFee = 0;
                   const string strAddress = CBitcoinAddress(dest).ToString();
 
                     if (exodus == strAddress) continue;
-                    fprintf(mp_fp, "payment #%d %s %11.8lf\n", ++count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
+                    fprintf(mp_fp, "payment #%d %s %11.8lf\n", count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
                     // check everything & pay BTC for the currency we are buying here...
-                    DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock);
+                    if (0 == DEx_payment(strAddress, strSender, wtx.vout[i].nValue, nBlock)) ++count;
                   }
                 }
               }
-              return count;
+              return count ? count : -5678; // return count -- the actual number of payments within this TX or error if none were made
             }
             else
             {

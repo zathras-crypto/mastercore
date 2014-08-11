@@ -86,6 +86,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
   MSC_BET_BLOCK     = 999999,
 };
 
+// TODO: there would be a block height for each TX version -- rework together with BLOCKHEIGHTRESTRICTIONS above
 const int txRestrictionsRules[][3] = {
   {MSC_TYPE_SIMPLE_SEND,              GENESIS_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_TRADE_OFFER,              MSC_DEX_BLOCK,      MP_TX_PKT_V1},
