@@ -904,16 +904,26 @@ static CMPSPInfo *_my_sps;
 CrowdMap my_crowds;
 static MetaDExMap metadex;
 
-CMPMetaDex *getMetaDEx(const string &sender_addr, unsigned int curr)
+CMPMetaDEx *getMetaDEx(const string &sender_addr, unsigned int curr)
 {
   if (msc_debug_metadex) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
-map<string, CMPMetaDex>::iterator it = metadex.find(combo);
+map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
 
   if (it != metadex.end()) return &(it->second);
 
-  return (CMPMetaDex *) NULL;
+  return (CMPMetaDEx *) NULL;
+}
+
+CMPMetaDEx::CMPMetaDEx(int block, unsigned int curr, uint64_t nValue, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+{
+}
+
+std::string CMPMetaDEx::ToString() const
+{
+  return strprintf("block=%d, %s, trade prop %u %s for %u %s", block, getHash().ToString(),
+   currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original));
 }
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -1530,15 +1540,25 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
-  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
 {
 int rc = METADEX_ERROR -1;
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, nValue);
 
-  // TODO: add the code
+  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+
+  // TODO: add more code
   // ...
+
+  if (update_tally_map(sender_addr, curr, - nValue, MONEY)) // subtract from what's available
+  {
+    update_tally_map(sender_addr, curr, nValue, SELLOFFER_RESERVE); // put in reserve
+
+    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, nValue, currency_desired, amount_desired, txid)));
+
+    rc = 0;
+  }
 
   return rc;
 }
@@ -1573,10 +1593,14 @@ int MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
   return 0;
 }
 
-int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block,
-  unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
 {
 int rc = METADEX_ERROR -8;
+
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), curr);
+
+  // TODO: add the code
+  // ...
 
   rc = MetaDEx_Destroy(sender_addr, curr);
 
@@ -2262,14 +2286,14 @@ public:
       // loop #2
       // split up what was taken and distribute between all holders
       uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
-      long double percentage, piece;
+      double percentage, piece;
       rc = 0; // almost good, the for-loop will set the error code
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
       {
       const string address = my_it->second;
 
         owns = my_it->first;
-        percentage = (long double) owns / (long double) totalTokens;
+        percentage = (double) owns / (double) totalTokens;
         piece = percentage * nValue;
         should_receive = ceil(piece);
 
@@ -2286,7 +2310,7 @@ public:
         sent_so_far += will_really_receive;
 
         if (msc_debug_sto)
-         fprintf(mp_fp, "%14lu = %s, perc= %20.10Lf, piece= %20.10Lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+         fprintf(mp_fp, "%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
           owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
@@ -2337,15 +2361,11 @@ big one
 
 https://github.com/mastercoin-MSC/spec/issues/170
 [12:16:26 PM] zathrasc: but yeah for thorough would be a fishing expedition mate
-
-Marv has this big ass PR request that's not merged, specifically relating to MetaDEx - suggest for one that needs to be decided upon
-[12:27:16 PM] zathrasc: https://github.com/mastercoin-MSC/spec/pull/165
-[12:27:58 PM] zathrasc: last post says JR reviewed Jun 26 and gave it the nod
 */
 
-  int logicMath_Metadex()
+  int logicMath_MetaDEx()
   {
-  int rc = PKT_ERROR_METADEX -1000;
+  int rc = PKT_ERROR_METADEX -100;
   unsigned char action = 0;
 
     if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_METADEX -888);
@@ -2359,26 +2379,28 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
     fprintf(mp_fp, "\tdesired currency: %u (%s)\n", desired_currency, strMPCurrency(desired_currency).c_str());
     fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
 
-    if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
-
     memcpy(&action, &pkt[28], 1);
 
     fprintf(mp_fp, "\t          action: %u\n", action);
 
-    // Does the sender have any money?
     nNewValue = getMPbalance(sender, currency, MONEY);
-    if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
     if (nNewValue > nValue) nNewValue = nValue;
 
-    // ensure no cross-over of currencies from Test Eco to normal
-    if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+    CMPMetaDEx *p_metadex = getMetaDEx(sender, currency);
 
-    // ensure the desired currency exists in our universe
-    if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
+    // do checks that are not application for the Cancel action
+    if (CANCEL != action)
+    {
+      if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
 
-    CMPMetaDex *p_metadex = getMetaDEx(sender, currency);
+      // ensure no cross-over of currencies from Test Eco to normal
+      if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+
+      // ensure the desired currency exists in our universe
+      if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
+    }
 
     // TODO: use the nNewValue as the amount the seller/sender actually has to trade with
     // ...
@@ -2386,6 +2408,9 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
     switch (action)
     {
       case NEW:
+        // Does the sender have any money?
+        if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
+
         // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
         if (p_metadex) return (PKT_ERROR_METADEX -10);
 
@@ -2402,6 +2427,10 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
 
       case UPDATE:
         if (!p_metadex) return (PKT_ERROR_METADEX -105);  // not found, nothing to update
+
+        // TODO: check if the sender has enough money... for an update
+
+        rc = MetaDEx_Update(sender, currency, nNewValue, block, desired_currency, desired_value, txid);
 
         break;
 
@@ -2610,7 +2639,7 @@ Marv has this big ass PR request that's not merged, specifically relating to Met
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
-      rc = logicMath_Metadex();
+      rc = logicMath_MetaDEx();
       break;
 
     default:
@@ -2922,7 +2951,7 @@ const uint64_t all_reward = 5631623576222;
 const double seconds_in_one_year = 31556926;
 const double seconds_passed = nTime - 1377993874; // exodus bootstrap deadline
 const double years = seconds_passed/seconds_in_one_year;
-const double part_available = 1 - pow(0.5, years); // do I need 'long double' ? powl()
+const double part_available = 1 - pow(0.5, years);
 const double available_reward=all_reward * part_available;
 
   devmsc = rounduint64(available_reward);
@@ -3991,15 +4020,6 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
   return res;
 }
 
-/*
-static int msc_preseed_file_load(int what)
-{
-  // uses boost::filesystem::path
-  const string filename = (GetDataDir() / mastercore_filenames[what]).string();
-  return msc_file_load(filename, what);
-}
-*/
-
 static char const * const statePrefix[NUM_FILETYPES] = {
     "balances",
     "offers",
@@ -4372,6 +4392,8 @@ int mastercore_init()
     update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
     update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
     nWaterlineBlock = 310000;
+
+    if (isNonMainNet()) nWaterlineBlock = 272700;
 #endif
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
@@ -6487,6 +6509,9 @@ int extra2 = 0, extra3 = 0;
   switch (extra)
   {
     case 0: // the old output
+    {
+    uint64_t total = 0;
+
         // display all offers with accepts
 /*
         for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
@@ -6503,8 +6528,11 @@ int extra2 = 0, extra3 = 0;
           // my_it->second = value
 
           printf("%34s => ", (my_it->first).c_str());
-          (my_it->second).print(extra2, bDivisible);
+          total += (my_it->second).print(extra2, bDivisible);
         }
+
+        printf("total for property %d  = %X is %s\n", extra2, extra2, FormatDivisibleMP(total).c_str());
+      }
       break;
 
     case 1:
@@ -6547,6 +6575,15 @@ int extra2 = 0, extra3 = 0;
 
     case 5:
       printf("isMPinBlockRange(%d,%d)=%s\n", extra2, extra3, isMPinBlockRange(extra2, extra3, false) ? "YES":"NO");
+      break;
+
+    case 6:
+      for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
+      {
+        // it->first = key
+        // it->second = value
+        printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
+      }
       break;
   }
 

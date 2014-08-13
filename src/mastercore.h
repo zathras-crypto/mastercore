@@ -111,14 +111,6 @@ enum FILETYPES {
   NUM_FILETYPES
 };
 
-const char *mastercore_filenames[NUM_FILETYPES]={
-"mastercoin_balances.txt",
-"mastercoin_offers.txt",
-"mastercoin_accepts.txt",
-"mastercoin_globals.txt",
-"mastercoin_crowdsales.txt",
-};
-
 #define PKT_RETURN_OFFER    (1000)
 // #define PKT_RETURN_ACCEPT   (2000)
 
@@ -246,7 +238,7 @@ public:
     my_it = mp_token.begin();
   }
 
-  void print(int which_currency = MASTERCOIN_CURRENCY_MSC, bool bDivisible = true)
+  uint64_t print(int which_currency = MASTERCOIN_CURRENCY_MSC, bool bDivisible = true)
   {
   uint64_t money = 0;
   uint64_t so_r = 0;
@@ -268,6 +260,8 @@ public:
     {
       printf("%14lu [SO_RESERVE= %14lu , ACCEPT_RESERVE= %14lu ]\n", money, so_r, a_r);
     }
+
+    return (money + so_r + a_r);
   }
 
   uint64_t getMoney(unsigned int which_currency, TallyType ttype)
@@ -346,7 +340,7 @@ public:
 
 // a metadex trade
 // TODO: finish soon... incomplete for now
-class CMPMetaDex
+class CMPMetaDEx
 {
 private:
   int block;
@@ -360,9 +354,13 @@ private:
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
+
+  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &);
+
+  std::string ToString() const;
 };
 
-typedef std::map<string, CMPMetaDex> MetaDExMap;
+typedef std::map<string, CMPMetaDEx> MetaDExMap;
 
 extern uint64_t global_MSC_total;
 extern uint64_t global_MSC_RESERVED_total;
