@@ -136,6 +136,13 @@ inline uint64_t rounduint64(double d)
   return (uint64_t)(abs(0.5 + d));
 }
 
+string FormatIndivisibleMP(int64_t n)
+{
+  string str = strprintf("%lu", n);
+  return str;
+}
+
+
 // mostly taken from Bitcoin's FormatMoney()
 string FormatDivisibleMP(int64_t n, bool fSign = false)
 {
