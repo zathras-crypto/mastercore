@@ -4848,7 +4848,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     }
     else
     {
-        return tmpbal;
+        return FormatIndivisibleMP(tmpbal);
     }
 }
 
@@ -5233,7 +5233,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         }
                         else
                         {
-                                txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                                txobj.push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
                         }
                         if (crowdPurchase)
                         {
@@ -5245,7 +5245,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 }
                                 else
                                 {
-                                     txobj.push_back(Pair("purchasedtokens", crowdTokens)); //indivisible, push raw 64
+                                     txobj.push_back(Pair("purchasedtokens", FormatIndivisibleMP(crowdTokens))); //indivisible, push raw 64
                                 }
                         }
                         if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
@@ -5483,7 +5483,7 @@ bool addressFilter;
                                 }
                                 else
                                 {
-                                        txobj.push_back(Pair("amount", amount)); //indivisible, push raw 64
+                                        txobj.push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
                                 }
                                 if (crowdPurchase)
                                 {
@@ -5495,7 +5495,7 @@ bool addressFilter;
                                     }
                                     else
                                     {
-                                        txobj.push_back(Pair("purchasedtokens", crowdTokens)); //indivisible, push raw 64
+                                        txobj.push_back(Pair("purchasedtokens", FormatIndivisibleMP(crowdTokens))); //indivisible, push raw 64
                                     }
                                 }
                                 txobj.push_back(Pair("valid", valid));
@@ -5583,9 +5583,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         }
         else
         {
-        addressbal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
-        addressbal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
+        addressbal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
+        addressbal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
         }
         response.push_back(addressbal);
     }
@@ -5649,9 +5649,9 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
             }
             else
             {
-                    propertyBal.push_back(Pair("balance", getMPbalance(address, propertyId, MONEY)));
-                    propertyBal.push_back(Pair("reservedbyoffer", getMPbalance(address, propertyId, SELLOFFER_RESERVE)));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", getMPbalance(address, propertyId, ACCEPT_RESERVE)));
+                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
+                    propertyBal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
+                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
             }
 
             response.push_back(propertyBal);
@@ -5724,7 +5724,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         }
         else
         {
-            response.push_back(Pair("totaltokens", totalTokens));
+            response.push_back(Pair("totaltokens", FormatIndivisibleMP(totalTokens)));
         }
 
 return response;
@@ -5936,7 +5936,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         else
         {
-             participanttx.push_back(Pair("amountsent", amountSent));
+             participanttx.push_back(Pair("amountsent", FormatIndivisibleMP(amountSent)));
         }
         if (divisible)
         {
@@ -5944,7 +5944,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         else
         {
-             participanttx.push_back(Pair("participanttokens", userTokens));
+             participanttx.push_back(Pair("participanttokens", FormatIndivisibleMP(userTokens)));
         }
         if (divisible)
         {
@@ -5952,7 +5952,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         }
         else
         {
-             participanttx.push_back(Pair("issuertokens", issuerTokens));
+             participanttx.push_back(Pair("issuertokens", FormatIndivisibleMP(issuerTokens)));
         }
         participanttxs.push_back(participanttx);
     }
@@ -5967,7 +5967,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     else
     {
-        response.push_back(Pair("tokensperunit", tokensPerUnit));
+        response.push_back(Pair("tokensperunit", FormatIndivisibleMP(tokensPerUnit)));
     }
     response.push_back(Pair("earlybonus", earlyBonus));
     response.push_back(Pair("percenttoissuer", percentToIssuer));
@@ -5980,7 +5980,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     else
     {
-        response.push_back(Pair("amountraised", amountRaised));
+        response.push_back(Pair("amountraised", FormatIndivisibleMP(amountRaised)));
     }
     if (divisible)
     {
@@ -5988,7 +5988,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     else
     {
-        response.push_back(Pair("tokensissued", tokensIssued));
+        response.push_back(Pair("tokensissued", FormatIndivisibleMP(tokensIssued)));
     }
     if (!active) response.push_back(Pair("closedearly", "unknown"));
     if (!active) response.push_back(Pair("endedtime", "unknown"));
@@ -6068,7 +6068,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               }
               else
               {
-                  responseObj.push_back(Pair("tokensperunit", tokensPerUnit));
+                  responseObj.push_back(Pair("tokensperunit", FormatIndivisibleMP(tokensPerUnit)));
               }
               responseObj.push_back(Pair("earlybonus", earlyBonus));
               responseObj.push_back(Pair("percenttoissuer", percentToIssuer));
