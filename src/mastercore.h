@@ -15,7 +15,7 @@ int const MAX_STATE_HISTORY = 50;
 
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
 // maximum numeric values from the spec: 
-#define MAX_INT_8_BYTES (9223372036854775807)
+#define MAX_INT_8_BYTES (9223372036854775807UL)
 
 // what should've been in the Exodus address for this block if none were spent
 #define DEV_MSC_BLOCK_290629 (1743358325718)
@@ -350,12 +350,18 @@ private:
   unsigned int desired_currency;
   uint64_t desired_amount_original;
   unsigned char subaction;
+  long double unit_price; // TODO: testing, remove long double as not portable !!!
+  long double inverse_price; // TODO: testing, remove long double as not portable !!!
+
+  // TODO: store both prices in satoshis for later checking
+
+  unsigned int idx; // index within the block
 
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
 
-  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &);
+  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 
   std::string ToString() const;
 };

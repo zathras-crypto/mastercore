@@ -6,7 +6,7 @@
 // this is the 'core' portion of the node+wallet: mastercored
 // see 'qt' subdirectory for UI files
 //
-// for the Sprint -- search for: TODO, FIXME, consensus
+// remaining work, search for: TODO, FIXME
 //
 
 //
@@ -916,14 +916,32 @@ map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
   return (CMPMetaDEx *) NULL;
 }
 
-CMPMetaDEx::CMPMetaDEx(int block, unsigned int curr, uint64_t nValue, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
+  block = b;
+  txid = tx;
+  currency = c;
+  amount_original = nValue;
+  desired_currency = cd;
+  desired_amount_original = ad;
+
+  idx = i;
+
+  unit_price = 0;
+  inverse_price = 0;
+
+  if (ad && nValue) // div by zero protection once more
+  {
+    unit_price = (long double)ad/(long double)nValue;
+    inverse_price = (long double)nValue/(long double)ad;
+  }
 }
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("block=%d, %s, trade prop %u %s for %u %s", block, getHash().ToString(),
-   currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original));
+  return strprintf("block=%d, idx=%u, trade prop %u %s for %u %s; unit_price = %10.8Lf, inverse= %10.8Lf", block, idx,
+   currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original),
+   unit_price, inverse_price);
 }
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -964,6 +982,26 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   }
 
   return balance;
+}
+
+// returns false if we are out of range and/or overflow
+// call just before multiplying large numbers
+bool isMultiplicationOK(const uint64_t a, const uint64_t b)
+{
+  printf("%s(%lu, %lu): ", __FUNCTION__, a, b);
+
+  if (!a || !b) return true;
+
+  if (MAX_INT_8_BYTES < a) return false;
+  if (MAX_INT_8_BYTES < b) return false;
+
+  const uint64_t result = a*b;
+
+  if (MAX_INT_8_BYTES < result) return false;
+
+  if ((0 != a) && (result / a != b)) return false;
+
+  return true;
 }
 
 bool isTestEcosystemProperty(unsigned int property)
@@ -1540,22 +1578,22 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, nValue);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
 
   // TODO: add more code
   // ...
 
-  if (update_tally_map(sender_addr, curr, - nValue, MONEY)) // subtract from what's available
+  if (update_tally_map(sender_addr, curr, - amount, MONEY)) // subtract from what's available
   {
-    update_tally_map(sender_addr, curr, nValue, SELLOFFER_RESERVE); // put in reserve
+    update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
-    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, nValue, currency_desired, amount_desired, txid)));
+    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx)));
 
     rc = 0;
   }
@@ -1593,7 +1631,7 @@ int MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
   return 0;
 }
 
-int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid)
+int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -8;
 
@@ -1606,7 +1644,7 @@ int rc = METADEX_ERROR -8;
 
   if (!rc)
   {
-    rc = MetaDEx_Create(sender_addr, curr, nValue, block, currency_desired, amount_desired, txid);
+    rc = MetaDEx_Create(sender_addr, curr, nValue, block, currency_desired, amount_desired, txid, idx);
   }
 
   return rc;
@@ -1994,7 +2032,7 @@ public:
           CMPSPInfo::Entry sp;
           bool spFound = _my_sps->getSP(crowd->getPropertyId(), sp);
 
-          fprintf(mp_fp, "%s(INVESTMENT SEND to Crowdsale Issuer: %s), line %d, file: %s\n", __FUNCTION__, receiver.c_str(), __LINE__, __FILE__);
+          fprintf(mp_fp, "INVESTMENT SEND to Crowdsale Issuer: %s\n", receiver.c_str());
           
           if (spFound)
           {
@@ -2400,6 +2438,9 @@ https://github.com/mastercoin-MSC/spec/issues/170
 
       // ensure the desired currency exists in our universe
       if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
+
+      if (!nValue) return (PKT_ERROR_METADEX -11);
+      if (!desired_value) return (PKT_ERROR_METADEX -12);
     }
 
     // TODO: use the nNewValue as the amount the seller/sender actually has to trade with
@@ -2419,7 +2460,7 @@ https://github.com/mastercoin-MSC/spec/issues/170
 
         // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
 
-        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid);
+        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
 
         // ...
 
@@ -2430,7 +2471,7 @@ https://github.com/mastercoin-MSC/spec/issues/170
 
         // TODO: check if the sender has enough money... for an update
 
-        rc = MetaDEx_Update(sender, currency, nNewValue, block, desired_currency, desired_value, txid);
+        rc = MetaDEx_Update(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
 
         break;
 
@@ -6511,15 +6552,6 @@ int extra2 = 0, extra3 = 0;
     case 0: // the old output
     {
     uint64_t total = 0;
-
-        // display all offers with accepts
-/*
-        for(map<string, CMPOffer>::iterator my_it = my_offers.begin(); my_it != my_offers.end(); ++my_it)
-        {
-          // my_it->first = key
-          // my_it->second = value
-        }
-*/
 
         // display all balances
         for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
