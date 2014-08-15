@@ -86,22 +86,6 @@ enum BLOCKHEIGHTRESTRICTIONS {
   MSC_BET_BLOCK     = 999999,
 };
 
-// TODO: there would be a block height for each TX version -- rework together with BLOCKHEIGHTRESTRICTIONS above
-const int txRestrictionsRules[][3] = {
-  {MSC_TYPE_SIMPLE_SEND,              GENESIS_BLOCK,      MP_TX_PKT_V0},
-  {MSC_TYPE_TRADE_OFFER,              MSC_DEX_BLOCK,      MP_TX_PKT_V1},
-  {MSC_TYPE_ACCEPT_OFFER_BTC,         MSC_DEX_BLOCK,      MP_TX_PKT_V0},
-  {MSC_TYPE_CREATE_PROPERTY_FIXED,    MSC_SP_BLOCK,       MP_TX_PKT_V0},
-  {MSC_TYPE_CREATE_PROPERTY_VARIABLE, MSC_SP_BLOCK,       MP_TX_PKT_V1},
-  {MSC_TYPE_CLOSE_CROWDSALE,          MSC_SP_BLOCK,       MP_TX_PKT_V0},
-  {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK,      MP_TX_PKT_V0},
-  {MSC_TYPE_METADEX,                  MSC_METADEX_BLOCK,  MP_TX_PKT_V0},
-  {MSC_TYPE_OFFER_ACCEPT_A_BET,       MSC_BET_BLOCK,      MP_TX_PKT_V0},
-
-// end of array marker, in addition to sizeof/sizeof
-  {-1,-1},
-};
-
 enum FILETYPES {
   FILETYPE_BALANCES = 0,
   FILETYPE_OFFERS,
@@ -131,29 +115,14 @@ enum FILETYPES {
 #define MASTERCOIN_CURRENCY_MSC   1
 #define MASTERCOIN_CURRENCY_TMSC  2
 
+// forward declarations
+string FormatDivisibleMP(int64_t n, bool fSign = false);
+
 inline uint64_t rounduint64(double d)
 {
   return (uint64_t)(abs(0.5 + d));
 }
 
-// mostly taken from Bitcoin's FormatMoney()
-string FormatDivisibleMP(int64_t n, bool fSign = false)
-{
-// Note: not using straight sprintf here because we do NOT want
-// localized number formatting.
-int64_t n_abs = (n > 0 ? n : -n);
-int64_t quotient = n_abs/COIN;
-int64_t remainder = n_abs%COIN;
-string str = strprintf("%d.%08d", quotient, remainder);
-
-  if (!fSign) return str;
-
-  if (n < 0)
-      str.insert((unsigned int)0, 1, '-');
-  else
-      str.insert((unsigned int)0, 1, '+');
-  return str;
-}
 
 inline bool isNonMainNet()
 {
