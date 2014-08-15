@@ -296,11 +296,7 @@ public:
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 
-    void printStats()
-    {
-      fprintf(mp_fp, "CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
-    }
-
+    void printStats();
     void printAll();
 
     bool isMPinBlockRange(int, int, bool);

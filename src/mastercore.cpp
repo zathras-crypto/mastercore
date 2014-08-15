@@ -5027,6 +5027,11 @@ Status status = pdb->Get(readoptions, txid.ToString(), &value);
   return false;
 }
 
+void CMPTxList::printStats()
+{
+  fprintf(mp_fp, "CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+}
+
 void CMPTxList::printAll()
 {
 int count = 0;
