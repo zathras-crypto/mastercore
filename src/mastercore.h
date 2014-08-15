@@ -123,6 +123,34 @@ inline uint64_t rounduint64(double d)
   return (uint64_t)(abs(0.5 + d));
 }
 
+<<<<<<< HEAD
+=======
+string FormatIndivisibleMP(int64_t n)
+{
+  string str = strprintf("%lu", n);
+  return str;
+}
+
+
+// mostly taken from Bitcoin's FormatMoney()
+string FormatDivisibleMP(int64_t n, bool fSign = false)
+{
+// Note: not using straight sprintf here because we do NOT want
+// localized number formatting.
+int64_t n_abs = (n > 0 ? n : -n);
+int64_t quotient = n_abs/COIN;
+int64_t remainder = n_abs%COIN;
+string str = strprintf("%d.%08d", quotient, remainder);
+
+  if (!fSign) return str;
+
+  if (n < 0)
+      str.insert((unsigned int)0, 1, '-');
+  else
+      str.insert((unsigned int)0, 1, '+');
+  return str;
+}
+>>>>>>> 314d8207c7364abbfce9ccf006bc2998977b6060
 
 inline bool isNonMainNet()
 {
