@@ -262,6 +262,12 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
+string FormatIndivisibleMP(int64_t n)
+{
+  string str = strprintf("%lu", n);
+  return str;
+}
+
 // a single outstanding offer -- from one seller of one currency, internally may have many accepts
 class CMPOffer
 {
