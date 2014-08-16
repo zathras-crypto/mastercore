@@ -1853,50 +1853,82 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
-  uint64_t weeks_sec = 604800; //should probably be a define
+  
+  uint64_t weeks_sec = 604800; 
+  //define weeks in seconds
   uint64_t precision = 1000000000;
+  //define precision for all non-bitcoin values (bonus percentages, for example)
   uint64_t percentage_precision = 100;
+  //define precision for all percentages (10/100 = 10%)
 
   uint64_t bonusSeconds = fundraiserSecs - currentSecs;
+  //calcluate the bonusseconds
 
   double weeks_d = bonusSeconds / (double) weeks_sec;
+  //debugging
   
   uint64_t w_rem = bonusSeconds % weeks_sec;
+  //calculate the remainder part for number of weeks to apply bonus 
   uint64_t w_decimal = precision * w_rem / weeks_sec;
-  uint64_t weeks = bonusSeconds / weeks_sec; // + (w_rem / 604800) (less than 1 part)
+  //calcuate the remainder part up to 'precision' number of digits
+  uint64_t weeks = bonusSeconds / weeks_sec; 
+  //calculate the whole number of weeks to apply bonus
 
   printf("\n weeks_d: %.8lf \n weeks: %lu + (%lu / %lu) =~ %.8lf \n", weeks_d, weeks, w_decimal, precision, weeks + ((double)w_decimal/precision) );
+  //debugging lines
 
   double ebPercentage_d = weeks_d * bonusPerc;
+  //debugging lines
   
   uint64_t ebperc_wrem = (w_rem * bonusPerc) / weeks_sec;
+  //calculate the earlybird bonus remainder (this might have a whole part, which is stored here)
   uint64_t ebperc_wrem_rem = (w_rem * bonusPerc) % weeks_sec;
+  //calcluate the earlybird bonus remainder (actual remainder part)
   uint64_t ebperc_wrem_decimal = (precision * ebperc_wrem_rem) / weeks_sec;
+  //calcualate the earlybird bonus remainder with 'precision' number of digits
 
-  uint64_t ebPercentage = weeks * bonusPerc + ebperc_wrem; // + (ebperc_wrem_rem / 604800) (less than 1 part)
+  uint64_t ebPercentage = weeks * bonusPerc + ebperc_wrem;
+  //calculate the earlybird percentage to be applied
 
   printf("\n ebPercentage_d: %.8lf \n ebPercentage: %lu + (%lu / %lu) =~ %.8lf \n", ebPercentage_d, ebPercentage , ebperc_wrem_decimal, precision, ebPercentage + ((double) ebperc_wrem_decimal/precision));
+  //debugging
   
   double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
+  //debugging
 
-  uint64_t bperc_ebperc = (ebPercentage) * precision; //leading term of remainder from ebpercentage
-  uint64_t bperc_ebperc_decimal = ( ( bperc_ebperc + ebperc_wrem_decimal) / percentage_precision ) % precision ; //remainder of remainder from ebpercentage_weeks calculation
-  //printf("\n do stuff: %lu \n", bperc_ebperc_decimal % precision);
+  uint64_t bperc_ebperc = (ebPercentage) * precision; 
+  //calculate the whole part of the bonus percentage's remainder
+  uint64_t bperc_ebperc_decimal = ( ( bperc_ebperc + ebperc_wrem_decimal) / percentage_precision ) % precision ; 
+  //calcluate the actual remainder from bonus percentage's remainder
 
-  uint64_t bonusPercentage = (ebPercentage+100) / percentage_precision; // + (bperc_ebperc_rem / 100 ) (less than 1 part)
+  uint64_t bonusPercentage = (ebPercentage+100) / percentage_precision; 
+  //calcluate the bonus percentage to apply up to 'percentage_precision' number of digits
+
   printf("\n bonusPercentage_d: %.8lf \n bonusPercentage: %lu + (%lu / %lu) =~ %.8lf \n", bonusPercentage_d, bonusPercentage, bperc_ebperc_decimal, precision, bonusPercentage + ((double) bperc_ebperc_decimal/precision));
+  //debugging
 
   double issuerPercentage_d = (double) (issuerPerc * 0.01);
+  //debugging
 
   uint64_t issuerPercentage = issuerPerc / percentage_precision;
+  //calcluate the issuerPercentage whole part based on 'percentage_precision' number of digits
   uint64_t issuerPercentage_rem = issuerPerc % percentage_precision;
+  //calculate the issuerPercentage remainder based on 'percentage_precision' number of digits
 
   printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %lu + (%lu / %lu) =~ %.8lf \n", issuerPercentage_d, issuerPercentage, issuerPercentage_rem, 100, issuerPercentage + ((double) issuerPercentage_rem/100));
-  
+  //debugging
+
   long double ct;
+  //debugging
+
   uint64_t satoshi_precision = 100000000;
+  //define the precision for bitcoin amounts (satoshi)
+
   uint64_t createdTokens, createdTokens_2, createdTokens_decimal;
+  //declare used variables for total created tokens
+
   uint64_t issuerTokens, issuerTokens_decimal;
+  //declare used variables for total issuer tokens
 
   if( 2 == propType || 1 == propType) {
     printf("\n NUMBER OF PROPERTIES %ld", numProps); 
