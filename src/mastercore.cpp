@@ -957,6 +957,16 @@ map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
   return (CMPMetaDEx *) NULL;
 }
 
+static uint64_t getGoodPrecision(uint64_t n1, uint64_t n2)
+{
+  if (!n2) return 0;
+
+  const uint64_t remainder = n1 % n2;
+  const double frac = (double)remainder / (double)n2;
+
+  return (1e10 * frac);
+}
+
 CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
   block = b;
@@ -968,21 +978,21 @@ CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, 
 
   idx = i;
 
-  unit_price = 0;
-  inverse_price = 0;
-
   if (ad && nValue) // div by zero protection once more
   {
-    unit_price = (long double)ad/(long double)nValue;
-    inverse_price = (long double)nValue/(long double)ad;
+    price_int   = ad / nValue;
+    price_frac  = getGoodPrecision(ad, nValue);
+
+    inverse_int = nValue / ad;
+    inverse_frac= getGoodPrecision(nValue, ad);
   }
 }
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("block=%d, idx=%u, trade prop %u %s for %u %s; unit_price = %10.8Lf, inverse= %10.8Lf", block, idx,
+  return strprintf("block=%d, idx=%u, trade prop %u %s for %u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu", block, idx,
    currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original),
-   unit_price, inverse_price);
+   price_int, price_frac, inverse_int, inverse_frac);
 }
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address

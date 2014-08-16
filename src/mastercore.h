@@ -309,17 +309,20 @@ class CMPMetaDEx
 private:
   int block;
   uint256 txid;
+  unsigned int idx; // index within the block
   unsigned int currency;
   uint64_t amount_original; // the amount for sale specified when the offer was placed
   unsigned int desired_currency;
   uint64_t desired_amount_original;
   unsigned char subaction;
-  long double unit_price; // TODO: testing, remove long double as not portable !!!
-  long double inverse_price; // TODO: testing, remove long double as not portable !!!
 
-  // TODO: store both prices in satoshis for later checking
+  // price in 2 parts
+  uint64_t  price_int;
+  uint64_t  price_frac;
 
-  unsigned int idx; // index within the block
+  // inverse price in 2 parts
+  uint64_t  inverse_int;
+  uint64_t  inverse_frac;
 
 public:
   uint256 getHash() const { return txid; }
