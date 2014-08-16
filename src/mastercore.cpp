@@ -1853,49 +1853,143 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
-  
-  //see calculateFractional() for more info
+  uint64_t weeks_sec = 604800; //should probably be a define
+  uint64_t precision = 1000000000;
+  uint64_t percentage_precision = 100;
 
-  //calc bonus in sec
   uint64_t bonusSeconds = fundraiserSecs - currentSecs;
 
-  //printf("\n calc layer 1 %ld %ld %ld\n", fundraiserSecs, currentSecs, bonusSeconds); 
-
-  //turn it into weeks and %
-  double weeks = bonusSeconds / (double) 604800;
-  double ebPercentage = weeks * bonusPerc;
-  double bonusPercentage = ( ebPercentage / 100 ) + 1;
-
-  //printf("\n calc layer 2 %f %f %f",  weeks, bonusPercentage, ebPercentage ); 
-
-  double issuerPercentage = (double) (issuerPerc * 0.01);
-
-  //init more values
-  double createdTokens;
-  double issuerTokens;
-
-  //printf("\nbonusSeconds is %ld, bonusPercentage is %f, and issuerPercentage is %f\n", 
-  //bonusSeconds, bonusPercentage, issuerPercentage);
+  double weeks_d = bonusSeconds / (double) weeks_sec;
   
-  //indiv vs div calcs, one truncated 
-  if( 2 == propType ) {
-    //get tokens created and issued
-    createdTokens = (amtTransfer/1e8) * (double) numProps * bonusPercentage ;
-    issuerTokens = createdTokens * issuerPercentage;
-    //printf("prop div 2: is %f, and %f", createdTokens / 1e8, issuerTokens / 1e8 );
+  uint64_t w_rem = bonusSeconds % weeks_sec;
+  uint64_t w_decimal = precision * w_rem / weeks_sec;
+  uint64_t weeks = bonusSeconds / weeks_sec; // + (w_rem / 604800) (less than 1 part)
 
-    //add to tokens struct
-    tokens = std::make_pair(createdTokens, issuerTokens);
+  printf("\n weeks_d: %.8lf \n weeks: %lu + (%lu / %lu) =~ %.8lf \n", weeks_d, weeks, w_decimal, precision, weeks + ((double)w_decimal/precision) );
 
-  } else {
-    //calculate tokens created and issued
-    createdTokens = (uint64_t) ( (amtTransfer/1e8) * (double) numProps * bonusPercentage);
+  double ebPercentage_d = weeks_d * bonusPerc;
+  
+  uint64_t ebperc_wrem = (w_rem * bonusPerc) / weeks_sec;
+  uint64_t ebperc_wrem_rem = (w_rem * bonusPerc) % weeks_sec;
+  uint64_t ebperc_wrem_decimal = (precision * ebperc_wrem_rem) / weeks_sec;
+
+  uint64_t ebPercentage = weeks * bonusPerc + ebperc_wrem; // + (ebperc_wrem_rem / 604800) (less than 1 part)
+
+  printf("\n ebPercentage_d: %.8lf \n ebPercentage: %lu + (%lu / %lu) =~ %.8lf \n", ebPercentage_d, ebPercentage , ebperc_wrem_decimal, precision, ebPercentage + ((double) ebperc_wrem_decimal/precision));
+  
+  double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
+
+  uint64_t bperc_ebperc = (ebPercentage) * precision; //leading term of remainder from ebpercentage
+  uint64_t bperc_ebperc_decimal = ( ( bperc_ebperc + ebperc_wrem_decimal) / percentage_precision ) % precision ; //remainder of remainder from ebpercentage_weeks calculation
+  //printf("\n do stuff: %lu \n", bperc_ebperc_decimal % precision);
+
+  uint64_t bonusPercentage = (ebPercentage+100) / percentage_precision; // + (bperc_ebperc_rem / 100 ) (less than 1 part)
+  printf("\n bonusPercentage_d: %.8lf \n bonusPercentage: %lu + (%lu / %lu) =~ %.8lf \n", bonusPercentage_d, bonusPercentage, bperc_ebperc_decimal, precision, bonusPercentage + ((double) bperc_ebperc_decimal/precision));
+
+  double issuerPercentage_d = (double) (issuerPerc * 0.01);
+
+  uint64_t issuerPercentage = issuerPerc / percentage_precision;
+  uint64_t issuerPercentage_rem = issuerPerc % percentage_precision;
+
+  printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %lu + (%lu / %lu) =~ %.8lf \n", issuerPercentage_d, issuerPercentage, issuerPercentage_rem, 100, issuerPercentage + ((double) issuerPercentage_rem/100));
+  
+  long double ct;
+  uint64_t satoshi_precision = 100000000;
+  uint64_t createdTokens, createdTokens_2, createdTokens_decimal;
+  uint64_t issuerTokens, issuerTokens_decimal;
+
+  if( 2 == propType || 1 == propType) {
+    printf("\n NUMBER OF PROPERTIES %ld", numProps); 
+    printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %f", amtTransfer,bonusPercentage_d);
+    ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
+
+    uint64_t first_term = (amtTransfer*numProps); //first term is composed of the amount of satoshis * number of properties
+    uint64_t second_term = (bonusPercentage*precision+bperc_ebperc_decimal); //second term is composed of bonus % + bonus % remainder/fractional part
+
+    uint64_t first_term_sig = first_term/satoshi_precision; //get the first term's significand
+    uint64_t second_term_sig = second_term/precision;       //get the second term's significand
+    uint64_t first_term_rem = first_term%satoshi_precision; //get the first term's remainder
+    uint64_t second_term_rem = second_term%precision;       //get the second term's remainder
+    
+    //some logging to see the values for debugging
+    //printf("\n\nthing: %lu + (%lu / %lu) * %lu + (%lu / %lu) =~ %.8lf \n", first_term_sig, first_term_rem, satoshi_precision, second_term_sig, second_term_rem, precision, (double) first_term/satoshi_precision * (double) second_term/precision);
+
+    //now we do some long multiplication
+    uint64_t ftss = first_term_sig * second_term_sig;
+    //the above is the result of multiplication of the first & second term's significand
+    uint64_t ftsr = (first_term_sig * second_term_rem)/precision;
+    //then we multiply the first term significand and the second term's remainder
+    uint64_t ftsr_rem = (first_term_sig * second_term_rem)%precision;
+    //then we get the remainder of the above term
+    uint64_t ftrs = (first_term_rem * second_term_sig)/satoshi_precision;
+    //then we multiply the first term's remainder with the second term's significand
+    uint64_t ftrs_rem = (first_term_rem * second_term_sig)%satoshi_precision;
+    //then we get the remainder of the above term
+    uint64_t ftrr = (first_term_rem * second_term_rem)/(satoshi_precision * precision);
+    //then we multiply the first term's remainder and the second term's remainder
+    uint64_t ftrr_rem = (first_term_rem * second_term_rem)%(satoshi_precision * precision);
+    //then we get the reaminder of the above term
+
+    uint64_t carry_remainder = (ftsr_rem*satoshi_precision + ftrs_rem*precision + ftrr_rem)/(satoshi_precision * precision);
+    //the above is the calculation of the significand of all the remainders above by addition
+    uint64_t carry_remainder_rem =  (ftsr_rem*satoshi_precision + ftrs_rem*precision + ftrr_rem)%(satoshi_precision * precision);
+    //then we get the remainder of the term above
+
+    createdTokens = ftss + ftsr + ftrs + ftrr + carry_remainder;
+    //we add the leading terms from above together and the carryover from the remainders 
+    createdTokens_decimal = carry_remainder_rem;
+    //then we store the remainder of the term
+
+    //debugging
+    //printf("\n\npart muli: %lu ,%lu + (%lu / %lu), %lu + (%lu / %lu), (%lu / %lu)  = %lu.%lu \n", ftss, ftsr, ftsr_rem, precision, ftrs, ftrs_rem, satoshi_precision, ftrr_rem, satoshi_precision * precision, createdTokens, createdTokens_decimal);
+    
+    printf("\n CREATED TOKENS %.8Lf, %lu + (%lu / %lu) ~= %.8lf",ct, createdTokens, createdTokens_decimal, precision*satoshi_precision, (double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision));
+    //TODO overflow checks  
+    first_term = createdTokens * issuerPercentage; //leading terms
+    second_term = (createdTokens * issuerPercentage_rem) / percentage_precision;
+    second_term_rem = (createdTokens * issuerPercentage_rem) % percentage_precision;
+    //printf("\n 1 whole terms: %lu * %lu + (%lu / %lu), =~ %lu + %lu + (%lu / %lu)\n", createdTokens, issuerPercentage, issuerPercentage_rem, 100, first_term, second_term, second_term_rem ,percentage_precision);
+
+    uint64_t third_term = createdTokens_decimal * issuerPercentage;
+    uint64_t fourth_term = (createdTokens_decimal * issuerPercentage_rem) / (precision*satoshi_precision*percentage_precision);
+    uint64_t fourth_term_rem = (createdTokens_decimal * issuerPercentage_rem) % (precision*satoshi_precision*percentage_precision);
+    //printf("\n 2 part terms: %lu %lu %lu =~ %lu + %lu + (%lu / %lu)\n", createdTokens_decimal, issuerPercentage, issuerPercentage_rem, third_term, fourth_term, fourth_term_rem, precision*satoshi_precision*percentage_precision);
+    
+    long double it = ct * issuerPercentage_d;
+
+    carry_remainder = (second_term_rem*satoshi_precision*precision + fourth_term_rem)/(satoshi_precision*precision*percentage_precision);
+
+    //printf("\n carry remainder is %lu \n", carry_remainder);
+
+    carry_remainder_rem = second_term_rem*precision*satoshi_precision + fourth_term_rem%(satoshi_precision*precision*percentage_precision);
+
+    issuerTokens = first_term + second_term + third_term + fourth_term + carry_remainder;
+    issuerTokens_decimal = carry_remainder_rem;
+    
+    printf("\n ISSUER TOKENS: %.8Lf, %lu + (%lu / %lu ) ~= %.8lf \n",it, issuerTokens, issuerTokens_decimal, precision*satoshi_precision*percentage_precision, (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision)); 
+
+    //total tokens including remainders
+    //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
+
+    if (2 == propType)
+      printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
+    else
+      printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is = %lu, and %lu\n", createdTokens, issuerTokens);
+    
+    tokens = std::make_pair(createdTokens,issuerTokens);
+
+  } /*else {
+    printf("\n NUMBER OF PROPERTIES %ld", numProps); 
+    printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %f", amtTransfer,bonusPercentage_d);
+    ct = (uint64_t) ( (amtTransfer/1e8) * numProps * bonusPercentage_d);
+    
+    printf("\n CREATED TOKENS %.8Lf, %lu + (%lu / %lu)", ct,createdTokens, createdTokens_decimal, precision );
+    
+    uint64_t it = (uint64_t) (ct * issuerPercentage_d) ;
     issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-    //fprintf(mp_fp,"prop indiv 1: is %ld, and %ld", (uint64_t) createdTokens, (uint64_t) issuerTokens);
-
-    //add to tokens struct
+    printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is %ld, and %ld\n", (uint64_t) ct , (uint64_t) it);
     tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
-  }
+  } */
 }
 
 // certain transaction types are not live on the network until some specific block height
