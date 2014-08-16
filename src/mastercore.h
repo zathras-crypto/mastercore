@@ -345,5 +345,7 @@ string getLabel(const string &address);
 int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, CBlockIndex const *pBlockIndex );
 int mastercore_save_state( CBlockIndex const *pBlockIndex );
 
+int set_wallet_totals();
+
 #endif
 

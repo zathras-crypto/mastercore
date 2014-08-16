@@ -13,12 +13,23 @@
 #include "transactionfilterproxy.h"
 #include "transactiontablemodel.h"
 #include "walletmodel.h"
+#include "wallet.h"
+
+#include <boost/filesystem.hpp>
+
+#include "leveldb/db.h"
+#include "leveldb/write_batch.h"
+
+#include "mastercore.h"
 
 #include <QAbstractItemDelegate>
 #include <QPainter>
 
 #define DECORATION_SIZE 64
 #define NUM_ITEMS 3
+
+extern uint64_t global_MSC_total;
+extern uint64_t global_MSC_RESERVED_total;
 
 class TxViewDelegate : public QAbstractItemDelegate
 {
@@ -119,7 +130,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
     // init "out of sync" warning labels
     ui->labelWalletStatus->setText("(" + tr("out of sync") + ")");
     ui->labelTransactionsStatus->setText("(" + tr("out of sync") + ")");
-
+    ui->proclabel->setText("(" + tr("processing") + ")");
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 }
@@ -151,6 +162,14 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     bool showImmature = immatureBalance != 0;
     ui->labelImmature->setVisible(showImmature);
     ui->labelImmatureText->setVisible(showImmature);
+
+    // mastercoin balances - force refresh first
+    set_wallet_totals();
+    ui->MSClabelavailable->setText(BitcoinUnits::format(0, global_MSC_total).append(" MSC"));
+    ui->MSClabelpending->setText("0.00 MSC"); // no unconfirmed support currently
+    ui->MSClabelreserved->setText(BitcoinUnits::format(0, global_MSC_RESERVED_total).append(" MSC"));
+    uint64_t totalbal = global_MSC_total + global_MSC_RESERVED_total;
+    ui->MSClabeltotal->setText(BitcoinUnits::format(0, totalbal).append(" MSC"));
 }
 
 void OverviewPage::setClientModel(ClientModel *model)
@@ -216,4 +235,5 @@ void OverviewPage::showOutOfSyncWarning(bool fShow)
 {
     ui->labelWalletStatus->setVisible(fShow);
     ui->labelTransactionsStatus->setVisible(fShow);
+    ui->proclabel->setVisible(fShow);
 }

@@ -71,8 +71,8 @@ static const int nBlockTop = 0;
 
 int nWaterlineBlock = 0;  //
 
-// uint64_t global_MSC_total = 0;
-// uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_MSC_total = 0;
+uint64_t global_MSC_RESERVED_total = 0;
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static const string exodus_testnet = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
@@ -3051,30 +3051,28 @@ const double available_reward=all_reward * part_available;
 }
 
 // TODO: optimize efficiency -- iterate only over wallet's addresses in the future
+// NOTE: this may be the best way to do it, change addresses are not in the addressbook and
+//       if we only loop over the addressbook we may miss tokens stored in change addresses?
 int set_wallet_totals()
 {
 int my_addresses_count = 0;
-/* DISABLE FOR NOW !!!
-const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for MSC only, for PoC
+const unsigned int propertyId = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for MSC only, for PoC
 
   global_MSC_total = 0;
   global_MSC_RESERVED_total = 0;
 
   for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
-    // my_it->first = key
-    // my_it->second = value
-
     if (IsMyAddress(my_it->first))
     {
       ++my_addresses_count;
 
-      global_MSC_total += (my_it->second).getMoney(currency, false);
-      global_MSC_RESERVED_total += (my_it->second).getMoney(currency, true);
+      global_MSC_total += getMPbalance(my_it->first, propertyId, MONEY);
+      global_MSC_RESERVED_total += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+      global_MSC_RESERVED_total += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
     }
   }
-*/
-
+  printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
   return (my_addresses_count);
 }
 
@@ -3115,7 +3113,6 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
-//  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
 
   if (mp_fp) fflush(mp_fp);
 
