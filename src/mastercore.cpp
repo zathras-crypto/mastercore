@@ -1629,6 +1629,12 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
+int MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int currency_desired, uint64_t amount_desired,
+ uint64_t price_int, uint64_t price_frac)
+{
+  return 0;
+}
+
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
@@ -1636,6 +1642,8 @@ int rc = METADEX_ERROR -1;
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+
+//  (void) MetaDEx_Trade(sender_addr, curr, currency_desired, amount, price_int, price_frac);
 
   // TODO: add more code
   // ...
@@ -3100,7 +3108,7 @@ int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockInde
 // called once per block, after the block has been processed
 // TODO: consolidate into *handler_block_begin() << need to adjust Accept expiry check.............
 // it performs cleanup and other functions
-int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex)
+int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex, unsigned int countMP)
 {
   if (!mastercoreInitialized) {
     mastercore_init();
@@ -3775,7 +3783,7 @@ const int max_block = GetHeight();
     
     n_total += tx_count;
 
-    mastercore_handler_block_end(blockNum, pblockindex);
+    mastercore_handler_block_end(blockNum, pblockindex, n_found);
 #ifdef  MY_DIV_HACK
 //    if (20 < n_found) break;
 #endif
