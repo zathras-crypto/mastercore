@@ -957,7 +957,17 @@ map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
   return (CMPMetaDEx *) NULL;
 }
 
-CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+static uint64_t getGoodDivisionPrecision(uint64_t n1, uint64_t n2)
+{
+  if (!n2) return 0;
+
+  const uint64_t remainder = n1 % n2;
+  const double frac = (double)remainder / (double)n2;
+
+  return (GOOD_PRECISION * frac);
+}
+
+void CMPMetaDEx::Set0(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
   block = b;
   txid = tx;
@@ -967,22 +977,47 @@ CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, 
   desired_amount_original = ad;
 
   idx = i;
+}
 
-  unit_price = 0;
-  inverse_price = 0;
-
+void CMPMetaDEx::Set(uint64_t nValue, uint64_t ad)
+{
   if (ad && nValue) // div by zero protection once more
   {
-    unit_price = (long double)ad/(long double)nValue;
-    inverse_price = (long double)nValue/(long double)ad;
+    price_int   = ad / nValue;
+    price_frac  = getGoodDivisionPrecision(ad, nValue);
+
+    inverse_int = nValue / ad;
+    inverse_frac= getGoodDivisionPrecision(nValue, ad);
   }
+}
+
+void CMPMetaDEx::Set(uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
+{
+  price_int   = pi;
+  price_frac  = pf;
+
+  inverse_int = ii;
+  inverse_frac= i_f;
+}
+
+CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+{
+  Set0(b,c,nValue,cd,ad,tx,i);
+  Set(nValue,ad);
+}
+
+CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i,
+ uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
+{
+  Set0(b,c,nValue,cd,ad,tx,i);
+  Set(pi, pf, ii, i_f);
 }
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("block=%d, idx=%u, trade prop %u %s for %u %s; unit_price = %10.8Lf, inverse= %10.8Lf", block, idx,
+  return strprintf("block=%d, idx=%u, trade prop %u %s for %u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu", block, idx,
    currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original),
-   unit_price, inverse_price);
+   price_int, price_frac, inverse_int, inverse_frac);
 }
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
@@ -1619,13 +1654,22 @@ map<string, CMPAccept>::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
+int MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int currency_desired, uint64_t amount_desired,
+ uint64_t price_int, uint64_t price_frac)
+{
+  return 0;
+}
+
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
+uint64_t price_int, price_frac, inverse_int, inverse_frac;
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+
+//  (void) MetaDEx_Trade(sender_addr, curr, currency_desired, amount, price_int, price_frac);
 
   // TODO: add more code
   // ...
@@ -1635,6 +1679,8 @@ int rc = METADEX_ERROR -1;
     update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
     metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx)));
+//    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
+//     price_int, price_frac, inverse_int, inverse_frac)));
 
     rc = 0;
   }
@@ -1694,9 +1740,8 @@ int rc = METADEX_ERROR -8;
 // save info from the crowdsale that's being erased
 void dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool bExpired = false)
 {
-FILE *fp = fopen("/tmp/dead.log", "a");
-
-  if (!fp) return;
+  boost::filesystem::path pathTempDead = GetTempPath() / "dead.log";
+  FILE *fp = fopen(pathTempDead.string().c_str(), "a");
 
   fprintf(fp, "\nCrowdsale ended: %s\n", bExpired ? "Expired" : "Was closed");
   crowd.print(address, fp);
@@ -1979,7 +2024,7 @@ private:
   {
   public:
 
-    bool operator()(pair<long, string> p1, pair < long, string> p2) const
+    bool operator()(pair<long, string> p1, pair<long, string> p2) const
     {
       if (p1.first == p2.first) return p1.second > p2.second; // reverse check
       else return p1.first < p2.first;
@@ -2290,7 +2335,7 @@ public:
       totalTokens = 0;
       int64_t n_owners = 0;
 
-      typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
+      typedef std::set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
       OwnerAddrType OwnerAddrSet;
 
       {
@@ -3088,7 +3133,7 @@ int mastercore_handler_block_begin(int nBlockNow, CBlockIndex const * pBlockInde
 // called once per block, after the block has been processed
 // TODO: consolidate into *handler_block_begin() << need to adjust Accept expiry check.............
 // it performs cleanup and other functions
-int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex)
+int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex, unsigned int countMP)
 {
   if (!mastercoreInitialized) {
     mastercore_init();
@@ -3762,7 +3807,7 @@ const int max_block = GetHeight();
     
     n_total += tx_count;
 
-    mastercore_handler_block_end(blockNum, pblockindex);
+    mastercore_handler_block_end(blockNum, pblockindex, n_found);
 #ifdef  MY_DIV_HACK
 //    if (20 < n_found) break;
 #endif
@@ -4310,7 +4355,7 @@ static void prune_state_files( CBlockIndex const *topIndex )
   boost::filesystem::directory_iterator dIter(MPPersistencePath);
   boost::filesystem::directory_iterator endIter;
   for (; dIter != endIter; ++dIter) {
-    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).c_str();
+    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).string();
     if (false == boost::filesystem::is_regular_file(dIter->status())) {
       // skip funny business
       fprintf(mp_fp, "Non-regular file found in persistence directory : %s\n", fName.c_str());
@@ -4380,15 +4425,13 @@ int mastercore_init()
 {
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
-#ifdef  WIN32
-#error  Need boost path here too
-#else
 #ifndef  DISABLE_LOG_FILE
-  mp_fp = fopen ("/tmp/mastercore.log", "a");
+  boost::filesystem::path pathTempLog = GetTempPath() / "mastercore.log";
+  mp_fp = fopen(pathTempLog.string().c_str(), "a");
 #else
   mp_fp = stdout;
 #endif
-#endif
+
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())

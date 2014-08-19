@@ -46,6 +46,8 @@ int const MAX_STATE_HISTORY = 50;
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
 
+#define GOOD_PRECISION  (1e10)
+
 // Transaction types, from the spec
 enum TransactionType {
   MSC_TYPE_SIMPLE_SEND              =  0,
@@ -309,23 +311,32 @@ class CMPMetaDEx
 private:
   int block;
   uint256 txid;
+  unsigned int idx; // index within the block
   unsigned int currency;
   uint64_t amount_original; // the amount for sale specified when the offer was placed
   unsigned int desired_currency;
   uint64_t desired_amount_original;
   unsigned char subaction;
-  long double unit_price; // TODO: testing, remove long double as not portable !!!
-  long double inverse_price; // TODO: testing, remove long double as not portable !!!
 
-  // TODO: store both prices in satoshis for later checking
+  // price in 2 parts
+  uint64_t  price_int;
+  uint64_t  price_frac;
 
-  unsigned int idx; // index within the block
+  // inverse price in 2 parts
+  uint64_t  inverse_int;
+  uint64_t  inverse_frac;
 
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
 
   CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
+
+  void Set0(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+
+  void Set(uint64_t, uint64_t);
+  void Set(uint64_t, uint64_t, uint64_t, uint64_t);
 
   std::string ToString() const;
 };
