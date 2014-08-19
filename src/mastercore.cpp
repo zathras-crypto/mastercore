@@ -1740,9 +1740,8 @@ int rc = METADEX_ERROR -8;
 // save info from the crowdsale that's being erased
 void dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool bExpired = false)
 {
-FILE *fp = fopen("/tmp/dead.log", "a");
-
-  if (!fp) return;
+  boost::filesystem::path pathTempDead = GetTempPath() / "dead.log";
+  FILE *fp = fopen(pathTempDead.string().c_str(), "a");
 
   fprintf(fp, "\nCrowdsale ended: %s\n", bExpired ? "Expired" : "Was closed");
   crowd.print(address, fp);
@@ -4359,7 +4358,7 @@ static void prune_state_files( CBlockIndex const *topIndex )
   boost::filesystem::directory_iterator dIter(MPPersistencePath);
   boost::filesystem::directory_iterator endIter;
   for (; dIter != endIter; ++dIter) {
-    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).c_str();
+    std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).string();
     if (false == boost::filesystem::is_regular_file(dIter->status())) {
       // skip funny business
       fprintf(mp_fp, "Non-regular file found in persistence directory : %s\n", fName.c_str());
@@ -4429,15 +4428,13 @@ int mastercore_init()
 {
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
-#ifdef  WIN32
-#error  Need boost path here too
-#else
 #ifndef  DISABLE_LOG_FILE
-  mp_fp = fopen ("/tmp/mastercore.log", "a");
+  boost::filesystem::path pathTempLog = GetTempPath() / "mastercore.log";
+  mp_fp = fopen(pathTempLog.string().c_str(), "a");
 #else
   mp_fp = stdout;
 #endif
-#endif
+
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
