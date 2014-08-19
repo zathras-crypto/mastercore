@@ -46,6 +46,8 @@ int const MAX_STATE_HISTORY = 50;
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
 
+#define GOOD_PRECISION  (1e10)
+
 // Transaction types, from the spec
 enum TransactionType {
   MSC_TYPE_SIMPLE_SEND              =  0,
@@ -329,6 +331,12 @@ public:
   unsigned int getCurrency() const { return currency; }
 
   CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
+
+  void Set0(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+
+  void Set(uint64_t, uint64_t);
+  void Set(uint64_t, uint64_t, uint64_t, uint64_t);
 
   std::string ToString() const;
 };

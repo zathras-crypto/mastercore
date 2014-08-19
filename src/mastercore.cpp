@@ -52,7 +52,7 @@
 #include <openssl/sha.h>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE 
 
 static FILE *mp_fp = NULL;
@@ -957,17 +957,17 @@ map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
   return (CMPMetaDEx *) NULL;
 }
 
-static uint64_t getGoodPrecision(uint64_t n1, uint64_t n2)
+static uint64_t getGoodDivisionPrecision(uint64_t n1, uint64_t n2)
 {
   if (!n2) return 0;
 
   const uint64_t remainder = n1 % n2;
   const double frac = (double)remainder / (double)n2;
 
-  return (1e10 * frac);
+  return (GOOD_PRECISION * frac);
 }
 
-CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+void CMPMetaDEx::Set0(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
   block = b;
   txid = tx;
@@ -977,15 +977,40 @@ CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, 
   desired_amount_original = ad;
 
   idx = i;
+}
 
+void CMPMetaDEx::Set(uint64_t nValue, uint64_t ad)
+{
   if (ad && nValue) // div by zero protection once more
   {
     price_int   = ad / nValue;
-    price_frac  = getGoodPrecision(ad, nValue);
+    price_frac  = getGoodDivisionPrecision(ad, nValue);
 
     inverse_int = nValue / ad;
-    inverse_frac= getGoodPrecision(nValue, ad);
+    inverse_frac= getGoodDivisionPrecision(nValue, ad);
   }
+}
+
+void CMPMetaDEx::Set(uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
+{
+  price_int   = pi;
+  price_frac  = pf;
+
+  inverse_int = ii;
+  inverse_frac= i_f;
+}
+
+CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+{
+  Set0(b,c,nValue,cd,ad,tx,i);
+  Set(nValue,ad);
+}
+
+CMPMetaDEx::CMPMetaDEx(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i,
+ uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
+{
+  Set0(b,c,nValue,cd,ad,tx,i);
+  Set(pi, pf, ii, i_f);
 }
 
 std::string CMPMetaDEx::ToString() const
@@ -1638,6 +1663,7 @@ int MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int cu
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
+uint64_t price_int, price_frac, inverse_int, inverse_frac;
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
@@ -1653,6 +1679,8 @@ int rc = METADEX_ERROR -1;
     update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
     metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx)));
+//    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
+//     price_int, price_frac, inverse_int, inverse_frac)));
 
     rc = 0;
   }
@@ -1997,7 +2025,7 @@ private:
   {
   public:
 
-    bool operator()(pair<long, string> p1, pair < long, string> p2) const
+    bool operator()(pair<long, string> p1, pair<long, string> p2) const
     {
       if (p1.first == p2.first) return p1.second > p2.second; // reverse check
       else return p1.first < p2.first;
@@ -2308,7 +2336,7 @@ public:
       totalTokens = 0;
       int64_t n_owners = 0;
 
-      typedef set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
+      typedef std::set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
       OwnerAddrType OwnerAddrSet;
 
       {
