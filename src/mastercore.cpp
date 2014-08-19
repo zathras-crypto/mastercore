@@ -51,6 +51,8 @@
 
 #include <openssl/sha.h>
 
+#include <boost/multiprecision/cpp_int.hpp>
+
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
 // #define DISABLE_LOG_FILE 
@@ -59,6 +61,7 @@ static FILE *mp_fp = NULL;
 
 #include "mastercore.h"
 
+using boost::multiprecision::int128_t;
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
@@ -1855,181 +1858,101 @@ CrowdMap::iterator my_it = my_crowds.begin();
   return how_many_erased;
 }
 
+std::string p128(int128_t quantity)
+{
+    //printf("\nTest # was %s\n", boost::lexical_cast<std::string>(quantity).c_str() );
+   return boost::lexical_cast<std::string>(quantity);
+}
 //calculateFundraiser does token calculations per transaction
 //calcluateFractional does calculations for missed tokens
 void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
-  
-  uint64_t weeks_sec = 604800; 
+  //uint64_t weeks_sec = 604800;
+  int128_t weeks_sec_ = 604800L;
   //define weeks in seconds
-  uint64_t precision = 1000000000;
+  int128_t precision_ = 1000000000000L;
   //define precision for all non-bitcoin values (bonus percentages, for example)
-  uint64_t percentage_precision = 100;
+  int128_t percentage_precision = 100L;
   //define precision for all percentages (10/100 = 10%)
 
-  uint64_t bonusSeconds = fundraiserSecs - currentSecs;
+  //uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   //calcluate the bonusseconds
 
-  double weeks_d = bonusSeconds / (double) weeks_sec;
+  int128_t bonusSeconds_ = fundraiserSecs - currentSecs;
+
+  //double weeks_d = bonusSeconds / (double) weeks_sec;
   //debugging
   
-  uint64_t w_rem = bonusSeconds % weeks_sec;
-  //calculate the remainder part for number of weeks to apply bonus 
-  uint64_t w_decimal = precision * w_rem / weeks_sec;
-  //calcuate the remainder part up to 'precision' number of digits
-  uint64_t weeks = bonusSeconds / weeks_sec; 
+  int128_t weeks_ = (bonusSeconds_ / weeks_sec_) * precision_ + ( (bonusSeconds_ % weeks_sec_ ) * precision_) / weeks_sec_;
   //calculate the whole number of weeks to apply bonus
 
-  printf("\n weeks_d: %.8lf \n weeks: %lu + (%lu / %lu) =~ %.8lf \n", weeks_d, weeks, w_decimal, precision, weeks + ((double)w_decimal/precision) );
+  //printf("\n weeks_d: %.8lf \n weeks: %s + (%s / %s) =~ %.8lf \n", weeks_d, p128(bonusSeconds_ / weeks_sec_).c_str(), p128(bonusSeconds_ % weeks_sec_).c_str(), p128(weeks_sec_).c_str(), boost::lexical_cast<double>(bonusSeconds_ / weeks_sec_) + boost::lexical_cast<double> (bonusSeconds_ % weeks_sec_) / boost::lexical_cast<double>(weeks_sec_) );
   //debugging lines
 
-  double ebPercentage_d = weeks_d * bonusPerc;
+  //double ebPercentage_d = weeks_d * bonusPerc;
   //debugging lines
-  
-  uint64_t ebperc_wrem = (w_rem * bonusPerc) / weeks_sec;
-  //calculate the earlybird bonus remainder (this might have a whole part, which is stored here)
-  uint64_t ebperc_wrem_rem = (w_rem * bonusPerc) % weeks_sec;
-  //calcluate the earlybird bonus remainder (actual remainder part)
-  uint64_t ebperc_wrem_decimal = (precision * ebperc_wrem_rem) / weeks_sec;
-  //calcualate the earlybird bonus remainder with 'precision' number of digits
 
-  uint64_t ebPercentage = weeks * bonusPerc + ebperc_wrem;
+  int128_t ebPercentage_ = weeks_ * bonusPerc;
   //calculate the earlybird percentage to be applied
 
-  printf("\n ebPercentage_d: %.8lf \n ebPercentage: %lu + (%lu / %lu) =~ %.8lf \n", ebPercentage_d, ebPercentage , ebperc_wrem_decimal, precision, ebPercentage + ((double) ebperc_wrem_decimal/precision));
+  //printf("\n ebPercentage_d: %.8lf \n ebPercentage: %s + (%s / %s ) =~ %.8lf \n", ebPercentage_d, p128(ebPercentage_ / precision_).c_str(), p128( (ebPercentage_) % precision_).c_str() , p128(precision_).c_str(), boost::lexical_cast<double>(ebPercentage_ / precision_) + boost::lexical_cast<double>(ebPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
   //debugging
   
-  double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
+  //double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
   //debugging
 
-  uint64_t bperc_ebperc = (ebPercentage) * precision; 
-  //calculate the whole part of the bonus percentage's remainder
-  uint64_t bperc_ebperc_decimal = ( ( bperc_ebperc + ebperc_wrem_decimal) / percentage_precision ) % precision ; 
-  //calcluate the actual remainder from bonus percentage's remainder
-
-  uint64_t bonusPercentage = (ebPercentage+100) / percentage_precision; 
+  int128_t bonusPercentage_ = (ebPercentage_ + (precision_ * percentage_precision) ) / percentage_precision; 
   //calcluate the bonus percentage to apply up to 'percentage_precision' number of digits
 
-  printf("\n bonusPercentage_d: %.8lf \n bonusPercentage: %lu + (%lu / %lu) =~ %.8lf \n", bonusPercentage_d, bonusPercentage, bperc_ebperc_decimal, precision, bonusPercentage + ((double) bperc_ebperc_decimal/precision));
+  //printf("\n bonusPercentage_d: %.18lf \n bonusPercentage: %s + (%s / %s) =~ %.11lf \n", bonusPercentage_d, p128(bonusPercentage_ / precision_).c_str(), p128(bonusPercentage_ % precision_).c_str(), p128(precision_).c_str(), boost::lexical_cast<double>(bonusPercentage_ / precision_) + boost::lexical_cast<double>(bonusPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
   //debugging
 
-  double issuerPercentage_d = (double) (issuerPerc * 0.01);
+  //double issuerPercentage_d = (double) (issuerPerc * 0.01);
   //debugging
 
-  uint64_t issuerPercentage = issuerPerc / percentage_precision;
-  //calcluate the issuerPercentage whole part based on 'percentage_precision' number of digits
-  uint64_t issuerPercentage_rem = issuerPerc % percentage_precision;
-  //calculate the issuerPercentage remainder based on 'percentage_precision' number of digits
+  int128_t issuerPercentage_ = (int128_t)issuerPerc * precision_ / percentage_precision;
 
-  printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %lu + (%lu / %lu) =~ %.8lf \n", issuerPercentage_d, issuerPercentage, issuerPercentage_rem, 100, issuerPercentage + ((double) issuerPercentage_rem/100));
+  //printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %s + (%s / %s) =~ %.8lf \n", issuerPercentage_d, p128(issuerPercentage_ / precision_ ).c_str(), p128(issuerPercentage_ % precision_).c_str(), p128( precision_ ).c_str(), boost::lexical_cast<double>(issuerPercentage_ / precision_) + boost::lexical_cast<double>(issuerPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
   //debugging
 
-  long double ct;
-  //debugging
-
-  uint64_t satoshi_precision = 100000000;
+  int128_t satoshi_precision_ = 100000000;
   //define the precision for bitcoin amounts (satoshi)
-
-  uint64_t createdTokens, createdTokens_2, createdTokens_decimal;
+  //uint64_t createdTokens, createdTokens_decimal;
   //declare used variables for total created tokens
 
-  uint64_t issuerTokens, issuerTokens_decimal;
+  //uint64_t issuerTokens, issuerTokens_decimal;
   //declare used variables for total issuer tokens
 
-  if( 2 == propType || 1 == propType) {
-    printf("\n NUMBER OF PROPERTIES %ld", numProps); 
-    printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %f", amtTransfer,bonusPercentage_d);
-    ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
+  //printf("\n NUMBER OF PROPERTIES %ld", numProps); 
+  //printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %.11f and %s", amtTransfer,bonusPercentage_d, p128(bonusPercentage_).c_str());
+  
+  //long double ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
 
-    uint64_t first_term = (amtTransfer*numProps); //first term is composed of the amount of satoshis * number of properties
-    uint64_t second_term = (bonusPercentage*precision+bperc_ebperc_decimal); //second term is composed of bonus % + bonus % remainder/fractional part
+  int128_t createdTokens_ = (int128_t)amtTransfer*(int128_t)numProps*bonusPercentage_;
 
-    uint64_t first_term_sig = first_term/satoshi_precision; //get the first term's significand
-    uint64_t second_term_sig = second_term/precision;       //get the second term's significand
-    uint64_t first_term_rem = first_term%satoshi_precision; //get the first term's remainder
-    uint64_t second_term_rem = second_term%precision;       //get the second term's remainder
-    
-    //some logging to see the values for debugging
-    //printf("\n\nthing: %lu + (%lu / %lu) * %lu + (%lu / %lu) =~ %.8lf \n", first_term_sig, first_term_rem, satoshi_precision, second_term_sig, second_term_rem, precision, (double) first_term/satoshi_precision * (double) second_term/precision);
+  //printf("\n CREATED TOKENS %.8Lf, %s + (%s / %s) ~= %.8lf",ct, p128(createdTokens_ / (precision_ * satoshi_precision_) ).c_str(), p128(createdTokens_ % (precision_ * satoshi_precision_) ).c_str() , p128( precision_*satoshi_precision_ ).c_str(), boost::lexical_cast<double>(createdTokens_ / (precision_ * satoshi_precision_) ) + boost::lexical_cast<double>(createdTokens_ % (precision_ * satoshi_precision_)) / boost::lexical_cast<double>(precision_*satoshi_precision_));
+  //TODO overflow checks  
 
-    //now we do some long multiplication
-    uint64_t ftss = first_term_sig * second_term_sig;
-    //the above is the result of multiplication of the first & second term's significand
-    uint64_t ftsr = (first_term_sig * second_term_rem)/precision;
-    //then we multiply the first term significand and the second term's remainder
-    uint64_t ftsr_rem = (first_term_sig * second_term_rem)%precision;
-    //then we get the remainder of the above term
-    uint64_t ftrs = (first_term_rem * second_term_sig)/satoshi_precision;
-    //then we multiply the first term's remainder with the second term's significand
-    uint64_t ftrs_rem = (first_term_rem * second_term_sig)%satoshi_precision;
-    //then we get the remainder of the above term
-    uint64_t ftrr = (first_term_rem * second_term_rem)/(satoshi_precision * precision);
-    //then we multiply the first term's remainder and the second term's remainder
-    uint64_t ftrr_rem = (first_term_rem * second_term_rem)%(satoshi_precision * precision);
-    //then we get the reaminder of the above term
+  //long double it = (uint64_t) ct * issuerPercentage_d;
 
-    uint64_t carry_remainder = (ftsr_rem*satoshi_precision + ftrs_rem*precision + ftrr_rem)/(satoshi_precision * precision);
-    //the above is the calculation of the significand of all the remainders above by addition
-    uint64_t carry_remainder_rem =  (ftsr_rem*satoshi_precision + ftrs_rem*precision + ftrr_rem)%(satoshi_precision * precision);
-    //then we get the remainder of the term above
-
-    createdTokens = ftss + ftsr + ftrs + ftrr + carry_remainder;
-    //we add the leading terms from above together and the carryover from the remainders 
-    createdTokens_decimal = carry_remainder_rem;
-    //then we store the remainder of the term
-
-    //debugging
-    //printf("\n\npart muli: %lu ,%lu + (%lu / %lu), %lu + (%lu / %lu), (%lu / %lu)  = %lu.%lu \n", ftss, ftsr, ftsr_rem, precision, ftrs, ftrs_rem, satoshi_precision, ftrr_rem, satoshi_precision * precision, createdTokens, createdTokens_decimal);
-    
-    printf("\n CREATED TOKENS %.8Lf, %lu + (%lu / %lu) ~= %.8lf",ct, createdTokens, createdTokens_decimal, precision*satoshi_precision, (double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision));
-    //TODO overflow checks  
-    first_term = createdTokens * issuerPercentage; //leading terms
-    second_term = (createdTokens * issuerPercentage_rem) / percentage_precision;
-    second_term_rem = (createdTokens * issuerPercentage_rem) % percentage_precision;
-    //printf("\n 1 whole terms: %lu * %lu + (%lu / %lu), =~ %lu + %lu + (%lu / %lu)\n", createdTokens, issuerPercentage, issuerPercentage_rem, 100, first_term, second_term, second_term_rem ,percentage_precision);
-
-    uint64_t third_term = createdTokens_decimal * issuerPercentage;
-    uint64_t fourth_term = (createdTokens_decimal * issuerPercentage_rem) / (precision*satoshi_precision*percentage_precision);
-    uint64_t fourth_term_rem = (createdTokens_decimal * issuerPercentage_rem) % (precision*satoshi_precision*percentage_precision);
-    //printf("\n 2 part terms: %lu %lu %lu =~ %lu + %lu + (%lu / %lu)\n", createdTokens_decimal, issuerPercentage, issuerPercentage_rem, third_term, fourth_term, fourth_term_rem, precision*satoshi_precision*percentage_precision);
-    
-    long double it = ct * issuerPercentage_d;
-
-    carry_remainder = (second_term_rem*satoshi_precision*precision + fourth_term_rem)/(satoshi_precision*precision*percentage_precision);
-
-    //printf("\n carry remainder is %lu \n", carry_remainder);
-
-    carry_remainder_rem = second_term_rem*precision*satoshi_precision + fourth_term_rem%(satoshi_precision*precision*percentage_precision);
-
-    issuerTokens = first_term + second_term + third_term + fourth_term + carry_remainder;
-    issuerTokens_decimal = carry_remainder_rem;
-    
-    printf("\n ISSUER TOKENS: %.8Lf, %lu + (%lu / %lu ) ~= %.8lf \n",it, issuerTokens, issuerTokens_decimal, precision*satoshi_precision*percentage_precision, (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision)); 
-
-    //total tokens including remainders
-    //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
-
-    if (2 == propType)
-      printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
-    else
-      printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is = %lu, and %lu\n", createdTokens, issuerTokens);
-    
-    tokens = std::make_pair(createdTokens,issuerTokens);
-
-  } /*else {
-    printf("\n NUMBER OF PROPERTIES %ld", numProps); 
-    printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %f", amtTransfer,bonusPercentage_d);
-    ct = (uint64_t) ( (amtTransfer/1e8) * numProps * bonusPercentage_d);
-    
-    printf("\n CREATED TOKENS %.8Lf, %lu + (%lu / %lu)", ct,createdTokens, createdTokens_decimal, precision );
-    
-    uint64_t it = (uint64_t) (ct * issuerPercentage_d) ;
-    issuerTokens = (uint64_t) (createdTokens * issuerPercentage) ;
-    printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is %ld, and %ld\n", (uint64_t) ct , (uint64_t) it);
-    tokens = std::make_pair( (uint64_t) createdTokens, (uint64_t) issuerTokens);
-  } */
+  int128_t issuerTokens_;
+  //if (1 == propType)
+    issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
+  //else
+  //  issuerTokens_ = (createdTokens_ / (satoshi_precision_)) * (issuerPercentage_ / 100);
+  
+  //printf("\n ISSUER TOKENS: %.8Lf, %s + (%s / %s ) ~= %.8lf \n",it, p128(issuerTokens_ / (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128( issuerTokens_ % (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128(precision_*satoshi_precision_*100).c_str(), boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)); 
+  
+  //total tokens including remainders
+  //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
+  //if (2 == propType)
+    //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n", (uint64_t) (boost::lexical_cast<double>(createdTokens_ / (precision_ * satoshi_precision_) ) + boost::lexical_cast<double>(createdTokens_ % (precision_ * satoshi_precision_)) / boost::lexical_cast<double>(precision_*satoshi_precision_) )/1e8, (uint64_t) (boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)) / 1e8  );
+  //else
+    //printf("\n INDIVISIBLE TOKENS (UI LAYER) CREATED: is = %lu, and %lu\n", boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
+  
+  tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
 }
 
 // certain transaction types are not live on the network until some specific block height
