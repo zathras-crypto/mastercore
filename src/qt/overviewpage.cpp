@@ -28,8 +28,12 @@
 #define DECORATION_SIZE 64
 #define NUM_ITEMS 3
 
-extern uint64_t global_MSC_total;
-extern uint64_t global_MSC_RESERVED_total;
+//extern uint64_t global_MSC_total;
+//extern uint64_t global_MSC_RESERVED_total;
+extern uint64_t global_balance_money_maineco[100000];
+extern uint64_t global_balance_reserved_maineco[100000];
+extern uint64_t global_balance_money_testeco[100000];
+extern uint64_t global_balance_reserved_testeco[100000];
 
 class TxViewDelegate : public QAbstractItemDelegate
 {
@@ -165,11 +169,114 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
 
     // mastercoin balances - force refresh first
     set_wallet_totals();
-    ui->MSClabelavailable->setText(BitcoinUnits::format(0, global_MSC_total).append(" MSC"));
+    ui->MSClabelavailable->setText(BitcoinUnits::format(0, global_balance_money_maineco[1]).append(" MSC"));
     ui->MSClabelpending->setText("0.00 MSC"); // no unconfirmed support currently
-    ui->MSClabelreserved->setText(BitcoinUnits::format(0, global_MSC_RESERVED_total).append(" MSC"));
-    uint64_t totalbal = global_MSC_total + global_MSC_RESERVED_total;
+    ui->MSClabelreserved->setText(BitcoinUnits::format(0, global_balance_reserved_maineco[1]).append(" MSC"));
+    uint64_t totalbal = global_balance_money_maineco[1] + global_balance_reserved_maineco[1];
     ui->MSClabeltotal->setText(BitcoinUnits::format(0, totalbal).append(" MSC"));
+
+    //scrappy way to do this, find a more efficient way of interacting with labels
+    //show first 5 SPs with balances - needs to be converted to listwidget or something
+    unsigned int propertyId;
+    unsigned int lastFoundPropertyId = 1; 
+    string spName[6];
+    uint64_t spBal[6];
+    bool spDivisible[6];
+    unsigned int spItem;
+    bool foundProperty = false;
+
+    for (spItem = 1; spItem < 6; spItem++)
+    {
+        for (propertyId = lastFoundPropertyId+1; propertyId<100000; propertyId++)
+        {
+            foundProperty=false;
+            if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
+            {
+                lastFoundPropertyId = propertyId;
+                foundProperty=true;
+                spName[spItem] = getPropertyName(propertyId).c_str();
+                spName[spItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str() + ")";
+                spBal[spItem] = global_balance_money_maineco[propertyId];
+                spDivisible[spItem] = isPropertyDivisible(propertyId);
+                break;
+            }
+        }
+        // have we found a property in main eco?  If not let's try test eco
+        if (!foundProperty)
+        {
+            for (propertyId = lastFoundPropertyId+1; propertyId<100000; propertyId++)
+            {
+                if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
+                {
+                    lastFoundPropertyId = propertyId;
+                    foundProperty=true;
+                    spName[spItem] = getPropertyName(propertyId+2147483647).c_str();
+                    spName[spItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
+                    spBal[spItem] = global_balance_money_testeco[propertyId];
+                    spDivisible[spItem] = isPropertyDivisible(propertyId+2147483647);
+                    break;
+                }
+            }
+        }
+    }
+
+    //set labels
+    ui->SPname1->setText(spName[1].c_str());
+    ui->SPname2->setText(spName[2].c_str());
+    ui->SPname3->setText(spName[3].c_str());
+    ui->SPname4->setText(spName[4].c_str());
+    ui->SPname5->setText(spName[5].c_str());
+
+    if (spDivisible[1])
+    {
+          ui->SPbal1->setText(BitcoinUnits::format(0, spBal[1]).append(" SPT"));
+    }
+    else
+    {
+          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[1]) )->str();
+          balText += " SPT";
+          ui->SPbal1->setText(balText.c_str());
+    }
+    if (spDivisible[2])
+    {
+          ui->SPbal2->setText(BitcoinUnits::format(0, spBal[2]).append(" SPT"));
+    }
+    else
+    {
+          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[2]) )->str();
+          balText += " SPT";
+          ui->SPbal2->setText(balText.c_str());
+    }
+    if (spDivisible[3])
+    {
+          ui->SPbal3->setText(BitcoinUnits::format(0, spBal[3]).append(" SPT"));
+    }
+    else
+    {
+          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[3]) )->str();
+          balText += " SPT";
+          ui->SPbal3->setText(balText.c_str());
+    }
+    if (spDivisible[4])
+    {
+          ui->SPbal4->setText(BitcoinUnits::format(0, spBal[4]).append(" SPT"));
+    }
+    else
+    {
+          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[4]) )->str();
+          balText += " SPT";
+          ui->SPbal4->setText(balText.c_str());
+    }
+    if (spDivisible[5])
+    {
+          ui->SPbal5->setText(BitcoinUnits::format(0, spBal[5]).append(" SPT"));
+    }
+    else
+    {
+          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[5]) )->str();
+          balText += " SPT";
+          ui->SPbal5->setText(balText.c_str());
+    }
 }
 
 void OverviewPage::setClientModel(ClientModel *model)

@@ -51,6 +51,8 @@
 
 #include <openssl/sha.h>
 
+#include <boost/timer.hpp>
+
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
 // #define DISABLE_LOG_FILE 
@@ -73,6 +75,10 @@ int nWaterlineBlock = 0;  //
 
 uint64_t global_MSC_total = 0;
 uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_balance_money_maineco[100000];
+uint64_t global_balance_reserved_maineco[100000];
+uint64_t global_balance_money_testeco[100000];
+uint64_t global_balance_reserved_testeco[100000];
 
 static string exodus = "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P";
 static const string exodus_testnet = "mpexoDuSkGGqvqrkrjiFng38QPkJQVFyqv";
@@ -1095,6 +1101,13 @@ CMPSPInfo::Entry sp;
   if (_my_sps->getSP(propertyId, sp)) return sp.isDivisible();
 
   return true;
+}
+
+string getPropertyName(unsigned int propertyId)
+{
+  CMPSPInfo::Entry sp;
+  if (_my_sps->getSP(propertyId, sp)) return sp.name;
+  return "Property Name Not Found";
 }
 
 bool isCrowdsaleActive(unsigned int propertyId)
@@ -3096,28 +3109,49 @@ const double available_reward=all_reward * part_available;
 }
 
 // TODO: optimize efficiency -- iterate only over wallet's addresses in the future
-// NOTE: this may be the best way to do it, change addresses are not in the addressbook and
-//       if we only loop over the addressbook we may miss tokens stored in change addresses?
+// NOTE: if we loop over wallet addresses we miss tokens that may be in change addresses (since mapAddressBook does not
+//       include change addresses).  with current transaction load, about 0.02 - 0.06 seconds is spent on this function
+
 int set_wallet_totals()
 {
-int my_addresses_count = 0;
-const unsigned int propertyId = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for MSC only, for PoC
+  //concerned about efficiency here, time how long this takes, averaging 0.02-0.04s on my system
+  timer t;
+  int my_addresses_count = 0;
+  int64_t propertyId;
+  unsigned int nextSPID = _my_sps->peekNextSPID(1); // real eco
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(2); // test eco
 
-  global_MSC_total = 0;
-  global_MSC_RESERVED_total = 0;
+  //zero bals
+  for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
+  {
+    global_balance_money_maineco[propertyId] = 0;
+    global_balance_reserved_maineco[propertyId] = 0;
+  }
+  for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
+  {
+    global_balance_money_testeco[propertyId-2147483647] = 0;
+    global_balance_reserved_testeco[propertyId-2147483647] = 0;
+  }
 
   for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
     if (IsMyAddress(my_it->first))
     {
-      ++my_addresses_count;
-
-      global_MSC_total += getMPbalance(my_it->first, propertyId, MONEY);
-      global_MSC_RESERVED_total += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
-      global_MSC_RESERVED_total += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
+       for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
+       {
+              global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, MONEY);
+              global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
+       }
+       for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
+       {
+              global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, MONEY);
+              global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+       }
     }
   }
-  printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+  printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_balance_money_maineco[1], global_balance_reserved_maineco[1]);
+  std::cout << t.elapsed() << std::endl;
   return (my_addresses_count);
 }
 
@@ -3156,8 +3190,8 @@ unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
   if (msc_debug_exo) fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n",
    nBlockNow, devmsc, getMPbalance(exodus, MASTERCOIN_CURRENCY_MSC, MONEY));
 
-  // get the total MSC for this wallet, for QT display
-  (void) set_wallet_totals();
+  // get the total MSC for this wallet, for QT display, only do this if there were MP txs in the block
+  if (countMP>0) (void) set_wallet_totals();
 
   if (mp_fp) fflush(mp_fp);
 
