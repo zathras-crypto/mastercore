@@ -107,7 +107,7 @@ int msc_debug_metadex= 1;
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 
-static int disable_Divs = 0;
+static int disable_Divs = 1;
 
 static int disableLevelDB = 0;
 
@@ -151,7 +151,7 @@ static bool readPersistence()
 #ifdef  MY_HACK
   return false;
 #else
-  return true;
+  return false;
 #endif
 }
 
@@ -1893,7 +1893,7 @@ std::string p128(int128_t quantity)
 //calculateFundraiser does token calculations per transaction
 //calcluateFractional does calculations for missed tokens
 void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
-  uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, 
+  uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, uint64_t totalTokens, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
   //uint64_t weeks_sec = 604800;
@@ -1942,13 +1942,13 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   int128_t issuerPercentage_ = (int128_t)issuerPerc * precision_ / percentage_precision;
 
   //printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %s + (%s / %s) =~ %.8lf \n", issuerPercentage_d, p128(issuerPercentage_ / precision_ ).c_str(), p128(issuerPercentage_ % precision_).c_str(), p128( precision_ ).c_str(), boost::lexical_cast<double>(issuerPercentage_ / precision_) + boost::lexical_cast<double>(issuerPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
-  //debugging
+ //debugging
 
   int128_t satoshi_precision_ = 100000000;
   //define the precision for bitcoin amounts (satoshi)
   //uint64_t createdTokens, createdTokens_decimal;
   //declare used variables for total created tokens
-
+  int128_t allowedToCreate = MAX_INT_8_BYTES - totalTokens; 
   //uint64_t issuerTokens, issuerTokens_decimal;
   //declare used variables for total issuer tokens
 
@@ -1964,11 +1964,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 
   //long double it = (uint64_t) ct * issuerPercentage_d;
 
-  int128_t issuerTokens_;
-  //if (1 == propType)
-    issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
-  //else
-  //  issuerTokens_ = (createdTokens_ / (satoshi_precision_)) * (issuerPercentage_ / 100);
+  int128_t issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
   
   //printf("\n ISSUER TOKENS: %.8Lf, %s + (%s / %s ) ~= %.8lf \n",it, p128(issuerTokens_ / (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128( issuerTokens_ % (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128(precision_*satoshi_precision_*100).c_str(), boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)); 
   
@@ -2199,6 +2195,7 @@ public:
                                 (uint64_t) blockTime, // int 64
                                 sp.num_tokens,      // u int 64
                                 sp.percentage,        // u char
+                                getTotalTokens(crowd->getPropertyId()),
                                 tokens );
 
             //fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
