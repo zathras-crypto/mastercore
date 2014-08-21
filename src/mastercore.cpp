@@ -62,6 +62,7 @@ static FILE *mp_fp = NULL;
 #include "mastercore.h"
 
 using boost::multiprecision::int128_t;
+using boost::multiprecision::cpp_int;
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
@@ -107,7 +108,7 @@ int msc_debug_metadex= 1;
 // follow this variable through the code to see how/which Master Protocol transactions get invalidated
 static int InvalidCount_per_spec = 0; // consolidate error messages into a nice log, for now just keep a count
 
-static int disable_Divs = 1;
+static int disable_Divs = 0;
 
 static int disableLevelDB = 0;
 
@@ -151,7 +152,7 @@ static bool readPersistence()
 #ifdef  MY_HACK
   return false;
 #else
-  return false;
+  return true;
 #endif
 }
 
@@ -1896,7 +1897,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, uint64_t totalTokens, 
   std::pair<uint64_t, uint64_t>& tokens )
 {
-  //uint64_t weeks_sec = 604800;
+uint64_t weeks_sec = 604800;
   int128_t weeks_sec_ = 604800L;
   //define weeks in seconds
   int128_t precision_ = 1000000000000L;
@@ -1904,12 +1905,12 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   int128_t percentage_precision = 100L;
   //define precision for all percentages (10/100 = 10%)
 
-  //uint64_t bonusSeconds = fundraiserSecs - currentSecs;
+  uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   //calcluate the bonusseconds
-
+  //printf("\n bonus sec %lu\n", bonusSeconds);
   int128_t bonusSeconds_ = fundraiserSecs - currentSecs;
 
-  //double weeks_d = bonusSeconds / (double) weeks_sec;
+  double weeks_d = bonusSeconds / (double) weeks_sec;
   //debugging
   
   int128_t weeks_ = (bonusSeconds_ / weeks_sec_) * precision_ + ( (bonusSeconds_ % weeks_sec_ ) * precision_) / weeks_sec_;
@@ -1918,7 +1919,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   //printf("\n weeks_d: %.8lf \n weeks: %s + (%s / %s) =~ %.8lf \n", weeks_d, p128(bonusSeconds_ / weeks_sec_).c_str(), p128(bonusSeconds_ % weeks_sec_).c_str(), p128(weeks_sec_).c_str(), boost::lexical_cast<double>(bonusSeconds_ / weeks_sec_) + boost::lexical_cast<double> (bonusSeconds_ % weeks_sec_) / boost::lexical_cast<double>(weeks_sec_) );
   //debugging lines
 
-  //double ebPercentage_d = weeks_d * bonusPerc;
+  double ebPercentage_d = weeks_d * bonusPerc;
   //debugging lines
 
   int128_t ebPercentage_ = weeks_ * bonusPerc;
@@ -1927,7 +1928,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   //printf("\n ebPercentage_d: %.8lf \n ebPercentage: %s + (%s / %s ) =~ %.8lf \n", ebPercentage_d, p128(ebPercentage_ / precision_).c_str(), p128( (ebPercentage_) % precision_).c_str() , p128(precision_).c_str(), boost::lexical_cast<double>(ebPercentage_ / precision_) + boost::lexical_cast<double>(ebPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
   //debugging
   
-  //double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
+  double bonusPercentage_d = ( ebPercentage_d / 100 ) + 1;
   //debugging
 
   int128_t bonusPercentage_ = (ebPercentage_ + (precision_ * percentage_precision) ) / percentage_precision; 
@@ -1936,36 +1937,40 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   //printf("\n bonusPercentage_d: %.18lf \n bonusPercentage: %s + (%s / %s) =~ %.11lf \n", bonusPercentage_d, p128(bonusPercentage_ / precision_).c_str(), p128(bonusPercentage_ % precision_).c_str(), p128(precision_).c_str(), boost::lexical_cast<double>(bonusPercentage_ / precision_) + boost::lexical_cast<double>(bonusPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
   //debugging
 
-  //double issuerPercentage_d = (double) (issuerPerc * 0.01);
+  double issuerPercentage_d = (double) (issuerPerc * 0.01);
   //debugging
 
   int128_t issuerPercentage_ = (int128_t)issuerPerc * precision_ / percentage_precision;
 
   //printf("\n issuerPercentage_d: %.8lf \n issuerPercentage: %s + (%s / %s) =~ %.8lf \n", issuerPercentage_d, p128(issuerPercentage_ / precision_ ).c_str(), p128(issuerPercentage_ % precision_).c_str(), p128( precision_ ).c_str(), boost::lexical_cast<double>(issuerPercentage_ / precision_) + boost::lexical_cast<double>(issuerPercentage_ % precision_) / boost::lexical_cast<double>(precision_));
- //debugging
+  //debugging
 
   int128_t satoshi_precision_ = 100000000;
   //define the precision for bitcoin amounts (satoshi)
   //uint64_t createdTokens, createdTokens_decimal;
   //declare used variables for total created tokens
-  int128_t allowedToCreate = MAX_INT_8_BYTES - totalTokens; 
+
   //uint64_t issuerTokens, issuerTokens_decimal;
   //declare used variables for total issuer tokens
 
   //printf("\n NUMBER OF PROPERTIES %ld", numProps); 
   //printf("\n AMOUNT INVESTED: %ld BONUS PERCENTAGE: %.11f and %s", amtTransfer,bonusPercentage_d, p128(bonusPercentage_).c_str());
   
-  //long double ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
+  long double ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
 
-  int128_t createdTokens_ = (int128_t)amtTransfer*(int128_t)numProps*bonusPercentage_;
+  int128_t createdTokens_ = (int128_t)amtTransfer*(int128_t)numProps* bonusPercentage_;
+
+  cpp_int createdTokens = boost::lexical_cast<cpp_int>((int128_t)amtTransfer*(int128_t)numProps)* boost::lexical_cast<cpp_int>(bonusPercentage_);
 
   //printf("\n CREATED TOKENS %.8Lf, %s + (%s / %s) ~= %.8lf",ct, p128(createdTokens_ / (precision_ * satoshi_precision_) ).c_str(), p128(createdTokens_ % (precision_ * satoshi_precision_) ).c_str() , p128( precision_*satoshi_precision_ ).c_str(), boost::lexical_cast<double>(createdTokens_ / (precision_ * satoshi_precision_) ) + boost::lexical_cast<double>(createdTokens_ % (precision_ * satoshi_precision_)) / boost::lexical_cast<double>(precision_*satoshi_precision_));
   //TODO overflow checks  
 
-  //long double it = (uint64_t) ct * issuerPercentage_d;
+  long double it = (uint64_t) ct * issuerPercentage_d;
 
   int128_t issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
   
+  cpp_int issuerTokens = (createdTokens / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
+
   //printf("\n ISSUER TOKENS: %.8Lf, %s + (%s / %s ) ~= %.8lf \n",it, p128(issuerTokens_ / (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128( issuerTokens_ % (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128(precision_*satoshi_precision_*100).c_str(), boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)); 
   
   //total tokens including remainders
@@ -1975,7 +1980,27 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   //else
     //printf("\n INDIVISIBLE TOKENS (UI LAYER) CREATED: is = %lu, and %lu\n", boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
   
-  tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
+  cpp_int createdTokens_int = createdTokens / (precision_ * satoshi_precision_);
+  cpp_int issuerTokens_int = issuerTokens / (precision_ * satoshi_precision_ * 100 );
+  cpp_int newTotalCreated = totalTokens + createdTokens_int  + issuerTokens_int;
+
+  if ( newTotalCreated > MAX_INT_8_BYTES) {
+
+    cpp_int maxCreatable = MAX_INT_8_BYTES - totalTokens;
+
+    cpp_int created = createdTokens_int + issuerTokens_int;
+    cpp_int ratio = (created * precision_ * satoshi_precision_) / maxCreatable;
+
+    issuerTokens_int = (issuerTokens_int * precision_ * satoshi_precision_)/ratio;
+    createdTokens_int = MAX_INT_8_BYTES - issuerTokens_int ;
+
+    //TODO truncate issuerTokens
+    //TODO close crowdsale
+
+  }
+
+  tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_int) , boost::lexical_cast<uint64_t>(issuerTokens_int));
+
 }
 
 // certain transaction types are not live on the network until some specific block height
