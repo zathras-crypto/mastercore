@@ -26,7 +26,7 @@
 #include <QPainter>
 
 #define DECORATION_SIZE 64
-#define NUM_ITEMS 3
+#define NUM_ITEMS 5
 
 //extern uint64_t global_MSC_total;
 //extern uint64_t global_MSC_RESERVED_total;

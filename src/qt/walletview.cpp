@@ -28,6 +28,11 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include <QDebug>
+#include <QTableView>
+#include <QDialog>
+#include <QHeaderView>
+
 WalletView::WalletView(QWidget *parent):
     QStackedWidget(parent),
     clientModel(0),
@@ -37,6 +42,53 @@ WalletView::WalletView(QWidget *parent):
     overviewPage = new OverviewPage();
 
     transactionsPage = new QWidget(this);
+
+    // #Code for Mastercoin balances tab
+        //create new page
+        balancesPage = new QWidget(this);
+        //prep matrix
+        const int numRows = 3000;
+        const int numColumns = 3;
+        uint matrix[numRows][numColumns];
+        //setup layout
+        QVBoxLayout *mscvbox = new QVBoxLayout();
+        MatrixModel *mmp = NULL;
+        QTableView *view = NULL;
+        //create matrix
+        for (int i = 0; i < numRows; ++i)
+             for (int j = 0; j < numColumns; ++j)
+                 matrix[i][j] = (i+1) * (j+1);
+        //create a model which adapts the data (the matrix) to the view.
+        mmp = new MatrixModel(numRows, numColumns, (uint*)matrix);
+        view = new QTableView(this);
+        view->setModel(mmp);
+        //adjust sizing
+        view->horizontalHeader()->resizeSection(0, 135);
+        #if QT_VERSION < 0x050000
+            view->horizontalHeader()->setResizeMode(1, QHeaderView::Stretch);
+        #else
+            view->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+        #endif
+        view->horizontalHeader()->resizeSection(2, 117);
+        view->horizontalHeader()->resizeSection(3, 117);
+        view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+        view->verticalHeader()->setVisible(false);
+        //add new view to vertical layout
+        mscvbox->addWidget(view);
+        //add export button (non functional at mo)
+        QHBoxLayout *mschbox_buttons = new QHBoxLayout();
+        QPushButton *mscexportButton = new QPushButton(tr("&Export"), this);
+        mscexportButton->setToolTip(tr("Export the data in the current tab to a file"));
+        #ifndef Q_OS_MAC // Icons on push buttons are very uncommon on Mac
+            mscexportButton->setIcon(QIcon(":/icons/export"));
+        #endif
+        mschbox_buttons->addStretch();
+        mschbox_buttons->addWidget(mscexportButton);
+        mscvbox->addLayout(mschbox_buttons);
+	//finally set the page layout
+        balancesPage->setLayout(mscvbox);
+    // end MSC balances tab
+
     QVBoxLayout *vbox = new QVBoxLayout();
     QHBoxLayout *hbox_buttons = new QHBoxLayout();
     transactionView = new TransactionView(this);
@@ -55,6 +107,7 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsPage = new SendCoinsDialog();
 
     addWidget(overviewPage);
+    addWidget(balancesPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
@@ -153,6 +206,11 @@ void WalletView::processNewTransaction(const QModelIndex& parent, int start, int
 void WalletView::gotoOverviewPage()
 {
     setCurrentWidget(overviewPage);
+}
+
+void WalletView::gotoBalancesPage()
+{
+    setCurrentWidget(balancesPage);
 }
 
 void WalletView::gotoHistoryPage()
