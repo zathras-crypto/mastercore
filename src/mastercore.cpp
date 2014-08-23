@@ -1826,6 +1826,22 @@ int calculateFractional(unsigned short int propType, unsigned char bonusPerc, ui
   return missedTokens;
 }
 
+void eraseMaxedCrowdsale(const string &address)
+{
+    CrowdMap::iterator it = my_crowds.find(address);
+    
+    if (it != my_crowds.end()) {
+
+      CMPCrowd &crowd = it->second;
+      fprintf(mp_fp, "%s() FOUND MAXED OUT CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, address.c_str());
+
+      dumpCrowdsaleInfo(address, crowd);
+      
+      //No calculate fractional calls here, no more tokens (at MAX)
+      
+      my_crowds.erase(it);
+    }
+}
 unsigned int eraseExpiredCrowdsale(const int64_t blockTime)
 {
 unsigned int how_many_erased = 0;
@@ -1863,7 +1879,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
                           crowd.getIssuerCreated());
 
 
-      //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+      //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %lu %lu %lu %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
       //get txdata
       sp.txFundraiserData = crowd.getDatabase();
@@ -1891,11 +1907,16 @@ std::string p128(int128_t quantity)
     //printf("\nTest # was %s\n", boost::lexical_cast<std::string>(quantity).c_str() );
    return boost::lexical_cast<std::string>(quantity);
 }
+std::string p_arb(cpp_int quantity)
+{
+    //printf("\nTest # was %s\n", boost::lexical_cast<std::string>(quantity).c_str() );
+   return boost::lexical_cast<std::string>(quantity);
+}
 //calculateFundraiser does token calculations per transaction
 //calcluateFractional does calculations for missed tokens
 void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, 
   uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, uint64_t totalTokens, 
-  std::pair<uint64_t, uint64_t>& tokens )
+  std::pair<uint64_t, uint64_t>& tokens, bool &close_crowdsale )
 {
   //uint64_t weeks_sec = 604800;
   int128_t weeks_sec_ = 604800L;
@@ -2003,8 +2024,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 
     //printf("\n created %s, ratio %s, maxCreatable %s, totalTokens %s, createdTokens_int %s, issuerTokens_int %s \n", p_arb(created).c_str(), p_arb(ratio).c_str(), p_arb(maxCreatable).c_str(), p_arb(totalTokens).c_str(), p_arb(createdTokens_int).c_str(), p_arb(issuerTokens_int).c_str() );
     //debugging
-
-    //TODO close crowdsale
+    close_crowdsale = true; //close up the crowdsale after assigning all tokens
   }
   tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_int) , boost::lexical_cast<uint64_t>(issuerTokens_int));
   //give tokens
@@ -2201,7 +2221,8 @@ public:
           {
             //init this struct
             std::pair <uint64_t,uint64_t> tokens;
-            
+            //pass this in by reference to determine if max_tokens has been reached
+            bool close_crowdsale = false; 
             //get txid
             string sp_txid =  sp.txid.GetHex().c_str();
 
@@ -2228,11 +2249,13 @@ public:
                                 sp.num_tokens,      // u int 64
                                 sp.percentage,        // u char
                                 getTotalTokens(crowd->getPropertyId()),
-                                tokens );
+                                tokens,
+                                close_crowdsale);
 
             //fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
-            //dead code? nothing uses this AFAIK
+            //getIssuerCreated() is passed into calcluateFractional() at close
+            //getUserCreated() is a convenient way to get user created during a crowdsale
             crowd->incTokensUserCreated(tokens.first);
             crowd->incTokensIssuerCreated(tokens.second);
             
@@ -2251,6 +2274,11 @@ public:
             //update sender/rec
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
             update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
+
+            // close crowdsale if we hit MAX_TOKENS
+            if( close_crowdsale ) {
+              eraseMaxedCrowdsale(receiver);
+            }
           }
         }
       }
