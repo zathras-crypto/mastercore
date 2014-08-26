@@ -1837,6 +1837,17 @@ void eraseMaxedCrowdsale(const string &address)
 
       dumpCrowdsaleInfo(address, crowd);
       
+      CMPSPInfo::Entry sp;
+      
+      //get sp from data struct
+      _my_sps->getSP(crowd.getPropertyId(), sp);
+      
+      //get txdata
+      sp.txFundraiserData = crowd.getDatabase();
+      
+      //update SP with this data
+      _my_sps->updateSP(crowd.getPropertyId() , sp);
+      
       //No calculate fractional calls here, no more tokens (at MAX)
       
       my_crowds.erase(it);
