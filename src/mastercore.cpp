@@ -5128,15 +5128,25 @@ Value getbalance_MP(const Array& params, bool fHelp)
     bool divisible = false;
     divisible=sp.isDivisible();
 
-    int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
+    Object balObj;
+
+    int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+    int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+    int64_t tmpBalReservedAccept = 0;
+    if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
     if (divisible)
     {
-        return FormatDivisibleMP(tmpbal);
+        balObj.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+        balObj.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
     }
     else
     {
-        return FormatIndivisibleMP(tmpbal);
+        balObj.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+        balObj.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
     }
+
+    return balObj;
 }
 
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)
