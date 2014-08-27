@@ -4,8 +4,11 @@
 #include <map>
 #include <string>
 #include <stdio.h>
+#include <limits>
 
 using boost::multiprecision::int128_t;
+using boost::multiprecision::uint128_t;
+using boost::multiprecision::cpp_int;
 #define MAX_INT_8_BYTES (9223372036854775807UL) 
 
 // returns false if we are out of range and/or overflow
@@ -97,7 +100,12 @@ std::string p128(int128_t quantity)
    return boost::lexical_cast<std::string>(quantity);
 }
 
-void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, std::pair<uint64_t, uint64_t >& tokens )
+std::string p_arb(cpp_int quantity)
+{
+    //printf("\nTest # was %s\n", boost::lexical_cast<std::string>(quantity).c_str() );
+   return boost::lexical_cast<std::string>(quantity);
+}
+void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsigned char bonusPerc, uint64_t fundraiserSecs, uint64_t currentSecs, uint64_t numProps, unsigned char issuerPerc, uint64_t totalTokens, std::pair<uint64_t, uint64_t >& tokens )
 {
   //uint64_t weeks_sec = 604800;
   int128_t weeks_sec_ = 604800L;
@@ -109,7 +117,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 
   //uint64_t bonusSeconds = fundraiserSecs - currentSecs;
   //calcluate the bonusseconds
-
+  //printf("\n bonus sec %lu\n", bonusSeconds);
   int128_t bonusSeconds_ = fundraiserSecs - currentSecs;
 
   //double weeks_d = bonusSeconds / (double) weeks_sec;
@@ -160,29 +168,56 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
   
   //long double ct = ((amtTransfer/1e8) * (long double) numProps * bonusPercentage_d);
 
-  int128_t createdTokens_ = (int128_t)amtTransfer*(int128_t)numProps*bonusPercentage_;
+  //int128_t createdTokens_ = (int128_t)amtTransfer*(int128_t)numProps* bonusPercentage_;
+
+  cpp_int createdTokens = boost::lexical_cast<cpp_int>((int128_t)amtTransfer*(int128_t)numProps)* boost::lexical_cast<cpp_int>(bonusPercentage_);
+
+  //printf("\n CREATED TOKENS UINT %s \n", p_arb(createdTokens).c_str());
 
   //printf("\n CREATED TOKENS %.8Lf, %s + (%s / %s) ~= %.8lf",ct, p128(createdTokens_ / (precision_ * satoshi_precision_) ).c_str(), p128(createdTokens_ % (precision_ * satoshi_precision_) ).c_str() , p128( precision_*satoshi_precision_ ).c_str(), boost::lexical_cast<double>(createdTokens_ / (precision_ * satoshi_precision_) ) + boost::lexical_cast<double>(createdTokens_ % (precision_ * satoshi_precision_)) / boost::lexical_cast<double>(precision_*satoshi_precision_));
-  //TODO overflow checks  
 
   //long double it = (uint64_t) ct * issuerPercentage_d;
 
-  int128_t issuerTokens_;
-  //if (1 == propType)
-    issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
-  //else
-  //  issuerTokens_ = (createdTokens_ / (satoshi_precision_)) * (issuerPercentage_ / 100);
+  //int128_t issuerTokens_ = (createdTokens_ / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
   
+  cpp_int issuerTokens = (createdTokens / (satoshi_precision_ * precision_ )) * (issuerPercentage_ / 100) * precision_;
+
   //printf("\n ISSUER TOKENS: %.8Lf, %s + (%s / %s ) ~= %.8lf \n",it, p128(issuerTokens_ / (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128( issuerTokens_ % (precision_ * satoshi_precision_ * 100 ) ).c_str(), p128(precision_*satoshi_precision_*100).c_str(), boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)); 
   
+  //printf("\n UINT %s \n", p_arb(issuerTokens).c_str());
   //total tokens including remainders
+
   //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n",(double)createdTokens + (double)createdTokens_decimal/(satoshi_precision *precision), (double) issuerTokens + (double)issuerTokens_decimal/(satoshi_precision*precision*percentage_precision) );
   //if (2 == propType)
     //printf("\n DIVISIBLE TOKENS (UI LAYER) CREATED: is ~= %.8lf, and %.8lf\n", (uint64_t) (boost::lexical_cast<double>(createdTokens_ / (precision_ * satoshi_precision_) ) + boost::lexical_cast<double>(createdTokens_ % (precision_ * satoshi_precision_)) / boost::lexical_cast<double>(precision_*satoshi_precision_) )/1e8, (uint64_t) (boost::lexical_cast<double>(issuerTokens_ / (precision_ * satoshi_precision_ * 100))  + boost::lexical_cast<double>(issuerTokens_ % (satoshi_precision_*precision_*100) )/ boost::lexical_cast<double>(satoshi_precision_*precision_*100)) / 1e8  );
   //else
     //printf("\n INDIVISIBLE TOKENS (UI LAYER) CREATED: is = %lu, and %lu\n", boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
   
-  tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_ / (precision_ * satoshi_precision_ ) ), boost::lexical_cast<uint64_t>(issuerTokens_ / (precision_ * satoshi_precision_ * 100)));
+  cpp_int createdTokens_int = createdTokens / (precision_ * satoshi_precision_);
+  cpp_int issuerTokens_int = issuerTokens / (precision_ * satoshi_precision_ * 100 );
+  cpp_int newTotalCreated = totalTokens + createdTokens_int  + issuerTokens_int;
+
+  if ( newTotalCreated > MAX_INT_8_BYTES) {
+    cpp_int maxCreatable = MAX_INT_8_BYTES - totalTokens;
+
+    cpp_int created = createdTokens_int + issuerTokens_int;
+    cpp_int ratio = (created * precision_ * satoshi_precision_) / maxCreatable;
+
+    //printf("\n created %s, ratio %s, maxCreatable %s, totalTokens %s, createdTokens_int %s, issuerTokens_int %s \n", p_arb(created).c_str(), p_arb(ratio).c_str(), p_arb(maxCreatable).c_str(), p_arb(totalTokens).c_str(), p_arb(createdTokens_int).c_str(), p_arb(issuerTokens_int).c_str() );
+    //debugging
+  
+    issuerTokens_int = (issuerTokens_int * precision_ * satoshi_precision_)/ratio;
+    //calcluate the ratio of tokens for what we can create and apply it
+    createdTokens_int = MAX_INT_8_BYTES - issuerTokens_int ;
+    //give the rest to the user
+
+    //printf("\n created %s, ratio %s, maxCreatable %s, totalTokens %s, createdTokens_int %s, issuerTokens_int %s \n", p_arb(created).c_str(), p_arb(ratio).c_str(), p_arb(maxCreatable).c_str(), p_arb(totalTokens).c_str(), p_arb(createdTokens_int).c_str(), p_arb(issuerTokens_int).c_str() );
+    //debugging
+
+    //TODO close crowdsale
+  }
+  tokens = std::make_pair(boost::lexical_cast<uint64_t>(createdTokens_int) , boost::lexical_cast<uint64_t>(issuerTokens_int));
+  //give tokens
 }
 
 int main() {
@@ -192,15 +227,19 @@ int main() {
    
    std::map<std::string, std::pair<uint64_t, uint64_t> > database;
    std::pair <uint64_t, uint64_t> tokens;
-   
 
+   printf("\n div funding div,  ");
+   calculateFundraiser(2, 30 * 1e8,6,1407064860000,1407877014,31337 * 1e8,10, 0/*std::numeric_limits<int64_t>::max() - 1000*/, tokens);
+   amountCreated += tokens.first; amountPremined += tokens.second;
+   printf(" HASH: 8fbd96005aba5671daf8288f89df8026a7ce4782a0bb411937537933956b827b \n");
+   printf("\nTokens created, Tokens for issuer: %lld %lld\n", tokens.first, tokens.second);
+   
+  /*
    printf("\n div funding indiv,  ");
-   calculateFundraiser(1, 0.0001 * 1e8,28,1406925000000,1405610834,8686,68, tokens);
+   calculateFundraiser(1, 0.0001 * 1e8,28,1406925000000,1405610834,8686,68, 0, tokens);
    amountCreated += tokens.first; amountPremined += tokens.second;
    printf(" HASH: 8b797b75518cc7b7da8807e25ec9c62ad59644b871106d4fbc08a989f74716f6 \n");
    printf("\nTokens created, Tokens for issuer: %lld %lld\n", tokens.first, tokens.second);
-
-
 
    printf("\n should get SPT back");
    calculateFundraiser(1, (0.0001 * 1e8),28,1406925000000,1397841991,8686,68, tokens);
@@ -227,8 +266,7 @@ int main() {
    printf("\n262ab5f05b823c77ee7af8cb5ea9ce7ebbc0c34775a7bbeb7c3e477a4881dc89\n");
    //Expected: 'total created', 1635090722, 'tokens for issuer', 0.0
    //Returned: 1635090722, and 0.000000 
-
-  /* */
+ */
 
    //calculateFundraiser(2,739038774,25,22453142409904,1403765616,100,10, tokens);
    //printf("\n333d8fd459b270fde95736846eb81b2547837476f33e8e0b4c1158906870155f\n");
