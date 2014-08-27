@@ -6048,8 +6048,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
             "{\n"
             "  \"address\" : 1Address,        (string) The address\n"
             "  \"balance\" : x.xxx,     (numeric) The available balance of the address\n"
-            "  \"reservedbyselloffer\" : x.xxx,   (numeric) The amount reserved by sell offers\n"
-            "  \"reservedbyacceptoffer\" : x.xxx,   (numeric) The amount reserved by accepts\n"
+            "  \"reserved\" : x.xxx,   (numeric) The amount reserved by sell offers and accepts\n"
             "}\n"
 
             "\nbExamples\n"
@@ -6087,18 +6086,21 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         Object addressbal;
 
+        int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+        int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+        int64_t tmpBalReservedAccept = 0;
+        if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+        addressbal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
         }
         else
         {
-        addressbal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+        addressbal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
         }
         response.push_back(addressbal);
     }
@@ -6150,21 +6152,24 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
               divisible = sp.isDivisible();
             }
 
-
             Object propertyBal;
 
             propertyBal.push_back(Pair("propertyid", propertyId));
+
+            int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+            int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+            int64_t tmpBalReservedAccept = 0;
+            if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
             if (divisible)
             {
-                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+                    propertyBal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
             }
             else
             {
-                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+                    propertyBal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
             }
 
             response.push_back(propertyBal);
