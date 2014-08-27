@@ -266,6 +266,26 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
+int64_t strToInt64(std::string strAmount, bool divisible)
+{
+  int64_t Amount = 0;
+
+  //convert the string into a usable int64
+  if (divisible)
+  {
+      strAmount.erase(std::remove(strAmount.begin(), strAmount.end(), '.'), strAmount.end());
+      try { Amount = boost::lexical_cast<int64_t>(strAmount); } catch(const boost::bad_lexical_cast &e) { }
+  }
+  else
+  {
+      size_t pos = strAmount.find(".");
+      string newStrAmount = strAmount.substr(0,pos);
+      try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
+  }
+
+  return Amount;
+}
+
 string FormatIndivisibleMP(int64_t n)
 {
   string str = strprintf("%lu", n);
@@ -5013,28 +5033,12 @@ if (fHelp || params.size() != 4)
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
-  double tmpAmount = params[3].get_real();
+  string strAmount = params[3].get_str();
   int64_t Amount = 0;
+  Amount = strToInt64(strAmount, divisible);
 
-  if (divisible)
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775)
+  if ((Amount > 9223372036854775807) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = roundint64(tmpAmount * COIN);
-  }
-  else // indivisible
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
-  }
-
-  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
-
-  if (0 >= Amount)
-           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_MP(FromAddress, ToAddress, propertyId, Amount);
@@ -5077,28 +5081,14 @@ if (fHelp || params.size() != 3)
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
-  double tmpAmount = params[2].get_real();
+  string strAmount = params[2].get_str();
   int64_t Amount = 0;
+  Amount = strToInt64(strAmount, divisible);
 
-  if (divisible)
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775807)
+  if ((Amount > 9223372036854775807) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
-      Amount = roundint64(tmpAmount * COIN);
-  }
-  else // indivisible
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
-  }
-
-  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
-
-  if (0 >= Amount)
-           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+//  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_To_Owners(FromAddress, propertyId, Amount);
@@ -5106,7 +5096,6 @@ if (fHelp || params.size() != 3)
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
 }
-
 
 // display an MP balance via RPC
 Value getbalance_MP(const Array& params, bool fHelp)
