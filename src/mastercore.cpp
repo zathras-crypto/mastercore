@@ -1114,7 +1114,7 @@ bool isCrowdsaleActive(unsigned int propertyId)
 
 //go hunting for whether a simple send is a crowdsale purchase
 //TODO !!!! horribly inefficient !!!! find a more efficient way to do this
-bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NULL, int64_t *userTokens = NULL)
+bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NULL, int64_t *userTokens = NULL, int64_t *issuerTokens = NULL)
 {
 //1. loop crowdsales (active/non-active) looking for issuer address
 //2. loop those crowdsales for that address and check their participant txs in database
@@ -1131,11 +1131,13 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
       {
           string tmpTxid = it->first; //uint256 txid = it->first;
           string compTxid = txid.GetHex().c_str(); //convert to string to compare since this is how stored in levelDB
-          if (tmpTxid == compTxid) 
+          if (tmpTxid == compTxid)
           {
               int64_t tmpUserTokens = it->second.at(2);
+              int64_t tmpIssuerTokens = it->second.at(3);
               *propertyId = foundPropertyId;
               *userTokens = tmpUserTokens;
+              *issuerTokens = tmpIssuerTokens;
               return true;
           }
       }
@@ -1162,8 +1164,10 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
                    if (tmpTxid == compTxid)
                    {
                        int64_t tmpUserTokens = it->second.at(2);
+                       int64_t tmpIssuerTokens = it->second.at(3);
                        *propertyId = tmpPropertyId;
                        *userTokens = tmpUserTokens;
+                       *issuerTokens = tmpIssuerTokens;
                        return true;
                    }
                }
@@ -1186,8 +1190,10 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
                    if (tmpTxid == compTxid)
                    {
                        int64_t tmpUserTokens = it->second.at(2);
+                       int64_t tmpIssuerTokens = it->second.at(3);
                        *propertyId = tmpPropertyId;
                        *userTokens = tmpUserTokens;
+                       *issuerTokens = tmpIssuerTokens;
                        return true;
                    }
                }
@@ -5401,6 +5407,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 bool crowdPurchase = false;
                 int64_t crowdPropertyId = 0;
                 int64_t crowdTokens = 0;
+                int64_t issuerTokens = 0;
                 bool crowdDivisible = false;
                 string crowdName;
 
@@ -5450,7 +5457,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                                amount = mp_obj.getAmount();
                                                showReference = true;
                                                //check crowdsale invest?
-                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens);
+                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens, &issuerTokens);
                                                if (crowdPurchase)
                                                {
                                                   MPTxType = "Crowdsale Purchase";
@@ -5539,10 +5546,12 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 if (crowdDivisible)
                                 {
                                      txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                     txobj.push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
                                 }
                                 else
                                 {
                                      txobj.push_back(Pair("purchasedtokens", FormatIndivisibleMP(crowdTokens))); //indivisible, push raw 64
+                                     txobj.push_back(Pair("issuertokens", FormatIndivisibleMP(issuerTokens)));
                                 }
                         }
                         if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
