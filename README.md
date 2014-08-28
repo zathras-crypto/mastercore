@@ -35,6 +35,11 @@ Testnet
 
 All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
+
+Dependencies
+------------
+Boost >= 1.53
+
 Installation
 ------------
 
@@ -60,7 +65,7 @@ Clone the Mastercore repo.
 Then, run
 
 ```
-./autogen
+./autogen.sh
 ./configure
 make
 ```
