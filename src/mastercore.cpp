@@ -961,7 +961,7 @@ map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
   return (CMPMetaDEx *) NULL;
 }
 
-static uint64_t getGoodDivisionPrecision(uint64_t n1, uint64_t n2)
+static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
 {
   if (!n2) return 0;
 
@@ -988,10 +988,10 @@ void CMPMetaDEx::Set(uint64_t nValue, uint64_t ad)
   if (ad && nValue) // div by zero protection once more
   {
     price_int   = ad / nValue;
-    price_frac  = getGoodDivisionPrecision(ad, nValue);
+    price_frac  = getGoodFractionalPartPrecision(ad, nValue);
 
     inverse_int = nValue / ad;
-    inverse_frac= getGoodDivisionPrecision(nValue, ad);
+    inverse_frac= getGoodFractionalPartPrecision(nValue, ad);
   }
 }
 
@@ -1664,16 +1664,34 @@ int MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int cu
   return 0;
 }
 
+// bSell = true when selling property for MSC/TMSC
+int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx)
+{
+  fprintf(mp_fp, "%s(%s, bSell=%s), line %d, file: %s\n", __FUNCTION__, addr.c_str(), bSell ? "YES":"NO", __LINE__, __FILE__);
+
+  return 0;
+}
+
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 uint64_t price_int, price_frac, inverse_int, inverse_frac;
+bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for MSC); only applies to phase 1 code
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
+  // MetaDEx implementation phase 1 check
+  if ((curr != MASTERCOIN_CURRENCY_MSC) && (currency_desired != MASTERCOIN_CURRENCY_MSC) &&
+   (curr != MASTERCOIN_CURRENCY_TMSC) && (currency_desired != MASTERCOIN_CURRENCY_TMSC))
+  {
+    return METADEX_ERROR -800;
+  }
+
+  if ((curr == MASTERCOIN_CURRENCY_MSC) || (curr == MASTERCOIN_CURRENCY_TMSC)) bPhase1Seller = false;
+
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
 
-//  (void) MetaDEx_Trade(sender_addr, curr, currency_desired, amount, price_int, price_frac);
+  (void) MetaDEx_Phase1(sender_addr, bPhase1Seller ? curr:currency_desired, bPhase1Seller, txid, idx);
 
   // TODO: add more code
   // ...
@@ -3542,7 +3560,7 @@ uint64_t txFee = 0;
               if (MONEYMAN_REGTEST_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
             }
 
-            fprintf(mp_fp, "%s()amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
+//            fprintf(mp_fp, "%s() amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
 
             if (0 < BTC_amount) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
 
@@ -4598,7 +4616,12 @@ int mastercore_init()
 
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block
 
+    if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
+
+    if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
+
 #ifdef  MY_HACK
+/*
     nWaterlineBlock = MSC_SP_BLOCK-3;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    nWaterlineBlock = 296163 - 3; // bad Deadline
@@ -4608,6 +4631,7 @@ int mastercore_init()
     nWaterlineBlock = 303550;
     nWaterlineBlock = 308500;
     nWaterlineBlock = MSC_DEX_BLOCK-3;
+*/
 
     update_tally_map(exodus, MASTERCOIN_CURRENCY_TMSC, COIN*5678, MONEY); // put some TMSC in, for my hack
     update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
@@ -4620,11 +4644,11 @@ int mastercore_init()
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*678, MONEY);
     update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
     update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
-    nWaterlineBlock = 304000;
+//    nWaterlineBlock = 304000;
 
     update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
     update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-    nWaterlineBlock = 310500;
+//    nWaterlineBlock = 310500;
 
     update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
     update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
@@ -4633,14 +4657,20 @@ int mastercore_init()
 
     update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
     update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-    nWaterlineBlock = 310000;
+//    nWaterlineBlock = 310000;
 
-    if (isNonMainNet()) nWaterlineBlock = 272700;
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", 2147483652, COIN*234, MONEY);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", 2147483652, COIN*234, MONEY);
+
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", 2147483652, COIN*234, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", 2147483652, COIN*234, MONEY);
+
+//    if (isNonMainNet()) nWaterlineBlock = 272700;
 #endif
-
-    if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
-
-    if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
   }
 
   // collect the real Exodus balances available at the snapshot time
