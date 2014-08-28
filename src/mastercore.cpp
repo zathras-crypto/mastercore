@@ -271,6 +271,26 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
+int64_t strToInt64(std::string strAmount, bool divisible)
+{
+  int64_t Amount = 0;
+
+  //convert the string into a usable int64
+  if (divisible)
+  {
+      strAmount.erase(std::remove(strAmount.begin(), strAmount.end(), '.'), strAmount.end());
+      try { Amount = boost::lexical_cast<int64_t>(strAmount); } catch(const boost::bad_lexical_cast &e) { }
+  }
+  else
+  {
+      size_t pos = strAmount.find(".");
+      string newStrAmount = strAmount.substr(0,pos);
+      try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
+  }
+
+  return Amount;
+}
+
 string FormatIndivisibleMP(int64_t n)
 {
   string str = strprintf("%lu", n);
@@ -1126,7 +1146,7 @@ bool isCrowdsaleActive(unsigned int propertyId)
 
 //go hunting for whether a simple send is a crowdsale purchase
 //TODO !!!! horribly inefficient !!!! find a more efficient way to do this
-bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NULL, int64_t *userTokens = NULL)
+bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NULL, int64_t *userTokens = NULL, int64_t *issuerTokens = NULL)
 {
 //1. loop crowdsales (active/non-active) looking for issuer address
 //2. loop those crowdsales for that address and check their participant txs in database
@@ -1143,11 +1163,13 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
       {
           string tmpTxid = it->first; //uint256 txid = it->first;
           string compTxid = txid.GetHex().c_str(); //convert to string to compare since this is how stored in levelDB
-          if (tmpTxid == compTxid) 
+          if (tmpTxid == compTxid)
           {
               int64_t tmpUserTokens = it->second.at(2);
+              int64_t tmpIssuerTokens = it->second.at(3);
               *propertyId = foundPropertyId;
               *userTokens = tmpUserTokens;
+              *issuerTokens = tmpIssuerTokens;
               return true;
           }
       }
@@ -1174,8 +1196,10 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
                    if (tmpTxid == compTxid)
                    {
                        int64_t tmpUserTokens = it->second.at(2);
+                       int64_t tmpIssuerTokens = it->second.at(3);
                        *propertyId = tmpPropertyId;
                        *userTokens = tmpUserTokens;
+                       *issuerTokens = tmpIssuerTokens;
                        return true;
                    }
                }
@@ -1198,8 +1222,10 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
                    if (tmpTxid == compTxid)
                    {
                        int64_t tmpUserTokens = it->second.at(2);
+                       int64_t tmpIssuerTokens = it->second.at(3);
                        *propertyId = tmpPropertyId;
                        *userTokens = tmpUserTokens;
+                       *issuerTokens = tmpIssuerTokens;
                        return true;
                    }
                }
@@ -1848,6 +1874,17 @@ void eraseMaxedCrowdsale(const string &address)
       fprintf(mp_fp, "%s() FOUND MAXED OUT CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, address.c_str());
 
       dumpCrowdsaleInfo(address, crowd);
+      
+      CMPSPInfo::Entry sp;
+      
+      //get sp from data struct
+      _my_sps->getSP(crowd.getPropertyId(), sp);
+      
+      //get txdata
+      sp.txFundraiserData = crowd.getDatabase();
+      
+      //update SP with this data
+      _my_sps->updateSP(crowd.getPropertyId() , sp);
       
       //No calculate fractional calls here, no more tokens (at MAX)
       
@@ -5026,28 +5063,12 @@ if (fHelp || params.size() != 4)
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
-  double tmpAmount = params[3].get_real();
+  string strAmount = params[3].get_str();
   int64_t Amount = 0;
+  Amount = strToInt64(strAmount, divisible);
 
-  if (divisible)
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775)
+  if ((Amount > 9223372036854775807) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = roundint64(tmpAmount * COIN);
-  }
-  else // indivisible
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
-  }
-
-  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
-
-  if (0 >= Amount)
-           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_MP(FromAddress, ToAddress, propertyId, Amount);
@@ -5090,28 +5111,14 @@ if (fHelp || params.size() != 3)
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
-  double tmpAmount = params[2].get_real();
+  string strAmount = params[2].get_str();
   int64_t Amount = 0;
+  Amount = strToInt64(strAmount, divisible);
 
-  if (divisible)
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 92233720.36854775807)
+  if ((Amount > 9223372036854775807) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
-      Amount = roundint64(tmpAmount * COIN);
-  }
-  else // indivisible
-  {
-      if (tmpAmount <= 0.0 || tmpAmount > 9223372036854775807)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-
-      Amount = int64_t(tmpAmount); // I believe this cast will always truncate (please correct me if wrong?)
-  }
-
-  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
-
-  if (0 >= Amount)
-           throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+//  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_To_Owners(FromAddress, propertyId, Amount);
@@ -5119,7 +5126,6 @@ if (fHelp || params.size() != 3)
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
 }
-
 
 // display an MP balance via RPC
 Value getbalance_MP(const Array& params, bool fHelp)
@@ -5147,15 +5153,25 @@ Value getbalance_MP(const Array& params, bool fHelp)
     bool divisible = false;
     divisible=sp.isDivisible();
 
-    int64_t tmpbal = getMPbalance(address, propertyId, MONEY);
+    Object balObj;
+
+    int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+    int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+    int64_t tmpBalReservedAccept = 0;
+    if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
     if (divisible)
     {
-        return FormatDivisibleMP(tmpbal);
+        balObj.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+        balObj.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
     }
     else
     {
-        return FormatIndivisibleMP(tmpbal);
+        balObj.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+        balObj.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
     }
+
+    return balObj;
 }
 
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)
@@ -5410,6 +5426,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 bool crowdPurchase = false;
                 int64_t crowdPropertyId = 0;
                 int64_t crowdTokens = 0;
+                int64_t issuerTokens = 0;
                 bool crowdDivisible = false;
                 string crowdName;
 
@@ -5459,7 +5476,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                                amount = mp_obj.getAmount();
                                                showReference = true;
                                                //check crowdsale invest?
-                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens);
+                                               crowdPurchase = isCrowdsalePurchase(wtxid, refAddress, &crowdPropertyId, &crowdTokens, &issuerTokens);
                                                if (crowdPurchase)
                                                {
                                                   MPTxType = "Crowdsale Purchase";
@@ -5548,10 +5565,12 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                 if (crowdDivisible)
                                 {
                                      txobj.push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
+                                     txobj.push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
                                 }
                                 else
                                 {
                                      txobj.push_back(Pair("purchasedtokens", FormatIndivisibleMP(crowdTokens))); //indivisible, push raw 64
+                                     txobj.push_back(Pair("issuertokens", FormatIndivisibleMP(issuerTokens)));
                                 }
                         }
                         if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
@@ -6057,8 +6076,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
             "{\n"
             "  \"address\" : 1Address,        (string) The address\n"
             "  \"balance\" : x.xxx,     (numeric) The available balance of the address\n"
-            "  \"reservedbyselloffer\" : x.xxx,   (numeric) The amount reserved by sell offers\n"
-            "  \"reservedbyacceptoffer\" : x.xxx,   (numeric) The amount reserved by accepts\n"
+            "  \"reserved\" : x.xxx,   (numeric) The amount reserved by sell offers and accepts\n"
             "}\n"
 
             "\nbExamples\n"
@@ -6096,18 +6114,21 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         Object addressbal;
 
+        int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+        int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+        int64_t tmpBalReservedAccept = 0;
+        if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
         addressbal.push_back(Pair("address", address));
         if(divisible)
         {
-        addressbal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+        addressbal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
         }
         else
         {
-        addressbal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
-        addressbal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-        if(propertyId <3) addressbal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+        addressbal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+        addressbal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
         }
         response.push_back(addressbal);
     }
@@ -6159,21 +6180,24 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
               divisible = sp.isDivisible();
             }
 
-
             Object propertyBal;
 
             propertyBal.push_back(Pair("propertyid", propertyId));
+
+            int64_t tmpBalAvailable = getMPbalance(address, propertyId, MONEY);
+            int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+            int64_t tmpBalReservedAccept = 0;
+            if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+
             if (divisible)
             {
-                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", FormatDivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatDivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
+                    propertyBal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
             }
             else
             {
-                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(getMPbalance(address, propertyId, MONEY))));
-                    propertyBal.push_back(Pair("reservedbyoffer", FormatIndivisibleMP(getMPbalance(address, propertyId, SELLOFFER_RESERVE))));
-                    if (propertyId<3) propertyBal.push_back(Pair("reservedbyaccept", FormatIndivisibleMP(getMPbalance(address, propertyId, ACCEPT_RESERVE))));
+                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
+                    propertyBal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
             }
 
             response.push_back(propertyBal);
