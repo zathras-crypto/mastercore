@@ -5147,6 +5147,50 @@ Value getbalance_MP(const Array& params, bool fHelp)
     return balObj;
 }
 
+int CMPTxList::getNumberOfPurchases(const uint256 txid)
+{
+    if (!pdb) return false;
+    int numberOfPurchases = 0;
+    std::vector<std::string> vstr;
+    string strValue;
+    Status status = pdb->Get(readoptions, txid.ToString(), &strValue);
+    if (status.ok())
+    {
+        // parse the string returned
+        boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+        // obtain the number of purchases
+        if (4 <= vstr.size())
+        {
+            numberOfPurchases = atoi(vstr[3]);
+        }
+    }
+    return numberOfPurchases;
+}
+
+bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue)
+{
+    if (!pdb) return 0;
+    std::vector<std::string> vstr;
+    string strValue;
+    Status status = pdb->Get(readoptions, txid.ToString()+"-"+to_string(purchaseNumber), &strValue);
+    if (status.ok())
+    {
+        // parse the string returned
+        boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+        // obtain the requisite details
+        if (5 == vstr.size())
+        {
+            *vout = atoi(vstr[0]);
+            *buyer = vstr[1];
+            *seller = vstr[2];
+            *propertyId = atoi(vstr[3]);
+            *nValue = boost::lexical_cast<boost::uint64_t>(vstr[4]);;
+            return true;
+        }
+    }
+    return false;
+}
+
 void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller)
 {
   if (!pdb) return;
@@ -5439,7 +5483,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                 uint256 wtxid = wtx.GetHash();
                 bool bIsMine;
                 bool isMPTx = false;
-                int nFee;
+                int nFee = 0;
                 string MPTxType;
                 unsigned int MPTxTypeInt;
                 string selectedAddress;
@@ -5474,11 +5518,63 @@ Value gettransaction_MP(const Array& params, bool fHelp)
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(true, wtx, blockHeight, 0, &mp_obj))
+                // replace initial MP detection with levelDB lookup instead of parse, this is much faster especially in calls like list/search
+                if (p_txlistdb->exists(wtxid))
                 {
-                        // OK, a valid MP transaction so far
-                        if (0<=mp_obj.step1())
+                    //transaction is in levelDB, so we can attempt to parse it
+                    int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+                    if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                    {
+                        // do we have a non-zero RC, if so it's a payment, handle differently
+                        if (0 < parseRC)
                         {
+                            // handle as payment TX - this doesn't fit nicely into the kind of output for a MP tx so we'll do this seperately
+                            // add generic TX data to the output
+                            Object txobj;
+                            txobj.push_back(Pair("txid", wtxid.GetHex()));
+                            txobj.push_back(Pair("confirmations", confirmations));
+                            txobj.push_back(Pair("blocktime", blockTime));
+                            txobj.push_back(Pair("type", "DEx Purchase"));
+                            // get the details of sub records for payment(s) in the tx and push into an array
+                            Array purchases;
+                            int numberOfPurchases=p_txlistdb->getNumberOfPurchases(wtxid);
+                            if (0<numberOfPurchases)
+                            {
+                                for(int purchaseNumber = 1; purchaseNumber <= numberOfPurchases; purchaseNumber++)
+                                {
+                                     Object purchaseObj;
+                                     string buyer;
+                                     string seller;
+                                     uint64_t vout;
+                                     uint64_t nValue;
+                                     p_txlistdb->getPurchaseDetails(wtxid,purchaseNumber,&buyer,&seller,&vout,&propertyId,&nValue);
+                                     bIsMine = false;
+                                     bIsMine = IsMyAddress(buyer);
+                                     if (!bIsMine)
+                                     {
+                                         bIsMine = IsMyAddress(seller);
+                                     }
+                                     uint64_t amountPaid = wtx.vout[vout].nValue;
+                                     purchaseObj.push_back(Pair("vout", vout));
+                                     purchaseObj.push_back(Pair("amountpaid", FormatDivisibleMP(amountPaid)));
+                                     purchaseObj.push_back(Pair("ismine", bIsMine));
+                                     purchaseObj.push_back(Pair("senderaddress", buyer));
+                                     purchaseObj.push_back(Pair("referenceaddress", seller));
+                                     purchaseObj.push_back(Pair("propertyid", propertyId));
+                                     purchaseObj.push_back(Pair("amountbought", FormatDivisibleMP(nValue)));
+                                     purchaseObj.push_back(Pair("valid", true)); //only valid purchases are stored, anything else is regular BTC tx
+                                     purchases.push_back(purchaseObj);
+                                }
+                            }
+                            txobj.push_back(Pair("purchases", purchases));
+                            // return the object
+                            return txobj;
+                        }
+                        else
+                        {
+                            // otherwise RC was 0, a valid MP transaction so far
+                            if (0<=mp_obj.step1())
+                            {
                                 MPTxType = mp_obj.getTypeString();
                                 MPTxTypeInt = mp_obj.getType();
                                 senderAddress = mp_obj.getSender();
@@ -5555,10 +5651,16 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                                propertyId = mp_obj.getCurrency();
                                                amount = mp_obj.getAmount();
                                           }
-                                     break; 
-                          }
-                                divisible=isPropertyDivisible(propertyId);
+                                     break;
+                                } // end switch 
+                            divisible=isPropertyDivisible(propertyId);
+                            }
                         }
+                    }
+                    else
+                    {
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction but TX exists in levelDB.  This may be a bug, please report to the developers.");
+                    }
                 }
                 else
                 {
@@ -5698,8 +5800,15 @@ string sAddress = "";
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
+
+                //rather than attempt to parse every transaction in the wallet again looking for MP messages let's look at levelDB in the first instance
+                //this should provide a huge speedup for the example provided where the wallet holds 10,000 or 100,000 bitcoin transactions and only one or two
+                //MP messages, meaning we would go through parsing every TX in the wallet looking for our default return (10) MP messages causing a delayed RPC response
+
+                if (p_txlistdb->exists(wtxid))
                 {
+                    if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
+                    {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
                         {
@@ -5775,7 +5884,8 @@ string sAddress = "";
 
                                 }
                                 divisible=isPropertyDivisible(propertyId);
-                        }
+                          }
+                     }
                 }
 
                 // is this a MP transaction? switched to parsing rather than leveldb at Michael's request
@@ -5931,8 +6041,15 @@ bool addressFilter;
 
                 mp_obj.SetNull();
                 CMPOffer temp_offer;
-                if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
+
+                //rather than attempt to parse every transaction in the wallet again looking for MP messages let's look at levelDB in the first instance
+                //this should provide a huge speedup for the example provided where the wallet holds 10,000 or 100,000 bitcoin transactions and only one or two
+                //MP messages, meaning we would go through parsing every TX in the wallet looking for our default return (10) MP messages causing a delayed RPC response
+
+                if (p_txlistdb->exists(wtxid))
                 {
+                    if (0 == parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj))
+                    {
                         // OK, a valid MP transaction so far
                         if (0<=mp_obj.step1())
                         {
@@ -6008,7 +6125,8 @@ bool addressFilter;
 
                                 }
                                 divisible=isPropertyDivisible(propertyId);
-                        }
+                          }
+                     }
                 }
 
                 // is this a MP transaction? switched to parsing rather than leveldb at Michael's request
