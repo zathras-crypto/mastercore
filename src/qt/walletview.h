@@ -14,6 +14,7 @@ class ReceiveCoinsDialog;
 class SendCoinsDialog;
 class SendCoinsRecipient;
 class TransactionView;
+class BalancesView;
 class WalletModel;
 
 QT_BEGIN_NAMESPACE
@@ -61,6 +62,7 @@ private:
     SendCoinsDialog *sendCoinsPage;
 
     TransactionView *transactionView;
+    BalancesView *balancesView;
 
     QProgressDialog *progressDialog;
 
