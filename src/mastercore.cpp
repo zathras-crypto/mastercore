@@ -4777,28 +4777,108 @@ CWallet *wallet = pwalletMain;
   return string();
 }
 
+static int selectCoins(const string &FromAddress, CCoinControl &coinControl) {
+  CWallet *wallet = pwalletMain;
+  const int64_t n_max = (COIN * (20 * (0.0001))); // assume 20KBytes max TX size at 0.0001 per kilobyte
+  // FUTURE: remove n_max and try 1st smallest input, then 2 smallest inputs etc. -- i.e. move Coin Control selection closer to CreateTransaction
+  int64_t n_total = 0;  // total output funds collected
+  LOCK(wallet->cs_wallet);
+  {
+    string sAddress = "";
+
+    // iterate over the wallet
+    for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin();
+        it != wallet->mapWallet.end(); ++it) {
+      const uint256& wtxid = it->first;
+      const CWalletTx* pcoin = &(*it).second;
+      bool bIsMine;
+      bool bIsSpent;
+
+      if (pcoin->IsTrusted()) {
+        const int64_t nAvailable = pcoin->GetAvailableCredit();
+
+        if (!nAvailable)
+          continue;
+
+        for (unsigned int i = 0; i < pcoin->vout.size(); i++) {
+          CTxDestination dest;
+
+          if (!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
+            continue;
+
+          bIsMine = IsMine(*wallet, dest);
+          bIsSpent = wallet->IsSpent(wtxid, i);
+
+          if (!bIsMine || bIsSpent)
+            continue;
+
+          int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
+
+          sAddress = CBitcoinAddress(dest).ToString();
+          if (msc_debug_send)
+            fprintf(mp_fp,
+                "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
+                sAddress.c_str(), bIsMine ? "yes" : "NO",
+                bIsSpent ? "YES" : "no", wtxid.ToString().c_str(), i, n);
+
+          // only use funds from the Sender's address for our MP transaction
+          // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
+          if (FromAddress == sAddress) {
+            COutPoint outpt(wtxid, i);
+            coinControl.Select(outpt);
+
+            n_total += n;
+
+            if (n_max <= n_total)
+              break;
+          }
+        } // for pcoin end
+      }
+
+      if (n_max <= n_total)
+        break;
+    } // for iterate over the wallet end
+  }
+
+  return 0;
+}
+
+#define PUSH_BACK_BYTES(vector, value)\
+    vector.insert(vector.end(), reinterpret_cast<unsigned char *>(&(value)), reinterpret_cast<unsigned char *>(&(value)) + sizeof((value)));
+
+#define PUSH_BACK_BYTES_PTR(vector, ptr, size)\
+    vector.insert(vector.end(), reinterpret_cast<unsigned char *>((ptr)), reinterpret_cast<unsigned char *>((ptr)) + (size));
+
+
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
 // returns 0 if everything is OK, the transaction was sent
-static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const string &data_packet, CCoinControl &coinControl, uint256 & txid)
+static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const vector<unsigned char> &data, uint256 & txid)
 {
-const int n_keys = 2;
-int i = 0;
-std::vector<CPubKey> pubkeys;
-pubkeys.resize(n_keys);
 CWallet *wallet = pwalletMain;
 const int64_t nDustLimit = MP_DUST_LIMIT;
+CCoinControl coinControl;
+vector< pair<CScript, int64_t> > vecSend;
+
+  // pick inputs for this transaction
+  if (0 > selectCoins(senderAddress, coinControl)) {
+    return -12;
+  }
+
 
   txid = 0;
 
+  // determine the redeeming public key for our multisig outputs
   // partially copied from _createmultisig()
   CBitcoinAddress address;
+  CPubKey redeemingPubKey;
   if (false == redemptionAddress.empty()) {
     address.SetString(redemptionAddress);
   } else {
     address.SetString(senderAddress);
   }
 
+  // validate that the redemtion Address is good
   if (wallet && address.IsValid())
   {
     if (address.IsScript()) {
@@ -4809,29 +4889,85 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
       if (!address.GetKeyID(keyID))
         return -20;
 
-      CPubKey vchPubKey;
-      if (!wallet->GetPubKey(keyID, vchPubKey))
+      if (!wallet->GetPubKey(keyID, redeemingPubKey))
         return -21;
-      if (!vchPubKey.IsFullyValid())
+      if (!redeemingPubKey.IsFullyValid())
         return -22;
 
-      pubkeys[i++] = vchPubKey;
-    }
+     }
   }
   else return -23;
 
-  pubkeys[i] = ParseHex(data_packet);
+  int nRemainingBytes = data.size();
+  int nNextByte = 0;
+  unsigned char seqNum = 1;
+  string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
+  prepareObfuscatedHashes(senderAddress, strObfuscatedHashes);
 
-  // 2nd (& 3rd) is the data packet(s)
-  if (!pubkeys[i].IsFullyValid()) return -1;
+  while (nRemainingBytes > 0) {
+    int nKeys = 1; //assume one key of data since we have data remaining
+    if (nRemainingBytes > 30) {
+      // we have enough data for 2 keys in this output
+      nKeys += 1;
+    }
 
-  CScript multisig_output;
-  multisig_output.SetMultisig(1, pubkeys);
-  printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, multisig_output.ToString().c_str(), __LINE__, __FILE__);
+    vector<CPubKey> keys;
+    // always include the redeeming pubkey
+    keys.push_back(redeemingPubKey);
+
+    int i;
+    for (i = 0; i < nKeys; i++) {
+      // add sequence number
+      vector<unsigned char> fakeKey;
+      fakeKey.push_back(seqNum);
+
+      // add up to 30 bytes of data
+      int numBytes = nRemainingBytes < 30 ? nRemainingBytes: 30;
+      fakeKey.insert(fakeKey.end(), data.begin() + nNextByte, data.begin() + nNextByte + numBytes);
+      nNextByte += numBytes;
+      nRemainingBytes -= numBytes;
+
+      // pad to 31 total bytes with zeros
+      while (fakeKey.size() < 31) {
+        fakeKey.push_back(0);
+      }
+
+      // xor in the obfuscation
+      int j;
+      vector<unsigned char>hash = ParseHex(strObfuscatedHashes[seqNum]);
+      for (j = 0; j < 31; j++) {
+        fakeKey[j] = fakeKey[j] ^ hash[j];
+      }
+
+      // prepend the 2
+      fakeKey.insert(fakeKey.begin(), 2);
+
+      // fix up the ecdsa code point
+      CPubKey pubKey;
+      fakeKey.resize(33);
+      unsigned char random_byte = (unsigned char)(GetRand(256));
+      for (j = 0; i < 256 ; j++) {
+        fakeKey[32] = random_byte;
+
+        pubKey = CPubKey(fakeKey);
+        printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+
+        if (pubKey.IsFullyValid()) break;
+
+        ++random_byte; // cycle 256 times, if we must to find a valid ECDSA point
+      }
+
+      keys.push_back(pubKey);
+      seqNum++;
+    }
+
+    CScript multisig_output;
+    multisig_output.SetMultisig(1, keys);
+    vecSend.push_back(make_pair(multisig_output, nDustLimit));
+  }
 
   CWalletTx wtxNew;
   int64_t nFeeRet = 0;
-  vector< pair<CScript, int64_t> > vecSend;
   std::string strFailReason;
   CReserveKey reserveKey(wallet);
 
@@ -4842,10 +4978,7 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
 
   CScript scriptPubKey;
 
-  // the 1-multisig-2 Class B with data & sender
-  vecSend.push_back(make_pair(multisig_output, nDustLimit));
-
-  // the reference/recepient/receiver
+  // add the the reference/recepient/receiver ouput if needed
   if (!receiverAddress.empty())
   {
     // Send To Owners is the first use case where the receiver is empty
@@ -4853,7 +4986,7 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
     vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
   }
 
-  // the marker output
+  // add the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
   vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
 
@@ -4875,24 +5008,19 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   return 0;
 }
 
+
+
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
 static uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType)
 {
 const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
-CWallet *wallet = pwalletMain;
-CCoinControl coinControl; // I am using coin control to send from
 int rc = 0;
 uint256 txid = 0;
-// const int64_t n_max = CTransaction::nMinRelayTxFee * 10000; // maximum funds needed to send (insane fee)
-// from http://bitcoinfees.com : 148 * number_of_inputs + 34 * number_of_outputs + 10 // 8KByte fee is enough for 50 inputs & 20 outputs
-const int64_t n_max = (COIN*(20*(0.0001))); // assume 20KBytes max TX size at 0.0001 per kilobyte
-// FUTURE: remove n_max and try 1st smallest input, then 2 smallest inputs etc. -- i.e. move Coin Control selection closer to CreateTransaction
-int64_t n_total = 0;  // total output funds collected
 
-  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu); n_max = %ld\n",
-   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, n_max);
 
-  LOCK(wallet->cs_wallet);
+  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu)\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount);
+
 
   // make sure this address has enough MP currency available!
   if ((nAvailable < Amount) || (0 == Amount))
@@ -4904,107 +5032,18 @@ int64_t n_total = 0;  // total output funds collected
     return 0;
   }
 
-    {
-    string sAddress="";
 
-        // iterate over the wallet
-        for (map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
-        {
-        const uint256& wtxid = it->first;
-        const CWalletTx* pcoin = &(*it).second;
-        bool bIsMine;
-        bool bIsSpent;
-
-            if (pcoin->IsTrusted())
-            {
-            const int64_t nAvailable = pcoin->GetAvailableCredit();
-
-              if (!nAvailable) continue;
-
-              for (unsigned int i = 0; i < pcoin->vout.size(); i++)
-              {
-                CTxDestination dest;
-
-                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, dest))
-                    continue;
-
-                bIsMine = IsMine(*wallet, dest);
-                bIsSpent = wallet->IsSpent(wtxid, i);
-
-                if (!bIsMine || bIsSpent) continue;
-
-                int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
-
-                sAddress = CBitcoinAddress(dest).ToString();
-                if (msc_debug_send) fprintf(mp_fp, "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
-                 sAddress.c_str(), bIsMine ? "yes":"NO", bIsSpent ? "YES":"no", wtxid.ToString().c_str(), i, n);
-
-                // only use funds from the Sender's address for our MP transaction
-                // TODO: may want to a little more selective here, i.e. use smallest possible (~0.1 BTC), but large amounts lead to faster confirmations !
-                if (FromAddress == sAddress)
-                {
-                  COutPoint outpt(wtxid, i);
-                  coinControl.Select(outpt);
-
-                  n_total += n;
-
-                  if (n_max <= n_total) break;
-                }
-              } // for pcoin end
-            }
-
-          if (n_max <= n_total) break;
-        } // for iterate over the wallet end
-    }
-
-  string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
-  prepareObfuscatedHashes(FromAddress, strObfuscatedHashes);
-
-  unsigned char packet[MAX_PACKETS * PACKET_SIZE];
-  memset(&packet, 0, sizeof(packet));
-
+  vector<unsigned char> data;
   swapByteOrder32(TransactionType);
   swapByteOrder32(CurrencyID);
   swapByteOrder64(Amount);
 
-  // TODO: beautify later
-  packet[0] = 0x01; // seq
-  memcpy(&packet[1], &TransactionType, 4);
-  memcpy(&packet[5], &CurrencyID, 4);
-  memcpy(&packet[9], &Amount, 8);
+  PUSH_BACK_BYTES(data, TransactionType);
+  PUSH_BACK_BYTES(data, CurrencyID);
+  PUSH_BACK_BYTES(data, Amount);
 
-  printf("pkt : %s\n", HexStr(packet, PACKET_SIZE + packet, false).c_str());
-
-  vector<unsigned char>hash = ParseHex(strObfuscatedHashes[1]);
-  for (unsigned int i=0;i<hash.size();i++)
-  {
-    packet[i] ^= hash[i];
-  }
-
-  printf("     hash   :   %s\n", HexStr(hash).c_str());
-  printf("     packet :   %s\n", HexStr(packet, PACKET_SIZE + packet, false).c_str());
-
-  vector<unsigned char> vec_pkt;
-  vec_pkt.resize(2+PACKET_SIZE);
-  vec_pkt[0]=0x02;
-  memcpy(&vec_pkt[1], &packet, PACKET_SIZE);
-
-  CPubKey pubKey;
-  unsigned char random_byte = (unsigned char)(GetRand(256));
-  for (unsigned int i = 0; i < 0xFF ; i++)
-  {
-    vec_pkt[1+PACKET_SIZE] = random_byte;
-
-    pubKey = CPubKey(vec_pkt);
-    printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
-
-    if (pubKey.IsFullyValid()) break;
-
-    ++random_byte; // cycle 256 times, if we must to find a valid ECDSA point
-  }
-
-  rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, HexStr(vec_pkt), coinControl, txid);
-  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d; n_total= %ld\n", rc, n_total);
+  rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, txid);
+  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   return txid;
 }
@@ -5122,6 +5161,38 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
   //some sanity checking of the data supplied?
   uint256 newTX = send_To_Owners(FromAddress, RedeemAddress, propertyId, Amount);
+
+  //we need to do better than just returning a string of 0000000 here if we can't send the TX
+  return newTX.GetHex();
+}
+
+Value sendrawtx_MP(const Array& params, bool fHelp)
+{
+if (fHelp || params.size() < 3 || params.size() > 4)
+        throw runtime_error(
+            "sendrawtx_MP\n"
+            "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
+            "\nParameters:\n"
+            "FromAddress   : the address to send from\n"
+            "ToAddress     : the address to send to.  This should be empty: (\"\") for transaction\n"
+            "                types that do not use a reference/to address\n"
+            "RawTX         : the hex-encoded raw transaction\n"
+            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "\nResult:\n"
+            "txid    (string) The transaction ID of the sent transaction\n"
+            "\nExamples:\n"
+            ">mastercored sendrawtx_MP 1FromAddress 1ToAddress <tx bytes hex> 1RedeemAddress\n"
+        );
+
+  std::string FromAddress = (params[0].get_str());
+  std::string ToAddress = (params[1].get_str());
+  std::string hexTransaction = (params[2].get_str());
+  std::string RedeemAddress = (params.size() > 4) ? (params[4].get_str()): "";
+
+  //some sanity checking of the data supplied?
+  uint256 newTX;
+  vector<unsigned char> data = ParseHex(hexTransaction);
+  ClassB_send(FromAddress, ToAddress, RedeemAddress, data, newTX);
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
