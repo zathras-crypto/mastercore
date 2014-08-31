@@ -309,8 +309,7 @@ int64_t strToInt64(std::string strAmount, bool divisible)
       string newStrAmount = strAmount.substr(0,pos);
       try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
   }
-printf("Amount: %lu\nForcing abort of transaction by setting amount to 0\n",Amount);
-  return 0;
+return Amount;
 }
 
 string FormatIndivisibleMP(int64_t n)
