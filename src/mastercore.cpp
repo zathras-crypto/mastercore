@@ -205,6 +205,9 @@ char *c_strMastercoinType(int i)
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
     case MSC_TYPE_PROMOTE_PROPERTY: return ((char *)"Promote Property");
     case MSC_TYPE_CLOSE_CROWDSALE: return ((char *)"Close Crowsale");
+    case MSC_TYPE_CREATE_PROPERTY_MANUAL: return ((char *)"Create Property - Manual");
+    case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
+    case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
 
     default: return ((char *)"* unknown type *");
   }
@@ -646,8 +649,14 @@ public:
       url = json[idx++].value_.get_str();
       data = json[idx++].value_.get_str();
       fixed = json[idx++].value_.get_bool();
+      if (fixed || json.size() < 16) {
+        manual = json[12].value_.get_bool();
+      } else {
+        manual = false;
+      }
+
       num_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
-      if (false == fixed) {
+      if (false == fixed && false == manual) {
         currency_desired = (unsigned int)json[idx++].value_.get_uint64();
         deadline = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
         early_bird = (unsigned char)json[idx++].value_.get_int();
@@ -687,11 +696,7 @@ public:
       }
       //fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
-      if (json.size() > idx) {
-        manual = json[idx++].value_.get_bool();
-      } else {
-        manual = false;
-      }
+      idx++; // increment for manual that had to be parsed earlier for logic
     }
 
     bool isDivisible() const
@@ -2732,9 +2737,10 @@ https://github.com/mastercoin-MSC/spec/issues/170
   int logicMath_GrantTokens() {
     int rc = PKT_ERROR_SP - 1000;
 
-    if (!isTransactionTypeAllowed(block, currency, type, version))
+    if (!isTransactionTypeAllowed(block, currency, type, version)) {
       fprintf(mp_fp, "\tRejecting Grant: Transaction type not yet allowed\n");
       return (PKT_ERROR_SP - 22);
+    }
 
     if (sender.empty()) {
       ++InvalidCount_per_spec;
@@ -2764,7 +2770,7 @@ https://github.com/mastercoin-MSC/spec/issues/170
     }
 
     // overflow tokens check
-    if (MAX_INT_8_BYTES - sp.num_tokens > nValue) {
+    if (MAX_INT_8_BYTES - sp.num_tokens < nValue) {
       char prettyTokens[256];
       if (sp.isDivisible()) {
         snprintf(prettyTokens, 256, "%lu.%08lu", nValue / COIN, nValue % COIN);
@@ -2786,9 +2792,10 @@ https://github.com/mastercoin-MSC/spec/issues/170
   int logicMath_RevokeTokens() {
     int rc = PKT_ERROR_SP - 1000;
 
-    if (!isTransactionTypeAllowed(block, currency, type, version))
+    if (!isTransactionTypeAllowed(block, currency, type, version)) {
       fprintf(mp_fp, "\tRejecting Revoke: Transaction type not yet allowed\n");
       return (PKT_ERROR_SP - 22);
+    }
 
     if (sender.empty()) {
       ++InvalidCount_per_spec;
