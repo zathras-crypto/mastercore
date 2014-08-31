@@ -125,6 +125,9 @@ static const int txRestrictionsRules[][3] = {
   {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_METADEX,                  MSC_METADEX_BLOCK,  MP_TX_PKT_V0},
   {MSC_TYPE_OFFER_ACCEPT_A_BET,       MSC_BET_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_CREATE_PROPERTY_MANUAL,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_GRANT_PROPERTY_TOKENS,    MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_REVOKE_PROPERTY_TOKENS,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
 
 // end of array marker, in addition to sizeof/sizeof
   {-1,-1},
@@ -558,6 +561,7 @@ public:
     // other information
     uint256 txid;
     bool fixed;
+    bool manual;
 
     std::map<std::string, std::vector<uint64_t> > txFundraiserData; // schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
     
@@ -577,6 +581,7 @@ public:
     , percentage(0)
     , txid()
     , fixed(false)
+    , manual(false)
     , txFundraiserData()
     {
     }
@@ -594,7 +599,7 @@ public:
       spInfo.push_back(Pair("data", data));
       spInfo.push_back(Pair("fixed", fixed));
       spInfo.push_back(Pair("num_tokens", (boost::format("%d") % num_tokens).str()));
-      if (false == fixed) {
+      if (false == fixed && false == manual) {
         spInfo.push_back(Pair("currency_desired", (uint64_t)currency_desired));
         spInfo.push_back(Pair("deadline", (boost::format("%d") % deadline).str()));
         spInfo.push_back(Pair("early_bird", (int)early_bird));
@@ -623,13 +628,15 @@ public:
 
       spInfo.push_back(Pair("txFundraiserData", values_long)); 
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
+      spInfo.push_back(Pair("manual", manual));
+
 
       return spInfo;
     }
 
     void fromJSON(Object const &json)
     {
-      int idx = 0;
+      unsigned int idx = 0;
       issuer = json[idx++].value_.get_str();
       prop_type = (unsigned short)json[idx++].value_.get_int();
       prev_prop_id = (unsigned int)json[idx++].value_.get_uint64();
@@ -680,6 +687,11 @@ public:
       }
       //fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
+      if (json.size() > idx) {
+        manual = json[idx++].value_.get_bool();
+      } else {
+        manual = false;
+      }
     }
 
     bool isDivisible() const
@@ -2717,6 +2729,105 @@ https://github.com/mastercoin-MSC/spec/issues/170
     return rc;
   }
 
+  int logicMath_GrantTokens() {
+    int rc = PKT_ERROR_SP - 1000;
+
+    if (!isTransactionTypeAllowed(block, currency, type, version))
+      fprintf(mp_fp, "\tRejecting Grant: Transaction type not yet allowed\n");
+      return (PKT_ERROR_SP - 22);
+
+    if (sender.empty()) {
+      ++InvalidCount_per_spec;
+      fprintf(mp_fp, "\tRejecting Grant: Sender is empty\n");
+      return (PKT_ERROR_SP - 23);
+    }
+
+    // manual issuance check
+    if (false == _my_sps->hasSP(currency)) {
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d does not exist\n", currency);
+      return (PKT_ERROR_SP - 24);
+    }
+
+    CMPSPInfo::Entry sp;
+    _my_sps->getSP(currency, sp);
+
+    if (false == sp.manual) {
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d was not issued with a TX 54\n", currency);
+      return (PKT_ERROR_SP - 25);
+    }
+
+
+    // issuer check
+    if (false == boost::iequals(sender, sp.issuer)) {
+      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+      return (PKT_ERROR_SP - 26);
+    }
+
+    // overflow tokens check
+    if (MAX_INT_8_BYTES - sp.num_tokens > nValue) {
+      char prettyTokens[256];
+      if (sp.isDivisible()) {
+        snprintf(prettyTokens, 256, "%lu.%08lu", nValue / COIN, nValue % COIN);
+      } else {
+        snprintf(prettyTokens, 256, "%lu", nValue);
+      }
+      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%d would overflow the maximum limit for tokens in a smart property\n", prettyTokens, currency);
+      return (PKT_ERROR_SP - 27);
+    }
+
+    // grant the tokens
+    update_tally_map(sender, currency, nValue, MONEY);
+
+    // call the send logic
+    rc = logicMath_SimpleSend();
+    return rc;
+  }
+
+  int logicMath_RevokeTokens() {
+    int rc = PKT_ERROR_SP - 1000;
+
+    if (!isTransactionTypeAllowed(block, currency, type, version))
+      fprintf(mp_fp, "\tRejecting Revoke: Transaction type not yet allowed\n");
+      return (PKT_ERROR_SP - 22);
+
+    if (sender.empty()) {
+      ++InvalidCount_per_spec;
+      fprintf(mp_fp, "\tRejecting Revoke: Sender is empty\n");
+      return (PKT_ERROR_SP - 23);
+    }
+
+    // manual issuance check
+    if (false == _my_sps->hasSP(currency)) {
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d does not exist\n", currency);
+      return (PKT_ERROR_SP - 24);
+    }
+
+    CMPSPInfo::Entry sp;
+    _my_sps->getSP(currency, sp);
+
+    if (false == sp.manual) {
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", currency);
+      return (PKT_ERROR_SP - 25);
+    }
+
+
+    // issuer check
+    if (false == boost::iequals(sender, sp.issuer)) {
+      fprintf(mp_fp, "\tRejecting Revoke: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+      return (PKT_ERROR_SP - 26);
+    }
+
+    // insufficient funds check and revoke
+    if (false == update_tally_map(sender, currency, -nValue, MONEY)) {
+      fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
+      return (PKT_ERROR_SP - 111);
+    }
+
+    rc = 0;
+    return rc;
+  }
+
+
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  //
@@ -2893,6 +3004,47 @@ https://github.com/mastercoin-MSC/spec/issues/170
       }
       break;
     }
+
+    case MSC_TYPE_CREATE_PROPERTY_MANUAL:
+    {
+      const char *p = step2_SmartProperty(step_rc);
+      if (0>step_rc) return step_rc;
+      if (!p) return (PKT_ERROR_SP -11);
+
+      if (0 == step_rc)
+      {
+        CMPSPInfo::Entry newSP;
+        newSP.issuer = sender;
+        newSP.txid = txid;
+        newSP.prop_type = prop_type;
+        newSP.category.assign(category);
+        newSP.subcategory.assign(subcategory);
+        newSP.name.assign(name);
+        newSP.url.assign(url);
+        newSP.data.assign(data);
+        newSP.fixed = false;
+        newSP.manual = true;
+
+        const unsigned int id = _my_sps->putSP(ecosystem, newSP);
+        fprintf(mp_fp, "\nCREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
+      }
+      rc = 0;
+      break;
+    }
+
+    case MSC_TYPE_GRANT_PROPERTY_TOKENS:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_GrantTokens();
+      break;
+
+    case MSC_TYPE_REVOKE_PROPERTY_TOKENS:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_RevokeTokens();
+      break;
 
     case MSC_TYPE_SEND_TO_OWNERS:
     if (disable_Divs) break;
@@ -6369,7 +6521,8 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (params.size() > 1) showVerbose = params[1].get_bool();
 
     bool fixedIssuance = sp.fixed;
-    if (fixedIssuance) // property was not a variable issuance
+    bool manualIssuance = sp.manual;
+    if (fixedIssuance || manualIssuance) // property was not a variable issuance
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
 
     uint256 creationHash = sp.txid;
