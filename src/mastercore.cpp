@@ -273,6 +273,33 @@ int64_t strToInt64(std::string strAmount, bool divisible)
   //convert the string into a usable int64
   if (divisible)
   {
+      //check for existance of decimal point
+      size_t pos = strAmount.find(".");
+      if (pos==std::string::npos)
+      { //no decimal point but divisible so pad 8 zeros on right
+          strAmount+="00000000";
+      }
+      else
+      {
+          size_t posSecond = strAmount.find(".", pos+1); //check for existence of second decimal point, if so invalidate amount
+          if (posSecond!=std::string::npos) return 0;
+          if ((strAmount.size()-pos)<8)
+          { //there are decimals either exact or not enough, pad as needed
+              string strRightOfDecimal = strAmount.substr(pos+1);
+              unsigned int zerosToPad = 8-strRightOfDecimal.size();
+              if (zerosToPad>0) //do we need to pad?
+              {
+                  for(int it = 0; it != zerosToPad; it++)
+                  {
+                      strAmount+="0";
+                  }
+              }
+          }
+          else
+          { //there are too many decimals, truncate after 8
+              strAmount = strAmount.substr(pos,pos+8);
+          }
+      }
       strAmount.erase(std::remove(strAmount.begin(), strAmount.end(), '.'), strAmount.end());
       try { Amount = boost::lexical_cast<int64_t>(strAmount); } catch(const boost::bad_lexical_cast &e) { }
   }
@@ -282,8 +309,8 @@ int64_t strToInt64(std::string strAmount, bool divisible)
       string newStrAmount = strAmount.substr(0,pos);
       try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
   }
-
-  return Amount;
+printf("Amount: %lu\nForcing abort of transaction by setting amount to 0\n",Amount);
+  return 0;
 }
 
 string FormatIndivisibleMP(int64_t n)
