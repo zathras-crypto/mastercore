@@ -4574,6 +4574,11 @@ int mastercore_save_state( CBlockIndex const *pBlockIndex )
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
+  if (mastercoreInitialized) {
+    // nothing to do
+    return 0;
+  }
+
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
 #ifndef  DISABLE_LOG_FILE
