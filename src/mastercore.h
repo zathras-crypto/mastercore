@@ -353,6 +353,9 @@ extern uint64_t global_balance_reserved_maineco[100000];
 extern uint64_t global_balance_money_testeco[100000];
 extern uint64_t global_balance_reserved_testeco[100000];
 
+// this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
+extern map<string, CMPTally> mp_tally_map;
+
 int mastercore_init(void);
 
 uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype);
