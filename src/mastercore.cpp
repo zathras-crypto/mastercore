@@ -270,6 +270,10 @@ int64_t strToInt64(std::string strAmount, bool divisible)
 {
   int64_t Amount = 0;
 
+  //check for a negative (minus sign) and invalidate if present
+  size_t negSignPos = strAmount.find("-");
+  if (negSignPos!=std::string::npos) return 0;
+
   //convert the string into a usable int64
   if (divisible)
   {
@@ -297,7 +301,7 @@ int64_t strToInt64(std::string strAmount, bool divisible)
           }
           else
           { //there are too many decimals, truncate after 8
-              strAmount = strAmount.substr(pos,pos+8);
+              strAmount = strAmount.substr(0,pos+9);
           }
       }
       strAmount.erase(std::remove(strAmount.begin(), strAmount.end(), '.'), strAmount.end());
