@@ -58,9 +58,9 @@ BalancesView::BalancesView(QWidget *parent) :
     propSelectorWidget->setFixedWidth(120);
 #endif
 
-    propSelectorWidget->addItem(tr("Test1"); //, TransactionFilterProxy::ALL_TYPES);
-    propSelectorWidget->addItem(tr("Test2"); //, TransactionFilterProxy::TYPE(TransactionRecord::RecvWithAddress) 
-    propSelectorWidget->addItem(tr("Test3"); //, TransactionFilterProxy::TYPE(TransactionRecord::SendToAddress) 
+    propSelectorWidget->addItem(tr("Test1")); //, TransactionFilterProxy::ALL_TYPES);
+    propSelectorWidget->addItem(tr("Test2")); //, TransactionFilterProxy::TYPE(TransactionRecord::RecvWithAddress) 
+    propSelectorWidget->addItem(tr("Test3")); //, TransactionFilterProxy::TYPE(TransactionRecord::SendToAddress) 
 
     hlayout->addWidget(propSelectorWidget);
 
@@ -92,9 +92,9 @@ BalancesView::BalancesView(QWidget *parent) :
     QAction *balancesCopyAmountAction = new QAction(tr("Copy amount"), this);
 
     contextMenu = new QMenu();
-    contextMenu->addAction(copyAddressAction);
-    contextMenu->addAction(copyLabelAction);
-    contextMenu->addAction(copyAmountAction);
+    contextMenu->addAction(balancesCopyAddressAction);
+    contextMenu->addAction(balancesCopyLabelAction);
+    contextMenu->addAction(balancesCopyAmountAction);
 
     mapperThirdPartyTxUrls = new QSignalMapper(this);
 

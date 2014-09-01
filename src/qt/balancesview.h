@@ -60,7 +60,7 @@ private:
     TransactionFilterProxy *transactionProxyModel;
     QTableView *balancesView;
 
-    QComboBox *dateWidget;
+    QComboBox *propSelectorWidget;
     QComboBox *typeWidget;
     QLineEdit *addressWidget;
     QLineEdit *amountWidget;
@@ -80,14 +80,14 @@ private:
 
 private slots:
     void contextualMenu(const QPoint &);
-    void dateRangeChanged();
-    void showDetails();
-    void copyAddress();
-    void editLabel();
-    void copyLabel();
-    void copyAmount();
-    void copyTxID();
-    void openThirdPartyTxUrl(QString url);
+    //void dateRangeChanged();
+    //void showDetails();
+    //void copyAddress();
+    //void editLabel();
+    //void copyLabel();
+    //void copyAmount();
+    //void copyTxID();
+    //void openThirdPartyTxUrl(QString url);
 
 signals:
     void doubleClicked(const QModelIndex&);
@@ -96,13 +96,10 @@ signals:
     void message(const QString &title, const QString &message, unsigned int style);
 
 public slots:
-    void chooseDate(int idx);
-    void chooseType(int idx);
-    void changedPrefix(const QString &prefix);
-    void changedAmount(const QString &amount);
-    void exportClicked();
-    void focusTransaction(const QModelIndex&);
-
+    void propSelectorChanged(int idx);
+    void balancesCopyAddress();
+    void balancesCopyLabel();
+    void balancesCopyAmount();
 };
 
 #endif // BALANCESVIEW_H

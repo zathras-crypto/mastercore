@@ -143,6 +143,7 @@ QT_MOC_CPP = \
   moc_transactionfilterproxy.cpp \
   moc_transactiontablemodel.cpp \
   moc_transactionview.cpp \
+  moc_balancesview.cpp \
   moc_utilitydialog.cpp \
   moc_walletframe.cpp \
   moc_walletmodel.cpp \
@@ -208,6 +209,7 @@ BITCOIN_QT_H = \
   transactionrecord.h \
   transactiontablemodel.h \
   transactionview.h \
+  balancesview.h \
   utilitydialog.h \
   walletframe.h \
   walletmodel.h \
@@ -306,6 +308,7 @@ BITCOIN_QT_CPP += \
   transactionrecord.cpp \
   transactiontablemodel.cpp \
   transactionview.cpp \
+  balancesview.cpp \
   walletframe.cpp \
   walletmodel.cpp \
   walletmodeltransaction.cpp \
