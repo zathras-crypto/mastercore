@@ -299,6 +299,11 @@ public:
     }
 
     void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
+    void recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller);
+
+    int getNumberOfPurchases(const uint256 txid);
+    bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
+
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 
