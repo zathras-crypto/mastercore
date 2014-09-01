@@ -686,6 +686,9 @@ public:
       //Go through and deserialize the database
       bool crowdsale = !fixed && !manual;
       for(std::vector<std::string>::size_type i = 0; i != strngs_vec.size(); i++) {
+        if (strngs_vec[i].empty()) {
+          continue;
+        }
         
         std::vector<std::string> str_split_vec;
         boost::split(str_split_vec, strngs_vec[i], boost::is_any_of(":"));
@@ -6852,7 +6855,7 @@ Value getgrants_MP(const Array& params, bool fHelp)
 
         string txid = it->first; //uint256 txid = it->first;
         int64_t grantedTokens = it->second.at(0);
-        int64_t revokedTokens = it->second.at(0);
+        int64_t revokedTokens = it->second.at(1);
         if (grantedTokens > 0){
           Object granttx;
           granttx.push_back(Pair("txid", txid));
