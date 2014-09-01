@@ -837,13 +837,13 @@ int MatrixModel::fillin(unsigned int propertyId)
 int count = 0;
 
     LOCK(cs_tally);
+    bool divisible = isPropertyDivisible(propertyId);
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
        {
           string address = (my_it->first).c_str();
           int64_t available = getMPbalance(address, propertyId, MONEY);
           int64_t reserved = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
           if (propertyId<3) reserved += getMPbalance(address, propertyId, ACCEPT_RESERVE);
-          bool divisible = isPropertyDivisible(propertyId);
 
           ql_lab.append("Test Address Label");
           ql_addr.append((my_it->first).c_str());
