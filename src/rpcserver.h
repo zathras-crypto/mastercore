@@ -187,6 +187,7 @@ extern json_spirit::Value getproperty_MP(const json_spirit::Array& params, bool 
 extern json_spirit::Value listproperties_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value getcrowdsale_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getactivecrowdsales_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getgrants_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getactivedexsells_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp);

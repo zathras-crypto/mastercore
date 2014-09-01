@@ -125,6 +125,9 @@ static const int txRestrictionsRules[][3] = {
   {MSC_TYPE_SEND_TO_OWNERS,           MSC_STO_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_METADEX,                  MSC_METADEX_BLOCK,  MP_TX_PKT_V0},
   {MSC_TYPE_OFFER_ACCEPT_A_BET,       MSC_BET_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_CREATE_PROPERTY_MANUAL,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_GRANT_PROPERTY_TOKENS,    MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_REVOKE_PROPERTY_TOKENS,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
 
 // end of array marker, in addition to sizeof/sizeof
   {-1,-1},
@@ -202,6 +205,9 @@ char *c_strMastercoinType(int i)
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
     case MSC_TYPE_PROMOTE_PROPERTY: return ((char *)"Promote Property");
     case MSC_TYPE_CLOSE_CROWDSALE: return ((char *)"Close Crowsale");
+    case MSC_TYPE_CREATE_PROPERTY_MANUAL: return ((char *)"Create Property - Manual");
+    case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
+    case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
 
     default: return ((char *)"* unknown type *");
   }
@@ -584,8 +590,11 @@ public:
     // other information
     uint256 txid;
     bool fixed;
+    bool manual;
 
-    std::map<std::string, std::vector<uint64_t> > txFundraiserData; // schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
+    // for crowdsale properties, schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
+    // for manual properties, schema is 'txid:grantAmount:revokeAmount;'
+    std::map<std::string, std::vector<uint64_t> > historicalData;
     
     Entry()
     : issuer()
@@ -603,7 +612,8 @@ public:
     , percentage(0)
     , txid()
     , fixed(false)
-    , txFundraiserData()
+    , manual(false)
+    , historicalData()
     {
     }
 
@@ -620,7 +630,7 @@ public:
       spInfo.push_back(Pair("data", data));
       spInfo.push_back(Pair("fixed", fixed));
       spInfo.push_back(Pair("num_tokens", (boost::format("%d") % num_tokens).str()));
-      if (false == fixed) {
+      if (false == fixed && false == manual) {
         spInfo.push_back(Pair("currency_desired", (uint64_t)currency_desired));
         spInfo.push_back(Pair("deadline", (boost::format("%d") % deadline).str()));
         spInfo.push_back(Pair("early_bird", (int)early_bird));
@@ -636,26 +646,34 @@ public:
       //fprintf(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
 
       //Iterate through fundraiser data, serializing it with txid:val:val:val:val;
-      for(it = txFundraiserData.begin(); it != txFundraiserData.end(); it++) {
+      bool crowdsale = !fixed && !manual;
+      for(it = historicalData.begin(); it != historicalData.end(); it++) {
          values += it->first.c_str();
-         values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
-         values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
-         values += ":" + boost::lexical_cast<std::string>(it->second.at(2));
-         values += ":" + boost::lexical_cast<std::string>(it->second.at(3));
+         if (crowdsale) {
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(2));
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(3));
+         } else if (manual) {
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(0));
+           values += ":" + boost::lexical_cast<std::string>(it->second.at(1));
+         }
          values += ";";
          values_long += values;
       }
       //fprintf(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
 
-      spInfo.push_back(Pair("txFundraiserData", values_long)); 
+      spInfo.push_back(Pair("historicalData", values_long));
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
+      spInfo.push_back(Pair("manual", manual));
+
 
       return spInfo;
     }
 
     void fromJSON(Object const &json)
     {
-      int idx = 0;
+      unsigned int idx = 0;
       issuer = json[idx++].value_.get_str();
       prop_type = (unsigned short)json[idx++].value_.get_int();
       prev_prop_id = (unsigned int)json[idx++].value_.get_uint64();
@@ -665,8 +683,14 @@ public:
       url = json[idx++].value_.get_str();
       data = json[idx++].value_.get_str();
       fixed = json[idx++].value_.get_bool();
+      if (fixed || json.size() < 16) {
+        manual = json[12].value_.get_bool();
+      } else {
+        manual = false;
+      }
+
       num_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
-      if (false == fixed) {
+      if (false == fixed && false == manual) {
         currency_desired = (unsigned int)json[idx++].value_.get_uint64();
         deadline = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
         early_bird = (unsigned char)json[idx++].value_.get_int();
@@ -686,26 +710,33 @@ public:
       //fprintf(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
       
       //Go through and deserialize the database
+      bool crowdsale = !fixed && !manual;
       for(std::vector<std::string>::size_type i = 0; i != strngs_vec.size(); i++) {
+        if (strngs_vec[i].empty()) {
+          continue;
+        }
         
         std::vector<std::string> str_split_vec;
         boost::split(str_split_vec, strngs_vec[i], boost::is_any_of(":"));
 
-        if ( str_split_vec.size() == 5) {
+        std::vector<uint64_t> txDataVec;
+
+        if ( crowdsale && str_split_vec.size() == 5) {
           //fprintf(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
-          uint64_t txdata[] = { 
-            boost::lexical_cast<uint64_t>( str_split_vec.at(1) ), 
-            boost::lexical_cast<uint64_t>( str_split_vec.at(2) ), 
-            boost::lexical_cast<uint64_t>( str_split_vec.at(3) ), 
-            boost::lexical_cast<uint64_t>( str_split_vec.at(4) )
-          };
-          
-          std::vector<uint64_t> txDataVec(txdata, txdata + sizeof(txdata)/sizeof(txdata[0]) );
-          txFundraiserData.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(1) ));
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(2) ));
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(3) ));
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(4) ));
+        } else if (manual && str_split_vec.size() == 3) {
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(1) ));
+          txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(2) ));
         }
+
+        historicalData.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
       }
       //fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
+      idx++; // increment for manual that had to be parsed earlier for logic
     }
 
     bool isDivisible() const
@@ -1201,7 +1232,7 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
        {
            if (sp.issuer == address)
            {
-               std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+               std::map<std::string, std::vector<uint64_t> > database = sp.historicalData;
                std::map<std::string, std::vector<uint64_t> >::const_iterator it;
                for(it = database.begin(); it != database.end(); it++)
                {
@@ -1227,7 +1258,7 @@ bool isCrowdsalePurchase(uint256 txid, string address, int64_t *propertyId = NUL
        {
            if (sp.issuer == address)
            {
-               std::map<std::string, std::vector<uint64_t> > database = sp.txFundraiserData;
+               std::map<std::string, std::vector<uint64_t> > database = sp.historicalData;
                std::map<std::string, std::vector<uint64_t> >::const_iterator it;
                for(it = database.begin(); it != database.end(); it++)
                {
@@ -1895,7 +1926,7 @@ void eraseMaxedCrowdsale(const string &address)
       _my_sps->getSP(crowd.getPropertyId(), sp);
       
       //get txdata
-      sp.txFundraiserData = crowd.getDatabase();
+      sp.historicalData = crowd.getDatabase();
       
       //update SP with this data
       _my_sps->updateSP(crowd.getPropertyId() , sp);
@@ -1945,7 +1976,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
       //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %lu %lu %lu %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
       //get txdata
-      sp.txFundraiserData = crowd.getDatabase();
+      sp.historicalData = crowd.getDatabase();
 
       //update SP with this data
       _my_sps->updateSP(crowd.getPropertyId() , sp);
@@ -2743,6 +2774,124 @@ https://github.com/mastercoin-MSC/spec/issues/170
     return rc;
   }
 
+  int logicMath_GrantTokens() {
+    int rc = PKT_ERROR_SP - 1000;
+
+    if (!isTransactionTypeAllowed(block, currency, type, version)) {
+      fprintf(mp_fp, "\tRejecting Grant: Transaction type not yet allowed\n");
+      return (PKT_ERROR_SP - 22);
+    }
+
+    if (sender.empty()) {
+      ++InvalidCount_per_spec;
+      fprintf(mp_fp, "\tRejecting Grant: Sender is empty\n");
+      return (PKT_ERROR_SP - 23);
+    }
+
+    // manual issuance check
+    if (false == _my_sps->hasSP(currency)) {
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d does not exist\n", currency);
+      return (PKT_ERROR_SP - 24);
+    }
+
+    CMPSPInfo::Entry sp;
+    _my_sps->getSP(currency, sp);
+
+    if (false == sp.manual) {
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d was not issued with a TX 54\n", currency);
+      return (PKT_ERROR_SP - 25);
+    }
+
+
+    // issuer check
+    if (false == boost::iequals(sender, sp.issuer)) {
+      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+      return (PKT_ERROR_SP - 26);
+    }
+
+    // overflow tokens check
+    if (MAX_INT_8_BYTES - sp.num_tokens < nValue) {
+      char prettyTokens[256];
+      if (sp.isDivisible()) {
+        snprintf(prettyTokens, 256, "%lu.%08lu", nValue / COIN, nValue % COIN);
+      } else {
+        snprintf(prettyTokens, 256, "%lu", nValue);
+      }
+      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%d would overflow the maximum limit for tokens in a smart property\n", prettyTokens, currency);
+      return (PKT_ERROR_SP - 27);
+    }
+
+    // grant the tokens
+    update_tally_map(sender, currency, nValue, MONEY);
+
+    // call the send logic
+    rc = logicMath_SimpleSend();
+
+    // record this grant
+    std::vector<uint64_t> dataPt;
+    dataPt.push_back(nValue);
+    dataPt.push_back(0);
+    string txidStr = txid.ToString();
+    sp.historicalData.insert(std::make_pair(txidStr, dataPt));
+    _my_sps->updateSP(currency, sp);
+
+    return rc;
+  }
+
+  int logicMath_RevokeTokens() {
+    int rc = PKT_ERROR_SP - 1000;
+
+    if (!isTransactionTypeAllowed(block, currency, type, version)) {
+      fprintf(mp_fp, "\tRejecting Revoke: Transaction type not yet allowed\n");
+      return (PKT_ERROR_SP - 22);
+    }
+
+    if (sender.empty()) {
+      ++InvalidCount_per_spec;
+      fprintf(mp_fp, "\tRejecting Revoke: Sender is empty\n");
+      return (PKT_ERROR_SP - 23);
+    }
+
+    // manual issuance check
+    if (false == _my_sps->hasSP(currency)) {
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d does not exist\n", currency);
+      return (PKT_ERROR_SP - 24);
+    }
+
+    CMPSPInfo::Entry sp;
+    _my_sps->getSP(currency, sp);
+
+    if (false == sp.manual) {
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", currency);
+      return (PKT_ERROR_SP - 25);
+    }
+
+
+    // issuer check
+    if (false == boost::iequals(sender, sp.issuer)) {
+      fprintf(mp_fp, "\tRejecting Revoke: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+      return (PKT_ERROR_SP - 26);
+    }
+
+    // insufficient funds check and revoke
+    if (false == update_tally_map(sender, currency, -nValue, MONEY)) {
+      fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
+      return (PKT_ERROR_SP - 111);
+    }
+
+    // record this revoke
+    std::vector<uint64_t> dataPt;
+    dataPt.push_back(0);
+    dataPt.push_back(nValue);
+    string txidStr = txid.ToString();
+    sp.historicalData.insert(std::make_pair(txidStr, dataPt));
+    _my_sps->updateSP(currency, sp);
+
+    rc = 0;
+    return rc;
+  }
+
+
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  //
@@ -2906,7 +3055,7 @@ https://github.com/mastercoin-MSC/spec/issues/170
 
         //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
         
-        sp.txFundraiserData = crowd.getDatabase();
+        sp.historicalData = crowd.getDatabase();
         
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
@@ -2919,6 +3068,47 @@ https://github.com/mastercoin-MSC/spec/issues/170
       }
       break;
     }
+
+    case MSC_TYPE_CREATE_PROPERTY_MANUAL:
+    {
+      const char *p = step2_SmartProperty(step_rc);
+      if (0>step_rc) return step_rc;
+      if (!p) return (PKT_ERROR_SP -11);
+
+      if (0 == step_rc)
+      {
+        CMPSPInfo::Entry newSP;
+        newSP.issuer = sender;
+        newSP.txid = txid;
+        newSP.prop_type = prop_type;
+        newSP.category.assign(category);
+        newSP.subcategory.assign(subcategory);
+        newSP.name.assign(name);
+        newSP.url.assign(url);
+        newSP.data.assign(data);
+        newSP.fixed = false;
+        newSP.manual = true;
+
+        const unsigned int id = _my_sps->putSP(ecosystem, newSP);
+        fprintf(mp_fp, "\nCREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
+      }
+      rc = 0;
+      break;
+    }
+
+    case MSC_TYPE_GRANT_PROPERTY_TOKENS:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_GrantTokens();
+      break;
+
+    case MSC_TYPE_REVOKE_PROPERTY_TOKENS:
+      step_rc = step2_Value();
+      if (0>step_rc) return step_rc;
+
+      rc = logicMath_RevokeTokens();
+      break;
 
     case MSC_TYPE_SEND_TO_OWNERS:
     if (disable_Divs) break;
@@ -6395,7 +6585,8 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (params.size() > 1) showVerbose = params[1].get_bool();
 
     bool fixedIssuance = sp.fixed;
-    if (fixedIssuance) // property was not a variable issuance
+    bool manualIssuance = sp.manual;
+    if (fixedIssuance || manualIssuance) // property was not a variable issuance
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
 
     uint256 creationHash = sp.txid;
@@ -6444,10 +6635,10 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     }
     else
     {
-        database = sp.txFundraiserData;
+        database = sp.historicalData;
     }
 
-    fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.txFundraiserData.size() ); 
+    fprintf(mp_fp,"\nSIZE OF DB %lu\n", sp.historicalData.size() );
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
@@ -6623,6 +6814,109 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
 
 return response;
 }
+
+Value getgrants_MP(const Array& params, bool fHelp)
+{
+   if (fHelp || params.size() != 1 )
+        throw runtime_error(
+            "getgrants_MP propertyID\n"
+            "\nGet grant/revoke info for a property ID\n"
+            "\nArguments:\n"
+            "1. propertyID    (int, required) The property ID\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"name\" : \"PropertyName\",   (string) the property name\n"
+            "  \"issuer\" : \"1Address\",     (string) the issuer address\n"
+            "  \"creationtxid\" : \"txid\",   (string) the transaction that created the crowdsale\n"
+            "  \"totaltokens\" : \"1234\",    (numeric) the number of tokens in circulation\n"
+            "  \"issuances\" : [\n"
+            "                    {\n"
+            "                      \"txid\" : \"txid\",   (string) the transaction that granted/revoked tokens\n"
+            "                      \"grant\" : \"1234\",  (numeric) the number of tokens granted\n"
+            "                    },\n"
+            "                    {\n"
+            "                      \"txid\" : \"txid\",   (string) the transaction that granted/revoked tokens\n"
+            "                      \"revoke\" : \"1234\", (numeric) the number of tokens revoked\n"
+            "                    },\n"
+            "                    ...\n"
+            "                  ]\n"
+            "}\n"
+
+            "\nbExamples\n"
+            + HelpExampleCli("getgrants_MP", "3")
+            + HelpExampleRpc("getgrants_MP", "3")
+        );
+
+    int64_t tmpPropertyId = params[0].get_int64();
+    if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+
+    unsigned int propertyId = int(tmpPropertyId);
+    CMPSPInfo::Entry sp;
+    if (false == _my_sps->getSP(propertyId, sp)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    }
+
+    bool fixedIssuance = sp.fixed;
+    bool manualIssuance = sp.manual;
+    if (fixedIssuance || !manualIssuance) // property was not a manual issuance
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a manual issuance");
+
+    uint256 creationHash = sp.txid;
+
+    Object response;
+
+    bool active = false;
+    active = isCrowdsaleActive(propertyId);
+    bool divisible = false;
+    divisible=sp.isDivisible();
+    string propertyName = sp.name;
+    string issuer = sp.issuer;
+    int64_t totalTokens = getTotalTokens(propertyId);
+
+    Array issuancetxs;
+    std::map<std::string, std::vector<uint64_t> >::const_iterator it;
+    for(it = sp.historicalData.begin(); it != sp.historicalData.end(); it++)
+    {
+
+        string txid = it->first; //uint256 txid = it->first;
+        int64_t grantedTokens = it->second.at(0);
+        int64_t revokedTokens = it->second.at(1);
+        if (grantedTokens > 0){
+          Object granttx;
+          granttx.push_back(Pair("txid", txid));
+          if (sp.isDivisible()) {
+            granttx.push_back(Pair("grant", FormatDivisibleMP(grantedTokens)));
+          } else {
+            granttx.push_back(Pair("grant", FormatIndivisibleMP(grantedTokens)));
+          }
+          issuancetxs.push_back(granttx);
+        }
+
+        if (revokedTokens > 0){
+          Object revoketx;
+          revoketx.push_back(Pair("txid", txid));
+          if (sp.isDivisible()) {
+            revoketx.push_back(Pair("revoke", FormatDivisibleMP(revokedTokens)));
+          } else {
+            revoketx.push_back(Pair("revoke", FormatIndivisibleMP(revokedTokens)));
+          }
+          issuancetxs.push_back(revoketx);
+        }
+    }
+
+    response.push_back(Pair("name", propertyName));
+    response.push_back(Pair("issuer", issuer));
+    response.push_back(Pair("creationtxid", creationHash.GetHex()));
+    if (sp.isDivisible()) {
+      response.push_back(Pair("totaltokens", FormatDivisibleMP(totalTokens)));
+    } else {
+      response.push_back(Pair("totaltokens", FormatIndivisibleMP(totalTokens)));
+    }
+    response.push_back(Pair("issuances", issuancetxs));
+    return response;
+}
+
 
 Value listblocktransactions_MP(const Array& params, bool fHelp)
 {
