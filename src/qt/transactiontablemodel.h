@@ -143,7 +143,7 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     MatrixModel(CWallet* wallet, WalletModel *parent = 0);
-    MatrixModel(int numRows, int numColumns, uint* data);
+    MatrixModel(int numRows, int numColumns, uint* data, unsigned int propertyId);
     ~MatrixModel();
     int rowCount(const QModelIndex& parent = QModelIndex()) const;
     int columnCount(const QModelIndex& parent = QModelIndex()) const;
@@ -151,7 +151,7 @@ public:
     void updateConfirmations(void);
     void emitDataChanged(int idx);
 
-    int fillin(void);
+    int fillin(unsigned int propertyId);
 };
 
 #endif // TRANSACTIONTABLEMODEL_H

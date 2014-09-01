@@ -60,6 +60,7 @@ private:
     TransactionFilterProxy *transactionProxyModel;
     QTableView *balancesView;
 
+    QLabel *propSelLabel;
     QComboBox *propSelectorWidget;
     QComboBox *typeWidget;
     QLineEdit *addressWidget;

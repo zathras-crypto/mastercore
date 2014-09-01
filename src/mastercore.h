@@ -119,6 +119,7 @@ enum FILETYPES {
 
 // forward declarations
 string FormatDivisibleMP(int64_t n, bool fSign = false);
+string FormatIndivisibleMP(int64_t n);
 
 inline uint64_t rounduint64(double d)
 {

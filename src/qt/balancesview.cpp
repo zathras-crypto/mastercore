@@ -15,8 +15,16 @@
 #include "transactionrecord.h"
 #include "transactiontablemodel.h"
 #include "walletmodel.h"
+#include "wallet.h"
 
 #include "ui_interface.h"
+
+#include <boost/filesystem.hpp>
+
+#include "leveldb/db.h"
+#include "leveldb/write_batch.h"
+
+#include "mastercore.h"
 
 #include <QComboBox>
 #include <QDateTimeEdit>
@@ -49,26 +57,75 @@ BalancesView::BalancesView(QWidget *parent) :
     hlayout->setSpacing(0);
     hlayout->addSpacing(23);
 #endif
-
+    hlayout->addStretch();
     // property ID selector
+    propSelLabel = new QLabel("Show Balances For: ");
+    hlayout->addWidget(propSelLabel);
+
     propSelectorWidget = new QComboBox(this);
 #ifdef Q_OS_MAC
-    propSelectorWidget->setFixedWidth(121);
+    propSelectorWidget->setFixedWidth(301);
 #else
-    propSelectorWidget->setFixedWidth(120);
+    propSelectorWidget->setFixedWidth(300);
 #endif
-
-    propSelectorWidget->addItem(tr("Test1")); //, TransactionFilterProxy::ALL_TYPES);
-    propSelectorWidget->addItem(tr("Test2")); //, TransactionFilterProxy::TYPE(TransactionRecord::RecvWithAddress) 
-    propSelectorWidget->addItem(tr("Test3")); //, TransactionFilterProxy::TYPE(TransactionRecord::SendToAddress) 
-
+    propSelectorWidget->addItem(tr("Wallet Totals (Summary)"));
+    // trigger update of global balances
+    set_wallet_totals();
+    // populate property selector
+    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+    {
+        if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
+        {
+            string spName;
+            spName = getPropertyName(propertyId).c_str();
+            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str() + ")";
+            propSelectorWidget->addItem(tr(spName.c_str()));
+        }
+    }
+    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+    {
+        if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
+        {
+            string spName;
+            spName = getPropertyName(propertyId+2147483647).c_str();
+            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
+            propSelectorWidget->addItem(tr(spName.c_str()));
+        }
+    }
+    //add the selector to the layout
     hlayout->addWidget(propSelectorWidget);
 
     QVBoxLayout *vlayout = new QVBoxLayout(this);
     vlayout->setContentsMargins(0,0,0,0);
     vlayout->setSpacing(0);
 
-    QTableView *view = new QTableView(this);
+    //populate
+    //prep matrix
+    const int numRows = 3000;
+    const int numColumns = 3;
+    uint matrix[numRows][numColumns];
+//        QVBoxLayout *mscvbox = new QVBoxLayout();
+    MatrixModel *mmp = NULL;
+    QTableView *view = NULL;
+    //create matrix
+    for (int i = 0; i < numRows; ++i)
+         for (int j = 0; j < numColumns; ++j)
+              matrix[i][j] = (i+1) * (j+1);
+    //create a model which adapts the data (the matrix) to the view.
+    mmp = new MatrixModel(numRows, numColumns, (uint*)matrix, 1);
+    view = new QTableView(this);
+    view->setModel(mmp);
+    //adjust sizing
+    view->horizontalHeader()->resizeSection(0, 160);
+    #if QT_VERSION < 0x050000
+       view->horizontalHeader()->setResizeMode(1, QHeaderView::Stretch);
+    #else
+       view->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    #endif
+    view->horizontalHeader()->resizeSection(2, 140);
+    view->horizontalHeader()->resizeSection(3, 140);
     vlayout->addLayout(hlayout);
     vlayout->addWidget(view);
     vlayout->setSpacing(0);

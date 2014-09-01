@@ -776,15 +776,15 @@ void MatrixModel::updateConfirmations(void)
       priv->refreshAddressTable();
     }
 
-    MatrixModel::MatrixModel(int numRows, int numColumns, uint* data)
+    MatrixModel::MatrixModel(int numRows, int numColumns, uint* data, unsigned int propertyId)
         : m_numRows(numRows),
           m_numColumns(numColumns),
           m_data(data)
     {
       qDebug() << "CONSTRUCTOR-Mastercoin" << __FILE__ << __FUNCTION__ << __LINE__;
-      columns << tr("Label") << tr("Address") << tr("MSC Balance") << tr("TMSC Balance");
+      columns << tr("Label") << tr("Address") << tr("Reserved") << tr("Available");
 
-      m_numRows=fillin();
+      m_numRows=fillin(propertyId);
       m_numColumns=4;
 
       qDebug() << "numRows=" << m_numRows << "numColumns=" << m_numColumns;
@@ -832,28 +832,37 @@ QVariant MatrixModel::headerData(int section, Qt::Orientation orientation, int r
     return QVariant();
 }
 
-int MatrixModel::fillin()
+int MatrixModel::fillin(unsigned int propertyId)
 {
 int count = 0;
 
-////    LOCK(cs_tally);
+    LOCK(cs_tally);
+    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+       {
+          string address = (my_it->first).c_str();
+          int64_t available = getMPbalance(address, propertyId, MONEY);
+          int64_t reserved = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          if (propertyId<3) reserved += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+          bool divisible = isPropertyDivisible(propertyId);
 
-////     for(map<string, msc_tally>::iterator my_it = msc_tally_map.begin(); my_it != msc_tally_map.end(); my_it++)
-////      {
-          // my_it->first = key
-          // my_it->second = value
+          ql_lab.append("Test Address Label");
+          ql_addr.append((my_it->first).c_str());
+          if (divisible)
+          {
+              ql_msc.append(QString::fromStdString(FormatDivisibleMP(available)));
+              ql_tmsc.append(QString::fromStdString(FormatDivisibleMP(reserved)));
+          }
+          else
+          {
+              ql_msc.append(QString::fromStdString(FormatIndivisibleMP(available)));
+              ql_tmsc.append(QString::fromStdString(FormatIndivisibleMP(reserved)));
+          }
+       }
 
-//          LogPrintf("%s\n", my_it->first);
-//          LogPrintf("%s\n", (my_it->second).getMSC());
-
-          ////ql_addr.append((my_it->first).c_str());
-          ////ql_msc.append(QString::fromStdString((my_it->second).getMSC()));
-          ////ql_tmsc.append(QString::fromStdString((my_it->second).getTMSC()));
-
-	  ql_lab.append("Test Address Label");
-          ql_addr.append("1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P");
-          ql_msc.append("12345.12345678");
-          ql_tmsc.append("54321.87654321");
+	 // ql_lab.append("Test Address Label");
+         // ql_addr.append("1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P");
+         // ql_msc.append("12345.12345678");
+         // ql_tmsc.append("54321.87654321");
 
 
 
