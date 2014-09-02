@@ -753,8 +753,8 @@ QVariant MatrixModel::data(const QModelIndex& index, int role) const
     {
       case 0: return (ql_lab[index.row()]);
       case 1: return (ql_addr[index.row()]);
-      case 2: return (ql_msc[index.row()]);
-      case 3: return (ql_tmsc[index.row()]);
+      case 2: return (ql_res[index.row()]);
+      case 3: return (ql_avl[index.row()]);
       default:
 //        return m_data[index.row() * m_numColumns + index.column()];
         return QString("*NONE*");
@@ -782,7 +782,14 @@ void MatrixModel::updateConfirmations(void)
           m_data(data)
     {
       qDebug() << "CONSTRUCTOR-Mastercoin" << __FILE__ << __FUNCTION__ << __LINE__;
-      columns << tr("Label") << tr("Address") << tr("Reserved") << tr("Available");
+      if(propertyId==2147483646)
+      {
+          columns << tr("Property ID") << tr("Name") << tr("Reserved") << tr("Available");
+      }
+      else
+      {
+          columns << tr("Label") << tr("Address") << tr("Reserved") << tr("Available");
+      }
 
       m_numRows=fillin(propertyId);
       m_numColumns=4;
@@ -834,46 +841,99 @@ QVariant MatrixModel::headerData(int section, Qt::Orientation orientation, int r
 
 int MatrixModel::fillin(unsigned int propertyId)
 {
-int count = 0;
+    int count = 0;
+    //are we summary?
+    if(propertyId==2147483646)
+    {
+        set_wallet_totals();
+        for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+        {
+            if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
+            {
+                string spName;
+                spName = getPropertyName(propertyId).c_str();
+                string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
+                ql_lab.append(spId.c_str());
+                ql_addr.append(spName.c_str());
+                int64_t available = global_balance_money_maineco[propertyId];
+                int64_t reserved = global_balance_reserved_maineco[propertyId];
+                bool divisible = isPropertyDivisible(propertyId);
+                if (divisible)
+                {
+                    ql_avl.append(QString::fromStdString(FormatDivisibleMP(available)));
+                    ql_res.append(QString::fromStdString(FormatDivisibleMP(reserved)));
+                }
+                else
+                {
+                    ql_avl.append(QString::fromStdString(FormatIndivisibleMP(available)));
+                    ql_res.append(QString::fromStdString(FormatIndivisibleMP(reserved)));
+                }
+                ++count;
+            }
+        }
+        for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+        {
+            if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
+            {
+                string spName;
+                spName = getPropertyName(propertyId+2147483647).c_str();
+                string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str();
+                ql_lab.append(spId.c_str());
+                ql_addr.append(spName.c_str());
+                int64_t available = global_balance_money_testeco[propertyId];
+                int64_t reserved = global_balance_reserved_testeco[propertyId];
+                bool divisible = isPropertyDivisible(propertyId+2147483647);
+                if (divisible)
+                {
+                    ql_avl.append(QString::fromStdString(FormatDivisibleMP(available)));
+                    ql_res.append(QString::fromStdString(FormatDivisibleMP(reserved)));
+                }
+                else
+                {
+                    ql_avl.append(QString::fromStdString(FormatIndivisibleMP(available)));
+                    ql_res.append(QString::fromStdString(FormatIndivisibleMP(reserved)));
+                }
+                ++count;
+             }
+         }
+    }
+    else
+    {
+        LOCK(cs_tally);
+        bool divisible = isPropertyDivisible(propertyId);
+        for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+        {
+            string address = (my_it->first).c_str();
+            unsigned int id;
+            bool includeAddress=false;
+            (my_it->second).init();
+            while (0 != (id = (my_it->second).next()))
+            {
+                if(id==propertyId) { includeAddress=true; break; }
+            }
+            if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
+            if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
 
-    LOCK(cs_tally);
-    bool divisible = isPropertyDivisible(propertyId);
-    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
-       {
-          string address = (my_it->first).c_str();
-          int64_t available = getMPbalance(address, propertyId, MONEY);
-          int64_t reserved = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
-          if (propertyId<3) reserved += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+            int64_t available = getMPbalance(address, propertyId, MONEY);
+            int64_t reserved = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+            if (propertyId<3) reserved += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
-          ql_lab.append("Test Address Label");
-          ql_addr.append((my_it->first).c_str());
-          if (divisible)
-          {
-              ql_msc.append(QString::fromStdString(FormatDivisibleMP(available)));
-              ql_tmsc.append(QString::fromStdString(FormatDivisibleMP(reserved)));
-          }
-          else
-          {
-              ql_msc.append(QString::fromStdString(FormatIndivisibleMP(available)));
-              ql_tmsc.append(QString::fromStdString(FormatIndivisibleMP(reserved)));
-          }
-       }
-
-	 // ql_lab.append("Test Address Label");
-         // ql_addr.append("1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P");
-         // ql_msc.append("12345.12345678");
-         // ql_tmsc.append("54321.87654321");
-
-
-
-//          printf("%34s =>> ", (my_it->first).c_str());
-//          (my_it->second).print();
-
-          ++count;
-////        }
-
+            ql_lab.append("Test Address Label");
+            ql_addr.append((my_it->first).c_str());
+            if (divisible)
+            {
+                ql_avl.append(QString::fromStdString(FormatDivisibleMP(available)));
+                ql_res.append(QString::fromStdString(FormatDivisibleMP(reserved)));
+            }
+            else
+            {
+                ql_avl.append(QString::fromStdString(FormatIndivisibleMP(available)));
+                ql_res.append(QString::fromStdString(FormatIndivisibleMP(reserved)));
+            }
+            ++count;
+        }
+    }
     qDebug() << "fillin()=" << count;
-
   return count;
 }
 

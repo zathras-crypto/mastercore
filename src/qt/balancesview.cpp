@@ -68,7 +68,7 @@ BalancesView::BalancesView(QWidget *parent) :
 #else
     propSelectorWidget->setFixedWidth(300);
 #endif
-    propSelectorWidget->addItem(tr("Wallet Totals (Summary)"));
+    propSelectorWidget->addItem("Wallet Totals (Summary)","2147483646"); //use last possible ID for summary for now
     // trigger update of global balances
     set_wallet_totals();
     // populate property selector
@@ -79,8 +79,10 @@ BalancesView::BalancesView(QWidget *parent) :
             string spName;
             spName = getPropertyName(propertyId).c_str();
             if(spName.size()>20) spName=spName.substr(0,20)+"...";
-            spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str() + ")";
-            propSelectorWidget->addItem(tr(spName.c_str()));
+            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
+            spName += " (#" + spId + ")";
+            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
+//propSelectorWidget->addItem(tr(spName.c_str()));
         }
     }
     for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
@@ -90,8 +92,12 @@ BalancesView::BalancesView(QWidget *parent) :
             string spName;
             spName = getPropertyName(propertyId+2147483647).c_str();
             if(spName.size()>20) spName=spName.substr(0,20)+"...";
-            spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
-            propSelectorWidget->addItem(tr(spName.c_str()));
+            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str();
+            spName += " (#" + spId + ")";
+            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
+
+          //  spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
+           // propSelectorWidget->addItem(tr(spName.c_str()));
         }
     }
     //add the selector to the layout
@@ -106,7 +112,6 @@ BalancesView::BalancesView(QWidget *parent) :
     const int numRows = 3000;
     const int numColumns = 3;
     uint matrix[numRows][numColumns];
-//        QVBoxLayout *mscvbox = new QVBoxLayout();
     MatrixModel *mmp = NULL;
     QTableView *view = NULL;
     //create matrix
@@ -114,7 +119,7 @@ BalancesView::BalancesView(QWidget *parent) :
          for (int j = 0; j < numColumns; ++j)
               matrix[i][j] = (i+1) * (j+1);
     //create a model which adapts the data (the matrix) to the view.
-    mmp = new MatrixModel(numRows, numColumns, (uint*)matrix, 1);
+    mmp = new MatrixModel(numRows, numColumns, (uint*)matrix, 2147483646);  //id for all (summary)
     view = new QTableView(this);
     view->setModel(mmp);
     //adjust sizing
@@ -126,6 +131,9 @@ BalancesView::BalancesView(QWidget *parent) :
     #endif
     view->horizontalHeader()->resizeSection(2, 140);
     view->horizontalHeader()->resizeSection(3, 140);
+    view->verticalHeader()->setVisible(false);
+    view->setSelectionBehavior(QAbstractItemView::SelectRows);
+    view->setSelectionMode(QAbstractItemView::SingleSelection);
     vlayout->addLayout(hlayout);
     vlayout->addWidget(view);
     vlayout->setSpacing(0);
@@ -165,7 +173,21 @@ BalancesView::BalancesView(QWidget *parent) :
 
 void BalancesView::propSelectorChanged(int idx)
 {
-//redisplay balances with new selection
+    QString spId = propSelectorWidget->itemData(idx).toString();
+    unsigned int propertyId = spId.toUInt();
+    //repopulate with new selected balances
+    //prep matrix
+    const int numRows = 3000;
+    const int numColumns = 3;
+    uint matrix[numRows][numColumns];
+    MatrixModel *mmp = NULL;
+    //create matrix
+    for (int i = 0; i < numRows; ++i)
+         for (int j = 0; j < numColumns; ++j)
+              matrix[i][j] = (i+1) * (j+1);
+    //create a model which adapts the data (the matrix) to the view.
+    mmp = new MatrixModel(numRows, numColumns, (uint*)matrix, propertyId);
+    balancesView->setModel(mmp);
 }
 
 void BalancesView::contextualMenu(const QPoint &point)

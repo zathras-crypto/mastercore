@@ -59,6 +59,7 @@ private:
     WalletModel *model;
     TransactionFilterProxy *transactionProxyModel;
     QTableView *balancesView;
+    QTableView *view;
 
     QLabel *propSelLabel;
     QComboBox *propSelectorWidget;

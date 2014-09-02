@@ -135,8 +135,8 @@ private:
     msc_AddressTablePriv *priv;
   QList<QString> ql_lab;
   QList<QString> ql_addr;
-  QList<QString> ql_msc;
-  QList<QString> ql_tmsc;
+  QList<QString> ql_avl;
+  QList<QString> ql_res;
 public:
   friend class msc_AddressTablePriv;
   friend class msc_AddressTableEntryLessThan;
