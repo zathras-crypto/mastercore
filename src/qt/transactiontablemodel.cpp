@@ -918,7 +918,8 @@ int MatrixModel::fillin(unsigned int propertyId)
             int64_t reserved = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
             if (propertyId<3) reserved += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
-            ql_lab.append("Test Address Label");
+            QString label = *walletModel->getAddressTableModel()->labelForAddress(QString::fromStdString((my_it->first).c_str()));
+            ql_lab.append(label);
             ql_addr.append((my_it->first).c_str());
             if (divisible)
             {
