@@ -75,8 +75,20 @@ WalletView::WalletView(QWidget *parent):
     transactionsPage->setLayout(vbox);
 
     receiveCoinsPage = new ReceiveCoinsDialog();
-    sendCoinsPage = new SendCoinsDialog();
 
+    // sending page
+    //sendCoinsPage = new SendCoinsDialog();
+    sendCoinsPage = new QWidget(this);
+    QVBoxLayout *svbox = new QVBoxLayout();
+    sendCoinsTab = new SendCoinsDialog();
+    QTabWidget *tabHolder = new QTabWidget();
+    tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
+    tabHolder->addTab(new QWidget(),tr("Mastercoin"));
+    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
+    svbox->addWidget(tabHolder);
+    sendCoinsPage->setLayout(svbox);
+
+    // add pages
     addWidget(overviewPage);
     addWidget(balancesPage);
     addWidget(transactionsPage);
@@ -135,7 +147,7 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     transactionView->setModel(walletModel);
     overviewPage->setWalletModel(walletModel);
     receiveCoinsPage->setModel(walletModel);
-    sendCoinsPage->setModel(walletModel);
+    sendCoinsTab->setModel(walletModel);
 
     if (walletModel)
     {
@@ -199,7 +211,7 @@ void WalletView::gotoSendCoinsPage(QString addr)
     setCurrentWidget(sendCoinsPage);
 
     if (!addr.isEmpty())
-        sendCoinsPage->setAddress(addr);
+        sendCoinsTab->setAddress(addr);
 }
 
 void WalletView::gotoSignMessageTab(QString addr)
@@ -228,7 +240,7 @@ void WalletView::gotoVerifyMessageTab(QString addr)
 
 bool WalletView::handlePaymentRequest(const SendCoinsRecipient& recipient)
 {
-    return sendCoinsPage->handlePaymentRequest(recipient);
+    return sendCoinsTab->handlePaymentRequest(recipient);
 }
 
 void WalletView::showOutOfSyncWarning(bool fShow)

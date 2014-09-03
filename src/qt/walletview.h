@@ -58,8 +58,11 @@ private:
     OverviewPage *overviewPage;
     QWidget *transactionsPage;
     QWidget *balancesPage;
+
     ReceiveCoinsDialog *receiveCoinsPage;
-    SendCoinsDialog *sendCoinsPage;
+//    SendCoinsDialog *sendCoinsPage;
+    QWidget *sendCoinsPage;
+    SendCoinsDialog *sendCoinsTab;
 
     TransactionView *transactionView;
     BalancesView *balancesView;
