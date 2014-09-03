@@ -5030,7 +5030,6 @@ int i = 0;
 std::vector<CPubKey> pubkeys;
 pubkeys.resize(n_keys);
 CWallet *wallet = pwalletMain;
-const int64_t nDustLimit = MP_DUST_LIMIT;
 
   txid = 0;
 
@@ -5074,19 +5073,19 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   CScript scriptPubKey;
 
   // the 1-multisig-2 Class B with data & sender
-  vecSend.push_back(make_pair(multisig_output, nDustLimit));
+  vecSend.push_back(make_pair(multisig_output, GetDustLimit(multisig_output)));
 
   // the reference/recepient/receiver
   if (!receiverAddress.empty())
   {
     // Send To Owners is the first use case where the receiver is empty
     scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
-    vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+    vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey)));
   }
 
   // the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey)));
 
   // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
   if (!coinControl.HasSelected()) return -6;
