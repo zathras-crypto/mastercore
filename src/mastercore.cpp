@@ -1775,7 +1775,7 @@ int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const 
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
-uint64_t price_int, price_frac, inverse_int, inverse_frac;
+// uint64_t price_int, price_frac, inverse_int, inverse_frac; // UNUSED WARNING
 bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for MSC); only applies to phase 1 code
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
@@ -7121,10 +7121,8 @@ Value getgrants_MP(const Array& params, bool fHelp)
 
     Object response;
 
-    bool active = false;
-    active = isCrowdsaleActive(propertyId);
-    bool divisible = false;
-    divisible=sp.isDivisible();
+//    bool active = isCrowdsaleActive(propertyId);  // UNUSED WARNING
+//    bool divisible = sp.isDivisible(); // UNUSED WARNING
     string propertyName = sp.name;
     string issuer = sp.issuer;
     int64_t totalTokens = getTotalTokens(propertyId);
