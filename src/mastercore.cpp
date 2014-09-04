@@ -254,6 +254,16 @@ void swapByteOrder64(uint64_t& ull)
           (ull << 56);
 }
 
+uint64_t rounduint64(double d)
+{
+  return (uint64_t)(abs(0.5 + d));
+}
+
+bool isNonMainNet()
+{
+  return (TestNet() || RegTest());
+}
+
 // mostly taken from Bitcoin's FormatMoney()
 string FormatDivisibleMP(int64_t n, bool fSign)
 {
@@ -1765,7 +1775,7 @@ int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const 
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
-uint64_t price_int, price_frac, inverse_int, inverse_frac;
+// uint64_t price_int, price_frac, inverse_int, inverse_frac; // UNUSED WARNING
 bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for MSC); only applies to phase 1 code
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
@@ -3638,6 +3648,11 @@ vector<string>multisig_script_data;
 uint64_t inAll = 0;
 uint64_t outAll = 0;
 uint64_t txFee = 0;
+int p2shAllowed = 0;
+
+            if (P2SH_BLOCK <= nBlock || isNonMainNet()) {
+              p2shAllowed = 1;
+            }
 
             mp_tx->Set(wtx.GetHash(), nBlock, idx, nTime);
 
@@ -3686,7 +3701,7 @@ uint64_t txFee = 0;
                 txnouttype whichType;
                 bool validType = false;
                 if (!getOutputType(wtx.vout[i].scriptPubKey, whichType)) validType=false;
-                if (TX_PUBKEYHASH == whichType) validType=true; // ignore non pay-to-pubkeyhash output
+                if (TX_PUBKEYHASH == whichType || (p2shAllowed && TX_SCRIPTHASH == whichType)) validType=true; // ignore non pay-to-pubkeyhash or pay-to-scripthash output
 
                 strAddress = CBitcoinAddress(dest).ToString();
 
@@ -3749,10 +3764,10 @@ uint64_t txFee = 0;
 
               if (ExtractDestination(txPrev.vout[n].scriptPubKey, source))  // extract the destination of the previous transaction's vout[n]
               {
-                // we only allow pay-to-pubkeyhash & probably pay-to-pubkey (?)
+                // we only allow pay-to-pubkeyhash, pay-to-scripthash & probably pay-to-pubkey (?)
                 {
                   if (!getOutputType(txPrev.vout[n].scriptPubKey, whichType)) ++inputs_errors;
-                  if ((TX_PUBKEYHASH != whichType) /* || (TX_PUBKEY != whichType) */ ) ++inputs_errors;
+                  if ((TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) /* || (TX_PUBKEY != whichType) */ ) ++inputs_errors;
 
                   if (inputs_errors) break;
                 }
@@ -3883,7 +3898,7 @@ uint64_t txFee = 0;
               {
                   txnouttype whichType;
                   if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                  if (TX_PUBKEYHASH != whichType) break; // ignore non pay-to-pubkeyhash output
+                  if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
 
                   string strSub = script_data[k].substr(2,16); // retrieve bytes 1-9 of packet for peek & decode comparison
                   seq = (ParseHex(script_data[k].substr(0,2)))[0]; // retrieve sequence number
@@ -3916,7 +3931,7 @@ uint64_t txFee = 0;
                   {
                       txnouttype whichType;
                       if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                      if (TX_PUBKEYHASH != whichType) break; // ignore non pay-to-pubkeyhash output
+                      if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
 
                       seq = (ParseHex(script_data[k].substr(0,2)))[0]; // retrieve sequence number
 
@@ -3943,7 +3958,7 @@ uint64_t txFee = 0;
                       {
                           txnouttype whichType;
                           if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                          if (TX_PUBKEYHASH != whichType) break; // ignore non pay-to-pubkeyhash output
+                          if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
 
                           if ((address_data[k] != strDataAddress) && (address_data[k] != exodus) && (dataAddressValue == value_data[k])) // this output matches data output, check if matches exodus output
                           {
@@ -5028,7 +5043,7 @@ CWallet *wallet = pwalletMain;
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
 // returns 0 if everything is OK, the transaction was sent
-static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &data_packet, CCoinControl &coinControl, uint256 & txid)
+static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const string &data_packet, CCoinControl &coinControl, uint256 & txid)
 {
 const int n_keys = 2;
 int i = 0;
@@ -5040,19 +5055,31 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
   txid = 0;
 
   // partially copied from _createmultisig()
+  CBitcoinAddress address;
+  if (false == redemptionAddress.empty()) {
+    address.SetString(redemptionAddress);
+  } else {
+    address.SetString(senderAddress);
+  }
 
-  CBitcoinAddress address(senderAddress);
   if (wallet && address.IsValid())
   {
-  CKeyID keyID;
+    if (address.IsScript()) {
 
-    if (!address.GetKeyID(keyID)) return -20;
+    } else {
+      CKeyID keyID;
 
-    CPubKey vchPubKey;
-    if (!wallet->GetPubKey(keyID, vchPubKey)) return -21;
-    if (!vchPubKey.IsFullyValid()) return -22;
+      if (!address.GetKeyID(keyID))
+        return -20;
 
-    pubkeys[i++] = vchPubKey;
+      CPubKey vchPubKey;
+      if (!wallet->GetPubKey(keyID, vchPubKey))
+        return -21;
+      if (!vchPubKey.IsFullyValid())
+        return -22;
+
+      pubkeys[i++] = vchPubKey;
+    }
   }
   else return -23;
 
@@ -5112,7 +5139,7 @@ const int64_t nDustLimit = MP_DUST_LIMIT;
 }
 
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
-static uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType)
+static uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType)
 {
 const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 CWallet *wallet = pwalletMain;
@@ -5239,37 +5266,44 @@ int64_t n_total = 0;  // total output funds collected
     ++random_byte; // cycle 256 times, if we must to find a valid ECDSA point
   }
 
-  rc = ClassB_send(FromAddress, ToAddress, HexStr(vec_pkt), coinControl, txid);
+  rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, HexStr(vec_pkt), coinControl, txid);
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d; n_total= %ld\n", rc, n_total);
 
   return txid;
 }
 
-uint256 send_MP(const string &FromAddress, const string &ToAddress, unsigned int CurrencyID, uint64_t Amount)
+uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount)
 {
-  return send_INTERNAL_1packet(FromAddress, ToAddress, CurrencyID, Amount, MSC_TYPE_SIMPLE_SEND);
+  return send_INTERNAL_1packet(FromAddress, ToAddress, RedeemAddress, CurrencyID, Amount, MSC_TYPE_SIMPLE_SEND);
 }
 
-uint256 send_To_Owners(const string &FromAddress, unsigned int CurrencyID, uint64_t Amount)
+uint256 send_To_Owners(const string &FromAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount)
 {
-  return send_INTERNAL_1packet(FromAddress, "", CurrencyID, Amount, MSC_TYPE_SEND_TO_OWNERS);
+  return send_INTERNAL_1packet(FromAddress, "", RedeemAddress, CurrencyID, Amount, MSC_TYPE_SEND_TO_OWNERS);
 }
 
 // send a MP transaction via RPC - simple send
 Value send_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() != 4)
+if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
             "send_MP\n"
             "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
-            "\nResult:\n"
+            "\nParameters:\n"
+            "FromAddress   : the address to send from\n"
+            "ToAddress     : the address to send to\n"
+            "PropertyID    : the id of the smart property to send\n"
+            "Amount        : the amount to send\n"
+            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "Result:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
-            ">mastercored send_MP 1FromAddress 1ToAddress CurrencyID Amount\n"
+            ">mastercored send_MP 1FromAddress 1ToAddress PropertyID Amount 1RedeemAddress\n"
         );
 
   std::string FromAddress = (params[0].get_str());
   std::string ToAddress = (params[1].get_str());
+  std::string RedeemAddress = (params.size() > 4) ? (params[4].get_str()): "";
 
   int64_t tmpPropertyId = params[2].get_int64();
   if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
@@ -5294,7 +5328,7 @@ if (fHelp || params.size() != 4)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   //some sanity checking of the data supplied?
-  uint256 newTX = send_MP(FromAddress, ToAddress, propertyId, Amount);
+  uint256 newTX = send_MP(FromAddress, ToAddress, RedeemAddress, propertyId, Amount);
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -5303,17 +5337,23 @@ if (fHelp || params.size() != 4)
 // send a MP transaction via RPC - simple send
 Value sendtoowners_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() != 3)
+if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(
             "sendtoowners_MP\n"
             "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
+            "\nParameters:\n"
+            "FromAddress   : the address to send from\n"
+            "PropertyID    : the id of the smart property to send\n"
+            "Amount        : the amount to send\n"
+            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
             "\nResult:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
-            ">mastercored send_MP 1FromAddress PropertyID Amount\n"
+            ">mastercored send_MP 1FromAddress PropertyID Amount 1RedeemAddress\n"
         );
 
   std::string FromAddress = (params[0].get_str());
+  std::string RedeemAddress = (params.size() > 3) ? (params[3].get_str()): "";
 
   int64_t tmpPropertyId = params[1].get_int64();
   if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
@@ -5344,7 +5384,7 @@ if (fHelp || params.size() != 3)
 //  printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
 
   //some sanity checking of the data supplied?
-  uint256 newTX = send_To_Owners(FromAddress, propertyId, Amount);
+  uint256 newTX = send_To_Owners(FromAddress, RedeemAddress, propertyId, Amount);
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -7081,10 +7121,8 @@ Value getgrants_MP(const Array& params, bool fHelp)
 
     Object response;
 
-    bool active = false;
-    active = isCrowdsaleActive(propertyId);
-    bool divisible = false;
-    divisible=sp.isDivisible();
+//    bool active = isCrowdsaleActive(propertyId);  // UNUSED WARNING
+//    bool divisible = sp.isDivisible(); // UNUSED WARNING
     string propertyName = sp.name;
     string issuer = sp.issuer;
     int64_t totalTokens = getTotalTokens(propertyId);
