@@ -62,6 +62,9 @@ enum TransactionType {
   MSC_TYPE_CREATE_PROPERTY_VARIABLE = 51,
   MSC_TYPE_PROMOTE_PROPERTY         = 52,
   MSC_TYPE_CLOSE_CROWDSALE          = 53,
+  MSC_TYPE_CREATE_PROPERTY_MANUAL   = 54,
+  MSC_TYPE_GRANT_PROPERTY_TOKENS    = 55,
+  MSC_TYPE_REVOKE_PROPERTY_TOKENS   = 56,
 };
 
 #define MSC_PROPERTY_TYPE_INDIVISIBLE             1
@@ -86,6 +89,8 @@ enum BLOCKHEIGHTRESTRICTIONS {
   MSC_STO_BLOCK     = 999999,
   MSC_METADEX_BLOCK = 999999,
   MSC_BET_BLOCK     = 999999,
+  MSC_MANUALSP_BLOCK = 999999,
+  P2SH_BLOCK        = 999999,
 };
 
 enum FILETYPES {
@@ -120,16 +125,6 @@ enum FILETYPES {
 // forward declarations
 string FormatDivisibleMP(int64_t n, bool fSign = false);
 string FormatIndivisibleMP(int64_t n);
-
-inline uint64_t rounduint64(double d)
-{
-  return (uint64_t)(abs(0.5 + d));
-}
-
-inline bool isNonMainNet()
-{
-  return (TestNet() || RegTest());
-}
 
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
@@ -296,6 +291,11 @@ public:
     }
 
     void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
+    void recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller);
+
+    int getNumberOfPurchases(const uint256 txid);
+    bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
+
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 

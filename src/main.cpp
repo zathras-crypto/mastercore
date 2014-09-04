@@ -2000,7 +2000,7 @@ bool static DisconnectTip(CValidationState &state) {
 // Connect a new block to chainActive.
 bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew) {
     assert(pindexNew->pprev == chainActive.Tip());
-    printf("\nConnectTip() called... (%s)\n", pindexNew->GetBlockHash().ToString().c_str());
+//    printf("\nConnectTip() called... (%s)\n", pindexNew->GetBlockHash().ToString().c_str());
     mempool.check(pcoinsTip);
     // Read block from disk.
     CBlock block;
