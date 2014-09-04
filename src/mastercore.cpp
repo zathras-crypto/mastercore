@@ -254,6 +254,16 @@ void swapByteOrder64(uint64_t& ull)
           (ull << 56);
 }
 
+uint64_t rounduint64(double d)
+{
+  return (uint64_t)(abs(0.5 + d));
+}
+
+bool isNonMainNet()
+{
+  return (TestNet() || RegTest());
+}
+
 // mostly taken from Bitcoin's FormatMoney()
 string FormatDivisibleMP(int64_t n, bool fSign)
 {
@@ -3640,7 +3650,7 @@ uint64_t outAll = 0;
 uint64_t txFee = 0;
 int p2shAllowed = 0;
 
-            if (P2SH_BLOCK <= nBlock || isNonMainNet) {
+            if (P2SH_BLOCK <= nBlock || isNonMainNet()) {
               p2shAllowed = 1;
             }
 
@@ -5285,7 +5295,7 @@ if (fHelp || params.size() < 4 || params.size() > 5)
             "PropertyID    : the id of the smart property to send\n"
             "Amount        : the amount to send\n"
             "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
-            "\nResult:\n"
+            "Result:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
             ">mastercored send_MP 1FromAddress 1ToAddress PropertyID Amount 1RedeemAddress\n"

@@ -125,16 +125,6 @@ enum FILETYPES {
 // forward declarations
 string FormatDivisibleMP(int64_t n, bool fSign = false);
 
-inline uint64_t rounduint64(double d)
-{
-  return (uint64_t)(abs(0.5 + d));
-}
-
-inline bool isNonMainNet()
-{
-  return (TestNet() || RegTest());
-}
-
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);
 
