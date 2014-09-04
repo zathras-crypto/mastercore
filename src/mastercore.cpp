@@ -5146,7 +5146,7 @@ vector< pair<CScript, int64_t> > vecSend;
     address.SetString(senderAddress);
   }
 
-  // validate that the redemtion Address is good
+  // validate that the redemption Address is good
   if (wallet && address.IsValid())
   {
     if (address.IsScript()) {
