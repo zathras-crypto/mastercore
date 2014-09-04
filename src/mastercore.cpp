@@ -310,7 +310,7 @@ int64_t strToInt64(std::string strAmount, bool divisible)
               unsigned int zerosToPad = 8-strRightOfDecimal.size();
               if (zerosToPad>0) //do we need to pad?
               {
-                  for(int it = 0; it != zerosToPad; it++)
+                  for(unsigned int it = 0; it != zerosToPad; it++)
                   {
                       strAmount+="0";
                   }
