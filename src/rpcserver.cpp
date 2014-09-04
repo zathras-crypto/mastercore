@@ -330,6 +330,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getactivedexsells_MP",   &getactivedexsells_MP,   false,     false,      true },
     { "getactivecrowdsales_MP", &getactivecrowdsales_MP, false,     false,      true },
     { "sendtoowners_MP",        &sendtoowners_MP,        false,     false,      true },
+    { "sendrawtx_MP",           &sendrawtx_MP,                false,     false,      true },
     { "listblocktransactions_MP",       &listblocktransactions_MP,       false,     false,      true },
     { "getallbalancesforaddress_MP",    &getallbalancesforaddress_MP,    false,     false,      true },
 
