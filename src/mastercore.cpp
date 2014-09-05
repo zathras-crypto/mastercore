@@ -205,7 +205,7 @@ char *c_strMastercoinType(int i)
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
     case MSC_TYPE_PROMOTE_PROPERTY: return ((char *)"Promote Property");
-    case MSC_TYPE_CLOSE_CROWDSALE: return ((char *)"Close Crowsale");
+    case MSC_TYPE_CLOSE_CROWDSALE: return ((char *)"Close Crowdsale");
     case MSC_TYPE_CREATE_PROPERTY_MANUAL: return ((char *)"Create Property - Manual");
     case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
     case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
@@ -5825,6 +5825,14 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                             txobj.push_back(Pair("confirmations", confirmations));
                             txobj.push_back(Pair("blocktime", blockTime));
                             txobj.push_back(Pair("type", "DEx Purchase"));
+                            // always min one subrecord, grab sender from first sub so we can display in parent as per Adam feedback
+                            string tmpBuyer;
+                            string tmpSeller;
+                            uint64_t tmpVout;
+                            uint64_t tmpNValue;
+                            uint64_t tmpPropertyId;
+                            p_txlistdb->getPurchaseDetails(wtxid,1,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
+                            txobj.push_back(Pair("sendingaddress", tmpBuyer));
                             // get the details of sub records for payment(s) in the tx and push into an array
                             Array purchases;
                             int numberOfPurchases=p_txlistdb->getNumberOfPurchases(wtxid);
@@ -5848,7 +5856,6 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                      purchaseObj.push_back(Pair("vout", vout));
                                      purchaseObj.push_back(Pair("amountpaid", FormatDivisibleMP(amountPaid)));
                                      purchaseObj.push_back(Pair("ismine", bIsMine));
-                                     purchaseObj.push_back(Pair("senderaddress", buyer));
                                      purchaseObj.push_back(Pair("referenceaddress", seller));
                                      purchaseObj.push_back(Pair("propertyid", propertyId));
                                      purchaseObj.push_back(Pair("amountbought", FormatDivisibleMP(nValue)));
@@ -5933,7 +5940,10 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                                           if ((valid) && (amountNew>0)) amount=amountNew; //amount has been amended, update
                                      break;
                                      case MSC_TYPE_CLOSE_CROWDSALE:
-                                          propertyId = 0; // propertyId of Crowdsale Close
+                                          if (0 == mp_obj.step2_Value())
+                                          {
+                                               propertyId = mp_obj.getCurrency();
+                                          }
                                      break;
                                      case  MSC_TYPE_SEND_TO_OWNERS:
                                           if (0 == mp_obj.step2_Value())
@@ -6002,9 +6012,10 @@ Value gettransaction_MP(const Array& params, bool fHelp)
                         {
                         txobj.push_back(Pair("feerequired", ValueFromAmount(sell_minfee)));
                         txobj.push_back(Pair("timelimit", sell_timelimit));
-                        if (1 == sell_subaction) txobj.push_back(Pair("subaction", "New"));
-			if (2 == sell_subaction) txobj.push_back(Pair("subaction", "Update"));
-			if (3 == sell_subaction) txobj.push_back(Pair("subaction", "Cancel"));
+                        //for now must mark all v0 sells as new until we find a way to store a subaction for v0 sells
+                        if ((1 == sell_subaction) || ((0 == sell_subaction) && (0 < amount))) txobj.push_back(Pair("subaction", "New"));
+                        if (2 == sell_subaction) txobj.push_back(Pair("subaction", "Update"));
+                        if ((3 == sell_subaction) || ((0 == sell_subaction) && (0 == amount))) txobj.push_back(Pair("subaction", "Cancel"));
                         txobj.push_back(Pair("bitcoindesired", ValueFromAmount(sell_btcdesired)));
                         }
                         txobj.push_back(Pair("valid", valid));
@@ -6696,6 +6707,8 @@ Value getproperty_MP(const Array& params, bool fHelp)
         string issuer = sp.issuer;
         bool fixedIssuance = sp.fixed;
 
+        uint64_t dispPropertyId = propertyId; //json spirit needs a uint64 as noted elsewhere
+        response.push_back(Pair("propertyid", dispPropertyId)); //req by DexX to include propId in this output, no harm :)
         response.push_back(Pair("name", propertyName));
         response.push_back(Pair("category", propertyCategory));
         response.push_back(Pair("subcategory", propertySubCategory));
