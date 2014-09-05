@@ -5045,6 +5045,31 @@ CWallet *wallet = pwalletMain;
   return string();
 }
 
+//
+// Determines minimum output amount to be spent by an output based on
+// scriptPubKey size in relation to the minimum relay fee.
+// 
+// This method is very related with IsDust(nMinRelayTxFee) in core.h.
+//
+int64_t GetDustLimit(const CScript& scriptPubKey)
+{
+    // The total size is based on a typical scriptSig size of 148 byte,
+    // 8 byte accounted for the size of output value and the serialized
+    // size of scriptPubKey.
+    size_t nSize = ::GetSerializeSize(scriptPubKey, SER_DISK, 0) + 156;
+
+    // The minimum relay fee dictates a threshold value under which a
+    // transaction won't be relayed.
+    int64_t nRelayTxFee = CTransaction::nMinRelayTxFee;
+
+    // A transaction is considered as "dust", if less than 1/3 of the
+    // minimum fee required to relay a transaction is spent by one of
+    // it's outputs. The minimum relay fee is defined per 1000 byte.
+    int64_t nDustLimit = 1 + (((nSize * nRelayTxFee * 3) - 1) / 1000);
+
+    return nDustLimit;
+}
+
 static int selectCoins(const string &FromAddress, CCoinControl &coinControl) {
   CWallet *wallet = pwalletMain;
   const int64_t n_max = (COIN * (20 * (0.0001))); // assume 20KBytes max TX size at 0.0001 per kilobyte
@@ -5124,7 +5149,6 @@ static int selectCoins(const string &FromAddress, CCoinControl &coinControl) {
 static int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const vector<unsigned char> &data, uint256 & txid)
 {
 CWallet *wallet = pwalletMain;
-const int64_t nDustLimit = MP_DUST_LIMIT;
 CCoinControl coinControl;
 vector< pair<CScript, int64_t> > vecSend;
 
@@ -5231,7 +5255,7 @@ vector< pair<CScript, int64_t> > vecSend;
 
     CScript multisig_output;
     multisig_output.SetMultisig(1, keys);
-    vecSend.push_back(make_pair(multisig_output, nDustLimit));
+    vecSend.push_back(make_pair(multisig_output, GetDustLimit(multisig_output)));
   }
 
   CWalletTx wtxNew;
@@ -5251,12 +5275,12 @@ vector< pair<CScript, int64_t> > vecSend;
   {
     // Send To Owners is the first use case where the receiver is empty
     scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
-    vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+    vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey)));
   }
 
   // add the marker output
   scriptPubKey.SetDestination(CBitcoinAddress(exodus).Get());
-  vecSend.push_back(make_pair(scriptPubKey, nDustLimit));
+  vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey)));
 
   // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
   if (!coinControl.HasSelected()) return -6;
