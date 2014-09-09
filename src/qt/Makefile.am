@@ -101,7 +101,8 @@ QT_FORMS_UI = \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
   forms/signverifymessagedialog.ui \
-  forms/transactiondescdialog.ui
+  forms/transactiondescdialog.ui \
+  forms/sendmpdialog.ui
 
 QT_MOC_CPP = \
   moc_addressbookpage.cpp \
