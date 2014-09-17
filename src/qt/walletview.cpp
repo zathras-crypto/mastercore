@@ -13,6 +13,7 @@
 #include "overviewpage.h"
 #include "receivecoinsdialog.h"
 #include "sendcoinsdialog.h"
+#include "sendmpdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
@@ -81,9 +82,10 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsPage = new QWidget(this);
     QVBoxLayout *svbox = new QVBoxLayout();
     sendCoinsTab = new SendCoinsDialog();
+    sendMPTab = new SendMPDialog();
     QTabWidget *tabHolder = new QTabWidget();
     tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
-    tabHolder->addTab(new QWidget(),tr("Mastercoin"));
+    tabHolder->addTab(sendMPTab,tr("Mastercoin"));
     tabHolder->addTab(new QWidget(),tr("Smart Properties"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
