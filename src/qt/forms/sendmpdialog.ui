@@ -189,6 +189,60 @@
            </property>
           </widget>
          </item>
+
+    <item>
+    <widget class="QFrame" name="frameCoinControl">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+    </item>
+
+        <item>
+           <widget class="QLabel" name="labelCoinControlInsuffFunds">
+            <property name="font">
+             <font>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+           </widget>
+        </item>
+        
+        <item>
+         <widget class="QWidget" name="widgetCoinControl" native="true"> </widget>
+        </item>
+
+          <item>
+           <widget class="QLabel" name="labelCoinControlAutomaticallySelected">
+            <property name="text">
+             <string>automatically selected</string>
+            </property>
+            <property name="margin">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+     <item>
+      <widget class="QPushButton" name="addButton">
+       <property name="toolTip">
+        <string>Send to multiple recipients at once</string>
+       </property>
+       <property name="text">
+        <string>Add &amp;Recipient</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../bitcoin.qrc">
+         <normaloff>:/icons/add</normaloff>:/icons/add</iconset>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
          <item>
           <spacer name="horizontalSpacer_4">
            <property name="orientation">
@@ -249,6 +303,15 @@
          </item>
         </layout>
        </item>
+
+       <item>
+        <layout class="QVBoxLayout" name="entries">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+        </layout>
+       </item>
+
        <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
