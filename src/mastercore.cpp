@@ -3543,8 +3543,8 @@ int set_wallet_totals()
        }
     }
   }
-  printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_balance_money_maineco[1], global_balance_reserved_maineco[1]);
-  std::cout << t.elapsed() << std::endl;
+  //printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_balance_money_maineco[1], global_balance_reserved_maineco[1]);
+  //std::cout << t.elapsed() << std::endl;
   return (my_addresses_count);
 }
 
