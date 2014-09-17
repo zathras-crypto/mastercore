@@ -134,7 +134,9 @@ OverviewPage::OverviewPage(QWidget *parent) :
     // init "out of sync" warning labels
     ui->labelWalletStatus->setText("(" + tr("out of sync") + ")");
     ui->labelTransactionsStatus->setText("(" + tr("out of sync") + ")");
-    ui->proclabel->setText("(" + tr("processing") + ")");
+    ui->proclabel->setText("(" + tr("processing") + ")"); //msc processing label
+    ui->proclabel_2->setText("(" + tr("processing") + ")"); //smart property processing label
+
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 }
@@ -182,11 +184,13 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     string spName[6];
     uint64_t spBal[6];
     bool spDivisible[6];
+    bool spFound[6];
     unsigned int spItem;
     bool foundProperty = false;
 
     for (spItem = 1; spItem < 6; spItem++)
     {
+        spFound[spItem] = false;
         for (propertyId = lastFoundPropertyId+1; propertyId<100000; propertyId++)
         {
             foundProperty=false;
@@ -198,6 +202,7 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
                 spName[spItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str() + ")";
                 spBal[spItem] = global_balance_money_maineco[propertyId];
                 spDivisible[spItem] = isPropertyDivisible(propertyId);
+                spFound[spItem] = true;
                 break;
             }
         }
@@ -214,68 +219,108 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
                     spName[spItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
                     spBal[spItem] = global_balance_money_testeco[propertyId];
                     spDivisible[spItem] = isPropertyDivisible(propertyId+2147483647);
+                    spFound[spItem] = true;
                     break;
                 }
             }
         }
     }
 
-    //set labels
-    ui->SPname1->setText(spName[1].c_str());
-    ui->SPname2->setText(spName[2].c_str());
-    ui->SPname3->setText(spName[3].c_str());
-    ui->SPname4->setText(spName[4].c_str());
-    ui->SPname5->setText(spName[5].c_str());
-
-    if (spDivisible[1])
+    //set smart property info
+    if (spFound[1])
     {
-          ui->SPbal1->setText(BitcoinUnits::format(0, spBal[1]).append(" SPT"));
+        ui->SPname1->setText(spName[1].c_str());
+        if (spDivisible[1])
+        {
+            ui->SPbal1->setText(BitcoinUnits::format(0, spBal[1]).append(" SPT"));
+        }
+        else
+        {
+            string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[1]) )->str();
+            balText += " SPT";
+            ui->SPbal1->setText(balText.c_str());
+        }
     }
     else
     {
-          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[1]) )->str();
-          balText += " SPT";
-          ui->SPbal1->setText(balText.c_str());
+        ui->SPname1->setText("N/A");
+        ui->SPbal1->setText("N/A");
     }
-    if (spDivisible[2])
+    if (spFound[2])
     {
-          ui->SPbal2->setText(BitcoinUnits::format(0, spBal[2]).append(" SPT"));
-    }
-    else
-    {
-          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[2]) )->str();
-          balText += " SPT";
-          ui->SPbal2->setText(balText.c_str());
-    }
-    if (spDivisible[3])
-    {
-          ui->SPbal3->setText(BitcoinUnits::format(0, spBal[3]).append(" SPT"));
-    }
-    else
-    {
-          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[3]) )->str();
-          balText += " SPT";
-          ui->SPbal3->setText(balText.c_str());
-    }
-    if (spDivisible[4])
-    {
-          ui->SPbal4->setText(BitcoinUnits::format(0, spBal[4]).append(" SPT"));
+        ui->SPname2->setText(spName[2].c_str());
+        if (spDivisible[2])
+        {
+            ui->SPbal2->setText(BitcoinUnits::format(0, spBal[2]).append(" SPT"));
+        }
+        else
+        {
+            string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[2]) )->str();
+            balText += " SPT";
+            ui->SPbal2->setText(balText.c_str());
+        }
     }
     else
     {
-          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[4]) )->str();
-          balText += " SPT";
-          ui->SPbal4->setText(balText.c_str());
+        ui->SPname2->setText("N/A");
+        ui->SPbal2->setText("N/A");
     }
-    if (spDivisible[5])
+    if (spFound[3])
     {
-          ui->SPbal5->setText(BitcoinUnits::format(0, spBal[5]).append(" SPT"));
+        ui->SPname3->setText(spName[3].c_str());
+        if (spDivisible[3])
+        {
+            ui->SPbal3->setText(BitcoinUnits::format(0, spBal[3]).append(" SPT"));
+        }
+        else
+        {
+            string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[3]) )->str();
+            balText += " SPT";
+            ui->SPbal3->setText(balText.c_str());
+        }
     }
     else
     {
-          string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[5]) )->str();
-          balText += " SPT";
-          ui->SPbal5->setText(balText.c_str());
+        ui->SPname3->setText("N/A");
+        ui->SPbal3->setText("N/A");
+    }
+    if (spFound[4])
+    {
+        ui->SPname4->setText(spName[4].c_str());
+        if (spDivisible[4])
+        {
+            ui->SPbal4->setText(BitcoinUnits::format(0, spBal[4]).append(" SPT"));
+        }
+        else
+        {
+            string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[4]) )->str();
+            balText += " SPT";
+            ui->SPbal4->setText(balText.c_str());
+        }
+    }
+    else
+    {
+        ui->SPname4->setText("N/A");
+        ui->SPbal4->setText("N/A");
+    }
+    if (spFound[5])
+    {
+        ui->SPname5->setText(spName[5].c_str());
+        if (spDivisible[5])
+        {
+            ui->SPbal5->setText(BitcoinUnits::format(0, spBal[5]).append(" SPT"));
+        }
+        else
+        {
+            string balText = static_cast<ostringstream*>( &(ostringstream() << spBal[5]) )->str();
+            balText += " SPT";
+            ui->SPbal5->setText(balText.c_str());
+        }
+    }
+    else
+    {
+        ui->SPname5->setText("N/A");
+        ui->SPbal5->setText("N/A");
     }
 }
 
@@ -343,4 +388,5 @@ void OverviewPage::showOutOfSyncWarning(bool fShow)
     ui->labelWalletStatus->setVisible(fShow);
     ui->labelTransactionsStatus->setVisible(fShow);
     ui->proclabel->setVisible(fShow);
+    ui->proclabel_2->setVisible(fShow);
 }
