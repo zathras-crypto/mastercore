@@ -137,6 +137,8 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->proclabel->setText("(" + tr("processing") + ")"); //msc processing label
     ui->proclabel_2->setText("(" + tr("processing") + ")"); //smart property processing label
 
+    connect(ui->showAllBalancesLabel, SIGNAL(clicked()), this, SLOT((switchToBalancesPage)));
+
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 }
@@ -322,6 +324,12 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
         ui->SPname5->setText("N/A");
         ui->SPbal5->setText("N/A");
     }
+}
+
+void OverviewPage::switchToBalancesPage()
+{
+printf("switch to balances clicked\n");
+//    WalletView::gotoBalancesPage();
 }
 
 void OverviewPage::setClientModel(ClientModel *model)

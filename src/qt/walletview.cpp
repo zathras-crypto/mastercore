@@ -13,6 +13,7 @@
 #include "overviewpage.h"
 #include "receivecoinsdialog.h"
 #include "sendcoinsdialog.h"
+#include "sendmpdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
@@ -81,10 +82,11 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsPage = new QWidget(this);
     QVBoxLayout *svbox = new QVBoxLayout();
     sendCoinsTab = new SendCoinsDialog();
+    sendMPTab = new SendMPDialog();
     QTabWidget *tabHolder = new QTabWidget();
     tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
-    tabHolder->addTab(new QWidget(),tr("Mastercoin"));
-    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
+    tabHolder->addTab(sendMPTab,tr("Master Protocol"));
+//    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
 
@@ -97,6 +99,8 @@ WalletView::WalletView(QWidget *parent):
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
+
+//    connect(showAllBalancesLabel, SIGNAL(clicked()), overviewPage, SLOT(WalletView::gotoBalancesPage()));
 
     // Double-clicking on a transaction on the transaction history page shows details
     connect(transactionView, SIGNAL(doubleClicked(QModelIndex)), transactionView, SLOT(showDetails()));

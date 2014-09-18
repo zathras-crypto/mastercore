@@ -13,6 +13,9 @@
   <property name="windowTitle">
    <string>Send Coins</string>
   </property>
+  <property name="autoFillBackground">
+   <bool>true</bool>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0">
    <property name="bottomMargin">
     <number>8</number>
@@ -62,8 +65,8 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>70</width>
-             <height>30</height>
+             <width>95</width>
+             <height>0</height>
             </size>
            </property>
            <property name="text">
@@ -71,6 +74,9 @@
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="margin">
+            <number>8</number>
            </property>
           </widget>
          </item>
@@ -115,8 +121,8 @@
           <widget class="QLabel" name="sendToLabel">
            <property name="minimumSize">
             <size>
-             <width>70</width>
-             <height>30</height>
+             <width>95</width>
+             <height>0</height>
             </size>
            </property>
            <property name="layoutDirection">
@@ -127,6 +133,9 @@
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="margin">
+            <number>8</number>
            </property>
           </widget>
          </item>
@@ -160,8 +169,8 @@
           <widget class="QLabel" name="propertyLabel">
            <property name="minimumSize">
             <size>
-             <width>70</width>
-             <height>30</height>
+             <width>95</width>
+             <height>0</height>
             </size>
            </property>
            <property name="text">
@@ -170,10 +179,13 @@
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
            </property>
+           <property name="margin">
+            <number>8</number>
+           </property>
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="propertyCcomboBox">
+          <widget class="QComboBox" name="propertyComboBox">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -216,8 +228,8 @@
           <widget class="QLabel" name="amountLabel">
            <property name="minimumSize">
             <size>
-             <width>70</width>
-             <height>30</height>
+             <width>95</width>
+             <height>0</height>
             </size>
            </property>
            <property name="text">
@@ -225,6 +237,9 @@
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="margin">
+            <number>8</number>
            </property>
           </widget>
          </item>

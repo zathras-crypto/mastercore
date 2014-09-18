@@ -12,6 +12,7 @@ class ClientModel;
 class OverviewPage;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
+class SendMPDialog;
 class SendCoinsRecipient;
 class TransactionView;
 class BalancesView;
@@ -63,6 +64,7 @@ private:
 //    SendCoinsDialog *sendCoinsPage;
     QWidget *sendCoinsPage;
     SendCoinsDialog *sendCoinsTab;
+    SendMPDialog *sendMPTab;
 
     TransactionView *transactionView;
     BalancesView *balancesView;
