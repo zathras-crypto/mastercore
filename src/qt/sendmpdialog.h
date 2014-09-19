@@ -32,8 +32,8 @@ public:
 //    ~SendMPDialog();
 
     void setModel(WalletModel *model);
-    void updateFields();
-
+    void updateFrom();
+    void updateProperty();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
     QWidget *setupTabChain(QWidget *prev);
@@ -49,6 +49,8 @@ public slots:
 //    SendMPEntry *addEntry();
 //    void updateTabsAndLabels();
 //    void setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance);
+    void propertyComboBoxChanged(int idx);
+    void sendFromComboBoxChanged(int idx);
 
 private:
     Ui::SendMPDialog *ui;

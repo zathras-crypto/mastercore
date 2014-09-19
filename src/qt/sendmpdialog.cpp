@@ -47,9 +47,10 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
         {
             string spName;
             spName = getPropertyName(propertyId).c_str();
-            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            if(spName.size()>20) spName=spName.substr(0,23)+"...";
             string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
             spName += " (#" + spId + ")";
+            if (isPropertyDivisible(propertyId)) { spName += " [D]"; } else { spName += " [I]"; }
             ui->propertyComboBox->addItem(spName.c_str(),spId.c_str());
         }
     }
@@ -59,26 +60,66 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
         {
             string spName;
             spName = getPropertyName(propertyId+2147483647).c_str();
-            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            if(spName.size()>20) spName=spName.substr(0,23)+"...";
             string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str();
             spName += " (#" + spId + ")";
+            if (isPropertyDivisible(propertyId+2147483647)) { spName += " [D]"; } else { spName += " [I]"; }
             ui->propertyComboBox->addItem(spName.c_str(),spId.c_str());
         }
     }
 
-    updateFields();
+    // connect actions
+    connect(ui->propertyComboBox, SIGNAL(activated(int)), this, SLOT(propertyComboBoxChanged(int)));
+    connect(ui->sendFromComboBox, SIGNAL(activated(int)), this, SLOT(sendFromComboBoxChanged(int)));
+
+    // initial update
+    updateProperty();
+    updateFrom();
 }
 
-void SendMPDialog::updateFields()
+void SendMPDialog::updateFrom()
 {
     // update wallet balances
     set_wallet_totals();
+
+    // populate balance for currently selected address
+    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
+    unsigned int propertyId = spId.toUInt();
+    LOCK(cs_tally);
+    QString selectedFromAddress = ui->sendFromComboBox->currentText();
+    std::string stdSelectedFromAddress = selectedFromAddress.toStdString();
+    int64_t balanceAvailable = getMPbalance(stdSelectedFromAddress, propertyId, MONEY);
+    QString balanceLabel;
+    std::string tokenLabel;
+    if (propertyId==1) tokenLabel = " MSC";
+    if (propertyId==2) tokenLabel = " TMSC";
+    if (propertyId>2) tokenLabel = " SPT";
+    if (isPropertyDivisible(propertyId))
+    {
+        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatDivisibleMP(balanceAvailable) + tokenLabel);
+    }
+    else
+    {
+        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatIndivisibleMP(balanceAvailable) + tokenLabel);
+    }
+    ui->addressBalanceLabel->setText(balanceLabel);
+}
+
+void SendMPDialog::updateProperty()
+{
+    // update wallet balances
+    set_wallet_totals();
+
+    // get currently selected from address
+    QString currentSetFromAddress = ui->sendFromComboBox->currentText();
+
+    // clear address selector
+    ui->sendFromComboBox->clear();
 
     // populate from address selector
     QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
     LOCK(cs_tally);
-    bool divisible = isPropertyDivisible(propertyId);
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
         string address = (my_it->first).c_str();
@@ -94,15 +135,53 @@ void SendMPDialog::updateFields()
         ui->sendFromComboBox->addItem((my_it->first).c_str());
     }
 
+    // attempt to set from address back to what was originally in there before update
+    int fromIdx = ui->sendFromComboBox->findText(currentSetFromAddress);
+    if (fromIdx != -1) { ui->sendFromComboBox->setCurrentIndex(fromIdx); } // -1 means the currently set from address doesn't have a balance in the newly selected property
 
+    // populate balance for currently selected address and global wallet balance
+    QString selectedFromAddress = ui->sendFromComboBox->currentText();
+    std::string stdSelectedFromAddress = selectedFromAddress.toStdString();
+    int64_t balanceAvailable = getMPbalance(stdSelectedFromAddress, propertyId, MONEY);
+    int64_t globalAvailable = 0;
+    if (propertyId<2147483648) { globalAvailable = global_balance_money_maineco[propertyId]; } else { globalAvailable = global_balance_money_testeco[propertyId-2147483647]; }
+    QString balanceLabel;
+    QString globalLabel;
+    std::string tokenLabel;
+    if (propertyId==1) tokenLabel = " MSC";
+    if (propertyId==2) tokenLabel = " TMSC";
+    if (propertyId>2) tokenLabel = " SPT";
+    if (isPropertyDivisible(propertyId))
+    {
+        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatDivisibleMP(balanceAvailable) + tokenLabel);
+        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatDivisibleMP(globalAvailable) + tokenLabel);
+    }
+    else
+    {
+        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatIndivisibleMP(balanceAvailable) + tokenLabel);
+        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatIndivisibleMP(globalAvailable) + tokenLabel);
+    }
+    ui->addressBalanceLabel->setText(balanceLabel);
+    ui->globalBalanceLabel->setText(globalLabel);
 }
+
+void SendMPDialog::sendFromComboBoxChanged(int idx)
+{
+    updateFrom();
+}
+
+void SendMPDialog::propertyComboBoxChanged(int idx)
+{
+    updateProperty();
+}
+
 
 /*
     //GUIUtil::setupAddressWidget(ui->lineEditCoinControlChange, this);
 
     //addEntry();
 
-    /*connect(ui->addButton, SIGNAL(clicked()), this, SLOT(addEntry()));
+    connect(ui->addButton, SIGNAL(clicked()), this, SLOT(addEntry()));
     connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clear()));
 
     // Coin Control

@@ -84,8 +84,8 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsTab = new SendCoinsDialog();
     sendMPTab = new SendMPDialog();
     QTabWidget *tabHolder = new QTabWidget();
-    tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
     tabHolder->addTab(sendMPTab,tr("Master Protocol"));
+    tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
 //    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
