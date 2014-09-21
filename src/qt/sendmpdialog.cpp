@@ -40,6 +40,10 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     ui->sendButton->setIcon(QIcon());
 #endif
 
+    // populate placeholder text
+    ui->sendToLineEdit->setPlaceholderText("Enter a Master Protocol address (e.g. 1MaSTeRPRotocolADDreSShef77z6A5S4P)");
+    ui->amountLineEdit->setPlaceholderText("Enter Amount");
+
     // populate property selector
     for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
     {
@@ -71,10 +75,17 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     // connect actions
     connect(ui->propertyComboBox, SIGNAL(activated(int)), this, SLOT(propertyComboBoxChanged(int)));
     connect(ui->sendFromComboBox, SIGNAL(activated(int)), this, SLOT(sendFromComboBoxChanged(int)));
+    connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clearButtonClicked()));
 
     // initial update
     updateProperty();
     updateFrom();
+}
+
+void SendMPDialog::clearFields()
+{
+    ui->sendToLineEdit->setText("");
+    ui->amountLineEdit->setText("");
 }
 
 void SendMPDialog::updateFrom()
@@ -155,11 +166,13 @@ void SendMPDialog::updateProperty()
     {
         balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatDivisibleMP(balanceAvailable) + tokenLabel);
         globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatDivisibleMP(globalAvailable) + tokenLabel);
+        ui->amountLineEdit->setPlaceholderText("Enter Divisible Amount");
     }
     else
     {
         balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatIndivisibleMP(balanceAvailable) + tokenLabel);
         globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatIndivisibleMP(globalAvailable) + tokenLabel);
+        ui->amountLineEdit->setPlaceholderText("Enter Indivisible Amount");
     }
     ui->addressBalanceLabel->setText(balanceLabel);
     ui->globalBalanceLabel->setText(globalLabel);
@@ -175,6 +188,10 @@ void SendMPDialog::propertyComboBoxChanged(int idx)
     updateProperty();
 }
 
+void SendMPDialog::clearButtonClicked()
+{
+    clearFields();
+}
 
 /*
     //GUIUtil::setupAddressWidget(ui->lineEditCoinControlChange, this);
