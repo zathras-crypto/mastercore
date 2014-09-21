@@ -250,6 +250,14 @@ void SendMPDialog::sendMPTransaction()
         return;
     }
 
+    // check if sending address has enough funds
+    int64_t balanceAvailable = getMPbalance(fromAddress.ToString(), propertyId, MONEY);
+    if (sendAmount>balanceAvailable)
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The selected sending address does not have a sufficient balance to cover the amount entered.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
     printf("valid so far\n");
 }
 
