@@ -123,6 +123,7 @@ enum FILETYPES {
 string FormatDivisibleMP(int64_t n, bool fSign = false);
 string FormatIndivisibleMP(int64_t n);
 int64_t strToInt64(std::string strAmount, bool divisible);
+uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount);
 
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);

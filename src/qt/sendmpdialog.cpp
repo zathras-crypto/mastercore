@@ -259,6 +259,8 @@ void SendMPDialog::sendMPTransaction()
         return;
     }
 
+    // should we check here for sufficient BTC fees or simply let the sendMP function return that?
+
     // validation checks all look ok, let's throw up a confirmation dialog
     string strMsgText = "You are about to send the following transaction, please check the details thoroughly:\n\n";
     string propDetails = getPropertyName(propertyId).c_str();
@@ -277,7 +279,26 @@ void SendMPDialog::sendMPTransaction()
         return;
     }
 
-    printf("valid so far\n");
+    // send the transaction
+    uint256 sendTXID = send_MP(fromAddress.ToString(), refAddress.ToString(), fromAddress.ToString(), propertyId, sendAmount);
+
+    // display the result
+    string strSentText = "Your transaction has been sent.  The transaction ID is:\n\n";
+    strSentText += sendTXID.GetHex() + "\n\n";
+    QString sentText = QString::fromStdString(strSentText);
+    QMessageBox sentDialog;
+    sentDialog.setIcon(QMessageBox::Information);
+    sentDialog.setWindowTitle("Transaction broadcast successfully");
+    sentDialog.setText(sentText);
+    sentDialog.setStandardButtons(QMessageBox::Yes|QMessageBox::Ok);
+    sentDialog.setDefaultButton(QMessageBox::Ok);
+    sentDialog.setButtonText( QMessageBox::Yes, "Copy TXID to clipboard" );
+    if(sentDialog.exec() == QMessageBox::Yes)
+    {
+        // copy TXID to clipboard
+        GUIUtil::setClipboard(QString::fromStdString(sendTXID.GetHex()));
+    }
+    //we need to do better than just returning a string of 0000000 here if we can't send the TX
 }
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
