@@ -181,9 +181,31 @@ void SendMPDialog::updateProperty()
 
 void SendMPDialog::sendMPTransaction()
 {
+    // get the property being sent and get divisibility
+    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
+    if (spId.toStdString().empty())
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The property selected is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+    unsigned int propertyId = spId.toUInt();
+    bool divisible = isPropertyDivisible(propertyId);
+
+    // obtain the selected sender address
+    string strFromAddress = ui->sendFromComboBox->currentText().toStdString();
+    // push recipient address into a CBitcoinAddress type and check validity
+    CBitcoinAddress fromAddress;
+    if (false == strFromAddress.empty()) { fromAddress.SetString(strFromAddress); }
+    if (!fromAddress.IsValid())
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The sender address selected is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+
     // obtain the entered recipient address
     string strRefAddress = ui->sendToLineEdit->text().toStdString();
-
     // push recipient address into a CBitcoinAddress type and check validity
     CBitcoinAddress refAddress;
     if (false == strRefAddress.empty()) { refAddress.SetString(strRefAddress); }
@@ -194,13 +216,32 @@ void SendMPDialog::sendMPTransaction()
         return;
     }
 
-    // get the property being sent and get divisibility
-    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
-    unsigned int propertyId = spId.toUInt();
-    bool divisible = isPropertyDivisible(propertyId);
+    // warn if we have to truncate the amount due to a decimal amount for an indivisible property, but allow send to continue
+    string strAmount = ui->amountLineEdit->text().toStdString();
+    if (!divisible)
+    {
+        size_t pos = strAmount.find(".");
+        if (pos!=std::string::npos)
+        {
+            string tmpStrAmount = strAmount.substr(0,pos);
+            string strMsgText = "The amount entered contains a decimal however the property being sent is indivisible.\n\nThe amount entered will be truncated as follows:\n";
+            strMsgText += "Original amount entered: " + strAmount + "\nAmount that will be sent: " + tmpStrAmount + "\n\n";
+            strMsgText += "Do you still wish to process with the transaction?";
+            QString msgText = QString::fromStdString(strMsgText);
+            QMessageBox::StandardButton responseClick;
+            responseClick = QMessageBox::question(this, "Amount truncation warning", msgText, QMessageBox::Yes|QMessageBox::No);
+            if (responseClick == QMessageBox::No)
+            {
+                QMessageBox::critical( this, "Send transaction cancelled",
+                "The send transaction has been cancelled.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+                return;
+            }
+            strAmount = tmpStrAmount;
+            ui->amountLineEdit->setText(QString::fromStdString(strAmount));
+        }
+    }
 
     // use strToInt64 function to get the amount, using divisibility of the property
-    string strAmount = ui->amountLineEdit->text().toStdString();
     int64_t sendAmount = strToInt64(strAmount, divisible);
     if (0>=sendAmount)
     {
