@@ -122,6 +122,7 @@ enum FILETYPES {
 // forward declarations
 string FormatDivisibleMP(int64_t n, bool fSign = false);
 string FormatIndivisibleMP(int64_t n);
+int64_t strToInt64(std::string strAmount, bool divisible);
 
 extern CCriticalSection cs_tally;
 extern char *c_strMastercoinCurrency(int i);

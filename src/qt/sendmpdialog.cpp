@@ -190,10 +190,26 @@ void SendMPDialog::sendMPTransaction()
     if (!refAddress.IsValid())
     {
         QMessageBox::critical( this, "Unable to send transaction",
-        "The recipient address is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        "The recipient address entered is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
         return;
     }
-    printf("valid\n");
+
+    // get the property being sent and get divisibility
+    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
+    unsigned int propertyId = spId.toUInt();
+    bool divisible = isPropertyDivisible(propertyId);
+
+    // use strToInt64 function to get the amount, using divisibility of the property
+    string strAmount = ui->amountLineEdit->text().toStdString();
+    int64_t sendAmount = strToInt64(strAmount, divisible);
+    if (0>=sendAmount)
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The amount entered is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+
+    printf("valid so far\n");
 }
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
