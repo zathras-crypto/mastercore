@@ -264,8 +264,9 @@ void SendMPDialog::sendMPTransaction()
     string propDetails = getPropertyName(propertyId).c_str();
     string spNum = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
     propDetails += " (#" + spNum + ")";
-    strMsgText += "From: " + fromAddress.ToString() + "\nTo: " + refAddress.ToString() + "\nProperty: " + propDetails + "\nAmount that will be sent: " + strAmount + "\n\n";
-    strMsgText += "Are you sure you wish to send this transaction?";
+    strMsgText += "From: " + fromAddress.ToString() + "\nTo: " + refAddress.ToString() + "\nProperty: " + propDetails + "\nAmount that will be sent: ";
+    if (divisible) { strMsgText += FormatDivisibleMP(sendAmount); } else { strMsgText += FormatIndivisibleMP(sendAmount); }
+    strMsgText += "\n\nAre you sure you wish to send this transaction?";
     QString msgText = QString::fromStdString(strMsgText);
     QMessageBox::StandardButton responseClick;
     responseClick = QMessageBox::question(this, "Confirm send transaction", msgText, QMessageBox::Yes|QMessageBox::No);
@@ -275,8 +276,6 @@ void SendMPDialog::sendMPTransaction()
         "The send transaction has been cancelled.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
         return;
     }
-
-
 
     printf("valid so far\n");
 }
