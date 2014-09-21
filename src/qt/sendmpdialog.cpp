@@ -258,6 +258,26 @@ void SendMPDialog::sendMPTransaction()
         "The selected sending address does not have a sufficient balance to cover the amount entered.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
         return;
     }
+
+    // validation checks all look ok, let's throw up a confirmation dialog
+    string strMsgText = "You are about to send the following transaction, please check the details thoroughly:\n\n";
+    string propDetails = getPropertyName(propertyId).c_str();
+    string spNum = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
+    propDetails += " (#" + spNum + ")";
+    strMsgText += "From: " + fromAddress.ToString() + "\nTo: " + refAddress.ToString() + "\nProperty: " + propDetails + "\nAmount that will be sent: " + strAmount + "\n\n";
+    strMsgText += "Are you sure you wish to send this transaction?";
+    QString msgText = QString::fromStdString(strMsgText);
+    QMessageBox::StandardButton responseClick;
+    responseClick = QMessageBox::question(this, "Confirm send transaction", msgText, QMessageBox::Yes|QMessageBox::No);
+    if (responseClick == QMessageBox::No)
+    {
+        QMessageBox::critical( this, "Send transaction cancelled",
+        "The send transaction has been cancelled.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+
+
+
     printf("valid so far\n");
 }
 
