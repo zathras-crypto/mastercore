@@ -76,6 +76,7 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     connect(ui->propertyComboBox, SIGNAL(activated(int)), this, SLOT(propertyComboBoxChanged(int)));
     connect(ui->sendFromComboBox, SIGNAL(activated(int)), this, SLOT(sendFromComboBoxChanged(int)));
     connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clearButtonClicked()));
+    connect(ui->sendButton, SIGNAL(clicked()), this, SLOT(sendButtonClicked()));
 
     // initial update
     updateProperty();
@@ -178,6 +179,11 @@ void SendMPDialog::updateProperty()
     ui->globalBalanceLabel->setText(globalLabel);
 }
 
+void SendMPDialog::sendMPTransaction()
+{
+
+}
+
 void SendMPDialog::sendFromComboBoxChanged(int idx)
 {
     updateFrom();
@@ -191,6 +197,11 @@ void SendMPDialog::propertyComboBoxChanged(int idx)
 void SendMPDialog::clearButtonClicked()
 {
     clearFields();
+}
+
+void SendMPDialog::sendButtonClicked()
+{
+
 }
 
 /*
