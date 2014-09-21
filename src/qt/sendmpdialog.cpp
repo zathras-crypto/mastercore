@@ -181,7 +181,19 @@ void SendMPDialog::updateProperty()
 
 void SendMPDialog::sendMPTransaction()
 {
+    // obtain the entered recipient address
+    string strRefAddress = ui->sendToLineEdit->text().toStdString();
 
+    // push recipient address into a CBitcoinAddress type and check validity
+    CBitcoinAddress refAddress;
+    if (false == strRefAddress.empty()) { refAddress.SetString(strRefAddress); }
+    if (!refAddress.IsValid())
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The recipient address is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+    printf("valid\n");
 }
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
@@ -201,7 +213,7 @@ void SendMPDialog::clearButtonClicked()
 
 void SendMPDialog::sendButtonClicked()
 {
-
+    sendMPTransaction();
 }
 
 /*
