@@ -275,6 +275,13 @@ CMPSPInfo::Entry sp;
   return true;
 }
 
+string mastercore::getPropertyName(unsigned int propertyId)
+{
+  CMPSPInfo::Entry sp;
+  if (_my_sps->getSP(propertyId, sp)) return sp.name;
+  return "Property Name Not Found";
+}
+
 bool mastercore::isCrowdsaleActive(unsigned int propertyId)
 {
   for(CrowdMap::const_iterator it = my_crowds.begin(); it != my_crowds.end(); ++it)

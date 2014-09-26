@@ -52,7 +52,7 @@
 
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
-// #define DISABLE_LOG_FILE 
+//#define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
 
@@ -82,8 +82,12 @@ static const int nBlockTop = 0;
 
 static int nWaterlineBlock = 0;  //
 
-// uint64_t global_MSC_total = 0;
-// uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_MSC_total = 0;
+uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_balance_money_maineco[100000];
+uint64_t global_balance_reserved_maineco[100000];
+uint64_t global_balance_money_testeco[100000];
+uint64_t global_balance_reserved_testeco[100000];
 
 static uint64_t exodus_prev = 0;
 static uint64_t exodus_balance;
@@ -94,6 +98,7 @@ int msc_debug_parser_data = 0;
 int msc_debug_parser= 0;
 int msc_debug_verbose=0;
 int msc_debug_verbose2=0;
+int msc_debug_verbose3=0;
 int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 1;
@@ -183,7 +188,6 @@ static void ShrinkMasterCoreDebugFile()
         fseek(file, -sizeof(pch), SEEK_END);
         int nBytes = fread(pch, 1, sizeof(pch), file);
         fclose(file);
-
         file = fopen(pathLog.string().c_str(), "w");
         if (file)
         {
@@ -341,7 +345,7 @@ return Amount;
 
 std::string mastercore::FormatIndivisibleMP(int64_t n)
 {
-  string str = strprintf("%lu", n);
+  string str = strprintf("%ld", n);
   return str;
 }
 
@@ -355,6 +359,57 @@ AcceptMap mastercore::my_accepts;
 CMPSPInfo *mastercore::_my_sps;
 CrowdMap mastercore::my_crowds;
 MetaDExMap mastercore::metadex;
+
+PendingMap mastercore::my_pending;
+
+CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
+{
+  if (msc_debug_verbose3) fprintf(mp_fp, "%s(%s)\n", __FUNCTION__, txid.GetHex().c_str());
+
+  PendingMap::iterator it = my_pending.find(txid);
+
+  if (it != my_pending.end())
+  {
+    // display
+    CMPPending *p_pending = &(it->second);
+
+    p_pending->print(txid);
+
+    int64_t src_amount = getMPbalance(p_pending->src, p_pending->curr, PENDING);
+    int64_t dest_amount = getMPbalance(p_pending->dest, p_pending->curr, PENDING);
+
+    fprintf(mp_fp, "%s()src= %ld, dest= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, dest_amount, __LINE__, __FILE__);
+
+    if (src_amount && dest_amount)
+    {
+      if (update_tally_map(p_pending->dest, p_pending->curr, - p_pending->amount, PENDING))
+      {
+        update_tally_map(p_pending->src, p_pending->curr, p_pending->amount, PENDING);
+      }
+    }
+
+    if (bErase)
+    {
+      my_pending.erase(it);
+    }
+    else
+    {
+      return &(it->second);
+    }
+  }
+
+  return (CMPPending *) NULL;
+}
+
+int mastercore::pendingAdd(const uint256 &txid, const CMPPending &pend)
+{
+  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+  pend.print(txid);
+  my_pending.insert(std::make_pair(txid, pend));
+
+  return 0;
+}
 
 // this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
 std::map<string, CMPTally> mastercore::mp_tally_map;
@@ -371,9 +426,11 @@ CMPTally *mastercore::getTally(const string & address)
 }
 
 // look at balance for an address
-uint64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
+int64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
 {
 uint64_t balance = 0;
+
+  if (TALLY_TYPE_COUNT <= ttype) return 0;
 
   LOCK(cs_tally);
 
@@ -385,6 +442,26 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
   }
 
   return balance;
+}
+
+int64_t getUserAvailableMPbalance(const string &Address, unsigned int currency)
+{
+int64_t money = getMPbalance(Address, currency, MONEY);
+int64_t pending = getMPbalance(Address, currency, PENDING);
+
+  if (0 > pending)
+  {
+    return (money + pending); // show the decrease in money available
+  }
+
+  return money;
+}
+
+static bool isRangeOK(const uint64_t input)
+{
+  if (MAX_INT_8_BYTES < input) return false;
+
+  return true;
 }
 
 // returns false if we are out of range and/or overflow
@@ -710,33 +787,53 @@ const double available_reward=all_reward * part_available;
 }
 
 // TODO: optimize efficiency -- iterate only over wallet's addresses in the future
-int set_wallet_totals()
-{
-int my_addresses_count = 0;
-/* DISABLE FOR NOW !!!
-const unsigned int currency = MASTERCOIN_CURRENCY_MSC;  // FIXME: hard-coded for MSC only, for PoC
+// NOTE: if we loop over wallet addresses we miss tokens that may be in change addresses (since mapAddressBook does not
+//       include change addresses).  with current transaction load, about 0.02 - 0.06 seconds is spent on this function
 
-  global_MSC_total = 0;
-  global_MSC_RESERVED_total = 0;
+int mastercore::set_wallet_totals()
+{
+  //concerned about efficiency here, time how long this takes, averaging 0.02-0.04s on my system
+  //timer t;
+  int my_addresses_count = 0;
+  int64_t propertyId;
+  unsigned int nextSPID = _my_sps->peekNextSPID(1); // real eco
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(2); // test eco
+
+  //zero bals
+  for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
+  {
+    global_balance_money_maineco[propertyId] = 0;
+    global_balance_reserved_maineco[propertyId] = 0;
+  }
+  for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
+  {
+    global_balance_money_testeco[propertyId-2147483647] = 0;
+    global_balance_reserved_testeco[propertyId-2147483647] = 0;
+  }
 
   for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
   {
-    // my_it->first = key
-    // my_it->second = value
-
     if (IsMyAddress(my_it->first))
     {
-      ++my_addresses_count;
-
-      global_MSC_total += (my_it->second).getMoney(currency, false);
-      global_MSC_RESERVED_total += (my_it->second).getMoney(currency, true);
+       for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
+       {
+              //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, MONEY);
+              global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
+              global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
+       }
+       for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
+       {
+              //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, MONEY);
+              global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
+              global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+       }
     }
   }
-*/
-
+  //printf("Global MSC totals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_balance_money_maineco[1], global_balance_reserved_maineco[1]);
+  //std::cout << t.elapsed() << std::endl;
   return (my_addresses_count);
 }
-
 
 static void prepareObfuscatedHashes(const string &address, string (&ObfsHashes)[1+MAX_SHA256_OBFUSCATION_TIMES])
 {
@@ -1770,7 +1867,7 @@ static int load_most_relevant_state()
       continue;
     }
 
-    std::string fName = (*--dIter->path().end()).c_str();
+    std::string fName = (*--dIter->path().end()).string();
     std::vector<std::string> vstr;
     boost::split(vstr, fName, boost::is_any_of("-."), token_compress_on);
     if (  vstr.size() == 3 &&
@@ -2086,7 +2183,6 @@ int mastercore_init()
   }
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
-
   ShrinkMasterCoreDebugFile();
 
 #ifndef  DISABLE_LOG_FILE
@@ -2253,6 +2349,12 @@ int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, 
     mastercore_init();
   }
 
+  // clear pending, if any
+  // NOTE1: Every incoming TX is checked, not just MP-ones because:
+  //  if for some reason the incoming TX doesn't pass our parser validation steps successfuly, I'd still want to clear pending amounts for that TX.
+  // NOTE2: Plus I wanna clear the amount before that TX is parsed by our protocol, in case we ever consider pending amounts in internal calculations.
+  (void) pendingDelete(tx.GetHash(), true);
+
 CMPTransaction mp_obj;
 // save the augmented offer or accept amount into the database as well (expecting them to be numerically lower than that in the blockchain)
 int interp_ret = -555555, pop_ret;
@@ -2338,7 +2440,7 @@ int64_t GetDustLimit(const CScript& scriptPubKey)
     return nDustLimit;
 }
 
-static int selectCoins(const string &FromAddress, CCoinControl &coinControl, int64_t additional)
+static int64_t selectCoins(const string &FromAddress, CCoinControl &coinControl, int64_t additional)
 {
   CWallet *wallet = pwalletMain;
   int64_t n_max = (COIN * (20 * (0.0001))); // assume 20KBytes max TX size at 0.0001 per kilobyte
@@ -2405,7 +2507,15 @@ static int selectCoins(const string &FromAddress, CCoinControl &coinControl, int
         break;
     } // for iterate over the wallet end
 
-  return 0;
+// return 0;
+return n_total;
+}
+
+int64_t feeCheck(const string &address)
+{
+    // check the supplied address against selectCoins to determine if sufficient fees for send
+    CCoinControl coinControl;
+    return selectCoins(address, coinControl, 0);
 }
 
 #define PUSH_BACK_BYTES(vector, value)\
@@ -2570,7 +2680,6 @@ vector< pair<CScript, int64_t> > vecSend;
 
   // the fee will be computed by Bitcoin Core, need an override (?)
   // TODO: look at Bitcoin Core's global: nTransactionFee (?)
-//  if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl, bRawTX)) return (CLASSB_SEND_ERROR -11);
   if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl)) return (CLASSB_SEND_ERROR -11);
 
   if (bRawTX)
@@ -2596,19 +2705,43 @@ vector< pair<CScript, int64_t> > vecSend;
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
 uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType, int64_t additional, int *error_code)
 {
-const uint64_t nAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
+const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
+const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
 int rc = -1;
 uint256 txid = 0;
 
-  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu)\n",
-   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount);
+  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, iAvailable, iUserAvailable);
+
+  if (mp_fp) fflush(mp_fp);
+
+  if (!isRangeOK(Amount))
+  {
+    rc -= 10;
+    if (error_code) *error_code = rc;
+
+    return 0;
+  }
 
   // make sure this address has enough MP currency available!
-  if ((nAvailable < Amount) || (0 == Amount))
+  if (((uint64_t)iAvailable < Amount) || (0 == Amount))
   {
-    LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
-    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, nAvailable, Amount);
+    LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
+    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
 
+    if (error_code) *error_code = rc;
+
+    return 0;
+  }
+
+  // check once more, this time considering PENDING amount reduction
+  // make sure this address has enough MP currency available!
+  if ((iUserAvailable < (int64_t)Amount) || (0 == Amount))
+  {
+    LogPrintf("%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+
+    rc -= 1;
     if (error_code) *error_code = rc;
 
     return 0;
@@ -2627,6 +2760,8 @@ uint256 txid = 0;
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   if (error_code) *error_code = rc;
+
+  if (mp_fp) fflush(mp_fp);
 
   return txid;
 }
@@ -3287,7 +3422,7 @@ int step_rc;
       }
       else
       {
-        fprintf(mp_fp, "\nPROBLEM writing %s, errno= %d\n", INFO_FILENAME, errno);
+        fprintf(mp_fp, "\nPROBLEM writing %s, errno= %d\n", OWNERS_FILENAME, errno);
       }
 
       rc = logicMath_SendToOwners(fp);
@@ -3439,7 +3574,7 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       // does the sender have enough of the property he's trying to "Send To Owners" ?
-      if (getMPbalance(sender, currency, MONEY) < nValue)
+      if (getMPbalance(sender, currency, MONEY) < (int64_t)nValue)
       {
         return (PKT_ERROR_STO -3);
       }
@@ -3492,7 +3627,7 @@ int rc = PKT_ERROR_STO -1000;
         return (PKT_ERROR_STO -4);
       }
 
-      uint64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
+      int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
 
       // determine which currency the fee will be paid in
       const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
@@ -3508,7 +3643,7 @@ int rc = PKT_ERROR_STO -1000;
       // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
       if (feeCurrency == currency)
       {
-        if (getMPbalance(sender, feeCurrency, MONEY) < (nValue + nXferFee))
+        if (getMPbalance(sender, feeCurrency, MONEY) < (int64_t)(nValue + nXferFee))
         {
           return (PKT_ERROR_STO -55);
         }

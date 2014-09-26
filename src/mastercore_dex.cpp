@@ -67,7 +67,7 @@ CMPMetaDEx *mastercore::getMetaDEx(const string &sender_addr, unsigned int curr)
   if (msc_debug_metadex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
-map<string, CMPMetaDEx>::iterator it = metadex.find(combo);
+  MetaDExMap::iterator it = metadex.find(combo);
 
   if (it != metadex.end()) return &(it->second);
 
