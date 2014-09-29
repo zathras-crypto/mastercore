@@ -61,6 +61,8 @@ enum BindFlags {
     BF_REPORT_ERROR = (1U << 1)
 };
 
+int mastercore_init(void);
+int mastercore_shutdown(void);
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -134,6 +136,7 @@ void Shutdown()
         if (pcoinsTip)
             pcoinsTip->Flush();
         delete pcoinsTip; pcoinsTip = NULL;
+        (void) mastercore_shutdown();
         delete pcoinsdbview; pcoinsdbview = NULL;
         delete pblocktree; pblocktree = NULL;
     }
@@ -954,6 +957,10 @@ bool AppInit2(boost::thread_group& threadGroup)
             LogPrintf("No blocks matching %s were found\n", strMatch);
         return false;
     }
+
+     if (!fTxIndex) return InitError(_("Master Core: Please use -txindex option at the command line or add txindex=1 to bitcoin.conf file !!!\n"));  // mastercore check
+     uiInterface.InitMessage(_("Parsing Master Protocol Transactions..."));
+     (void) mastercore_init();
 
     // ********************************************************* Step 8: load wallet
 #ifdef ENABLE_WALLET
