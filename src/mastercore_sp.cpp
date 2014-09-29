@@ -74,7 +74,7 @@ unsigned int CMPSPInfo::updateSP(unsigned int propertyID, Entry const &info)
     commitBatch.Put(spKey, spValue);
     pDb->Write(writeOptions, &commitBatch);
 
-    fprintf(mp_fp,"\nUpdated LevelDB with SP data successfully\n");
+    fprintf(mp_fp,"Updated LevelDB with SP data successfully\n");
     return res;
 }
 

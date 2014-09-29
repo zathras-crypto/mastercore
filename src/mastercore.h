@@ -327,14 +327,14 @@ public:
 class CMPPending
 {
 public:
-  string src;
-  string dest;
+  string src; // the FromAddress
+//  string dest;
   unsigned int curr;
   int64_t amount;
 
   void print(uint256 txid) const
   {
-    printf("%s : %s %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), dest.c_str(), curr, amount);
+    printf("%s : %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), curr, amount);
   }
 };
 
@@ -376,9 +376,6 @@ extern std::map<string, CMPTally> mp_tally_map;
 extern CMPTxList *p_txlistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
-
-extern PendingMap my_pending;
-int pendingAdd(const uint256 &txid, const CMPPending &pend);
 
 string strMPCurrency(unsigned int i);
 

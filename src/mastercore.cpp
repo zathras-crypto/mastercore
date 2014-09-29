@@ -52,7 +52,7 @@
 
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
-//#define DISABLE_LOG_FILE
+// #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
 
@@ -179,24 +179,33 @@ static void ShrinkMasterCoreDebugFile()
 {
     // Scroll log if it's getting too big
 #ifndef  DISABLE_LOG_FILE
+    const int buffer_size = 8000000;  // 8MBytes
     boost::filesystem::path pathLog = GetDataDir() / LOG_FILENAME;
     FILE* file = fopen(pathLog.string().c_str(), "r");
-    if (file && boost::filesystem::file_size(pathLog) > 50 * 1000000) // 50 MBytes
+
+    if (file && boost::filesystem::file_size(pathLog) > 50000000) // 50MBytes
     {
-        // Restart the file with some of the end
-        char pch[8000000]; // preserve 8MBytes of old data
-        fseek(file, -sizeof(pch), SEEK_END);
-        int nBytes = fread(pch, 1, sizeof(pch), file);
-        fclose(file);
+      // Restart the file with some of the end
+      char *pch = new char[buffer_size];
+      if (NULL != pch)
+      {
+        fseek(file, -buffer_size, SEEK_END);
+        int nBytes = fread(pch, 1, buffer_size, file);
+        fclose(file); file = NULL;
+
         file = fopen(pathLog.string().c_str(), "w");
         if (file)
         {
             fwrite(pch, 1, nBytes, file);
-            fclose(file);
+            fclose(file); file = NULL;
         }
+        delete [] pch;
+      }
     }
-    else if (file != NULL)
-        fclose(file);
+    else
+    {
+      if (NULL != file) fclose(file);
+    }
 #endif
 }
 
@@ -360,9 +369,9 @@ CMPSPInfo *mastercore::_my_sps;
 CrowdMap mastercore::my_crowds;
 MetaDExMap mastercore::metadex;
 
-PendingMap mastercore::my_pending;
+static PendingMap my_pending;
 
-CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
+static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 {
   if (msc_debug_verbose3) fprintf(mp_fp, "%s(%s)\n", __FUNCTION__, txid.GetHex().c_str());
 
@@ -376,16 +385,12 @@ CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
     p_pending->print(txid);
 
     int64_t src_amount = getMPbalance(p_pending->src, p_pending->curr, PENDING);
-    int64_t dest_amount = getMPbalance(p_pending->dest, p_pending->curr, PENDING);
 
-    fprintf(mp_fp, "%s()src= %ld, dest= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, dest_amount, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
 
-    if (src_amount && dest_amount)
+    if (src_amount)
     {
-      if (update_tally_map(p_pending->dest, p_pending->curr, - p_pending->amount, PENDING))
-      {
-        update_tally_map(p_pending->src, p_pending->curr, p_pending->amount, PENDING);
-      }
+      update_tally_map(p_pending->src, p_pending->curr, p_pending->amount, PENDING);
     }
 
     if (bErase)
@@ -401,12 +406,22 @@ CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
   return (CMPPending *) NULL;
 }
 
-int mastercore::pendingAdd(const uint256 &txid, const CMPPending &pend)
+static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned int propId, int64_t Amount)
 {
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+CMPPending pending;
 
-  pend.print(txid);
-  my_pending.insert(std::make_pair(txid, pend));
+  printf("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+
+  // support for pending, 0-confirm
+  if (update_tally_map(FromAddress, propId, -Amount, PENDING))
+  {
+    pending.src = FromAddress;
+    pending.amount = Amount;
+    pending.curr = propId;
+
+    pending.print(txid);
+    my_pending.insert(std::make_pair(txid, pending));
+  }
 
   return 0;
 }
@@ -789,7 +804,6 @@ const double available_reward=all_reward * part_available;
 // TODO: optimize efficiency -- iterate only over wallet's addresses in the future
 // NOTE: if we loop over wallet addresses we miss tokens that may be in change addresses (since mapAddressBook does not
 //       include change addresses).  with current transaction load, about 0.02 - 0.06 seconds is spent on this function
-
 int mastercore::set_wallet_totals()
 {
   //concerned about efficiency here, time how long this takes, averaging 0.02-0.04s on my system
@@ -1141,10 +1155,7 @@ int p2shAllowed = 0;
             }
           if (msc_debug_script) fprintf(mp_fp, "\n");
 
-          // TODO: verify that we can handle multiple multisigs per tx
           wtx.vout[i].scriptPubKey.mscore_parse(multisig_script_data, false);
-
-//          break;  // get out of processing this first multisig  , Michael Jun 24
         }
               }
             } // end of the outputs' for loop
@@ -1268,8 +1279,6 @@ int p2shAllowed = 0;
               if (strDataAddress.empty()) // an empty Data Address here means it is not Class A valid and should be defaulted to a BTC payment
               {
               // this must be the BTC payment - validate (?)
-              // TODO
-              // ...
 //              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
               fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
               fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
@@ -2183,6 +2192,7 @@ int mastercore_init()
   }
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
+
   ShrinkMasterCoreDebugFile();
 
 #ifndef  DISABLE_LOG_FILE
@@ -2249,54 +2259,7 @@ int mastercore_init()
     if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
 
 #ifdef  MY_HACK
-/*
-    nWaterlineBlock = MSC_SP_BLOCK-3;
-    nWaterlineBlock = MSC_DEX_BLOCK-3;
-//    nWaterlineBlock = 296163 - 3; // bad Deadline
-    nWaterlineBlock = MSC_SP_BLOCK-3;
-    nWaterlineBlock = 292665;
-    nWaterlineBlock = 303550;
-    nWaterlineBlock = 303550;
-    nWaterlineBlock = 308500;
-    nWaterlineBlock = MSC_DEX_BLOCK-3;
-*/
-
-    update_tally_map(exodus_address, MASTERCOIN_CURRENCY_TMSC, COIN*5678, MONEY); // put some TMSC in, for my hack
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x80000009, COIN*345, MONEY);
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x8000003F, COIN*345, MONEY);
-    update_tally_map("1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n", 0x80000040, COIN*345, MONEY);
-    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_MSC, COIN*456, MONEY);
-    update_tally_map("1MCHESTbJhJK27Ygqj4qKkx4Z4ZxhnP826", MASTERCOIN_CURRENCY_TMSC, COIN*567, MONEY);
-    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_MSC, COIN*678, MONEY);
-    update_tally_map("1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb", MASTERCOIN_CURRENCY_TMSC, COIN*789, MONEY);
-    update_tally_map("1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8", 0x80000003, COIN*321, MONEY);
-//    nWaterlineBlock = 304000;
-
-    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_MSC, COIN*123, MONEY);
-    update_tally_map("1PfREWL44zJun1MLXkH64s88DSkPZXVxot", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-//    nWaterlineBlock = 310500;
-
-    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
-    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-
-    update_tally_map("18bAjW3tvSX8QK3XLdcApug71nNKmB4jnU", 24, COIN*55555, MONEY);
-
-    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
-    update_tally_map("1PRozi3UhpXtC4kZtPD1nfCFXJkXrV27Wp", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-//    nWaterlineBlock = 310000;
-
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", 2147483652, COIN*234, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH", 2147483652, COIN*234, MONEY);
-
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", MASTERCOIN_CURRENCY_TMSC, COIN*234, MONEY);
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", MASTERCOIN_CURRENCY_MSC, COIN*234, MONEY);
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", 2147483652, COIN*234, MONEY);
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64", 2147483652, COIN*234, MONEY);
-
+//    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    if (isNonMainNet()) nWaterlineBlock = 272700;
 #endif
   }
@@ -2709,6 +2672,8 @@ const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
 int rc = -1;
 uint256 txid = 0;
+const int64_t amount = Amount;
+const unsigned int curr = CurrencyID;
 
   if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
    __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, iAvailable, iUserAvailable);
@@ -2760,6 +2725,8 @@ uint256 txid = 0;
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
 
   if (error_code) *error_code = rc;
+
+  (void) pendingAdd(txid, FromAddress, curr, amount);
 
   if (mp_fp) fflush(mp_fp);
 
