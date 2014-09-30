@@ -3268,7 +3268,7 @@ int step_rc;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
-        fprintf(mp_fp, "\nCREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
+        fprintf(mp_fp, "CREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
       }
       rc = 0;
       break;
@@ -3353,7 +3353,7 @@ int step_rc;
         newSP.manual = true;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        fprintf(mp_fp, "\nCREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
+        fprintf(mp_fp, "CREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
       }
       rc = 0;
       break;
