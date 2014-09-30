@@ -34,7 +34,7 @@ void AboutDialog::setModel(ClientModel *model)
 {
     if(model)
     {
-        QString version = "0.0.8"; //hardcoded for now
+        QString version = "0.0.9"; //hardcoded for now
         /* On x86 add a bit specifier to the version so that users can distinguish between
          * 32 and 64 bit builds. On other architectures, 32/64 bit may be more ambigious.
          */
