@@ -177,6 +177,21 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "keypoolrefill"          && n > 0) ConvertTo<int64_t>(params[0]);
     if (strMethod == "getrawmempool"          && n > 0) ConvertTo<bool>(params[0]);
 
+    // master core conversions
+    if (strMethod == "getcrowdsale_MP"        && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "getcrowdsale_MP"        && n > 1) ConvertTo<bool>(params[1]);
+    if (strMethod == "getgrants_MP"           && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "send_MP"                && n > 2) ConvertTo<int64_t>(params[2]);
+    if (strMethod == "getbalance_MP"          && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "sendtoowners_MP"        && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "getproperty_MP"         && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "listtransactions_MP"    && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "listtransactions_MP"    && n > 2) ConvertTo<int64_t>(params[2]);
+    if (strMethod == "listtransactions_MP"    && n > 3) ConvertTo<int64_t>(params[3]);
+    if (strMethod == "listtransactions_MP"    && n > 4) ConvertTo<int64_t>(params[4]);
+    if (strMethod == "getallbalancesforid_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "listblocktransactions_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
+
     return params;
 }
 

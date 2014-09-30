@@ -188,4 +188,21 @@ extern json_spirit::Value gettxoutsetinfo(const json_spirit::Array& params, bool
 extern json_spirit::Value gettxout(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value verifychain(const json_spirit::Array& params, bool fHelp);
 
+extern json_spirit::Value mscrpc(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getallbalancesforid_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getbalance_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value send_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value sendtoowners_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value sendrawtx_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getproperty_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value listproperties_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value getcrowdsale_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getactivecrowdsales_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getgrants_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
+extern json_spirit::Value getactivedexsells_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listblocktransactions_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+
 #endif
