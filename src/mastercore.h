@@ -380,6 +380,7 @@ typedef std::map<uint256, CMPPending> PendingMap;
 string strMPCurrency(unsigned int i);
 
 int GetHeight(void);
+uint32_t GetLatestBlockTime(void);
 bool isPropertyDivisible(unsigned int propertyId);
 string getPropertyName(unsigned int propertyId);
 bool isCrowdsaleActive(unsigned int propertyId);

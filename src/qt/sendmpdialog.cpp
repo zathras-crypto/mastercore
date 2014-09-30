@@ -59,6 +59,7 @@ using namespace leveldb;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 
+#include <QDateTime>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QTextDocument>
@@ -309,9 +310,11 @@ void SendMPDialog::sendMPTransaction()
     }
 
     // check if wallet is still syncing, as this will currently cause a lockup if we try to send - compare our chain to peers to see if we're up to date
-    int ourBlocks = chainActive.Height();
-    int peerBlocks = GetNumBlocksOfPeers();
-    if (ourBlocks<peerBlocks)
+    // Bitcoin Core devs have removed GetNumBlocksOfPeers, switching to a time based best guess scenario
+    uint32_t intBlockDate = GetLatestBlockTime();  // uint32, not using time_t for portability
+    QDateTime currentDate = QDateTime::currentDateTime();
+    int secs = QDateTime::fromTime_t(intBlockDate).secsTo(currentDate);
+    if(secs > 90*60)
     {
         QMessageBox::critical( this, "Unable to send transaction",
         "The client is still synchronizing.  Sending transactions can currently be performed only when the client has completed synchronizing." );

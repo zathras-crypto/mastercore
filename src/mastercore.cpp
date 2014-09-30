@@ -153,6 +153,15 @@ int mastercore::GetHeight()
   return chainActive.Height();
 }
 
+uint32_t mastercore::GetLatestBlockTime()
+{
+    LOCK(cs_main);
+    if (chainActive.Tip())
+        return (int)(chainActive.Tip()->GetBlockTime());
+    else
+        return (int)(Params().GenesisBlock().nTime); // Genesis block's time of current network
+}
+
 // indicate whether persistence is enabled at this point, or not
 // used to write/read files, for breakout mode, debugging, etc.
 static bool readPersistence()
