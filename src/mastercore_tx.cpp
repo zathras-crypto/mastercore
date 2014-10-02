@@ -594,13 +594,6 @@ int CMPTransaction::logicMath_RevokeTokens()
       return (PKT_ERROR_TOKENS - 25);
     }
 
-
-    // issuer check
-    if (false == boost::iequals(sender, sp.issuer)) {
-      fprintf(mp_fp, "\tRejecting Revoke: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
-      return (PKT_ERROR_TOKENS - 26);
-    }
-
     // insufficient funds check and revoke
     if (false == update_tally_map(sender, currency, -nValue, MONEY)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
