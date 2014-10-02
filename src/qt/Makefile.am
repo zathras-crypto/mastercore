@@ -100,8 +100,9 @@ QT_FORMS_UI = \
   forms/rpcconsole.ui \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
+  forms/sendmpdialog.ui \
   forms/signverifymessagedialog.ui \
-  forms/transactiondescdialog.ui
+  forms/transactiondescdialog.ui 
 
 QT_MOC_CPP = \
   moc_addressbookpage.cpp \
@@ -135,6 +136,7 @@ QT_MOC_CPP = \
   moc_rpcconsole.cpp \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
+  moc_sendmpdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
   moc_trafficgraphwidget.cpp \
@@ -143,6 +145,7 @@ QT_MOC_CPP = \
   moc_transactionfilterproxy.cpp \
   moc_transactiontablemodel.cpp \
   moc_transactionview.cpp \
+  moc_balancesview.cpp \
   moc_utilitydialog.cpp \
   moc_walletframe.cpp \
   moc_walletmodel.cpp \
@@ -199,6 +202,7 @@ BITCOIN_QT_H = \
   rpcconsole.h \
   sendcoinsdialog.h \
   sendcoinsentry.h \
+  sendmpdialog.h \
   signverifymessagedialog.h \
   splashscreen.h \
   trafficgraphwidget.h \
@@ -208,6 +212,7 @@ BITCOIN_QT_H = \
   transactionrecord.h \
   transactiontablemodel.h \
   transactionview.h \
+  balancesview.h \
   utilitydialog.h \
   walletframe.h \
   walletmodel.h \
@@ -216,6 +221,11 @@ BITCOIN_QT_H = \
   winshutdownmonitor.h
 
 RES_ICONS = \
+  res/icons/mp_balances.png \
+  res/icons/mp_history.png \
+  res/icons/mp_home.png \
+  res/icons/mp_receive.png \
+  res/icons/mp_send.png \
   res/icons/add.png \
   res/icons/address-book.png \
   res/icons/bitcoin.ico \
@@ -299,6 +309,7 @@ BITCOIN_QT_CPP += \
   recentrequeststablemodel.cpp \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
+  sendmpdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
   transactiondescdialog.cpp \
@@ -306,6 +317,7 @@ BITCOIN_QT_CPP += \
   transactionrecord.cpp \
   transactiontablemodel.cpp \
   transactionview.cpp \
+  balancesview.cpp \
   walletframe.cpp \
   walletmodel.cpp \
   walletmodeltransaction.cpp \
