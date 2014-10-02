@@ -130,7 +130,7 @@ std::string CMPMetaDEx::ToString() const
 // check to see if such a sell offer exists
 bool mastercore::DEx_offerExists(const string &seller_addr, unsigned int curr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+//  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
 OfferMap::iterator my_it = my_offers.find(combo);
 
@@ -165,7 +165,7 @@ AcceptMap::iterator my_it = my_accepts.find(combo);
 // returns 0 if everything is OK
 int mastercore::DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+//  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 int rc = DEX_ERROR_SELLOFFER;
 
   // sanity check our params are OK
@@ -210,7 +210,7 @@ int rc = DEX_ERROR_SELLOFFER;
 // returns 0 if everything is OK
 int mastercore::DEx_offerDestroy(const string &seller_addr, unsigned int curr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+//  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 
   if (!DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -11); // offer does not exist
@@ -239,7 +239,7 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 // returns 0 if everything is OK
 int mastercore::DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+//  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 int rc = DEX_ERROR_SELLOFFER;
 
   fprintf(mp_fp, "%s(%s, %d)\n", __FUNCTION__, seller_addr.c_str(), curr);
@@ -318,7 +318,6 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 // returns 0 if everything is OK
 int mastercore::DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 int rc = DEX_ERROR_ACCEPT - 20;
 CMPOffer *p_offer = DEx_getOffer(seller, curr);
 CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);

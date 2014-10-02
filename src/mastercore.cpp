@@ -916,6 +916,23 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
   return -1;
 }
 
+static bool isAllowedOutputType(int whichType, int nBlock)
+{
+  int p2shAllowed = 0;
+
+  if (P2SH_BLOCK <= nBlock || isNonMainNet()) {
+    p2shAllowed = 1;
+  }
+  // validTypes:
+  // 1) Pay to pubkey hash
+  // 2) Pay to Script Hash (IFF p2sh is allowed)
+  if ((TX_PUBKEYHASH == whichType) || (p2shAllowed && (TX_SCRIPTHASH == whichType))) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 // idx is position within the block, 0-based
 // int msc_tx_push(const CTransaction &wtx, int nBlock, unsigned int idx)
 // INPUT: bRPConly -- set to true to avoid moving funds; to be called from various RPC calls like this
@@ -942,11 +959,6 @@ vector<string>multisig_script_data;
 uint64_t inAll = 0;
 uint64_t outAll = 0;
 uint64_t txFee = 0;
-int p2shAllowed = 0;
-
-            if (P2SH_BLOCK <= nBlock || isNonMainNet()) {
-              p2shAllowed = 1;
-            }
 
             mp_tx->Set(wtx.GetHash(), nBlock, idx, nTime);
 
@@ -996,7 +1008,7 @@ int p2shAllowed = 0;
                 txnouttype whichType;
                 bool validType = false;
                 if (!getOutputType(wtx.vout[i].scriptPubKey, whichType)) validType=false;
-                if (TX_PUBKEYHASH == whichType || (p2shAllowed && TX_SCRIPTHASH == whichType)) validType=true; // ignore non pay-to-pubkeyhash or pay-to-scripthash output
+                if (isAllowedOutputType(whichType, nBlock)) validType=true;
 
                 strAddress = CBitcoinAddress(dest).ToString();
 
@@ -1062,7 +1074,7 @@ int p2shAllowed = 0;
                 // we only allow pay-to-pubkeyhash, pay-to-scripthash & probably pay-to-pubkey (?)
                 {
                   if (!getOutputType(txPrev.vout[n].scriptPubKey, whichType)) ++inputs_errors;
-                  if ((TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) /* || (TX_PUBKEY != whichType) */ ) ++inputs_errors;
+                  if (!isAllowedOutputType(whichType, nBlock)) ++inputs_errors;
 
                   if (inputs_errors) break;
                 }
@@ -1191,8 +1203,7 @@ int p2shAllowed = 0;
               {
                   txnouttype whichType;
                   if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                  if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
-
+                  if (!isAllowedOutputType(whichType, nBlock)) break;
                   string strSub = script_data[k].substr(2,16); // retrieve bytes 1-9 of packet for peek & decode comparison
                   seq = (ParseHex(script_data[k].substr(0,2)))[0]; // retrieve sequence number
 
@@ -1224,7 +1235,7 @@ int p2shAllowed = 0;
                   {
                       txnouttype whichType;
                       if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                      if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
+                      if (!isAllowedOutputType(whichType, nBlock)) break;
 
                       seq = (ParseHex(script_data[k].substr(0,2)))[0]; // retrieve sequence number
 
@@ -1251,7 +1262,7 @@ int p2shAllowed = 0;
                       {
                           txnouttype whichType;
                           if (!getOutputType(wtx.vout[k].scriptPubKey, whichType)) break; // unable to determine type, ignore output
-                          if (TX_PUBKEYHASH != whichType && (p2shAllowed && TX_SCRIPTHASH != whichType)) break; // ignore non pay-to-pubkeyhash output
+                          if (!isAllowedOutputType(whichType, nBlock)) break;
 
                           if ((address_data[k] != strDataAddress) && (address_data[k] != exodus_address) && (dataAddressValue == value_data[k])) // this output matches data output, check if matches exodus output
                           {
@@ -3159,6 +3170,15 @@ const std::string ExodusAddress()
   return string(exodus_address);
 }
 
+const std::string NotificationAddress()
+{
+static const string addr = "1MpNote1jsHkbQLwEmgoMr29EoUC1nyxxV";
+
+  if (isNonMainNet()) {}; // TODO pick a notification address for TestNet
+
+  return addr;
+}
+
  // the 31-byte packet & the packet #
  // int interpretPacket(int blocknow, unsigned char pkt[], int size)
  //
@@ -3414,6 +3434,10 @@ int step_rc;
       rc = logicMath_MetaDEx();
       break;
 
+    case MSC_TYPE_NOTIFICATION:
+      rc = logicMath_Notification();
+      break;
+
     default:
 
       return (PKT_ERROR -100);
@@ -3531,7 +3555,7 @@ int invalid = 0;  // unused
     return rc;
 }
 
-int CMPTransaction::logicMath_SendToOwners(FILE *fp)
+int CMPTransaction::logicMath_SendToOwners(FILE *fhandle)
 {
 int rc = PKT_ERROR_STO -1000;
 
@@ -3590,9 +3614,6 @@ int rc = PKT_ERROR_STO -1000;
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
       {
         n_owners++;
-
-        // record the detailed info as needed
-        if (fp) fprintf(fp, "#%ld: %lu = %s\n", n_owners, (my_it->first), (my_it->second).c_str());
       }
 
       fprintf(mp_fp, "\t          Owners: %lu\n", n_owners);
@@ -3661,6 +3682,9 @@ int rc = PKT_ERROR_STO -1000;
         if (msc_debug_sto)
          fprintf(mp_fp, "%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
           owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+
+        // record the detailed info as needed
+        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
         {

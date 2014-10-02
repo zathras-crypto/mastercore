@@ -118,6 +118,7 @@ public:
   int logicMath_MetaDEx(void);
   int logicMath_GrantTokens(void);
   int logicMath_RevokeTokens(void);
+  int logicMath_Notification(void);
 
  int interpretPacket(CMPOffer *obj_o = NULL);
  int step1(void);
