@@ -13,9 +13,11 @@
 #include "overviewpage.h"
 #include "receivecoinsdialog.h"
 #include "sendcoinsdialog.h"
+#include "sendmpdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
+#include "balancesview.h"
 #include "walletmodel.h"
 
 #include "ui_interface.h"
@@ -28,6 +30,11 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include <QDebug>
+#include <QTableView>
+#include <QDialog>
+#include <QHeaderView>
+
 WalletView::WalletView(QWidget *parent):
     QStackedWidget(parent),
     clientModel(0),
@@ -35,8 +42,25 @@ WalletView::WalletView(QWidget *parent):
 {
     // Create tabs
     overviewPage = new OverviewPage();
-
     transactionsPage = new QWidget(this);
+    balancesPage = new QWidget(this);
+
+    // balances page
+    QVBoxLayout *bvbox = new QVBoxLayout();
+    QHBoxLayout *bhbox_buttons = new QHBoxLayout();
+    balancesView = new BalancesView(this);
+    bvbox->addWidget(balancesView);
+    QPushButton *bexportButton = new QPushButton(tr("&Export"), this);
+    bexportButton->setToolTip(tr("Export the data in the current tab to a file"));
+#ifndef Q_OS_MAC // Icons on push buttons are very uncommon on Mac
+    bexportButton->setIcon(QIcon(":/icons/export"));
+#endif
+    bhbox_buttons->addStretch();
+    bhbox_buttons->addWidget(bexportButton);
+    bvbox->addLayout(bhbox_buttons);
+    balancesPage->setLayout(bvbox);
+
+    // transactions page
     QVBoxLayout *vbox = new QVBoxLayout();
     QHBoxLayout *hbox_buttons = new QHBoxLayout();
     transactionView = new TransactionView(this);
@@ -52,15 +76,31 @@ WalletView::WalletView(QWidget *parent):
     transactionsPage->setLayout(vbox);
 
     receiveCoinsPage = new ReceiveCoinsDialog();
-    sendCoinsPage = new SendCoinsDialog();
 
+    // sending page
+    //sendCoinsPage = new SendCoinsDialog();
+    sendCoinsPage = new QWidget(this);
+    QVBoxLayout *svbox = new QVBoxLayout();
+    sendCoinsTab = new SendCoinsDialog();
+    sendMPTab = new SendMPDialog();
+    QTabWidget *tabHolder = new QTabWidget();
+    tabHolder->addTab(sendMPTab,tr("Master Protocol"));
+    tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
+//    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
+    svbox->addWidget(tabHolder);
+    sendCoinsPage->setLayout(svbox);
+
+    // add pages
     addWidget(overviewPage);
+    addWidget(balancesPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
+
+//    connect(showAllBalancesLabel, SIGNAL(clicked()), overviewPage, SLOT(WalletView::gotoBalancesPage()));
 
     // Double-clicking on a transaction on the transaction history page shows details
     connect(transactionView, SIGNAL(doubleClicked(QModelIndex)), transactionView, SLOT(showDetails()));
@@ -111,7 +151,8 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     transactionView->setModel(walletModel);
     overviewPage->setWalletModel(walletModel);
     receiveCoinsPage->setModel(walletModel);
-    sendCoinsPage->setModel(walletModel);
+    sendCoinsTab->setModel(walletModel);
+    sendMPTab->setModel(walletModel);
 
     if (walletModel)
     {
@@ -155,6 +196,11 @@ void WalletView::gotoOverviewPage()
     setCurrentWidget(overviewPage);
 }
 
+void WalletView::gotoBalancesPage()
+{
+    setCurrentWidget(balancesPage);
+}
+
 void WalletView::gotoHistoryPage()
 {
     setCurrentWidget(transactionsPage);
@@ -170,7 +216,7 @@ void WalletView::gotoSendCoinsPage(QString addr)
     setCurrentWidget(sendCoinsPage);
 
     if (!addr.isEmpty())
-        sendCoinsPage->setAddress(addr);
+        sendCoinsTab->setAddress(addr);
 }
 
 void WalletView::gotoSignMessageTab(QString addr)
@@ -199,7 +245,7 @@ void WalletView::gotoVerifyMessageTab(QString addr)
 
 bool WalletView::handlePaymentRequest(const SendCoinsRecipient& recipient)
 {
-    return sendCoinsPage->handlePaymentRequest(recipient);
+    return sendCoinsTab->handlePaymentRequest(recipient);
 }
 
 void WalletView::showOutOfSyncWarning(bool fShow)
