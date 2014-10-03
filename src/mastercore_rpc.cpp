@@ -815,12 +815,12 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (divisible)
     {
         response.push_back(Pair("tokensissued", FormatDivisibleMP(tokensIssued)));
-        response.push_back(Pair("missedtokens", FormatDivisibleMP(missedTokens)));
+        response.push_back(Pair("addedissuertokens", FormatDivisibleMP(missedTokens)));
     }
     else
     {
         response.push_back(Pair("tokensissued", FormatIndivisibleMP(tokensIssued)));
-        response.push_back(Pair("missedtokens", FormatIndivisibleMP(missedTokens)));
+        response.push_back(Pair("addedissuertokens", FormatIndivisibleMP(missedTokens)));
     }
     if (!active) response.push_back(Pair("closedearly", closeEarly));
     if (!active) response.push_back(Pair("maxtokens", maxTokens));
