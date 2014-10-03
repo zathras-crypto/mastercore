@@ -613,10 +613,46 @@ int CMPTransaction::logicMath_RevokeTokens()
     return rc;
 }
 
-int CMPTransaction::logicMath_Notification()
+int CMPTransaction::logicMath_ChangeIssuer()
 {
-  fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-  return -1;  // FIXME: not implemented yet...
+  int rc = PKT_ERROR_TOKENS - 1000;
+
+  if (!isTransactionTypeAllowed(block, currency, type, version)) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: Transaction type not yet allowed\n");
+    return (PKT_ERROR_TOKENS - 22);
+  }
+
+  if (sender.empty()) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: Sender is empty\n");
+    return (PKT_ERROR_TOKENS - 23);
+  }
+
+  if (receiver.empty()) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: Receiver is empty\n");
+    return (PKT_ERROR_TOKENS - 23);
+  }
+
+  if (false == _my_sps->hasSP(currency)) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: SP id:%d does not exist\n", currency);
+    return (PKT_ERROR_TOKENS - 24);
+  }
+
+  CMPSPInfo::Entry sp;
+  _my_sps->getSP(currency, sp);
+
+  // issuer check
+  if (false == boost::iequals(sender, sp.issuer)) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+    return (PKT_ERROR_TOKENS - 26);
+  }
+
+  // record this change of issuer
+  sp.issuer = receiver;
+  sp.update_block = chainActive[block]->GetBlockHash();
+  _my_sps->updateSP(currency, sp);
+
+  rc = 0;
+  return rc;
 }
 
 char *mastercore::c_strMasterProtocolTXType(int i)
@@ -640,7 +676,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_CREATE_PROPERTY_MANUAL: return ((char *)"Create Property - Manual");
     case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
     case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
-    case MSC_TYPE_NOTIFICATION: return ((char *)"Notification");
+    case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return ((char *)"Change Issuer Address");
 
     default: return ((char *)"* unknown type *");
   }

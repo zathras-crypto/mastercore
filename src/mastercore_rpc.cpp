@@ -709,6 +709,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     string issuer = sp.issuer;
     int64_t amountRaised = 0;
     int64_t tokensIssued = getTotalTokens(propertyId);
+    int64_t missedTokens = sp.missedTokens;
     int64_t tokensPerUnit = sp.num_tokens;
     int64_t propertyIdDesired = sp.currency_desired;
     std::map<std::string, std::vector<uint64_t> > database;
@@ -814,10 +815,12 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     if (divisible)
     {
         response.push_back(Pair("tokensissued", FormatDivisibleMP(tokensIssued)));
+        response.push_back(Pair("missedtokens", FormatDivisibleMP(missedTokens)));
     }
     else
     {
         response.push_back(Pair("tokensissued", FormatIndivisibleMP(tokensIssued)));
+        response.push_back(Pair("missedtokens", FormatIndivisibleMP(missedTokens)));
     }
     if (!active) response.push_back(Pair("closedearly", closeEarly));
     if (!active) response.push_back(Pair("maxtokens", maxTokens));
@@ -1296,6 +1299,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
                              {
+                                showReference = true;
                                 propertyId = mp_obj.getCurrency();
                                 amount = mp_obj.getAmount();
                              }

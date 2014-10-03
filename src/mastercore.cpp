@@ -137,6 +137,7 @@ static const int txRestrictionsRules[][3] = {
   {MSC_TYPE_CREATE_PROPERTY_MANUAL,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_GRANT_PROPERTY_TOKENS,    MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
   {MSC_TYPE_REVOKE_PROPERTY_TOKENS,   MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
+  {MSC_TYPE_CHANGE_ISSUER_ADDRESS,    MSC_MANUALSP_BLOCK,      MP_TX_PKT_V0},
 
 // end of array marker, in addition to sizeof/sizeof
   {-1,-1},
@@ -3343,12 +3344,12 @@ int step_rc;
                             crowd.getIssuerCreated());
 
         //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
-        
         sp.historicalData = crowd.getDatabase();
         sp.update_block = chainActive[block]->GetBlockHash();
         sp.close_early = 1;
         sp.timeclosed = blockTime;
         sp.txid_close = txid;
+        sp.missedTokens = (int64_t) missedTokens;
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
         update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
@@ -3434,8 +3435,12 @@ int step_rc;
       rc = logicMath_MetaDEx();
       break;
 
-    case MSC_TYPE_NOTIFICATION:
-      rc = logicMath_Notification();
+    case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
+      // parse the currency from the packet
+      memcpy(&currency, &pkt[4], 4);
+      swapByteOrder32(currency);
+
+      rc = logicMath_ChangeIssuer();
       break;
 
     default:

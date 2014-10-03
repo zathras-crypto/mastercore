@@ -553,6 +553,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
 
       //get txdata
       sp.historicalData = crowd.getDatabase();
+      sp.missedTokens = (int64_t) missedTokens;
 
       //update SP with this data
       sp.update_block = pBlockIndex->GetBlockHash();
