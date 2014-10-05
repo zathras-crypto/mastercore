@@ -2747,7 +2747,10 @@ const unsigned int curr = CurrencyID;
 
   if (error_code) *error_code = rc;
 
-  (void) pendingAdd(txid, FromAddress, curr, amount);
+  if (0 == rc)
+  {
+    (void) pendingAdd(txid, FromAddress, curr, amount);
+  }
 
   if (mp_fp) fflush(mp_fp);
 

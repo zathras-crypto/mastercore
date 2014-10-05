@@ -23,6 +23,7 @@ Simple send allows a Master Protocol currency to be transferred from address to 
    
 **Additional Optional Parameters**
 - **_redeem address (string):_** The address that can redeem the bitcoin/multisig outputs. Defaults to FromAddress, required to redeem MP transactions created with P2SH.
+- **_reference amount (string):_** Additional Bitcoin amount to send to the recepient address. (Max: 0.01 BTC).
 
 **Examples**
 ```
