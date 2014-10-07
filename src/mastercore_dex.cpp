@@ -8,7 +8,9 @@
 
 #include <stdint.h>
 #include <string.h>
+
 #include <map>
+#include <set>
 
 #include <fstream>
 #include <algorithm>
@@ -52,6 +54,9 @@ using namespace mastercore;
 
 extern int msc_debug_dex, msc_debug_metadex;
 
+MetaDExMap mastercore::metadex;
+static MetaDExTypeMap map_outer;
+
 static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
 {
   if (!n2) return 0;
@@ -73,6 +78,32 @@ const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
 
   return (CMPMetaDEx *) NULL;
 }
+
+//
+MetaDExTypePair *get_Pair(unsigned int curr)
+{
+MetaDExTypeMap::iterator it = map_outer.find(curr);
+
+  if (it != map_outer.end()) return &(it->second);
+
+  return (MetaDExTypePair *) NULL;
+}
+
+#if 0
+// check if address is already in the outer map
+static bool addressExists(const string &addr, unsigned int curr)
+{
+MetaDExTypePair *p_pair = get_Pair(curr);
+
+  printf("checking: %s-%u = ", addr.c_str(), curr);
+
+  if (!p_pair) return false;
+
+  MetaDExTypeUniq & uniq = p_pair->second;
+
+  return (uniq.end() != uniq.find(addr));
+}
+#endif
 
 void CMPMetaDEx::Set0(int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {

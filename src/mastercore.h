@@ -61,6 +61,7 @@ enum TransactionType {
   MSC_TYPE_TRADE_OFFER              = 20,
   MSC_TYPE_METADEX                  = 21,
   MSC_TYPE_ACCEPT_OFFER_BTC         = 22,
+  MSC_TYPE_NOTIFICATION             = 31,
   MSC_TYPE_OFFER_ACCEPT_A_BET       = 40,
   MSC_TYPE_CREATE_PROPERTY_FIXED    = 50,
   MSC_TYPE_CREATE_PROPERTY_VARIABLE = 51,

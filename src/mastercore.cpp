@@ -377,7 +377,6 @@ AcceptMap mastercore::my_accepts;
 
 CMPSPInfo *mastercore::_my_sps;
 CrowdMap mastercore::my_crowds;
-MetaDExMap mastercore::metadex;
 
 static PendingMap my_pending;
 

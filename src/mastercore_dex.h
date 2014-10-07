@@ -186,6 +186,9 @@ private:
   uint64_t  inverse_int;
   uint64_t  inverse_frac;
 
+  string    addr;
+  bool      bSell;  // selling Property for MSC: true or false
+
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
@@ -213,6 +216,12 @@ extern OfferMap my_offers;
 extern AcceptMap my_accepts;
 
 extern MetaDExMap metadex;
+
+typedef std::pair < uint64_t, uint64_t > MetaDExTypePrice; // the price split up into integer & fractional part for precision
+typedef std::multimap < MetaDExTypePrice , CMPMetaDEx > MetaDExTypeMMap;
+typedef std::set < std::string > MetaDExTypeUniq;
+typedef std::pair < MetaDExTypeMMap, MetaDExTypeUniq > MetaDExTypePair;
+typedef std::map < unsigned int, MetaDExTypePair > MetaDExTypeMap;
 
 bool DEx_offerExists(const string &seller_addr, unsigned int curr);
 CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int curr);
