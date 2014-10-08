@@ -2708,7 +2708,7 @@ vector< pair<CScript, int64_t> > vecSend;
 }
 
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
-uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int TransactionType, int64_t additional, int *error_code)
+uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int CurrencyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
 {
 const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
@@ -2762,6 +2762,21 @@ const unsigned int curr = CurrencyID;
   PUSH_BACK_BYTES(data, TransactionType);
   PUSH_BACK_BYTES(data, CurrencyID);
   PUSH_BACK_BYTES(data, Amount);
+  
+  if ( CurrencyID_2 != 0 ) //for trade_MP
+  {
+    //use additional to pass action byte
+    unsigned char action = boost::lexical_cast<int>(additional); 
+    //zero out additional for trade_MP
+    additional = 0;
+
+    swapByteOrder32(CurrencyID_2);
+    swapByteOrder64(Amount_2);
+
+    PUSH_BACK_BYTES(data, CurrencyID_2);
+    PUSH_BACK_BYTES(data, Amount_2);
+    PUSH_BACK_BYTES(data, action);
+  }
 
   rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, txid, additional);
   if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
