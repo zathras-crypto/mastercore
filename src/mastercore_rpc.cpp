@@ -133,6 +133,8 @@ int extra2 = 0, extra3 = 0;
         // it->second = value
         printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
       }
+      printf("**************************\n");
+      MetaDEx_debug_print();
       break;
   }
 

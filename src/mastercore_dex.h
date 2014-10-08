@@ -188,20 +188,23 @@ private:
 
   string    addr;
   bool      bSell;  // selling Property for MSC: true or false
-
 public:
+
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
 
-  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
-  CMPMetaDEx(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
+  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+//  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
 
-  void Set0(int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  void Set0(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 
   void Set(uint64_t, uint64_t);
   void Set(uint64_t, uint64_t, uint64_t, uint64_t);
 
   std::string ToString() const;
+
+  uint64_t getPriceInt() { return price_int; }
+  uint64_t getPriceFrac() { return price_frac; }
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -240,6 +243,8 @@ int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const 
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
 int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+
+void MetaDEx_debug_print();
 }
 
 #endif // #ifndef _MASTERCOIN_DEX

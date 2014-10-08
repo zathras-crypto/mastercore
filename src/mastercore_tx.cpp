@@ -446,6 +446,9 @@ int CMPTransaction::logicMath_MetaDEx()
     {
       if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
 
+      // ensure we are not trading same currency for itself
+      if (currency == desired_currency) return (PKT_ERROR_METADEX -5);
+
       // ensure no cross-over of currencies from Test Eco to normal
       if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
 
@@ -677,6 +680,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
     case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return ((char *)"Change Issuer Address");
+    case MSC_TYPE_NOTIFICATION: return ((char *)"Notification");
 
     default: return ((char *)"* unknown type *");
   }
