@@ -241,7 +241,7 @@ if (fHelp || params.size() < 4 || params.size() > 6)
 
   //some sanity checking of the data supplied?
   int code = 0;
-  uint256 newTX = send_INTERNAL_1packet(FromAddress, ToAddress, RedeemAddress, propertyId, Amount, MSC_TYPE_SIMPLE_SEND, additional, &code);
+  uint256 newTX = send_INTERNAL_1packet(FromAddress, ToAddress, RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SIMPLE_SEND, additional, &code);
 
   if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
 
@@ -297,7 +297,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
   //some sanity checking of the data supplied?
   int code = 0;
-  uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyId, Amount, MSC_TYPE_SEND_TO_OWNERS, 0, &code);
+  uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SEND_TO_OWNERS, 0, &code);
 
   if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
 
@@ -1018,17 +1018,19 @@ Value getgrants_MP(const Array& params, bool fHelp)
 
 Value trade_MP(const Array& params, bool fHelp) {
 
-   if (fHelp)
+   if (fHelp || params.size() != 6)
         throw runtime_error(
             "trade_MP\n"
             "\nPlace a trade on the Metadex\n"
             
             "\nArguments:\n"
-            "1. amount            (string, required) amount owned to up on sale\n"
-            "2. currency_id1         (int, required) currency owned to put up on sale\n"
-            "3. amount            (string, required) amount wanted/willing to purchase\n"
-            "4. currency_id2         (int, required) currency wanted/willing to purchase\n"
-            
+            "1. address           (string, required) address that is making the sale\n"
+            "2. amount            (string, required) amount owned to put up on sale\n"
+            "3. currency_id1      (int, required) currency owned to put up on sale\n"
+            "4. amount            (string, required) amount wanted/willing to purchase\n"
+            "5. currency_id2      (int, required) currency wanted/willing to purchase\n"
+            "6. action            (int, required) decision to either start a new (1), update(2), or cancel(3) an offer\n"
+            "6. RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
             "\nResult:\n"
             "[                (array of string)\n"
             "  \"hash\"         (string) Transaction id\n"            
@@ -1039,7 +1041,63 @@ Value trade_MP(const Array& params, bool fHelp) {
             //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
             //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
         );
-  return "\nNot Implemented";
+
+
+  std::string FromAddress = params[0].get_str();
+  std::string RedeemAddress = (params.size() > 6) ? (params[6].get_str()): "";
+
+  int64_t tmpPropIdSale = params[2].get_int64();
+  if ((1 > tmpPropIdSale) || (4294967295 < tmpPropIdSale)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID (Sale)");
+  unsigned int propertyIdSale = int(tmpPropIdSale);
+
+  int64_t tmpPropIdWant = params[4].get_int64();
+  if ((1 > tmpPropIdWant) || (4294967295 < tmpPropIdWant)) // not safe to do conversion
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID (Want)");
+  unsigned int propertyIdWant = int(tmpPropIdWant);
+  
+  CMPSPInfo::Entry sp_sale;
+  if (false == _my_sps->getSP(propertyIdSale, sp_sale)) {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Sale) ");
+  }
+
+  CMPSPInfo::Entry sp_want;
+  if (false == _my_sps->getSP(propertyIdWant, sp_want)) {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
+  }
+
+  bool divisible_sale = false; //divisible_sale
+  divisible_sale=sp_sale.isDivisible();
+
+  bool divisible_want = false; //divisible_want
+  divisible_want=sp_want.isDivisible();
+
+  std::string strAmountSale = params[1].get_str();
+  int64_t Amount_Sale = 0;
+  Amount_Sale = strToInt64(strAmountSale, divisible_sale);
+
+  std::string strAmountWant = params[3].get_str();
+  int64_t Amount_Want = 0;
+  Amount_Want = strToInt64(strAmountWant, divisible_want);
+
+  if ((Amount_Sale > 9223372036854775807) || (0 >= Amount_Sale))
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
+
+  if ((Amount_Want > 9223372036854775807) || (0 >= Amount_Want))
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
+
+  int64_t action = params[5].get_int64();
+  if ((action > 3) || (0 >= action))
+           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1,2, or 3 only)");
+
+ //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
+  int code = 0;
+  uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyIdSale, Amount_Sale, propertyIdWant, Amount_Want, MSC_TYPE_METADEX, action, &code);
+
+  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
+
+  //we need to do better than just returning a string of 0000000 here if we can't send the TX
+  return newTX.GetHex();
 } 
 
 Value getorderbook_MP(const Array& params, bool fHelp) {
