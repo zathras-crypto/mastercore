@@ -201,7 +201,12 @@ extern json_spirit::Value getactivecrowdsales_MP(const json_spirit::Array& param
 extern json_spirit::Value getgrants_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& params, bool fHelp); // in mastercoin.cpp
 extern json_spirit::Value getactivedexsells_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
-extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value trade_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value getorderbook_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value gettradessince_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value getopenorders_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value gettradehistory_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listblocktransactions_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 

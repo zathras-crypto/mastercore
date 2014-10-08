@@ -1016,6 +1016,126 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
+Value trade_MP(const Array& params, bool fHelp) {
+
+   if (fHelp)
+        throw runtime_error(
+            "trade_MP\n"
+            "\nPlace a trade on the Metadex\n"
+            
+            "\nArguments:\n"
+            "1. amount            (string, required) amount owned to up on sale\n"
+            "2. currency_id1         (int, required) currency owned to put up on sale\n"
+            "3. amount            (string, required) amount wanted/willing to purchase\n"
+            "4. currency_id2         (int, required) currency wanted/willing to purchase\n"
+            
+            "\nResult:\n"
+            "[                (array of string)\n"
+            "  \"hash\"         (string) Transaction id\n"            
+            "  ,...\n"
+            "]\n"
+
+            "\nbExamples\n"
+            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
+            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+        );
+  return "\nNot Implemented";
+} 
+
+Value getorderbook_MP(const Array& params, bool fHelp) {
+
+   if (fHelp)
+        throw runtime_error(
+            "getorderbook_MP\n"
+            "\nAllows user to request active order information from the order book\n"
+            
+            "\nArguments:\n"
+            "1. currency_id1            (int, required) amount owned to up on sale\n"
+            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            
+            "\nResult:\n"
+            "[                (array of string)\n"
+            "  \"hash\"         (string) Transaction id\n"            
+            "  ,...\n"
+            "]\n"
+
+            "\nbExamples\n"
+            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
+            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+        );
+  return "\nNot Implemented";
+}
+ 
+Value gettradessince_MP(const Array& params, bool fHelp) {
+
+   if (fHelp)
+        throw runtime_error(
+            "getorderbook_MP\n"
+            "\nAllows user to request active order information from the order book\n"
+            
+            "\nArguments:\n"
+            "1. currency_id1            (int, required) amount owned to up on sale\n"
+            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            
+            "\nResult:\n"
+            "[                (array of string)\n"
+            "  \"hash\"         (string) Transaction id\n"            
+            "  ,...\n"
+            "]\n"
+
+            "\nbExamples\n"
+            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
+            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+        );
+  return "\nNot Implemented";
+}
+Value getopenorders_MP(const Array& params, bool fHelp) {
+
+   if (fHelp)
+        throw runtime_error(
+            "getorderbook_MP\n"
+            "\nAllows user to request active order information from the order book\n"
+            
+            "\nArguments:\n"
+            "1. currency_id1            (int, required) amount owned to up on sale\n"
+            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            
+            "\nResult:\n"
+            "[                (array of string)\n"
+            "  \"hash\"         (string) Transaction id\n"            
+            "  ,...\n"
+            "]\n"
+
+            "\nbExamples\n"
+            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
+            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+        );
+  return "\nNot Implemented";
+}
+Value gettradehistory_MP(const Array& params, bool fHelp) {
+
+   if (fHelp)
+        throw runtime_error(
+            "getorderbook_MP\n"
+            "\nAllows user to request active order information from the order book\n"
+            
+            "\nArguments:\n"
+            "1. currency_id1            (int, required) amount owned to up on sale\n"
+            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            
+            "\nResult:\n"
+            "[                (array of string)\n"
+            "  \"hash\"         (string) Transaction id\n"            
+            "  ,...\n"
+            "]\n"
+
+            "\nbExamples\n"
+            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
+            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+        );
+  return "\nNot Implemented";
+}
+
 Value getactivedexsells_MP(const Array& params, bool fHelp)
 {
    if (fHelp)
