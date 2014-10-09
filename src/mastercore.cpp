@@ -1592,13 +1592,13 @@ int input_msc_balances_string(const string &s)
   return 1;
 }
 
-// seller-address, offer_block, amount, currency, desired BTC , fee, blocktimelimit
-// 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,10000,6
+// seller-address, offer_block, amount, currency, desired BTC , currency_desired, fee, blocktimelimit
+// 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,0,10000,6
 int input_mp_offers_string(const string &s)
 {
   int offerBlock;
   uint64_t amountOriginal, btcDesired, minFee;
-  unsigned int curr;
+  unsigned int curr, curr_desired;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
@@ -1613,16 +1613,29 @@ int input_mp_offers_string(const string &s)
   amountOriginal = boost::lexical_cast<uint64_t>(vstr[i++]);
   curr = boost::lexical_cast<unsigned int>(vstr[i++]);
   btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
+  curr_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
   minFee = boost::lexical_cast<uint64_t>(vstr[i++]);
   blocktimelimit = atoi(vstr[i++]);
   txidStr = vstr[i++];
 
+  if (MASTERCOIN_CURRENCY_BTC == curr_desired)
+  {
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sellerAddr);
   CMPOffer newOffer(offerBlock, amountOriginal, curr, btcDesired, minFee, blocktimelimit, uint256(txidStr));
-  if (my_offers.insert(std::make_pair(combo, newOffer)).second) {
-    return 0;
-  } else {
-    return -1;
+
+    if (my_offers.insert(std::make_pair(combo, newOffer)).second)
+    {
+      return 0;
+    }
+    else
+    {
+      return -1;
+    }
+  }
+  else
+  {
+    // MetaDEx
+    // TODO ...
   }
 
   return 0;
@@ -2017,6 +2030,16 @@ static int write_mp_offers(ofstream &file, SHA256_CTX *shaCtx)
   return 0;
 }
 
+static int write_mp_metadex(ofstream &file, SHA256_CTX *shaCtx)
+{
+  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+  // TODO
+  // ...
+
+  return 0;
+}
+
 static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 {
   AcceptMap::const_iterator iter;
@@ -2081,6 +2104,7 @@ static int write_state_file( CBlockIndex const *pBlockIndex, int what )
 
   case FILETYPE_OFFERS:
     result = write_mp_offers(file, &shaCtx);
+    result += write_mp_metadex(file, &shaCtx);
     break;
 
   case FILETYPE_ACCEPTS:

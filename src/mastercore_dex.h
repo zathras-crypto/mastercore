@@ -54,12 +54,13 @@ public:
   void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
     // compose the outputline
     // seller-address, ...
-    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%s")
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s")
       % addr
       % offerBlock
       % offer_amount_original
       % currency
       % BTC_desired_original
+      % ( MASTERCOIN_CURRENCY_BTC )
       % min_fee
       % (int)blocktimelimit
       % txid.ToString()).str();
