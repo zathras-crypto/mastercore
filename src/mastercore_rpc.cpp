@@ -307,7 +307,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
 Value sendrawtx_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 3 || params.size() > 4)
+if (fHelp || params.size() < 3 || params.size() > 5)
         throw runtime_error(
             "sendrawtx_MP\n"
             "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
@@ -317,6 +317,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
             "ToAddress     : the address to send to.  This should be empty: (\"\") for transaction\n"
             "                types that do not use a reference/to address\n"
             "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "ReferenceAmount:(optional)\n"
             "\nResult:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
@@ -327,11 +328,16 @@ if (fHelp || params.size() < 3 || params.size() > 4)
   std::string hexTransaction = (params[1].get_str());
   std::string ToAddress = (params.size() > 2) ? (params[2].get_str()): "";
   std::string RedeemAddress = (params.size() > 3) ? (params[3].get_str()): "";
+  
+  int64_t referenceAmount = 0;
+
+  if (params.size() > 4)
+      referenceAmount = strToInt64(params[4].get_str(), true);
 
   //some sanity checking of the data supplied?
   uint256 newTX;
   vector<unsigned char> data = ParseHex(hexTransaction);
-  int rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, newTX);
+  int rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, newTX, referenceAmount);
 
   if (0 != rc) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", rc));
 
