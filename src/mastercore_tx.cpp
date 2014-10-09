@@ -469,7 +469,7 @@ int CMPTransaction::logicMath_MetaDEx()
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
         // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
-        if (p_metadex) return (PKT_ERROR_METADEX -10);
+//        if (p_metadex) return (PKT_ERROR_METADEX -10);  // FIXME TODO: remove later; temporarily disabled to test multiple trades from same address......
 
         // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
         // ...

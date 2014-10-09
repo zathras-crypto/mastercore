@@ -90,6 +90,7 @@ MetaDExTypeMap::iterator it = map_outer.find(curr);
 }
 
 // check if address is already in the outer map
+/*
 static bool addressExists(const string &addr, unsigned int curr)
 {
 MetaDExTypePair *p_pair = get_Pair(curr);
@@ -102,6 +103,7 @@ MetaDExTypePair *p_pair = get_Pair(curr);
 
   return (uniq.end() != uniq.find(addr));
 }
+*/
 
 void mastercore::MetaDEx_debug_print()
 {
@@ -110,7 +112,7 @@ void mastercore::MetaDEx_debug_print()
   {
     unsigned int curr = my_it->first;
 
-    printf("currency: %u\n", curr);
+    printf(" ## currency: %u\n", curr);
     MetaDExTypeMMap & map_inner = ((my_it->second).first);
 
     for (MetaDExTypeMMap::iterator mm_it = map_inner.begin(); mm_it != map_inner.end(); ++mm_it)
@@ -118,7 +120,7 @@ void mastercore::MetaDEx_debug_print()
       MetaDExTypePrice p = (mm_it->first);
       CMPMetaDEx & o = (mm_it->second);
 
-      printf("%lu.%lu %s\n", p.first, p.second, o.ToString().c_str());
+      printf("%lu.%010lu %s\n", p.first, p.second, o.ToString().c_str());
     }
 
   }
@@ -178,8 +180,8 @@ CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValu
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("%s block=%d, idx=%u, txid: %s, trade prop %u %s for %u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu",
-   addr.c_str(), block, idx, txid.ToString().c_str(),
+  return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu",
+   addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
    currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original),
    price_int, price_frac, inverse_int, inverse_frac);
 }
@@ -596,21 +598,31 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 //    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
 //     price_int, price_frac, inverse_int, inverse_frac)));
 
-
   {
-  std::pair<MetaDExTypeMap::iterator,bool> mret;
-   {
+    const string ukey = sender_addr + "+" + txid.ToString();
+
+    // store the data into the MetaDEx object
     CMPMetaDEx mdex(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx);
 
-    MetaDExTypeMMap temp;
+    MetaDExTypePair *p_pair = get_Pair(curr);
+
+    MetaDExTypeMMap temp_mmap, *p_mmap;
+
+    if (p_pair)
+    {
+      p_mmap = &(p_pair->first);
+    }
+    else
+    {
+      p_mmap = &temp_mmap;
+    }
+
+    p_mmap->insert(std::make_pair(std::make_pair(mdex.getPriceInt(),mdex.getPriceFrac()), mdex));
+
     MetaDExTypeUniq t_uniq;
+    t_uniq.insert(ukey);
 
-    t_uniq.insert(sender_addr);
-
-    temp.insert(std::make_pair(std::make_pair(mdex.getPriceInt(),mdex.getPriceFrac()), mdex));
-    mret=map_outer.insert(std::make_pair(curr, make_pair(temp, t_uniq)));
-   }
-   if (!mret.second) printf("FALSE\n");
+    map_outer[curr] = make_pair(*p_mmap, t_uniq);
   }
 
     rc = 0;
