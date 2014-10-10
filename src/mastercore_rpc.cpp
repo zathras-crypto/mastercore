@@ -1075,6 +1075,11 @@ Value trade_MP(const Array& params, bool fHelp) {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
   }
 
+  if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
+  {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property IDs must be in the same ecosystem (main/test) ");
+  }
+
   bool divisible_sale = false; //divisible_sale
   divisible_sale=sp_sale.isDivisible();
 
