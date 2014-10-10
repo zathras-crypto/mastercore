@@ -29,6 +29,8 @@ static const CScriptNum bnOne(1);
 static const CScriptNum bnFalse(0);
 static const CScriptNum bnTrue(1);
 
+unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
+
 bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubKey, const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
 
 bool CastToBool(const valtype& vch)
@@ -1287,8 +1289,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_SMALLDATA)
             {
-                // small pushdata, <= MAX_OP_RETURN_RELAY bytes
-                if (vch1.size() > MAX_OP_RETURN_RELAY)
+                // small pushdata, <= nMaxDatacarrierBytes bytes
+                if (vch1.size() > nMaxDatacarrierBytes)
                     break;
             }
             else if (opcode1 != opcode2 || vch1 != vch2)
