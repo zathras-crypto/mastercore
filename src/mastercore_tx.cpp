@@ -446,6 +446,9 @@ int CMPTransaction::logicMath_MetaDEx()
     {
       if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
 
+      // ensure we are not trading same currency for itself
+      if (currency == desired_currency) return (PKT_ERROR_METADEX -5);
+
       // ensure no cross-over of currencies from Test Eco to normal
       if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
 
@@ -466,7 +469,7 @@ int CMPTransaction::logicMath_MetaDEx()
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
         // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
-        if (p_metadex) return (PKT_ERROR_METADEX -10);
+//        if (p_metadex) return (PKT_ERROR_METADEX -10);  // FIXME TODO: remove later; temporarily disabled to test multiple trades from same address......
 
         // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
         // ...
@@ -677,6 +680,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_GRANT_PROPERTY_TOKENS: return ((char *)"Grant Property Tokens");
     case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return ((char *)"Change Issuer Address");
+    case MSC_TYPE_NOTIFICATION: return ((char *)"Notification");
 
     default: return ((char *)"* unknown type *");
   }

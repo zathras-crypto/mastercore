@@ -133,6 +133,8 @@ int extra2 = 0, extra3 = 0;
         // it->second = value
         printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
       }
+      printf("**************************\n");
+      MetaDEx_debug_print();
       break;
   }
 
@@ -144,7 +146,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "getbalance_MP\n"
+            "getbalance_MP \"address\" propertyid\n"
             "\nReturns the Master Protocol balance for a given address and currency/property.\n"
             "\nResult:\n"
             "n    (numeric) The applicable balance for address:currency/propertyID pair\n"
@@ -191,7 +193,7 @@ Value send_MP(const Array& params, bool fHelp)
 {
 if (fHelp || params.size() < 4 || params.size() > 6)
         throw runtime_error(
-            "send_MP\n"
+            "send_MP \"fromaddress\" \"toaddress\" propertyid \"amount\" ( \"redeemaddress\" \"referenceamount\" )\n"
             "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
             "\nParameters:\n"
             "FromAddress   : the address to send from\n"
@@ -254,7 +256,7 @@ Value sendtoowners_MP(const Array& params, bool fHelp)
 {
 if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(
-            "sendtoowners_MP\n"
+            "sendtoowners_MP \"fromaddress\" propertyid \"amount\" ( \"redeemaddress\" )\n"
             "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
             "\nParameters:\n"
             "FromAddress   : the address to send from\n"
@@ -307,33 +309,40 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
 Value sendrawtx_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 3 || params.size() > 4)
+if (fHelp || params.size() < 3 || params.size() > 5)
         throw runtime_error(
-            "sendrawtx_MP\n"
-            "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
+            "sendrawtx_MP \"fromaddress\" \"hexstring\" ( \"toaddress\" \"redeemaddress\" \"referenceamount\" )\n"
+            "\nCreates and broadcasts a raw Master protocol transaction.\n"
             "\nParameters:\n"
             "FromAddress   : the address to send from\n"
             "RawTX         : the hex-encoded raw transaction\n"
             "ToAddress     : the address to send to.  This should be empty: (\"\") for transaction\n"
             "                types that do not use a reference/to address\n"
             "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "ReferenceAmount:(optional)\n"
             "\nResult:\n"
             "txid    (string) The transaction ID of the sent transaction\n"
             "\nExamples:\n"
             ">mastercored sendrawtx_MP 1FromAddress <tx bytes hex> 1ToAddress 1RedeemAddress\n"
         );
 
-  std::string FromAddress = (params[0].get_str());
+  std::string fromAddress = (params[0].get_str());
   std::string hexTransaction = (params[1].get_str());
-  std::string ToAddress = (params.size() > 2) ? (params[2].get_str()): "";
-  std::string RedeemAddress = (params.size() > 3) ? (params[3].get_str()): "";
+  std::string toAddress = (params.size() > 2) ? (params[2].get_str()): "";
+  std::string redeemAddress = (params.size() > 3) ? (params[3].get_str()): "";
+  
+  int64_t referenceAmount = 0;
+
+  if (params.size() > 4)
+      referenceAmount = strToInt64(params[4].get_str(), true);
 
   //some sanity checking of the data supplied?
   uint256 newTX;
   vector<unsigned char> data = ParseHex(hexTransaction);
-  int rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, newTX);
+  int rc = ClassB_send(fromAddress, toAddress, redeemAddress, data, newTX, referenceAmount);
 
-  if (0 != rc) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", rc));
+  if (0 != rc)
+      throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", rc));
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -343,15 +352,15 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 {
    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getallbalancesforid_MP currencyID\n"
-            "\nGet a list of address balances for a given currency/property ID\n"
+            "getallbalancesforid_MP propertyid\n"
+            "\nGet a list of balances for a given currency or property identifier.\n"
             "\nArguments:\n"
-            "1. currencyID    (int, required) The currency/property ID\n"
+            "1. propertyid    (int, required) The property identifier\n"
             "\nResult:\n"
             "{\n"
-            "  \"address\" : 1Address,        (string) The address\n"
-            "  \"balance\" : x.xxx,     (string) The available balance of the address\n"
-            "  \"reserved\" : x.xxx,   (string) The amount reserved by sell offers and accepts\n"
+            "  \"address\" : \"1Address\",  (string) The address\n"
+            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
+            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
             "}\n"
 
             "\nbExamples\n"
@@ -416,15 +425,15 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 
    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getallbalancesforaddress_MP address\n"
-            "\nGet a list of all balances for a given address\n"
+            "getallbalancesforaddress_MP \"address\"\n"
+            "\nGet a list of all balances for a given address.\n"
             "\nArguments:\n"
-            "1. currencyID    (int, required) The currency/property ID\n"
+            "1. address    (string, required) The address\n"
             "\nResult:\n"
             "{\n"
             "  \"propertyid\" : x,        (numeric) the property id\n"
-            "  \"balance\" : x.xxx,     (string) The available balance of the address\n"
-            "  \"reserved\" : x.xxx,   (string) The amount reserved by sell offers and accepts\n"
+            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
+            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
             "}\n"
 
             "\nbExamples\n"
@@ -484,10 +493,10 @@ Value getproperty_MP(const Array& params, bool fHelp)
 {
    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getproperty_MP propertyID\n"
-            "\nGet details for a property ID\n"
+            "getproperty_MP propertyid\n"
+            "\nGet details for a property identifier.\n"
             "\nArguments:\n"
-            "1. propertyID    (int, required) The property ID\n"
+            "1. propertyid    (int, required) The property identifier\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -557,7 +566,7 @@ Value listproperties_MP(const Array& params, bool fHelp)
    if (fHelp)
         throw runtime_error(
             "listproperties_MP\n"
-            "\nList smart properties\n"
+            "\nLists all smart properties.\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -636,10 +645,10 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 {
    if (fHelp || params.size() < 1 )
         throw runtime_error(
-            "getcrowdsale_MP propertyID\n"
-            "\nGet crowdsale info for a property ID\n"
+            "getcrowdsale_MP propertyid\n"
+            "\nGet information about a crowdsale for a property identifier.\n"
             "\nArguments:\n"
-            "1. propertyID    (int, required) The property ID\n"
+            "1. propertyid    (int, required) The property identifier\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -840,7 +849,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
    if (fHelp)
         throw runtime_error(
             "getactivecrowdsales_MP\n"
-            "\nGet active crowdsales\n"
+            "\nGet active crowdsales.\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -920,10 +929,10 @@ Value getgrants_MP(const Array& params, bool fHelp)
 {
    if (fHelp || params.size() != 1 )
         throw runtime_error(
-            "getgrants_MP propertyID\n"
-            "\nGet grant/revoke info for a property ID\n"
+            "getgrants_MP propertyid\n"
+            "\nGet information about grants and revokes for a property identifier.\n"
             "\nArguments:\n"
-            "1. propertyID    (int, required) The property ID\n"
+            "1. propertyid    (int, required) The property identifier\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",   (string) the property name\n"
@@ -1215,7 +1224,7 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
    if (fHelp)
         throw runtime_error(
             "getactivedexsells_MP\n"
-            "\nGet currently active distributed exchange sell offers\n"
+            "\nGet currently active offers on the distributed exchange.\n"
             "\nResult:\n"
             "{\n"
             "}\n"
@@ -1311,13 +1320,11 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
         throw runtime_error(
             "listblocktransactions_MP index\n"
             "\nReturns all Master Protocol transactions in a block.\n"
-            
             "\nArguments:\n"
             "1. index         (numeric, required) The block height or index\n"
-            
             "\nResult:\n"
             "[                (array of string)\n"
-            "  \"hash\"         (string) Transaction id\n"            
+            "  \"hash\"         (string) Transaction id\n"
             "  ,...\n"
             "]\n"
 
@@ -1733,7 +1740,7 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
     if (fHelp || params.size() > 5)
         throw runtime_error(
-            "listtransactions_MP\n" //todo increase verbosity in help
+            "listtransactions_MP ( \"address\" count skip startblock endblock )\n" //todo increase verbosity in help
             "\nList wallet transactions filtered on counts and block boundaries\n"
             + HelpExampleCli("listtransactions_MP", "")
             + HelpExampleRpc("listtransactions_MP", "")
