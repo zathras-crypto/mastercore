@@ -1025,16 +1025,6 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
-bool isTestEco(unsigned int propID) 
-{
-  return ( propID > 2147483650 || propID == 2 );
-}
-
-bool isMainEco(unsigned int propID) 
-{
-  return ( propID < 2147483648 && propID != 2 );
-}
-
 Value trade_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() != 6)
@@ -1085,8 +1075,7 @@ Value trade_MP(const Array& params, bool fHelp) {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
   }
 
-  if ( !( ( isMainEco(propertyIdSale) && isMainEco(propertyIdWant) )  ||
-          ( isTestEco(propertyIdSale) && isTestEco(propertyIdWant) )  )  )
+  if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
   {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property IDs must be in the same ecosystem (main/test) ");
   }
