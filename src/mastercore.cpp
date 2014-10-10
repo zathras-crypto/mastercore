@@ -3506,6 +3506,14 @@ int step_rc;
       rc = logicMath_ChangeIssuer();
       break;
 
+    case MSC_TYPE_SAVINGS_MARK:
+      rc = logicMath_SavingsMark();
+      break;
+
+    case MSC_TYPE_SAVINGS_COMPROMISED:
+      rc = logicMath_SavingsCompromised();
+      break;
+
     default:
 
       return (PKT_ERROR -100);

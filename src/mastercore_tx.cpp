@@ -658,6 +658,20 @@ int CMPTransaction::logicMath_ChangeIssuer()
   return rc;
 }
 
+int CMPTransaction::logicMath_SavingsMark()
+{
+int rc = -12345;
+
+  return rc;
+}
+
+int CMPTransaction::logicMath_SavingsCompromised()
+{
+int rc = -23456;
+
+  return rc;
+}
+
 char *mastercore::c_strMasterProtocolTXType(int i)
 {
   switch (i)

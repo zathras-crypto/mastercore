@@ -119,6 +119,8 @@ public:
   int logicMath_GrantTokens(void);
   int logicMath_RevokeTokens(void);
   int logicMath_ChangeIssuer(void);
+  int logicMath_SavingsMark(void);
+  int logicMath_SavingsCompromised(void);
 
  int interpretPacket(CMPOffer *obj_o = NULL);
  int step1(void);
