@@ -1025,6 +1025,21 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
+std::string error_str(int ec) {
+  std::string ec_str;
+  
+  switch (ec)
+  {
+      case -1:
+        ec_str = strprintf("error code= %d, not enough funds in user address ", ec);
+      break;
+      default:
+        ec_str = strprintf("error code= %d, unknown error ", ec);
+  }
+
+  return ec_str;
+}
+
 Value trade_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() != 6)
@@ -1108,8 +1123,8 @@ Value trade_MP(const Array& params, bool fHelp) {
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyIdSale, Amount_Sale, propertyIdWant, Amount_Want, MSC_TYPE_METADEX, action, &code);
 
-  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
-
+  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, error_str(code) );
+  
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
 } 
