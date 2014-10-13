@@ -1150,7 +1150,25 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
             //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
             //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
         );
-  return "\nNot Implemented";
+
+  Array response;
+  Object metadex_obj;
+
+  for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
+  {
+    metadex_obj.push_back(Pair("currency", it->first));
+   /*
+    MetaDExTypeMMap & map_inner = ((it->second).first);
+    for (MetaDExTypeMMap::iterator mm_it = map_inner.begin(); mm_it != map_inner.end(); ++mm_it)
+    {
+      MetaDExTypePrice p = (mm_it->first);
+      CMPMetaDEx & metadex_o = (mm_it->second);
+
+      metadex_obj.push_back(Pair("address", metadex_o.addr.c_str()));
+    }*/
+    printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
+  }
+  return "\nNOt Implemented";
 }
  
 Value gettradessince_MP(const Array& params, bool fHelp) {
