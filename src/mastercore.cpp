@@ -1606,7 +1606,7 @@ int input_mp_offers_string(const string &s)
   string txidStr;
   int i = 0;
 
-  if (8 != vstr.size()) return -1;
+  if (9 != vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
   offerBlock = atoi(vstr[i++]);
@@ -1855,8 +1855,8 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
     }
   }
 
-  fprintf(mp_fp, "%s(%s), loaded lines= %d\n", __FUNCTION__, filename.c_str(), lines);
-  LogPrintf("%s(): file: %s , loaded lines= %d\n", __FUNCTION__, filename, lines);
+  fprintf(mp_fp, "%s(%s), loaded lines= %d, res= %d\n", __FUNCTION__, filename.c_str(), lines, res);
+  LogPrintf("%s(): file: %s , loaded lines= %d, res= %d\n", __FUNCTION__, filename, lines, res);
 
   return res;
 }
@@ -2032,7 +2032,7 @@ static int write_mp_offers(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_mp_metadex(ofstream &file, SHA256_CTX *shaCtx)
 {
-  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+//  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
   // TODO
   // ...
