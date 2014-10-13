@@ -234,7 +234,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     tabGroup->addAction(balancesAction);
 
     sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
-    sendCoinsAction->setStatusTip(tr("Send coins to a Bitcoin address"));
+    sendCoinsAction->setStatusTip(tr("Send Master Protocol and Bitcoin transactions"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
@@ -247,11 +247,18 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     receiveCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(receiveCoinsAction);
 
+    smartPropertyAction = new QAction(QIcon(":/icons/smartproperty"), tr("Smart &Property"), this);
+    smartPropertyAction->setStatusTip(tr("Lookup and interact with Master Protocol Smart Properties"));
+    smartPropertyAction->setToolTip(smartPropertyAction->statusTip());
+    smartPropertyAction->setCheckable(true);
+    smartPropertyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
+    tabGroup->addAction(smartPropertyAction);
+
     historyAction = new QAction(QIcon(":/icons/history"), tr("&Transactions"), this);
     historyAction->setStatusTip(tr("Browse transaction history"));
     historyAction->setToolTip(historyAction->statusTip());
     historyAction->setCheckable(true);
-    historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
+    historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
     tabGroup->addAction(historyAction);
 
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
@@ -264,6 +271,8 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
+    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(gotoSmartPropertyPage()));
     connect(historyAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(historyAction, SIGNAL(triggered()), this, SLOT(gotoHistoryPage()));
 
@@ -395,6 +404,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(balancesAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
+        toolbar->addAction(smartPropertyAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
     }
@@ -460,6 +470,7 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     balancesAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
+    smartPropertyAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
     encryptWalletAction->setEnabled(enabled);
     backupWalletAction->setEnabled(enabled);
@@ -478,12 +489,12 @@ void BitcoinGUI::createTrayIcon(bool fIsTestnet)
 
     if (!fIsTestnet)
     {
-        trayIcon->setToolTip(tr("Bitcoin client"));
+        trayIcon->setToolTip(tr("Mastercore client"));
         trayIcon->setIcon(QIcon(":/icons/toolbar"));
     }
     else
     {
-        trayIcon->setToolTip(tr("Bitcoin client") + " " + tr("[testnet]"));
+        trayIcon->setToolTip(tr("Mastercore client") + " " + tr("[testnet]"));
         trayIcon->setIcon(QIcon(":/icons/toolbar_testnet"));
     }
 
@@ -606,6 +617,12 @@ void BitcoinGUI::gotoSendCoinsPage(QString addr)
 {
     sendCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
+}
+
+void BitcoinGUI::gotoSmartPropertyPage()
+{
+    smartPropertyAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoSmartPropertyPage();
 }
 
 void BitcoinGUI::gotoSignMessageTab(QString addr)

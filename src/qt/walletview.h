@@ -13,6 +13,7 @@ class OverviewPage;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
 class SendMPDialog;
+class LookupSPDialog;
 class SendCoinsRecipient;
 class TransactionView;
 class BalancesView;
@@ -59,12 +60,14 @@ private:
     OverviewPage *overviewPage;
     QWidget *transactionsPage;
     QWidget *balancesPage;
+    QWidget *smartPropertyPage;
 
     ReceiveCoinsDialog *receiveCoinsPage;
 //    SendCoinsDialog *sendCoinsPage;
     QWidget *sendCoinsPage;
     SendCoinsDialog *sendCoinsTab;
     SendMPDialog *sendMPTab;
+    LookupSPDialog *spLookupTab;
 
     TransactionView *transactionView;
     BalancesView *balancesView;
@@ -76,6 +79,8 @@ public slots:
     void gotoOverviewPage();
     /** Switch to balances page */
     void gotoBalancesPage();
+    /** Switch to smart property page */
+    void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
     /** Switch to receive coins page */

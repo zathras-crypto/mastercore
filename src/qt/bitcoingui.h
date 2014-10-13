@@ -80,6 +80,7 @@ private:
     QAction *historyAction;
     QAction *quitAction;
     QAction *sendCoinsAction;
+    QAction *smartPropertyAction;
     QAction *usedSendingAddressesAction;
     QAction *usedReceivingAddressesAction;
     QAction *signMessageAction;
@@ -163,6 +164,8 @@ private slots:
     void gotoBalancesPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch to the smart property page */
+    void gotoSmartPropertyPage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */

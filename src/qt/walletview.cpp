@@ -14,6 +14,7 @@
 #include "receivecoinsdialog.h"
 #include "sendcoinsdialog.h"
 #include "sendmpdialog.h"
+#include "lookupspdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
@@ -90,17 +91,28 @@ WalletView::WalletView(QWidget *parent):
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
 
+    // smart property page
+    smartPropertyPage = new QWidget(this);
+    QVBoxLayout *spvbox = new QVBoxLayout();
+    spLookupTab = new LookupSPDialog();
+    QTabWidget *spTabHolder = new QTabWidget();
+    spTabHolder->addTab(spLookupTab,tr("Lookup Property"));
+    spTabHolder->addTab(new QWidget(),tr("Crowdsale Participation"));
+//    spTabHolder->addTab(new QWidget(),tr("Property Issuance"));
+//    spTabHolder->addTab(new QWidget(),tr("Revoke or Grant Tokens"));
+    spvbox->addWidget(spTabHolder);
+    smartPropertyPage->setLayout(spvbox);
+
     // add pages
     addWidget(overviewPage);
     addWidget(balancesPage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
+    addWidget(smartPropertyPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
-
-//    connect(showAllBalancesLabel, SIGNAL(clicked()), overviewPage, SLOT(WalletView::gotoBalancesPage()));
 
     // Double-clicking on a transaction on the transaction history page shows details
     connect(transactionView, SIGNAL(doubleClicked(QModelIndex)), transactionView, SLOT(showDetails()));
@@ -209,6 +221,11 @@ void WalletView::gotoHistoryPage()
 void WalletView::gotoReceiveCoinsPage()
 {
     setCurrentWidget(receiveCoinsPage);
+}
+
+void WalletView::gotoSmartPropertyPage()
+{
+    setCurrentWidget(smartPropertyPage);
 }
 
 void WalletView::gotoSendCoinsPage(QString addr)

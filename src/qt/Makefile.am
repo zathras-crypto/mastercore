@@ -101,6 +101,7 @@ QT_FORMS_UI = \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
   forms/sendmpdialog.ui \
+  forms/lookupspdialog.ui \
   forms/signverifymessagedialog.ui \
   forms/transactiondescdialog.ui 
 
@@ -137,6 +138,7 @@ QT_MOC_CPP = \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
   moc_sendmpdialog.cpp \
+  moc_lookupspdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
   moc_trafficgraphwidget.cpp \
@@ -203,6 +205,7 @@ BITCOIN_QT_H = \
   sendcoinsdialog.h \
   sendcoinsentry.h \
   sendmpdialog.h \
+  lookupspdialog.h \
   signverifymessagedialog.h \
   splashscreen.h \
   trafficgraphwidget.h \
@@ -221,6 +224,7 @@ BITCOIN_QT_H = \
   winshutdownmonitor.h
 
 RES_ICONS = \
+  res/icons/mp_sp.png \
   res/icons/mp_balances.png \
   res/icons/mp_history.png \
   res/icons/mp_home.png \
@@ -310,6 +314,7 @@ BITCOIN_QT_CPP += \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
   sendmpdialog.cpp \
+  lookupspdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
   transactiondescdialog.cpp \
