@@ -91,6 +91,15 @@ WalletView::WalletView(QWidget *parent):
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
 
+    // exchange page
+    exchangePage = new QWidget(this);
+    QVBoxLayout *exvbox = new QVBoxLayout();
+    QTabWidget *exTabHolder = new QTabWidget();
+    exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin"));
+    exTabHolder->addTab(new QWidget(),tr("Trade Mastercoin/Smart Properties"));
+    exvbox->addWidget(exTabHolder);
+    exchangePage->setLayout(exvbox);
+
     // smart property page
     smartPropertyPage = new QWidget(this);
     QVBoxLayout *spvbox = new QVBoxLayout();
@@ -109,6 +118,7 @@ WalletView::WalletView(QWidget *parent):
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
+    addWidget(exchangePage);
     addWidget(smartPropertyPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
@@ -221,6 +231,11 @@ void WalletView::gotoHistoryPage()
 void WalletView::gotoReceiveCoinsPage()
 {
     setCurrentWidget(receiveCoinsPage);
+}
+
+void WalletView::gotoExchangePage()
+{
+    setCurrentWidget(exchangePage);
 }
 
 void WalletView::gotoSmartPropertyPage()

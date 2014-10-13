@@ -52,6 +52,8 @@ public slots:
     void gotoOverviewPage();
     /** Switch to balances page */
     void gotoBalancesPage();
+    /** Switch to exchange page */
+    void gotoExchangePage();
     /** Switch to smart property page */
     void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */

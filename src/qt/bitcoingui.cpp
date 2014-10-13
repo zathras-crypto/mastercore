@@ -632,8 +632,8 @@ void BitcoinGUI::gotoSendCoinsPage(QString addr)
 
 void BitcoinGUI::gotoExchangePage()
 {
-    smartPropertyAction->setChecked(true);
-    if (walletFrame) walletFrame->gotoSmartPropertyPage();
+    exchangeAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoExchangePage();
 }
 
 void BitcoinGUI::gotoSmartPropertyPage()

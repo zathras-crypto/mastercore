@@ -119,6 +119,13 @@ void WalletFrame::gotoBalancesPage()
         i.value()->gotoBalancesPage();
 }
 
+void WalletFrame::gotoExchangePage()
+{
+    QMap<QString, WalletView*>::const_iterator i;
+    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
+        i.value()->gotoExchangePage();
+}
+
 void WalletFrame::gotoSmartPropertyPage()
 {
     QMap<QString, WalletView*>::const_iterator i;
