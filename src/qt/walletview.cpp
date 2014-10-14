@@ -15,6 +15,7 @@
 #include "sendcoinsdialog.h"
 #include "sendmpdialog.h"
 #include "lookupspdialog.h"
+#include "metadexdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
@@ -94,9 +95,10 @@ WalletView::WalletView(QWidget *parent):
     // exchange page
     exchangePage = new QWidget(this);
     QVBoxLayout *exvbox = new QVBoxLayout();
+    metaDExTab = new MetaDExDialog();
     QTabWidget *exTabHolder = new QTabWidget();
     exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin"));
-    exTabHolder->addTab(new QWidget(),tr("Trade Mastercoin/Smart Properties"));
+    exTabHolder->addTab(metaDExTab,tr("Trade Mastercoin/Smart Properties"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
 

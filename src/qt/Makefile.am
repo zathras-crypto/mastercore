@@ -101,6 +101,7 @@ QT_FORMS_UI = \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
   forms/sendmpdialog.ui \
+  forms/metadexdialog.ui \
   forms/lookupspdialog.ui \
   forms/signverifymessagedialog.ui \
   forms/transactiondescdialog.ui 
@@ -138,6 +139,7 @@ QT_MOC_CPP = \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
   moc_sendmpdialog.cpp \
+  moc_metadexdialog.cpp \
   moc_lookupspdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
@@ -205,6 +207,7 @@ BITCOIN_QT_H = \
   sendcoinsdialog.h \
   sendcoinsentry.h \
   sendmpdialog.h \
+  metadexdialog.h \
   lookupspdialog.h \
   signverifymessagedialog.h \
   splashscreen.h \
@@ -315,6 +318,7 @@ BITCOIN_QT_CPP += \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
   sendmpdialog.cpp \
+  metadexdialog.cpp \
   lookupspdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
