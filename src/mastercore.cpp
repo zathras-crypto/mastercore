@@ -51,7 +51,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -1513,9 +1513,6 @@ const int max_block = GetHeight();
     n_total += tx_count;
 
     mastercore_handler_block_end(blockNum, pblockindex, n_found);
-#ifdef  MY_DIV_HACK
-//    if (20 < n_found) break;
-#endif
   }
 
   printf("\n");
@@ -2303,7 +2300,8 @@ int mastercore_init()
 
     if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
 
-#ifdef  MY_HACK
+#if 0
+// #ifdef  MY_HACK
 //    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    if (isNonMainNet()) nWaterlineBlock = 272700;
 
