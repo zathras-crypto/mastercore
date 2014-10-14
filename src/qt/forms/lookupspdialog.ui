@@ -269,6 +269,12 @@
             </item>
             <item>
              <widget class="QLabel" name="nameLabel">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
               <property name="styleSheet">
                <string notr="true">padding-left:8px;padding-bottom:10px;</string>
               </property>
@@ -286,6 +292,12 @@
             </item>
             <item>
              <widget class="QLabel" name="categoryLabel">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
               <property name="styleSheet">
                <string notr="true">padding-left:8px;padding-bottom:10px;</string>
               </property>
@@ -303,6 +315,12 @@
             </item>
             <item>
              <widget class="QLabel" name="subcategoryLabel">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
               <property name="styleSheet">
                <string notr="true">padding-left:8px;padding-bottom:10px;</string>
               </property>
@@ -320,6 +338,12 @@
             </item>
             <item>
              <widget class="QLabel" name="urlLabel">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
               <property name="styleSheet">
                <string notr="true">padding-left:8px;padding-bottom:10px;</string>
               </property>
@@ -337,6 +361,12 @@
             </item>
             <item>
              <widget class="QLabel" name="dataLabel">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
               <property name="styleSheet">
                <string notr="true">padding-left:8px;padding-bottom:10px;</string>
               </property>
