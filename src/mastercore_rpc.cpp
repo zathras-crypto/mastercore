@@ -1156,19 +1156,18 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
   for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
   {
-    metadex_obj.push_back(Pair("currency", it->first));
-   /*
-    MetaDExTypeMMap & map_inner = ((it->second).first);
-    for (MetaDExTypeMMap::iterator mm_it = map_inner.begin(); mm_it != map_inner.end(); ++mm_it)
-    {
-      MetaDExTypePrice p = (mm_it->first);
-      CMPMetaDEx & metadex_o = (mm_it->second);
-
-      metadex_obj.push_back(Pair("address", metadex_o.addr.c_str()));
-    }*/
-    printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
+    metadex_obj.clear();
+    metadex_obj.push_back(Pair("address", (it->second).getAddr().c_str()));
+    metadex_obj.push_back(Pair("txid", (it->second).getHash().GetHex()));
+    metadex_obj.push_back(Pair("currency_owned", (uint64_t) (it->second).getCurrency()));
+    metadex_obj.push_back(Pair("currency_desired", (uint64_t) (it->second).getDesCurrency()));
+    metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP((it->second).getAmtOrig())));
+    metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP((it->second).getAmtDes())));
+    metadex_obj.push_back(Pair("action", (uint64_t) (it->second).getAction()));
+    response.push_back(metadex_obj);
   }
-  return "\nNOt Implemented";
+  
+  return response;
 }
  
 Value gettradessince_MP(const Array& params, bool fHelp) {

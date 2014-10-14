@@ -193,6 +193,11 @@ public:
 
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
+  unsigned int getDesCurrency() const { return desired_currency; }
+  string getAddr() const { return addr; }
+  uint64_t getAmtOrig() const { return amount_original; }
+  uint64_t getAmtDes() const { return desired_amount_original; }
+  unsigned char getAction() const { return subaction; }
 
   CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 //  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
