@@ -340,10 +340,9 @@ public:
   }
 };
 
-extern uint64_t global_MSC_total;
-extern uint64_t global_MSC_RESERVED_total;
 //temp - only supporting 100,000 properties per eco here, research best way to expand array
 //these 4 arrays use about 3MB total memory with 100K properties limit (100000*8*4 bytes)
+extern uint64_t global_metadex_market;
 extern uint64_t global_balance_money_maineco[100000];
 extern uint64_t global_balance_reserved_maineco[100000];
 extern uint64_t global_balance_money_testeco[100000];

@@ -82,8 +82,7 @@ static const int nBlockTop = 0;
 
 static int nWaterlineBlock = 0;  //
 
-uint64_t global_MSC_total = 0;
-uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_metadex_market;
 uint64_t global_balance_money_maineco[100000];
 uint64_t global_balance_reserved_maineco[100000];
 uint64_t global_balance_money_testeco[100000];

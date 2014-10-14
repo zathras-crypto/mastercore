@@ -67,34 +67,27 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->setupUi(this);
     this->model = model;
 
-//dummy data
-//ui->buyList->addItem('TEST');
-//ui->buyList->addItem('12345678901234567890');
-//ui->buyList->addItem('1234567890  1234567890  1234567890  1234567890  ');
-//ui->buyList->addItem('ABCDEFGHIJ');
-//ui->buyList->addItem('ABCDEFGHIJ  IKLMNOPQRS  TVUWXKR333');
-//ui->buyList->addItem('TEST');
+    //open
+    global_metadex_market = 3;
 
-
-ui->buyList->setColumnCount(3);
-for(int i=0; i<5; ++i) {
-    string strprice = "349.00000006";
-    string strtotal = "123456.00000001";
-    string strmsctotal = "123456.00000001";
-//    QListWidgetItem *item=new QListWidgetItem(QIcon(":/images/Icon.png"),QString::fromStdString(strt));
-//    ui->buyList->addItem(item);
-QString pstr = QString::fromStdString(strprice);
-QString tstr = QString::fromStdString(strtotal);
-QString mstr = QString::fromStdString(strmsctotal);
-
-    if (!ui->buyList) { printf("metadex dialog error\n"); return; }
- 
-    const int currentRow = ui->buyList->rowCount();  
-    ui->buyList->setRowCount(currentRow + 1);
-    ui->buyList->setItem(currentRow, 0, new QTableWidgetItem(pstr));
-    ui->buyList->setItem(currentRow, 1, new QTableWidgetItem(tstr));
-    ui->buyList->setItem(currentRow, 2, new QTableWidgetItem(mstr));
-
+    //prep lists
+    ui->buyList->setColumnCount(3);
+        //dummy data
+        for(int i=0; i<5; ++i)
+        {
+            string strprice = "349.00000006";
+            string strtotal = "123456.00000001";
+            string strmsctotal = "123456.00000001";
+            QString pstr = QString::fromStdString(strprice);
+            QString tstr = QString::fromStdString(strtotal);
+            QString mstr = QString::fromStdString(strmsctotal);
+            if (!ui->buyList) { printf("metadex dialog error\n"); return; }
+            const int currentRow = ui->buyList->rowCount();
+            ui->buyList->setRowCount(currentRow + 1);
+            ui->buyList->setItem(currentRow, 0, new QTableWidgetItem(pstr));
+            ui->buyList->setItem(currentRow, 1, new QTableWidgetItem(tstr));
+            ui->buyList->setItem(currentRow, 2, new QTableWidgetItem(mstr));
+        }
     ui->buyList->setHorizontalHeaderItem(0, new QTableWidgetItem("Unit Price"));
     ui->buyList->setHorizontalHeaderItem(1, new QTableWidgetItem("Total SP#3"));
     ui->buyList->setHorizontalHeaderItem(2, new QTableWidgetItem("Total MSC"));
@@ -102,4 +95,45 @@ QString mstr = QString::fromStdString(strmsctotal);
     ui->buyList->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
     ui->buyList->setShowGrid(false);
     ui->buyList->setSelectionBehavior(QAbstractItemView::SelectRows);
-}}
+
+    
+
+    // populate from address selector
+    unsigned int propertyId = global_metadex_market;
+    LOCK(cs_tally);
+    // sell addresses
+    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+    {
+        string address = (my_it->first).c_str();
+        unsigned int id;
+        bool includeAddress=false;
+        (my_it->second).init();
+        while (0 != (id = (my_it->second).next()))
+        {
+            if(id==propertyId) { includeAddress=true; break; }
+        }
+        if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
+        if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
+        ui->sellAddressCombo->addItem((my_it->first).c_str());
+    }
+    // buy addresses
+    for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
+    {
+        string address = (my_it->first).c_str();
+        bool testeco = false;
+        if (propertyId > TEST_ECO_PROPERTY_1) testeco = true;
+        unsigned int id;
+        bool includeAddress=false;
+        (my_it->second).init();
+        while (0 != (id = (my_it->second).next()))
+        {
+            if((id==MASTERCOIN_CURRENCY_MSC) && (!testeco)) { includeAddress=true; break; }
+            if((id==MASTERCOIN_CURRENCY_TMSC) && (testeco)) { includeAddress=true; break; }
+        }
+        if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
+        if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
+        ui->buyAddressCombo->addItem((my_it->first).c_str());
+    }
+
+
+}
