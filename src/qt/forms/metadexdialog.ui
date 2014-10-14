@@ -196,7 +196,7 @@
              </spacer>
             </item>
             <item>
-             <widget class="QLabel" name="label_2">
+             <widget class="QLabel" name="yourBuyBalanceLabel">
               <property name="text">
                <string>Your Balance 0.000000000 MSC</string>
               </property>
@@ -404,7 +404,7 @@
              </spacer>
             </item>
             <item>
-             <widget class="QLabel" name="label_3">
+             <widget class="QLabel" name="yourSellBalanceLabel">
               <property name="text">
                <string>Your Balance 0.000000000 SPT</string>
               </property>

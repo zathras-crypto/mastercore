@@ -97,6 +97,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->buyList->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
+    connect(ui->sellAddressCombo, SIGNAL(activated(int)), this, SLOT(sellAddressComboBoxChanged(int)));
+    connect(ui->buyAddressCombo, SIGNAL(activated(int)), this, SLOT(buyAddressComboBoxChanged(int)));
 
     FullRefresh();
 
@@ -118,10 +120,17 @@ void MetaDExDialog::SwitchMarket()
 
     if ((searchPropertyId > 0) && (searchPropertyId < 4294967290)) // sanity check
     {
+        // check if trying to trade against self
+        if ((searchPropertyId == 1) || (searchPropertyId == 2))
+        {
+            //todo add property cannot be traded against self messgevox
+            return;
+        }
         // check if property exists
         bool spExists = _my_sps->hasSP(searchPropertyId);
         if (!spExists)
         {
+            //todo add property not found messagebox
             return;
         }
         else
@@ -132,13 +141,64 @@ void MetaDExDialog::SwitchMarket()
     }
 }
 
+void MetaDExDialog::UpdateSellAddress()
+{
+    unsigned int propertyId = global_metadex_market;
+    bool divisible = isPropertyDivisible(propertyId);
+    QString currentSetSellAddress = ui->sellAddressCombo->currentText();
+    int64_t balanceAvailable = getUserAvailableMPbalance(currentSetSellAddress.toStdString(), propertyId);
+    string labStr;
+    if (divisible)
+    {
+        labStr = "Your balance: " + FormatDivisibleMP(balanceAvailable) + " SPT";
+    }
+    else
+    {
+        labStr = "Your balance: " + FormatIndivisibleMP(balanceAvailable) + " SPT";
+    }
+    QString qLabStr = QString::fromStdString(labStr);
+    ui->yourSellBalanceLabel->setText(qLabStr);
+}
+
+void MetaDExDialog::UpdateBuyAddress()
+{
+    unsigned int propertyId = global_metadex_market;
+    bool testeco = false;
+    if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
+    QString currentSetBuyAddress = ui->buyAddressCombo->currentText();
+    int64_t balanceAvailable;
+    string tokenStr;
+    if (testeco)
+    {
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_CURRENCY_TMSC);
+        tokenStr = " TMSC";
+    }
+    else
+    {
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_CURRENCY_MSC);
+        tokenStr = " MSC";
+
+    }
+    string labStr = "Your balance: " + FormatDivisibleMP(balanceAvailable) + tokenStr;
+    QString qLabStr = QString::fromStdString(labStr);
+    ui->yourBuyBalanceLabel->setText(qLabStr);
+}
+
 void MetaDExDialog::FullRefresh()
 {
     // populate from address selector
     unsigned int propertyId = global_metadex_market;
     bool testeco = false;
-    if (propertyId > TEST_ECO_PROPERTY_1) testeco = true;
+    if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
     LOCK(cs_tally);
+
+    // get currently selected addresses
+    QString currentSetBuyAddress = ui->buyAddressCombo->currentText();
+    QString currentSetSellAddress = ui->sellAddressCombo->currentText();
+
+    // clear address selectors
+    ui->buyAddressCombo->clear();
+    ui->sellAddressCombo->clear();
 
     // update form labels
     if (testeco)
@@ -183,6 +243,26 @@ void MetaDExDialog::FullRefresh()
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
         ui->buyAddressCombo->addItem((my_it->first).c_str());
     }
+
+    // attempt to set buy and sell addresses back to values before refresh
+    int sellIdx = ui->sellAddressCombo->findText(currentSetSellAddress);
+    if (sellIdx != -1) { ui->sellAddressCombo->setCurrentIndex(sellIdx); } // -1 means the new prop doesn't have the previously selected address
+    int buyIdx = ui->buyAddressCombo->findText(currentSetBuyAddress);
+    if (buyIdx != -1) { ui->buyAddressCombo->setCurrentIndex(buyIdx); } // -1 means the new prop doesn't have the previously selected address
+
+    // update the balances
+    UpdateSellAddress();
+    UpdateBuyAddress();
+}
+
+void MetaDExDialog::buyAddressComboBoxChanged(int idx)
+{
+    UpdateBuyAddress();
+}
+
+void MetaDExDialog::sellAddressComboBoxChanged(int idx)
+{
+    UpdateSellAddress();
 }
 
 void MetaDExDialog::switchButtonClicked()
