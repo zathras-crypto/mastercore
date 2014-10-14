@@ -26,6 +26,8 @@ class MetaDExDialog : public QDialog
     Q_OBJECT
 
 public:
+    void FullRefresh();
+    void SwitchMarket();
     explicit MetaDExDialog(QWidget *parent = 0);
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
@@ -33,6 +35,7 @@ public:
 
 
 public slots:
+    void switchButtonClicked();
 
 private:
     Ui::MetaDExDialog *ui;

@@ -96,11 +96,62 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->buyList->setShowGrid(false);
     ui->buyList->setSelectionBehavior(QAbstractItemView::SelectRows);
 
-    
+    connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
 
+    FullRefresh();
+
+}
+
+void MetaDExDialog::SwitchMarket()
+{
+    uint64_t searchPropertyId = 0;
+    // first let's check if we have a searchText, if not do nothing
+    string searchText = ui->switchLineEdit->text().toStdString();
+    if (searchText.empty()) return;
+
+    // try seeing if we have a numerical search string, if so treat it as a property ID search
+    try
+    {
+        searchPropertyId = boost::lexical_cast<int64_t>(searchText);
+    }
+    catch(const boost::bad_lexical_cast &e) { return; } // bad cast to number
+
+    if ((searchPropertyId > 0) && (searchPropertyId < 4294967290)) // sanity check
+    {
+        // check if property exists
+        bool spExists = _my_sps->hasSP(searchPropertyId);
+        if (!spExists)
+        {
+            return;
+        }
+        else
+        {
+            global_metadex_market = searchPropertyId;
+            FullRefresh();
+        }
+    }
+}
+
+void MetaDExDialog::FullRefresh()
+{
     // populate from address selector
     unsigned int propertyId = global_metadex_market;
+    bool testeco = false;
+    if (propertyId > TEST_ECO_PROPERTY_1) testeco = true;
     LOCK(cs_tally);
+
+    // update form labels
+    if (testeco)
+    {
+        ui->exchangeLabel->setText("Exchange - SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId)) + "/TMSC");
+    }
+    else
+    {
+        ui->exchangeLabel->setText("Exchange - SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId)) + "/MSC");
+    }
+    ui->buyMarketLabel->setText("BUY SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId)));
+    ui->sellMarketLabel->setText("SELL SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId)));
+
     // sell addresses
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
@@ -120,8 +171,6 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
         string address = (my_it->first).c_str();
-        bool testeco = false;
-        if (propertyId > TEST_ECO_PROPERTY_1) testeco = true;
         unsigned int id;
         bool includeAddress=false;
         (my_it->second).init();
@@ -134,6 +183,10 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
         ui->buyAddressCombo->addItem((my_it->first).c_str());
     }
-
-
 }
+
+void MetaDExDialog::switchButtonClicked()
+{
+    SwitchMarket();
+}
+
