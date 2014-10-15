@@ -75,6 +75,7 @@ using namespace mastercore;
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
+#include "mastercore_errors.h"
 
 // part of 'breakout' feature
 static const int nBlockTop = 0;
@@ -2564,7 +2565,7 @@ vector< pair<CScript, int64_t> > vecSend;
   // pick inputs for this transaction
   if (0 > selectCoins(senderAddress, coinControl, referenceamount))
   {
-    return (CLASSB_SEND_ERROR -12);
+    return MP_INPUTS_INVALID;
   }
 
   txid = 0;
@@ -2585,26 +2586,26 @@ vector< pair<CScript, int64_t> > vecSend;
     if (address.IsScript())
     {
       fprintf(mp_fp, "%s() ERROR: Redemption Address must be specified !\n", __FUNCTION__);
-      return (CLASSB_SEND_ERROR -33);
+      return MP_REDEMP_ILLEGAL;
     }
     else
     {
       CKeyID keyID;
 
       if (!address.GetKeyID(keyID))
-        return (CLASSB_SEND_ERROR -20);
+        return MP_REDEMP_BAD_KEYID;
 
       if (!bRawTX)
       {
       if (!wallet->GetPubKey(keyID, redeemingPubKey))
-        return (CLASSB_SEND_ERROR -21);
+        return MP_REDEMP_FETCH_ERR_PUBKEY;
 
       if (!redeemingPubKey.IsFullyValid())
-        return (CLASSB_SEND_ERROR -22);
+        return MP_REDEMP_INVALID_PUBKEY;
       }
      }
   }
-  else return (CLASSB_SEND_ERROR -23);
+  else return MP_REDEMP_BAD_VALIDATION;
 
   int nRemainingBytes = data.size();
   int nNextByte = 0;
@@ -2684,7 +2685,7 @@ vector< pair<CScript, int64_t> > vecSend;
   CBitcoinAddress addr = CBitcoinAddress(senderAddress);  // change goes back to us
   coinControl.destChange = addr.Get();
 
-  if (!wallet) return (CLASSB_SEND_ERROR -5);
+  if (!wallet) return MP_ERR_WALLET_ACCESS;
 
   CScript scriptPubKey;
 
@@ -2701,13 +2702,13 @@ vector< pair<CScript, int64_t> > vecSend;
   vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey)));
 
   // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
-  if (!coinControl.HasSelected()) return (CLASSB_SEND_ERROR -6);
+  if (!coinControl.HasSelected()) return MP_ERR_INPUTSELECT_FAIL;
 
   LOCK(wallet->cs_wallet);
 
   // the fee will be computed by Bitcoin Core, need an override (?)
   // TODO: look at Bitcoin Core's global: nTransactionFee (?)
-  if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl)) return (CLASSB_SEND_ERROR -11);
+  if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl)) return MP_ERR_CREATE_TX;
 
   if (bRawTX)
   {
@@ -2722,7 +2723,7 @@ vector< pair<CScript, int64_t> > vecSend;
 
   printf("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
 
-  if (!wallet->CommitTransaction(wtxNew, reserveKey)) return (CLASSB_SEND_ERROR -13);
+  if (!wallet->CommitTransaction(wtxNew, reserveKey)) return MP_ERR_COMMIT_TX;
 
   txid = wtxNew.GetHash();
 
@@ -2734,7 +2735,7 @@ uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const strin
 {
 const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
 const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
-int rc = -1;
+int rc = MP_INSUF_FUNDS_BPENDI;
 uint256 txid = 0;
 const int64_t amount = Amount;
 const unsigned int curr = CurrencyID;
@@ -2746,7 +2747,7 @@ const unsigned int curr = CurrencyID;
 
   if (!isRangeOK(Amount))
   {
-    rc -= 10;
+    rc = MP_INPUT_NOT_IN_RANGE;
     if (error_code) *error_code = rc;
 
     return 0;
@@ -2770,7 +2771,7 @@ const unsigned int curr = CurrencyID;
     LogPrintf("%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
     if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
 
-    rc -= 1;
+    rc = MP_INSUF_FUNDS_APENDI;
     if (error_code) *error_code = rc;
 
     return 0;
