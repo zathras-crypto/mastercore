@@ -594,7 +594,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
   {
     update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
-    metadex.insert(std::make_pair(combo, CMPMetaDEx("*empty*", block, curr, amount, currency_desired, amount_desired, txid, idx)));
+    metadex.insert(std::make_pair(combo, CMPMetaDEx(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx)));
 //    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
 //     price_int, price_frac, inverse_int, inverse_frac)));
 
