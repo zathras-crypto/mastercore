@@ -37,6 +37,7 @@ using namespace mastercore;
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
+#include "mastercore_errors.h"
 
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
@@ -245,7 +246,7 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, ToAddress, RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SIMPLE_SEND, additional, &code);
 
-  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
+  if (0 != code) throw JSONRPCError(code, error_str(code) );
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -301,7 +302,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SEND_TO_OWNERS, 0, &code);
 
-  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
+  if (0 != code) throw JSONRPCError(code, error_str(code) );
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -1108,7 +1109,7 @@ Value trade_MP(const Array& params, bool fHelp) {
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyIdSale, Amount_Sale, propertyIdWant, Amount_Want, MSC_TYPE_METADEX, action, &code);
 
-  if (0 != code) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("error code= %i", code));
+  if (0 != code) throw JSONRPCError(code, error_str(code) );
   
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();

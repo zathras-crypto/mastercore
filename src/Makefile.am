@@ -42,6 +42,7 @@ BITCOIN_CORE_H = \
   mastercore_tx.h \
   mastercore_dex.h \
   mastercore_sp.h \
+  mastercore_errors.h \
   crypter.h \
   db.h \
   hash.h \
