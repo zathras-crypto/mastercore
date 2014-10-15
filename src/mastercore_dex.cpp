@@ -598,6 +598,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 //    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
 //     price_int, price_frac, inverse_int, inverse_frac)));
 
+
   {
     const string ukey = sender_addr + "+" + txid.ToString();
 
@@ -678,5 +679,31 @@ int rc = METADEX_ERROR -8;
   }
 
   return rc;
+}
+
+bool mmap_compare::operator()(const MetaDExTypePrice &lhs, const MetaDExTypePrice &rhs) const
+{
+  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+//  MetaDExTypePrice p = (lhs.first);
+
+#if 0
+    bool operator()(pair<int64_t, string> p1, pair<int64_t, string> p2) const
+    {
+      if (p1.first == p2.first) return p1.second > p2.second; // reverse check
+      else return p1.first < p2.first;
+#endif
+
+  return true;
+}
+
+bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const
+{
+  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+  if (lhs.getBlock() == rhs.getBlock()) return lhs.getIdx() < rhs.getIdx();
+  else return lhs.getBlock() < rhs.getBlock();
+
+  return true;
 }
 

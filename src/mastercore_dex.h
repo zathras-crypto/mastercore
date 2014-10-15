@@ -191,15 +191,6 @@ private:
   bool      bSell;  // selling Property for MSC: true or false
 
 public:
-  bool operator<(const CMPMetaDEx& other) const
-  {
-    printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-    // sort by block # & additionally the tx index within the block
-    if (block != other.block) return block > other.block;
-    return idx > other.idx;
-  }
-
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
 
@@ -215,6 +206,9 @@ public:
 
   uint64_t getPriceInt() { return price_int; }
   uint64_t getPriceFrac() { return price_frac; }
+
+  int getBlock() const { return block; } 
+  unsigned int getIdx() const { return idx; } 
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -233,23 +227,32 @@ extern MetaDExMap metadex;
 
 typedef std::pair < uint64_t, uint64_t > MetaDExTypePrice; // the price split up into integer & fractional part for precision
 
-/*
-  class mmap_compare
-  {
-  public:
+class mmap_compare
+{
+public:
 
-    bool operator()(const MetaDExTypePrice &lhs, const MetaDExTypePrice &rhs) const
-    {
-      printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-    }
-  };
-*/
+  bool operator()(const MetaDExTypePrice &lhs, const MetaDExTypePrice &rhs) const;
+};
 
-// typedef std::multimap < MetaDExTypePrice , CMPMetaDEx, mmap_compare > MetaDExTypeMMap;
-typedef std::multimap < MetaDExTypePrice , CMPMetaDEx > MetaDExTypeMMap;
+class MetaDEx_compare
+{
+public:
+
+  bool operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const;
+};
+
+typedef std::multimap < MetaDExTypePrice , CMPMetaDEx , mmap_compare > MetaDExTypeMMap;
+// typedef std::multiset < pair < MetaDExTypePrice , CMPMetaDEx > > MetaDExTypeMSet;
 typedef std::set < std::string > MetaDExTypeUniq;
 typedef std::pair < MetaDExTypeMMap, MetaDExTypeUniq > MetaDExTypePair;
+// typedef std::pair < MetaDExTypeMSet, MetaDExTypeUniq > MetaDExTypePair;
 typedef std::map < unsigned int, MetaDExTypePair > MetaDExTypeMap;  // uniq primary key = currency
+
+// ---------------
+typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects sorted by block+idx
+typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
+typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
+// ---------------
 
 bool DEx_offerExists(const string &seller_addr, unsigned int curr);
 CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int curr);
