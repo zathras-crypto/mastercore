@@ -193,12 +193,16 @@ private:
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
+
   unsigned int getDesCurrency() const { return desired_currency; }
   string getAddr() const { return addr; }
   uint64_t getAmtOrig() const { return amount_original; }
   uint64_t getAmtDes() const { return desired_amount_original; }
   unsigned char getAction() const { return subaction; }
+
   int getBlock() const { return block; }
+  unsigned int getIdx() const { return idx; } 
+
   uint64_t* getPrice() const { 
     uint64_t* pricedata = new uint64_t[2];
     pricedata[0] = price_int;
@@ -224,9 +228,6 @@ public:
 
   uint64_t getPriceInt() { return price_int; }
   uint64_t getPriceFrac() { return price_frac; }
-
-  int getBlock() const { return block; } 
-  unsigned int getIdx() const { return idx; } 
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -259,7 +260,8 @@ public:
   bool operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const;
 };
 
-typedef std::multimap < MetaDExTypePrice , CMPMetaDEx , mmap_compare > MetaDExTypeMMap;
+typedef std::multimap < MetaDExTypePrice , CMPMetaDEx > MetaDExTypeMMap;
+// typedef std::multimap < MetaDExTypePrice , CMPMetaDEx , mmap_compare > MetaDExTypeMMap;
 // typedef std::multiset < pair < MetaDExTypePrice , CMPMetaDEx > > MetaDExTypeMSet;
 typedef std::set < std::string > MetaDExTypeUniq;
 typedef std::pair < MetaDExTypeMMap, MetaDExTypeUniq > MetaDExTypePair;
@@ -268,6 +270,7 @@ typedef std::map < unsigned int, MetaDExTypePair > MetaDExTypeMap;  // uniq prim
 
 // ---------------
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects sorted by block+idx
+// TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
 // ---------------
@@ -291,6 +294,7 @@ int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
 int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 
 void MetaDEx_debug_print();
+void MetaDEx_debug_print3();
 }
 
 #endif // #ifndef _MASTERCOIN_DEX

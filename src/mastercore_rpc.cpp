@@ -136,6 +136,7 @@ int extra2 = 0, extra3 = 0;
       }
       printf("**************************\n");
       MetaDEx_debug_print();
+      MetaDEx_debug_print3();
       break;
   }
 
@@ -230,7 +231,7 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   int64_t Amount = 0, additional = 0;
   Amount = strToInt64(strAmount, divisible);
 
-  if ((Amount > 9223372036854775807) || (0 >= Amount))
+  if ((Amount > MAX_INT_8_BYTES) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   std::string strAdditional = (params.size() > 5) ? (params[5].get_str()): "0";
@@ -293,7 +294,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
   int64_t Amount = 0;
   Amount = strToInt64(strAmount, divisible);
 
-  if ((Amount > 9223372036854775807) || (0 >= Amount))
+  if ((Amount > MAX_INT_8_BYTES) || (0 >= Amount))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   // printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
@@ -1095,10 +1096,10 @@ Value trade_MP(const Array& params, bool fHelp) {
   int64_t Amount_Want = 0;
   Amount_Want = strToInt64(strAmountWant, divisible_want);
 
-  if ((Amount_Sale > 9223372036854775807) || (0 >= Amount_Sale))
+  if ((Amount_Sale > MAX_INT_8_BYTES) || (0 >= Amount_Sale))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
 
-  if ((Amount_Want > 9223372036854775807) || (0 >= Amount_Want))
+  if ((Amount_Want > MAX_INT_8_BYTES) || (0 >= Amount_Want))
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
 
   int64_t action = params[5].get_int64();

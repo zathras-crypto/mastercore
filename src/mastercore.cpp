@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <set>
 #include <map>
 
 #include <fstream>
@@ -51,7 +52,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-#define MY_HACK
+// #define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -112,7 +113,8 @@ int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
 int msc_debug_persistence = 0;
-int msc_debug_metadex= 1;
+int msc_debug_metadex = 1;
+int msc_debug_metadex2= 1;
 
 static int disable_Divs = 0;
 
@@ -187,7 +189,7 @@ static bool writePersistence(int block_now)
 }
 
 // copied from ShrinkDebugFile, util.cpp
-static void ShrinkMasterCoreDebugFile()
+static void shrinkDebugFile()
 {
     // Scroll log if it's getting too big
 #ifndef  DISABLE_LOG_FILE
@@ -2236,7 +2238,7 @@ int mastercore_init()
 
   printf("%s()%s, line %d, file: %s\n", __FUNCTION__, isNonMainNet() ? "TESTNET":"", __LINE__, __FILE__);
 
-  ShrinkMasterCoreDebugFile();
+  shrinkDebugFile();
 
 #ifndef  DISABLE_LOG_FILE
   boost::filesystem::path pathTempLog = GetDataDir() / LOG_FILENAME;
@@ -2301,8 +2303,7 @@ int mastercore_init()
 
     if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK; //testnet3
 
-#if 0
-// #ifdef  MY_HACK
+#ifdef  MY_HACK
 //    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    if (isNonMainNet()) nWaterlineBlock = 272700;
 
@@ -2325,7 +2326,6 @@ int mastercore_init()
 
     update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, MONEY);
     update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, MONEY);
-
 #endif
   }
 
@@ -2399,8 +2399,7 @@ int interp_ret = -555555, pop_ret;
 
     mp_obj.print();
 
-    // TODO : this needs to be pulled into the refactored parsing engine since its validity is not know in this function !
-    // FIXME: and of course only MP-related TXs will be recorded...
+    // of course only MP-related TXs get recorded
     if (!disableLevelDB)
     {
     bool bValid = (0 <= interp_ret);
