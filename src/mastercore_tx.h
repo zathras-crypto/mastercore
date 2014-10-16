@@ -48,7 +48,7 @@ private:
   {
   public:
 
-    bool operator()(pair<long, string> p1, pair<long, string> p2) const
+    bool operator()(pair<int64_t, string> p1, pair<int64_t, string> p2) const
     {
       if (p1.first == p2.first) return p1.second > p2.second; // reverse check
       else return p1.first < p2.first;
