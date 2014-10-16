@@ -249,6 +249,8 @@ void MetaDExDialog::FullRefresh()
         ui->sellTotalLabel->setText("0.00000000 TMSC");
         ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
         ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("TMSC"));
+        ui->sellTM->setText("TMSC");
+        ui->buyTM->setText("TMSC");
     }
     else
     {
@@ -259,6 +261,8 @@ void MetaDExDialog::FullRefresh()
         ui->sellTotalLabel->setText("0.00000000 MSC");
         ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
         ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("MSC"));
+        ui->sellTM->setText("MSC");
+        ui->buyTM->setText("MSC");
     }
 
     ui->buyMarketLabel->setText("BUY SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId)));

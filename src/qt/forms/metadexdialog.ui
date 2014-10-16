@@ -353,7 +353,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QLabel" name="label_7">
+                 <widget class="QLabel" name="buyTM">
                   <property name="text">
                    <string>TMSC</string>
                   </property>
@@ -561,7 +561,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QLabel" name="label_9">
+                 <widget class="QLabel" name="sellTM">
                   <property name="text">
                    <string>TMSC</string>
                   </property>

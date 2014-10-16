@@ -31,7 +31,7 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
 
     // define text to place
     QString titleText       = tr("Master Core");
-    QString versionText     = QString("Experimental UI Alpha 0.0002"); //QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
+    QString versionText     = QString("Experimental UI Alpha 0.0002b"); //QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
     QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers"));
     QString copyrightMSC    = QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Master Protocol developers"));
     QString testnetAddText  = QString(tr("[testnet]")); // define text to place as single text object

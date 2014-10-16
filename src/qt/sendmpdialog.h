@@ -36,6 +36,7 @@ public:
     void updateFrom();
     void updateProperty();
     void updateBalances();
+    void updatePropSelector();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
     QWidget *setupTabChain(QWidget *prev);

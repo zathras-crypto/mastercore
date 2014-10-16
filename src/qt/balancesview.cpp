@@ -104,38 +104,6 @@ BalancesView::BalancesView(QWidget *parent) :
 #else
     propSelectorWidget->setFixedWidth(300);
 #endif
-    propSelectorWidget->addItem("Wallet Totals (Summary)","2147483646"); //use last possible ID for summary for now
-    // trigger update of global balances
-    set_wallet_totals();
-    // populate property selector
-    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
-    {
-        if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
-        {
-            string spName;
-            spName = getPropertyName(propertyId).c_str();
-            if(spName.size()>20) spName=spName.substr(0,20)+"...";
-            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
-            spName += " (#" + spId + ")";
-            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
-//propSelectorWidget->addItem(tr(spName.c_str()));
-        }
-    }
-    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
-    {
-        if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
-        {
-            string spName;
-            spName = getPropertyName(propertyId+2147483647).c_str();
-            if(spName.size()>20) spName=spName.substr(0,20)+"...";
-            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str();
-            spName += " (#" + spId + ")";
-            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
-
-          //  spName += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
-           // propSelectorWidget->addItem(tr(spName.c_str()));
-        }
-    }
     //add the selector to the layout
     hlayout->addWidget(propSelectorWidget);
 
@@ -205,11 +173,63 @@ BalancesView::BalancesView(QWidget *parent) :
     connect(balancesCopyAddressAction, SIGNAL(triggered()), this, SLOT(balancesCopyAddress()));
     connect(balancesCopyLabelAction, SIGNAL(triggered()), this, SLOT(balancesCopyLabel()));
     connect(balancesCopyAmountAction, SIGNAL(triggered()), this, SLOT(balancesCopyAmount()));
+    UpdatePropSelector();
+}
+
+void BalancesView::UpdatePropSelector()
+{
+    //printf("balancesview::propselectorupdatecalled\n");
+    QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
+    propSelectorWidget->clear();
+    propSelectorWidget->addItem("Wallet Totals (Summary)","2147483646"); //use last possible ID for summary for now
+    // trigger update of global balances
+    set_wallet_totals();
+    // populate property selector
+    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+    {
+        if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
+        {
+            string spName;
+            spName = getPropertyName(propertyId).c_str();
+            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
+            spName += " (#" + spId + ")";
+            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
+        }
+    }
+    for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
+    {
+        if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
+        {
+            string spName;
+            spName = getPropertyName(propertyId+2147483647).c_str();
+            if(spName.size()>20) spName=spName.substr(0,20)+"...";
+            string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str();
+            spName += " (#" + spId + ")";
+            propSelectorWidget->addItem(spName.c_str(),spId.c_str());
+        }
+    }
+    int propIdx = propSelectorWidget->findData(spId);
+    if (propIdx != -1) { propSelectorWidget->setCurrentIndex(propIdx); }
+}
+
+void BalancesView::setModel(WalletModel *model)
+{
+    this->model = model;
+    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+}
+
+void BalancesView::UpdateBalances()
+{
+    //printf("balancesview::updatebalances()\n");
+    propSelectorChanged(0);
+    UpdatePropSelector();
 }
 
 void BalancesView::propSelectorChanged(int idx)
 {
-    QString spId = propSelectorWidget->itemData(idx).toString();
+    //printf("balancesview::propselectorchanged()\n");
+    QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
     //repopulate with new selected balances
     //prep matrix
@@ -257,3 +277,9 @@ void BalancesView::resizeEvent(QResizeEvent* event)
 //    QWidget::resizeEvent(event);
 //    columnResizingFixer->stretchColumnWidth(TransactionTableModel::ToAddress);
 }
+
+void BalancesView::balancesUpdated()
+{
+    UpdateBalances();
+}
+
