@@ -138,6 +138,10 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
     connect(ui->sellAddressCombo, SIGNAL(activated(int)), this, SLOT(sellAddressComboBoxChanged(int)));
     connect(ui->buyAddressCombo, SIGNAL(activated(int)), this, SLOT(buyAddressComboBoxChanged(int)));
+    connect(ui->sellAmountLE, SIGNAL(textEdited(const QString &)), this, SLOT(sellRecalc()));
+    connect(ui->sellPriceLE, SIGNAL(textEdited(const QString &)), this, SLOT(sellRecalc()));
+    connect(ui->buyAmountLE, SIGNAL(textEdited(const QString &)), this, SLOT(buyRecalc()));
+    connect(ui->buyPriceLE, SIGNAL(textEdited(const QString &)), this, SLOT(buyRecalc()));
 
     FullRefresh();
 
@@ -337,5 +341,33 @@ void MetaDExDialog::sellAddressComboBoxChanged(int idx)
 void MetaDExDialog::switchButtonClicked()
 {
     SwitchMarket();
+}
+
+void MetaDExDialog::buyRecalc()
+{
+    unsigned int propertyId = global_metadex_market;
+    bool divisible = isPropertyDivisible(propertyId);
+    bool testeco = false;
+    if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
+    int64_t buyAmount = strToInt64(ui->buyAmountLE->text().toStdString(),divisible);
+    int64_t buyPrice = strToInt64(ui->buyPriceLE->text().toStdString(),true);
+printf("%s\n",FormatDivisibleMP(buyPrice).c_str());
+    if ((0>=buyAmount) || (0>=buyPrice)) return; // break out before invalid calc
+    //could result in overflow TODO
+    uint64_t totalPrice = buyAmount * buyPrice;
+    string totalLabel = FormatDivisibleMP(totalPrice);
+    if (testeco)
+    {
+        ui->buyTotalLabel->setText(QString::fromStdString(totalLabel) + " TMSC");
+    }
+    else
+    {
+        ui->buyTotalLabel->setText(QString::fromStdString(totalLabel) + " MSC");
+    }
+}
+
+void MetaDExDialog::sellRecalc()
+{
+
 }
 

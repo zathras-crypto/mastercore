@@ -315,10 +315,10 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QLineEdit" name="lineEdit"/>
+               <widget class="QLineEdit" name="buyAmountLE"/>
               </item>
               <item row="1" column="1">
-               <widget class="QLineEdit" name="lineEdit_2"/>
+               <widget class="QLineEdit" name="buyPriceLE"/>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="label_5">
@@ -523,7 +523,7 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QLineEdit" name="lineEdit_3"/>
+               <widget class="QLineEdit" name="sellAmountLE"/>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="issuancetype">
@@ -533,7 +533,7 @@
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QLineEdit" name="lineEdit_4"/>
+               <widget class="QLineEdit" name="sellPriceLE"/>
               </item>
              </layout>
             </item>
