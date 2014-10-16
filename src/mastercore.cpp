@@ -337,7 +337,7 @@ int64_t mastercore::strToInt64(std::string strAmount, bool divisible)
       {
           size_t posSecond = strAmount.find(".", pos+1); //check for existence of second decimal point, if so invalidate amount
           if (posSecond!=std::string::npos) return 0;
-          if ((strAmount.size()-pos)<8)
+          if ((strAmount.size()-pos)<9)
           { //there are decimals either exact or not enough, pad as needed
               string strRightOfDecimal = strAmount.substr(pos+1);
               unsigned int zerosToPad = 8-strRightOfDecimal.size();
