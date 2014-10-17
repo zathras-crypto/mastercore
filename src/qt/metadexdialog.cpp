@@ -523,7 +523,7 @@ void MetaDExDialog::sendTrade(bool sell)
         if (divisible) { buyStr = FormatDivisibleMP(amount); } else { buyStr = FormatIndivisibleMP(amount); }
         buyStr += "   SPT " + propDetails + "";
         sellStr = FormatDivisibleMP(totalPrice);
-        if (testeco) { sellStr += "   TMSC #2"; } else { sellStr += "   MSC #1"; }
+        if (testeco) { sellStr += "   TMSC"; } else { sellStr += "   MSC"; }
         strMsgText += "Buying: " + buyStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
         if (testeco) { strMsgText += "TMSC"; } else { strMsgText += "MSC"; }
         strMsgText += "\nTotal: " + sellStr;
@@ -532,7 +532,7 @@ void MetaDExDialog::sendTrade(bool sell)
     {
         buyStr = FormatDivisibleMP(totalPrice);
         if (divisible) { sellStr = FormatDivisibleMP(amount); } else { sellStr = FormatIndivisibleMP(amount); }
-        if (testeco) { buyStr += "   TMSC #2"; } else { buyStr += "   MSC #1"; }
+        if (testeco) { buyStr += "   TMSC"; } else { buyStr += "   MSC"; }
         sellStr += "   SPT " + propDetails + "";
         strMsgText += "Selling: " + sellStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
         if (testeco) { strMsgText += "TMSC"; } else { strMsgText += "MSC"; }
