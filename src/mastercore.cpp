@@ -52,7 +52,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -2307,6 +2307,7 @@ int mastercore_init()
 //    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    if (isNonMainNet()) nWaterlineBlock = 272700;
 
+#if 0
     if (isNonMainNet()) nWaterlineBlock = 272790;
 
     update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, MONEY);
@@ -2326,6 +2327,7 @@ int mastercore_init()
 
     update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, MONEY);
     update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, MONEY);
+#endif
 #endif
   }
 
