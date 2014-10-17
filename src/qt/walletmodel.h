@@ -211,6 +211,7 @@ private:
     int cachedNumBlocks;
 
     QTimer *pollTimer;
+    QTimer *updateTimer;
 
     void subscribeToCoreSignals();
     void unsubscribeFromCoreSignals();
@@ -249,6 +250,7 @@ public slots:
     void updateAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */
     void pollBalanceChanged();
+    void forceUpdateBalances();
 };
 
 #endif // WALLETMODEL_H
