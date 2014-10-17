@@ -31,6 +31,8 @@ public:
     void UpdateSellAddress();
     void UpdateBuyAddress();
     explicit MetaDExDialog(QWidget *parent = 0);
+    void setModel(WalletModel *model);
+
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
     QWidget *setupTabChain(QWidget *prev);
@@ -40,6 +42,7 @@ public slots:
     void switchButtonClicked();
     void sellAddressComboBoxChanged(int idx);
     void buyAddressComboBoxChanged(int idx);
+    void sendTrade(bool sell);
 
 private:
     Ui::MetaDExDialog *ui;
@@ -48,6 +51,9 @@ private:
 private slots:
     void buyRecalc();
     void sellRecalc();
+    void buyTrade();
+    void sellTrade();
+
 signals:
     // Fired when a message should be reported to the user
     void message(const QString &title, const QString &message, unsigned int style);

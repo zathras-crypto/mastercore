@@ -55,6 +55,7 @@ using namespace leveldb;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 
+#include <QDateTime>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QTextDocument>
@@ -136,6 +137,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->sellList->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
+    connect(ui->buyButton, SIGNAL(clicked()), this, SLOT(buyTrade()));
+    connect(ui->sellButton, SIGNAL(clicked()), this, SLOT(sellTrade()));
     connect(ui->sellAddressCombo, SIGNAL(activated(int)), this, SLOT(sellAddressComboBoxChanged(int)));
     connect(ui->buyAddressCombo, SIGNAL(activated(int)), this, SLOT(buyAddressComboBoxChanged(int)));
     connect(ui->sellAmountLE, SIGNAL(textEdited(const QString &)), this, SLOT(sellRecalc()));
@@ -145,6 +148,12 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
 
     FullRefresh();
 
+}
+
+void MetaDExDialog::setModel(WalletModel *model)
+{
+    this->model = model;
+//    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
 }
 
 void MetaDExDialog::SwitchMarket()
@@ -343,6 +352,17 @@ void MetaDExDialog::switchButtonClicked()
     SwitchMarket();
 }
 
+void MetaDExDialog::sellTrade()
+{
+    sendTrade(true);
+}
+
+void MetaDExDialog::buyTrade()
+{
+    sendTrade(false);
+}
+
+
 void MetaDExDialog::buyRecalc()
 {
     unsigned int propertyId = global_metadex_market;
@@ -351,8 +371,7 @@ void MetaDExDialog::buyRecalc()
     if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
     int64_t buyAmount = strToInt64(ui->buyAmountLE->text().toStdString(),divisible);
     int64_t buyPrice = strToInt64(ui->buyPriceLE->text().toStdString(),true);
-printf("%s\n",FormatDivisibleMP(buyPrice).c_str());
-    if ((0>=buyAmount) || (0>=buyPrice)) return; // break out before invalid calc
+    if ((0>=buyAmount) || (0>=buyPrice)) { ui->buyTotalLabel->setText("N/A"); return; } // break out before invalid calc
     //could result in overflow TODO
     uint64_t totalPrice = buyAmount * buyPrice;
     string totalLabel = FormatDivisibleMP(totalPrice);
@@ -368,6 +387,250 @@ printf("%s\n",FormatDivisibleMP(buyPrice).c_str());
 
 void MetaDExDialog::sellRecalc()
 {
-
+    unsigned int propertyId = global_metadex_market;
+    bool divisible = isPropertyDivisible(propertyId);
+    bool testeco = false;
+    if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
+    int64_t sellAmount = strToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+    int64_t sellPrice = strToInt64(ui->sellPriceLE->text().toStdString(),true);
+    if ((0>=sellAmount) || (0>=sellPrice)) { ui->sellTotalLabel->setText("N/A"); return; } // break out before invalid calc
+    //could result in overflow TODO
+    uint64_t totalPrice = sellAmount * sellPrice;
+    string totalLabel = FormatDivisibleMP(totalPrice);
+    if (testeco)
+    {
+        ui->sellTotalLabel->setText(QString::fromStdString(totalLabel) + " TMSC");
+    }
+    else
+    {
+        ui->sellTotalLabel->setText(QString::fromStdString(totalLabel) + " MSC");
+    }
 }
+
+void MetaDExDialog::sendTrade(bool sell)
+{
+    unsigned int propertyId = global_metadex_market;
+    bool divisible = isPropertyDivisible(propertyId);
+    bool testeco = false;
+    if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
+
+    // obtain the selected sender address
+    string strFromAddress;
+    if (!sell) { strFromAddress = ui->buyAddressCombo->currentText().toStdString(); } else { strFromAddress = ui->sellAddressCombo->currentText().toStdString(); }
+    // push recipient address into a CBitcoinAddress type and check validity
+    CBitcoinAddress fromAddress;
+    if (false == strFromAddress.empty()) { fromAddress.SetString(strFromAddress); }
+    if (!fromAddress.IsValid())
+    {
+        QMessageBox::critical( this, "Unable to send MetaDEx transaction",
+        "The sender address selected is not valid.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
+        return;
+    }
+
+    // warn if we have to truncate the amount due to a decimal amount for an indivisible property, but allow send to continue
+    string strAmount = ui->buyAmountLE->text().toStdString();
+    if (!divisible)
+    {
+        size_t pos = strAmount.find(".");
+        if (pos!=std::string::npos)
+        {
+            string tmpStrAmount = strAmount.substr(0,pos);
+            string strMsgText = "The amount entered contains a decimal however the property being transacted is indivisible.\n\nThe amount entered will be truncated as follows:\n";
+            strMsgText += "Original amount entered: " + strAmount + "\nAmount that will be used: " + tmpStrAmount + "\n\n";
+            strMsgText += "Do you still wish to proceed with the transaction?";
+            QString msgText = QString::fromStdString(strMsgText);
+            QMessageBox::StandardButton responseClick;
+            responseClick = QMessageBox::question(this, "Amount truncation warning", msgText, QMessageBox::Yes|QMessageBox::No);
+            if (responseClick == QMessageBox::No)
+            {
+                QMessageBox::critical( this, "MetaDEx transaction cancelled",
+                "The MetaDEx transaction has been cancelled.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
+                return;
+            }
+            strAmount = tmpStrAmount;
+            ui->buyAmountLE->setText(QString::fromStdString(strAmount));
+        }
+    }
+
+    // use strToInt64 function to get the amounts, using divisibility of the property
+    int64_t amount = 0;
+    int64_t price = 0;
+    if (!sell)
+    {
+        amount = strToInt64(ui->buyAmountLE->text().toStdString(),divisible);
+        price = strToInt64(ui->buyPriceLE->text().toStdString(),true);
+    }
+    else
+    {
+        amount = strToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+        price = strToInt64(ui->sellPriceLE->text().toStdString(),true);
+    }
+
+    //could result in overflow TODO
+    uint64_t totalPrice = amount * price;
+    if ((0>=amount) || (0>=price) || (0>=totalPrice))
+    {
+        QMessageBox::critical( this, "Unable to send MetaDEx transaction",
+        "The amount entered is not valid.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
+        return;
+    }
+
+    // check if sending address has enough funds
+    int64_t balanceAvailable = 0;
+    if (!sell)
+    {
+        if (testeco)
+        {
+            balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), MASTERCOIN_CURRENCY_TMSC);
+        }
+        else
+        {
+            balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), MASTERCOIN_CURRENCY_MSC);
+        }
+    }
+    else
+    {
+        balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), propertyId);
+    }
+    if (((!sell) && (totalPrice>balanceAvailable)) || ((sell) && (amount>balanceAvailable)))
+    {
+        QMessageBox::critical( this, "Unable to send MetaDEx transaction",
+        "The selected sending address does not have a sufficient balance to cover the amount entered.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
+        return;
+    }
+
+    // check if wallet is still syncing, as this will currently cause a lockup if we try to send - compare our chain to peers to see if we're up to date
+    // Bitcoin Core devs have removed GetNumBlocksOfPeers, switching to a time based best guess scenario
+    uint32_t intBlockDate = GetLatestBlockTime();  // uint32, not using time_t for portability
+    QDateTime currentDate = QDateTime::currentDateTime();
+    int secs = QDateTime::fromTime_t(intBlockDate).secsTo(currentDate);
+    if(secs > 90*60)
+    {
+        QMessageBox::critical( this, "Unable to send MetaDEx transaction",
+        "The client is still synchronizing.  Sending transactions can currently be performed only when the client has completed synchronizing." );
+        return;
+    }
+
+    // validation checks all look ok, let's throw up a confirmation dialog
+    string strMsgText = "You are about to send the following MetaDEx transaction, please check the details thoroughly:\n\n";
+    string spNum = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
+    string propDetails = "#" + spNum;
+    string buyStr;
+    string sellStr;
+    strMsgText += "Type: Trade Request\nFrom: " + fromAddress.ToString() + "\n\n";
+    if (!sell) // clicked buy
+    {
+        if (divisible) { buyStr = FormatDivisibleMP(amount); } else { buyStr = FormatIndivisibleMP(amount); }
+        buyStr += "   SPT " + propDetails + "";
+        sellStr = FormatDivisibleMP(totalPrice);
+        if (testeco) { sellStr += "   TMSC #2"; } else { sellStr += "   MSC #1"; }
+        strMsgText += "Buying: " + buyStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
+        if (testeco) { strMsgText += "TMSC"; } else { strMsgText += "MSC"; }
+        strMsgText += "\nTotal: " + sellStr;
+    }
+    else // clicked sell
+    {
+        buyStr = FormatDivisibleMP(totalPrice);
+        if (divisible) { sellStr = FormatDivisibleMP(amount); } else { sellStr = FormatIndivisibleMP(amount); }
+        if (testeco) { buyStr += "   TMSC #2"; } else { buyStr += "   MSC #1"; }
+        sellStr += "   SPT " + propDetails + "";
+        strMsgText += "Selling: " + sellStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
+        if (testeco) { strMsgText += "TMSC"; } else { strMsgText += "MSC"; }
+        strMsgText += "\nTotal: " + buyStr;
+    }
+
+    strMsgText += "\n\nAre you sure you wish to send this transaction?";
+    QString msgText = QString::fromStdString(strMsgText);
+    QMessageBox::StandardButton responseClick;
+    responseClick = QMessageBox::question(this, "Confirm MetaDEx transaction", msgText, QMessageBox::Yes|QMessageBox::No);
+    if (responseClick == QMessageBox::No)
+    {
+        QMessageBox::critical( this, "MetaDEx transaction cancelled",
+        "The transaction has been cancelled.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
+        return;
+    }
+
+    // unlock the wallet
+    WalletModel::UnlockContext ctx(model->requestUnlock());
+    if(!ctx.isValid())
+    {
+        // Unlock wallet was cancelled/failed
+        QMessageBox::critical( this, "MetaDEx transaction failed",
+        "The transaction has been cancelled.\n\nThe wallet unlock process must be completed to send a transaction." );
+        return;
+    }
+/*
+    // send the transaction - UI will not send any extra reference amounts at this stage
+    int code = 0;
+    uint256 sendTXID = send_INTERNAL_1packet(fromAddress.ToString(), refAddress.ToString(), fromAddress.ToString(), propertyId, sendAmount, 0, 0, MSC_TYPE_SIMPLE_SEND, 0, &code);
+    if (0 != code)
+    {
+        string strCode = boost::lexical_cast<string>(code);
+        string strError;
+        switch(code)
+        {
+            case -212:
+                strError = "Error choosing inputs for the send transaction";
+                break;
+            case -233:
+                strError = "Error with redemption address";
+                break;
+            case -220:
+                strError = "Error with redemption address key ID";
+                break;
+            case -221:
+                strError = "Error obtaining public key for redemption address";
+                break;
+            case -222:
+                strError = "Error public key for redemption address is not valid";
+                break;
+            case -223:
+                strError = "Error validating redemption address";
+                break;
+            case -205:
+                strError = "Error with wallet object";
+                break;
+            case -206:
+                strError = "Error with selected inputs for the send transaction";
+                break;
+            case -211:
+                strError = "Error creating transaction (wallet may be locked or fees may not be sufficient)";
+                break;
+            case -213:
+                strError = "Error committing transaction";
+                break;
+        }
+        if (strError.empty()) strError = "Error code does not have associated error text.";
+        QMessageBox::critical( this, "Send transaction failed",
+        "The send transaction has failed.\n\nThe error code was: " + QString::fromStdString(strCode) + "\nThe error message was:\n" + QString::fromStdString(strError));
+        return;
+    }
+    else
+    {
+        // call an update of the balances
+        set_wallet_totals();
+        updateBalances();
+
+        // display the result
+        string strSentText = "Your Master Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
+        strSentText += sendTXID.GetHex() + "\n\n";
+        QString sentText = QString::fromStdString(strSentText);
+        QMessageBox sentDialog;
+        sentDialog.setIcon(QMessageBox::Information);
+        sentDialog.setWindowTitle("Transaction broadcast successfully");
+        sentDialog.setText(sentText);
+        sentDialog.setStandardButtons(QMessageBox::Yes|QMessageBox::Ok);
+        sentDialog.setDefaultButton(QMessageBox::Ok);
+        sentDialog.setButtonText( QMessageBox::Yes, "Copy TXID to clipboard" );
+        if(sentDialog.exec() == QMessageBox::Yes)
+        {
+            // copy TXID to clipboard
+            GUIUtil::setClipboard(QString::fromStdString(sendTXID.GetHex()));
+        }
+        // clear the form
+        clearFields();
+    }
+*/
+}
+
 

@@ -285,7 +285,7 @@ void SendMPDialog::sendMPTransaction()
             string tmpStrAmount = strAmount.substr(0,pos);
             string strMsgText = "The amount entered contains a decimal however the property being sent is indivisible.\n\nThe amount entered will be truncated as follows:\n";
             strMsgText += "Original amount entered: " + strAmount + "\nAmount that will be sent: " + tmpStrAmount + "\n\n";
-            strMsgText += "Do you still wish to process with the transaction?";
+            strMsgText += "Do you still wish to proceed with the transaction?";
             QString msgText = QString::fromStdString(strMsgText);
             QMessageBox::StandardButton responseClick;
             responseClick = QMessageBox::question(this, "Amount truncation warning", msgText, QMessageBox::Yes|QMessageBox::No);
