@@ -311,7 +311,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
 Value sendrawtx_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 3 || params.size() > 5)
+if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "sendrawtx_MP \"fromaddress\" \"hexstring\" ( \"toaddress\" \"redeemaddress\" \"referenceamount\" )\n"
             "\nCreates and broadcasts a raw Master protocol transaction.\n"
