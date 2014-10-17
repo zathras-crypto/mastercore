@@ -128,6 +128,7 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 6:
+#if 0
       for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
       {
         // it->first = key
@@ -135,7 +136,8 @@ int extra2 = 0, extra3 = 0;
         printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
       }
       printf("**************************\n");
-      MetaDEx_debug_print();
+#endif
+//      MetaDEx_debug_print();
       MetaDEx_debug_print3();
       break;
   }
@@ -1139,6 +1141,10 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
         );
 
   Array response;
+
+  // FIXME: gutted out due to switch to latest data container types...........
+  // TODO: fix this
+#if 0
   Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
   bool divisible_sale = false, divisible_want = false;
@@ -1173,6 +1179,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
   //for each address
   //get currency pair and total order amount at a price
+
   for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
   {
     //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
@@ -1201,6 +1208,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
       response.push_back(metadex_obj);
     }
   }
+#endif
   
   return response;
 }

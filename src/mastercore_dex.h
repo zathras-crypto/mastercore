@@ -242,7 +242,7 @@ typedef std::map<string, CMPMetaDEx> MetaDExMap;
 extern OfferMap my_offers;
 extern AcceptMap my_accepts;
 
-extern MetaDExMap metadex;
+// extern MetaDExMap metadex;
 
 typedef std::pair < uint64_t, uint64_t > MetaDExTypePrice; // the price split up into integer & fractional part for precision
 
@@ -260,6 +260,7 @@ public:
   bool operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const;
 };
 
+#if 0
 typedef std::multimap < MetaDExTypePrice , CMPMetaDEx > MetaDExTypeMMap;
 // typedef std::multimap < MetaDExTypePrice , CMPMetaDEx , mmap_compare > MetaDExTypeMMap;
 // typedef std::multiset < pair < MetaDExTypePrice , CMPMetaDEx > > MetaDExTypeMSet;
@@ -267,6 +268,7 @@ typedef std::set < std::string > MetaDExTypeUniq;
 typedef std::pair < MetaDExTypeMMap, MetaDExTypeUniq > MetaDExTypePair;
 // typedef std::pair < MetaDExTypeMSet, MetaDExTypeUniq > MetaDExTypePair;
 typedef std::map < unsigned int, MetaDExTypePair > MetaDExTypeMap;  // uniq primary key = currency
+#endif
 
 // ---------------
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects sorted by block+idx
@@ -293,7 +295,7 @@ int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
 int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 
-void MetaDEx_debug_print();
+// void MetaDEx_debug_print();
 void MetaDEx_debug_print3();
 }
 

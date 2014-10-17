@@ -54,8 +54,8 @@ using namespace mastercore;
 
 extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
 
-MetaDExMap mastercore::metadex;
-static MetaDExTypeMap map_outer;
+// MetaDExMap mastercore::metadex;
+// static MetaDExTypeMap map_outer;
 
 static md_Currencies meta;
 
@@ -69,6 +69,7 @@ static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
   return (GOOD_PRECISION * frac);
 }
 
+#if 0
 CMPMetaDEx *mastercore::getMetaDEx(const string &sender_addr, unsigned int curr)
 {
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
@@ -79,7 +80,6 @@ const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
   return (CMPMetaDEx *) NULL;
 }
 
-//
 MetaDExTypePair *get_Pair_old(unsigned int curr)
 {
 MetaDExTypeMap::iterator it = map_outer.find(curr);
@@ -88,6 +88,7 @@ MetaDExTypeMap::iterator it = map_outer.find(curr);
 
   return (MetaDExTypePair *) NULL;
 }
+#endif
 
 md_Prices *get_Prices(unsigned int curr)
 {
@@ -197,6 +198,7 @@ void mastercore::MetaDEx_debug_print3()
   printf(">>>\n");
 }
 
+#if 0
 void mastercore::MetaDEx_debug_print()
 {
   printf("<<<<<<<<<<<<<<<<<\n");
@@ -218,6 +220,7 @@ void mastercore::MetaDEx_debug_print()
   }
   printf(">>>>>>>>>>>>>>>>>\n");
 }
+#endif
 
 void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
@@ -673,7 +676,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
     return METADEX_ERROR -800;
   }
 
-  if ((curr == MASTERCOIN_CURRENCY_MSC) || (curr == MASTERCOIN_CURRENCY_TMSC)) bPhase1Seller = false;
+  if ((MASTERCOIN_CURRENCY_MSC == curr) || (MASTERCOIN_CURRENCY_TMSC == curr)) bPhase1Seller = false;
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
 
@@ -686,11 +689,14 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
   {
     update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
+#if 0
     metadex.insert(std::make_pair(combo, CMPMetaDEx(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx)));
+#endif
 //    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
 //     price_int, price_frac, inverse_int, inverse_frac)));
 
 
+#if 0
   {
     const string ukey = sender_addr + "+" + txid.ToString();
 
@@ -717,6 +723,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 
     map_outer[curr] = make_pair(*p_mmap, t_uniq);
   }
+#endif
 
   // --------------------------------
   {
@@ -730,6 +737,14 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 
     // price simulated with 'double' for now...
     double price = priceint + (pricefrace / GOOD_PRECISION);
+
+    // TODO: reconsider for boost::multiprecision
+    // FIXME
+    if (0 >= price)
+    {
+      // do not work with 0 prices
+      return METADEX_ERROR -66;
+    }
 
     md_Prices temp_prices, *p_prices = get_Prices(curr);
     md_Indexes temp_indexes, *p_indexes = NULL;
@@ -782,6 +797,7 @@ int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
 {
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), curr);
 
+#if 0
   if (!getMetaDEx(sender_addr, curr)) return (METADEX_ERROR -11); // does the trade exist?
 
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
@@ -803,6 +819,7 @@ int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
 
   if (msc_debug_metadex)
    fprintf(mp_fp, "%s(%s|%s), line %d, file: %s\n", __FUNCTION__, sender_addr.c_str(), combo.c_str(), __LINE__, __FILE__);
+#endif
 
   return 0;
 }

@@ -316,6 +316,18 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
+std::string mastercore::FormatIndivisibleMP(int64_t n)
+{
+  string str = strprintf("%ld", n);
+  return str;
+}
+
+std::string FormatMP(unsigned int property, int64_t n, bool fSign)
+{
+  if (isPropertyDivisible(property)) return FormatDivisibleMP(n, fSign);
+  else return FormatIndivisibleMP(n);
+}
+
 int64_t mastercore::strToInt64(std::string strAmount, bool divisible)
 {
   int64_t Amount = 0;
@@ -364,12 +376,6 @@ int64_t mastercore::strToInt64(std::string strAmount, bool divisible)
       try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
   }
 return Amount;
-}
-
-std::string mastercore::FormatIndivisibleMP(int64_t n)
-{
-  string str = strprintf("%ld", n);
-  return str;
 }
 
 string const CMPSPInfo::watermarkKey("watermark");
@@ -3639,10 +3645,8 @@ int rc = PKT_ERROR_STO -1000;
 
       // totalTokens will be 0 for non-existing currency
       int64_t totalTokens = getTotalTokens(currency);
-      bool bDivisible = isPropertyDivisible(currency);
 
-      if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
-      else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+      fprintf(mp_fp, "\t    Total Tokens: %s\n", FormatMP(currency, totalTokens).c_str());
 
       if (0 >= totalTokens)
       {
@@ -3683,8 +3687,7 @@ int rc = PKT_ERROR_STO -1000;
         }
       }
 
-      if (!bDivisible)fprintf(mp_fp, "  Excluding Sender: %lu\n", totalTokens);
-      else fprintf(mp_fp, "  Excluding Sender: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+      fprintf(mp_fp, "  Excluding Sender: %s\n", FormatMP(currency, totalTokens).c_str());
 
       // loop #1 -- count the actual number of owners to receive the payment
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
@@ -3760,7 +3763,8 @@ int rc = PKT_ERROR_STO -1000;
           owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         // record the detailed info as needed
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
+//        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
+        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(currency, will_really_receive).c_str());
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
         {
