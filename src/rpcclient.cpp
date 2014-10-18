@@ -196,6 +196,9 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "trade_MP"                && n > 5) ConvertTo<int64_t>(params[5]);
     if (strMethod == "getorderbook_MP"         && n > 0) ConvertTo<int64_t>(params[0]);
     if (strMethod == "getorderbook_MP"         && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "gettradessince_MP"         && n > 0) ConvertTo<int64_t>(params[0]);
+    if (strMethod == "gettradessince_MP"         && n > 1) ConvertTo<int64_t>(params[1]);
+    if (strMethod == "gettradessince_MP"         && n > 2) ConvertTo<int64_t>(params[2]);
 
     return params;
 }

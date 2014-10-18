@@ -476,7 +476,7 @@ int CMPTransaction::logicMath_MetaDEx()
 
         // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
 
-        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
+        rc = MetaDEx_Create(sender, currency, nNewValue, block, blockTime, desired_currency, desired_value, txid, tx_idx);
 
         // ...
 
@@ -487,7 +487,7 @@ int CMPTransaction::logicMath_MetaDEx()
 
         // TODO: check if the sender has enough money... for an update
 
-        rc = MetaDEx_Update(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
+        rc = MetaDEx_Update(sender, currency, nNewValue, block, blockTime, desired_currency, desired_value, txid, tx_idx);
 
         break;
 

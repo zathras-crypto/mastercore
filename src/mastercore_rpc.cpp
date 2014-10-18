@@ -1127,12 +1127,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
             "1. currency_id1            (int, required) amount owned to up on sale\n"
             "2. currency_id2         (int, optional) currency owned to put up on sale\n"
             
-            "\nResult:\n"
-            "[                (array of string)\n"
-            "  \"hash\"         (string) Transaction id\n"            
-            "  ,...\n"
-            "]\n"
-
             "\nbExamples\n"
             //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
             //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
@@ -1171,8 +1165,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
     divisible_want=sp_want.isDivisible();
   }
 
-  //for each address
-  //get currency pair and total order amount at a price
   for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
   {
     //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
@@ -1209,24 +1201,105 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
 
    if (fHelp)
         throw runtime_error(
-            "getorderbook_MP\n"
-            "\nAllows user to request active order information from the order book\n"
+            "gettradessince_MP\n"
+            "\nAllows user to request last known orders from order book\n"
             
             "\nArguments:\n"
-            "1. currency_id1            (int, required) amount owned to up on sale\n"
-            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
-            
-            "\nResult:\n"
-            "[                (array of string)\n"
-            "  \"hash\"         (string) Transaction id\n"            
-            "  ,...\n"
-            "]\n"
+            "1. timestamp               (int, optional, default=[" + strprintf("%s",GetLatestBlockTime() - 1209600) + "]) starting from the timestamp, orders to show"
+            "2. currency_id1            (int, optional) filter orders by currency_id1 on either side of the trade \n"
+            "3. currency_id2            (int, optional) filter orders by currency_id1 and currency_id2\n"
 
             "\nbExamples\n"
             //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
             //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
         );
-  return "\nNot Implemented";
+
+  Array response;
+  Object metadex_obj;
+  unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
+  bool divisible_sale = false, divisible_want = false;
+
+  uint64_t timestamp = (params.size() > 0) ? params[0].get_int64() : GetLatestBlockTime() - 1209600; //2 weeks 
+
+  bool filter_by_one = (params.size() > 1) ? true : false;
+  bool filter_by_both = (params.size() > 2) ? true : false;
+
+  if( filter_by_one ) {
+    int64_t tmpPropIdSale = params[1].get_int64();
+    if ((1 > tmpPropIdSale) || (4294967295 < tmpPropIdSale)) // not safe to do conversion
+              throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID (Sale)");
+    propertyIdSaleFilter = int(tmpPropIdSale);
+
+    CMPSPInfo::Entry sp_sale;
+    if (false == _my_sps->getSP(propertyIdSaleFilter, sp_sale)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Sale) ");
+    }
+    //divisible var
+    divisible_sale=sp_sale.isDivisible();
+  }
+
+  //FIXME: bug exists where if both currencies are supplied the divisible boolean is flipped
+  if ( filter_by_both ) {
+    int64_t tmpPropIdWant = params[2].get_int64();
+    if ((1 > tmpPropIdWant) || (4294967295 < tmpPropIdWant)) // not safe to do conversion
+              throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID (Want)");
+    propertyIdWantFilter = int(tmpPropIdWant);
+    
+    CMPSPInfo::Entry sp_want;
+    if (false == _my_sps->getSP(propertyIdWantFilter, sp_want)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
+    }
+
+    divisible_want=sp_want.isDivisible();
+  }
+
+  for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+  {
+    md_Prices & prices = my_it->second;
+    for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Indexes & indexes = (it->second);
+      for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+          CMPMetaDEx obj = *it;
+          printf("/n timestamp %d, %lu ,%lu\n ", obj.getBlockTime() > timestamp, obj.getBlockTime(), timestamp);
+          bool filter = 1;
+
+          if( filter_by_one || filter_by_both ) {
+          //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
+          filter = ( filter_by_both && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_both && ( obj.getCurrency() == propertyIdSaleFilter ) );
+          }
+
+          if ( filter &&  (obj.getBlockTime() >= timestamp)) {
+            metadex_obj.clear();
+            metadex_obj.push_back(Pair("address", obj.getAddr().c_str()));
+            metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main" ) );
+            metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
+            metadex_obj.push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
+            metadex_obj.push_back(Pair("currency_owned_divisible", divisible_sale));
+            metadex_obj.push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
+            metadex_obj.push_back(Pair("currency_desired_divisible", divisible_want));
+            
+            uint64_t *price = obj.getPrice();
+            uint64_t *invprice = obj.getInversePrice();
+
+            metadex_obj.push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
+            metadex_obj.push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
+            //active?
+            metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
+            metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
+            metadex_obj.push_back(Pair("action", (uint64_t) obj.getAction()));
+            metadex_obj.push_back(Pair("block", obj.getBlock()));
+            metadex_obj.push_back(Pair("blockTime", obj.getBlockTime()));
+            response.push_back(metadex_obj);
+          }
+          //printf("%20.10lf = %s\n", price, obj.ToString().c_str());
+      }
+    }
+  }
+  //printf(">>>\n");
+  
+  return response;
 }
 Value getopenorders_MP(const Array& params, bool fHelp) {
 

@@ -57,7 +57,7 @@ extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
 MetaDExMap mastercore::metadex;
 static MetaDExTypeMap map_outer;
 
-static md_Currencies meta;
+md_Currencies mastercore::meta;
 
 static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
 {
@@ -219,10 +219,11 @@ void mastercore::MetaDEx_debug_print()
   printf(">>>>>>>>>>>>>>>>>\n");
 }
 
-void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+void CMPMetaDEx::Set0(const string &sa, int b, uint64_t bT, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
   addr = sa;
   block = b;
+  blockTime = bT;
   txid = tx;
   currency = c;
   amount_original = nValue;
@@ -255,9 +256,9 @@ void CMPMetaDEx::Set(uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
 }
 */
 
-CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+CMPMetaDEx::CMPMetaDEx(const string &addr, int b, uint64_t bT, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
-  Set0(addr, b,c,nValue,cd,ad,tx,i);
+  Set0(addr, b, bT, c,nValue,cd,ad,tx,i);
   Set(nValue,ad);
 }
 
@@ -658,7 +659,7 @@ int mastercore::MetaDEx_Phase1(const string &addr, unsigned int property, bool b
   return 0;
 }
 
-int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
+int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, uint64_t blockTime, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 // uint64_t price_int, price_frac, inverse_int, inverse_frac; // UNUSED WARNING
@@ -686,7 +687,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
   {
     update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
 
-    metadex.insert(std::make_pair(combo, CMPMetaDEx(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx)));
+    metadex.insert(std::make_pair(combo, CMPMetaDEx(sender_addr, block, blockTime, curr, amount, currency_desired, amount_desired, txid, idx)));
 //    metadex.insert(std::make_pair(combo, CMPMetaDEx(block, curr, amount, currency_desired, amount_desired, txid, idx,
 //     price_int, price_frac, inverse_int, inverse_frac)));
 
@@ -695,7 +696,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
     const string ukey = sender_addr + "+" + txid.ToString();
 
     // store the data into the MetaDEx object
-    CMPMetaDEx mdex(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx);
+    CMPMetaDEx mdex(sender_addr, block, blockTime, curr, amount, currency_desired, amount_desired, txid, idx);
 
     MetaDExTypePair *p_pair = get_Pair_old(curr);
 
@@ -721,7 +722,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
   // --------------------------------
   {
     // store the data into the MetaDEx object
-    CMPMetaDEx mdex(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx);
+    CMPMetaDEx mdex(sender_addr, block, blockTime, curr, amount, currency_desired, amount_desired, txid, idx);
 
     // given the currency & the price find the proper place for insertion
 
@@ -807,7 +808,7 @@ int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
   return 0;
 }
 
-int mastercore::MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
+int mastercore::MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, uint64_t blockTime, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -8;
 
@@ -820,7 +821,7 @@ int rc = METADEX_ERROR -8;
 
   if (!rc)
   {
-    rc = MetaDEx_Create(sender_addr, curr, nValue, block, currency_desired, amount_desired, txid, idx);
+    rc = MetaDEx_Create(sender_addr, curr, nValue, block, blockTime, currency_desired, amount_desired, txid, idx);
   }
 
   return rc;
