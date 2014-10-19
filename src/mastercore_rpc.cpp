@@ -1324,26 +1324,86 @@ Value getopenorders_MP(const Array& params, bool fHelp) {
 }
 Value gettradehistory_MP(const Array& params, bool fHelp) {
 
-   if (fHelp)
+   if (fHelp || params.size() < 1)
         throw runtime_error(
-            "getorderbook_MP\n"
-            "\nAllows user to request active order information from the order book\n"
+            "gettradehistory_MP\n"
+            "\nAllows user to retreive trade history for some address on the Metadex\n"
             
             "\nArguments:\n"
-            "1. currency_id1            (int, required) amount owned to up on sale\n"
-            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
-            
-            "\nResult:\n"
-            "[                (array of string)\n"
-            "  \"hash\"         (string) Transaction id\n"            
-            "  ,...\n"
-            "]\n"
-
-            "\nbExamples\n"
-            //+ HelpExampleCli("trade_MP", "50", "3", "500", "5" )
-            //+ HelpExampleRpc("trade_MP", "50", "3", "500", "5" )
+            "1. address          (string, required) address to query history on\n"
+            "2. number            (int, optional ) number of trades to retreive\n"
+            "3. currency_id         (int, optional) filter by currencyid on one side\n"
         );
-  return "\nNot Implemented";
+  
+  Array response;
+  Object metadex_obj;
+
+  string address = params[0].get_str();
+  unsigned int number_trades = (params.size() == 2 ? (unsigned int) params[1].get_int64() : 512);
+  unsigned int propertyIdFilter = 0;
+
+
+  bool filter_by_one = (params.size() == 3) ? true : false;
+
+  if( filter_by_one ) {
+    int64_t tmpPropIdSale = params[2].get_int64();
+    if ((1 > tmpPropIdSale) || (4294967295 < tmpPropIdSale)) // not safe to do conversion
+              throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID (Sale)");
+    propertyIdFilter = int(tmpPropIdSale);
+
+    CMPSPInfo::Entry sp_sale;
+    if (false == _my_sps->getSP(propertyIdFilter, sp_sale)) {
+      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Sale) ");
+    }
+  }
+
+  for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+  {
+    md_Prices & prices = my_it->second;
+    for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Indexes & indexes = (it->second);
+      for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+          CMPMetaDEx obj = *it;
+          CMPSPInfo::Entry sp;
+
+          bool filter = 1;
+
+          //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
+          filter = (obj.getAddr() == address) && 
+                   ( ( ( filter_by_one && (obj.getCurrency() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
+                   (response.size() < number_trades);
+          if ( filter ) {
+            metadex_obj.clear();
+            metadex_obj.push_back(Pair("address", obj.getAddr().c_str()));
+            metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdFilter) == true) ? "Test" : "Main" ) );
+            metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
+            metadex_obj.push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
+            _my_sps->getSP(obj.getCurrency(), sp);
+            metadex_obj.push_back(Pair("currency_owned_divisible", sp.isDivisible()));
+            metadex_obj.push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
+            _my_sps->getSP(obj.getDesCurrency(), sp);
+            metadex_obj.push_back(Pair("currency_desired_divisible", sp.isDivisible()));
+            
+            uint64_t *price = obj.getPrice();
+            uint64_t *invprice = obj.getInversePrice();
+
+            metadex_obj.push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
+            metadex_obj.push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
+            //active?
+            metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
+            metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
+            metadex_obj.push_back(Pair("action", (uint64_t) obj.getAction()));
+            metadex_obj.push_back(Pair("block", obj.getBlock()));
+            metadex_obj.push_back(Pair("blockTime", obj.getBlockTime()));
+            response.push_back(metadex_obj);
+          }
+      }
+    }
+  }
+  
+  return response;
 }
 
 Value getactivedexsells_MP(const Array& params, bool fHelp)
