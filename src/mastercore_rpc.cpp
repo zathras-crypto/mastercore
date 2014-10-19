@@ -1691,6 +1691,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("confirmations", confirmations));
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
+        txobj->push_back(Pair("version", (int64_t)mp_obj.getVersion()));
+        txobj->push_back(Pair("type_int", (int64_t)mp_obj.getType()));
         txobj->push_back(Pair("type", MPTxType));
         txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
