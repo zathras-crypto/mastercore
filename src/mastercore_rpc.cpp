@@ -1027,6 +1027,27 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
+void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj ) {
+
+  metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
+  metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
+  metadex_obj->push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
+  metadex_obj->push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
+
+  uint64_t *price = obj.getPrice();
+  uint64_t *invprice = obj.getInversePrice();
+
+  metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
+  metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
+  //active?
+  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
+  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
+  metadex_obj->push_back(Pair("action", (uint64_t) obj.getAction()));
+  metadex_obj->push_back(Pair("block", obj.getBlock()));
+  metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
+
+}
+
 Value trade_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() < 6)
@@ -1135,7 +1156,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   Array response;
   Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
-  bool divisible_sale = false, divisible_want = false;
 
   bool filter_by_desired = (params.size() == 2) ? true : false;
 
@@ -1148,8 +1168,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   if (false == _my_sps->getSP(propertyIdSaleFilter, sp_sale)) {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Sale) ");
   }
-  //divisible var
-  divisible_sale=sp_sale.isDivisible();
 
   if ( filter_by_desired ) {
     int64_t tmpPropIdWant = params[1].get_int64();
@@ -1161,37 +1179,31 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
     if (false == _my_sps->getSP(propertyIdWantFilter, sp_want)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
     }
-
-    divisible_want=sp_want.isDivisible();
   }
 
   for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
   {
+    CMPSPInfo::Entry sp;
+    CMPMetaDEx obj = it->second;
     //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
-    bool filter = ( filter_by_desired && ( (it->second).getCurrency() == propertyIdSaleFilter ) && ( (it->second).getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( (it->second).getCurrency() == propertyIdSaleFilter ) );
+    bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
 
     if ( filter  ) {
-      metadex_obj.clear();
-      metadex_obj.push_back(Pair("address", (it->second).getAddr().c_str()));
-      metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main" ) );
-      metadex_obj.push_back(Pair("txid", (it->second).getHash().GetHex()));
-      metadex_obj.push_back(Pair("currency_owned", (uint64_t) (it->second).getCurrency()));
-      metadex_obj.push_back(Pair("currency_owned_divisible", divisible_sale));
-      metadex_obj.push_back(Pair("currency_desired", (uint64_t) (it->second).getDesCurrency()));
-      metadex_obj.push_back(Pair("currency_desired_divisible", divisible_want));
-      
-      uint64_t *price = (it->second).getPrice();
-      uint64_t *invprice = (it->second).getInversePrice();
+        //clear obj before reuse
+        metadex_obj.clear();
+        
+        // add data to obj
+        add_mdex_fields( &metadex_obj , obj );
 
-      metadex_obj.push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-      metadex_obj.push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-      //active?
-      metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP((it->second).getAmtOrig())));
-      metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP((it->second).getAmtDes())));
-      metadex_obj.push_back(Pair("action", (uint64_t) (it->second).getAction()));
-      metadex_obj.push_back(Pair("block", (it->second).getBlock()));
-      metadex_obj.push_back(Pair("blockTime", (it->second).getBlockTime()));
-      response.push_back(metadex_obj);
+        //add more fields
+        metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main" ) );
+        _my_sps->getSP(obj.getCurrency(), sp);
+        metadex_obj.push_back(Pair("currency_owned_divisible", sp.isDivisible()));
+        _my_sps->getSP(obj.getDesCurrency(), sp);
+        metadex_obj.push_back(Pair("currency_desired_divisible", sp.isDivisible()));
+        
+        //add it to response
+        response.push_back(metadex_obj);
     }
   }
   
@@ -1267,35 +1279,25 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
           }
 
           if ( filter &&  (obj.getBlockTime() >= timestamp)) {
+            //clear obj before reuse
             metadex_obj.clear();
-            metadex_obj.push_back(Pair("address", obj.getAddr().c_str()));
+            
+            // add data to obj
+            add_mdex_fields( &metadex_obj , obj );
+
+            //add more fields
             metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main" ) );
-            metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
-            metadex_obj.push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
             _my_sps->getSP(obj.getCurrency(), sp);
             metadex_obj.push_back(Pair("currency_owned_divisible", sp.isDivisible()));
-            metadex_obj.push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
             _my_sps->getSP(obj.getDesCurrency(), sp);
             metadex_obj.push_back(Pair("currency_desired_divisible", sp.isDivisible()));
             
-            uint64_t *price = obj.getPrice();
-            uint64_t *invprice = obj.getInversePrice();
-
-            metadex_obj.push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-            metadex_obj.push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-            //active?
-            metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
-            metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
-            metadex_obj.push_back(Pair("action", (uint64_t) obj.getAction()));
-            metadex_obj.push_back(Pair("block", obj.getBlock()));
-            metadex_obj.push_back(Pair("blockTime", obj.getBlockTime()));
+            //add it to response
             response.push_back(metadex_obj);
           }
-          //printf("%20.10lf = %s\n", price, obj.ToString().c_str());
       }
     }
   }
-  //printf(">>>\n");
   
   return response;
 }
@@ -1375,34 +1377,32 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
                    ( ( ( filter_by_one && (obj.getCurrency() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
                    (response.size() < number_trades);
           if ( filter ) {
+
+            //clear obj before reuse
             metadex_obj.clear();
-            metadex_obj.push_back(Pair("address", obj.getAddr().c_str()));
+            
+            // add data to obj
+            add_mdex_fields( &metadex_obj , obj );
+
+            //add more fields
             metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdFilter) == true) ? "Test" : "Main" ) );
-            metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
-            metadex_obj.push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
             _my_sps->getSP(obj.getCurrency(), sp);
             metadex_obj.push_back(Pair("currency_owned_divisible", sp.isDivisible()));
-            metadex_obj.push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
             _my_sps->getSP(obj.getDesCurrency(), sp);
             metadex_obj.push_back(Pair("currency_desired_divisible", sp.isDivisible()));
             
-            uint64_t *price = obj.getPrice();
-            uint64_t *invprice = obj.getInversePrice();
-
-            metadex_obj.push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-            metadex_obj.push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-            //active?
-            metadex_obj.push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
-            metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
-            metadex_obj.push_back(Pair("action", (uint64_t) obj.getAction()));
-            metadex_obj.push_back(Pair("block", obj.getBlock()));
-            metadex_obj.push_back(Pair("blockTime", obj.getBlockTime()));
+            //add it to response
             response.push_back(metadex_obj);
           }
       }
     }
   }
   
+  //for ( json_spirit::Object::iterator it = response.begin(); it != response.end(); ++it) {
+
+   // char firs = it->first[0];
+    //printf ("\n first %s and %s \n", firs, it->first);
+  //}
   return response;
 }
 
