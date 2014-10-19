@@ -1190,6 +1190,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
       metadex_obj.push_back(Pair("amount_desired", FormatDivisibleMP((it->second).getAmtDes())));
       metadex_obj.push_back(Pair("action", (uint64_t) (it->second).getAction()));
       metadex_obj.push_back(Pair("block", (it->second).getBlock()));
+      metadex_obj.push_back(Pair("blockTime", (it->second).getBlockTime()));
       response.push_back(metadex_obj);
     }
   }
@@ -1217,7 +1218,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
   Array response;
   Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
-  bool divisible_sale = false, divisible_want = false;
 
   uint64_t timestamp = (params.size() > 0) ? params[0].get_int64() : GetLatestBlockTime() - 1209600; //2 weeks 
 
@@ -1234,11 +1234,8 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
     if (false == _my_sps->getSP(propertyIdSaleFilter, sp_sale)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Sale) ");
     }
-    //divisible var
-    divisible_sale=sp_sale.isDivisible();
   }
 
-  //FIXME: bug exists where if both currencies are supplied the divisible boolean is flipped
   if ( filter_by_both ) {
     int64_t tmpPropIdWant = params[2].get_int64();
     if ((1 > tmpPropIdWant) || (4294967295 < tmpPropIdWant)) // not safe to do conversion
@@ -1249,8 +1246,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
     if (false == _my_sps->getSP(propertyIdWantFilter, sp_want)) {
       throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist (Want) ");
     }
-
-    divisible_want=sp_want.isDivisible();
   }
 
   for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
@@ -1262,7 +1257,8 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
       for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
-          printf("/n timestamp %d, %lu ,%lu\n ", obj.getBlockTime() > timestamp, obj.getBlockTime(), timestamp);
+          CMPSPInfo::Entry sp;
+
           bool filter = 1;
 
           if( filter_by_one || filter_by_both ) {
@@ -1276,9 +1272,11 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
             metadex_obj.push_back(Pair("ecosystem", (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main" ) );
             metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
             metadex_obj.push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
-            metadex_obj.push_back(Pair("currency_owned_divisible", divisible_sale));
+            _my_sps->getSP(obj.getCurrency(), sp);
+            metadex_obj.push_back(Pair("currency_owned_divisible", sp.isDivisible()));
             metadex_obj.push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
-            metadex_obj.push_back(Pair("currency_desired_divisible", divisible_want));
+            _my_sps->getSP(obj.getDesCurrency(), sp);
+            metadex_obj.push_back(Pair("currency_desired_divisible", sp.isDivisible()));
             
             uint64_t *price = obj.getPrice();
             uint64_t *invprice = obj.getInversePrice();
@@ -1532,7 +1530,16 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool crowdDivisible = false;
     string crowdName;
     string propertyName;
-
+    bool mdex = false;
+    bool mdex_propertyId_Div = false;
+    uint64_t mdex_propertyWanted = 0;
+    bool mdex_propertyWanted_Div = false;
+    string mdex_unitPrice;
+    string mdex_invUnitPrice;
+    uint64_t mdex_amt_orig_sale = 0;
+    uint64_t mdex_amt_des = 0;
+    unsigned int mdex_action = 0;
+    
     if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return -3332; }
         //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0"); rc 3332
 
@@ -1626,6 +1633,46 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                     //populate based on type of tx
                     switch (MPTxTypeInt)
                     {
+                        case MSC_TYPE_METADEX:
+                             if (0 == mp_obj.step2_Value())
+                             {
+                                mdex = true;
+
+                                for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+                                {
+                                  md_Prices & prices = my_it->second;
+                                  for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+                                  {
+                                    md_Indexes & indexes = (it->second);
+                                    for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                                    {
+                                        CMPMetaDEx obj = *it;
+                                        CMPSPInfo::Entry sp;
+
+
+                                        if( obj.getHash().GetHex() == wtxid.GetHex() ) {
+                                          propertyId = mp_obj.getCurrency();
+                                          amount = mp_obj.getAmount();
+                                          _my_sps->getSP(propertyId, sp);
+                                          mdex_propertyId_Div = sp.isDivisible();
+                                          mdex_propertyWanted = obj.getDesCurrency();
+                                          _my_sps->getSP(mdex_propertyWanted, sp);
+                                          mdex_propertyWanted_Div = sp.isDivisible();
+
+                                          uint64_t *price = obj.getPrice();
+                                          uint64_t *invprice = obj.getInversePrice();
+
+                                          mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
+                                          mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
+                                          mdex_amt_orig_sale = obj.getAmtOrig();
+                                          mdex_amt_des = obj.getAmtDes();
+                                          mdex_action = obj.getAction();
+                                        }
+                                    }
+                                  }
+                                 }
+                             }
+                        break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
                              {
@@ -1803,6 +1850,19 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             if (2 == sell_subaction) txobj->push_back(Pair("subaction", "Update"));
             if (3 == sell_subaction) txobj->push_back(Pair("subaction", "Cancel"));
             txobj->push_back(Pair("bitcoindesired", ValueFromAmount(sell_btcdesired)));
+        }
+        if (mdex)
+        {
+            txobj->push_back(Pair("currency_owned", propertyId));
+            txobj->push_back(Pair("currency_owned_divisible", mdex_propertyId_Div));
+            txobj->push_back(Pair("currency_desired", mdex_propertyWanted));
+            txobj->push_back(Pair("currency_desired_divisible", mdex_propertyWanted_Div));
+            txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
+            txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
+            //active?
+            txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
+            txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
+            txobj->push_back(Pair("action", (uint64_t) mdex_action));
         }
         txobj->push_back(Pair("valid", valid));
     }
