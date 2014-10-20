@@ -232,12 +232,12 @@ public:
 
 unsigned int eraseExpiredAccepts(int blockNow);
 
-
 namespace mastercore
 {
 typedef std::map<string, CMPOffer> OfferMap;
 typedef std::map<string, CMPAccept> AcceptMap;
-typedef std::map<string, CMPMetaDEx> MetaDExMap;
+
+// typedef std::map<string, CMPMetaDEx> MetaDExMap;
 
 extern OfferMap my_offers;
 extern AcceptMap my_accepts;
@@ -275,6 +275,7 @@ typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
+// TODO: explore a currency-pair, instead of a single currency as map's key........
 // ---------------
 
 bool DEx_offerExists(const string &seller_addr, unsigned int curr);

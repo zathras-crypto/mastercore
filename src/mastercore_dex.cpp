@@ -109,7 +109,7 @@ md_Prices::iterator it = p->find(price);
 }
 
 // find the best match on the market
-const CMPMetaDEx *get_Match(unsigned int descurr, const double desprice)
+bool tradeMatch(unsigned int currency, unsigned int descurr, const double desprice)
 {
 const CMPMetaDEx *p_match = NULL;
 bool found = false;
@@ -119,7 +119,7 @@ bool found = false;
   md_Prices *prices = get_Prices(descurr);
 
   // nothing for the desired currency exists in the market, sorry!
-  if (!prices) return p_match;
+  if (!prices) return false;
 
   md_Indexes indexes;
   double price;
@@ -130,30 +130,35 @@ bool found = false;
   {
     price = (my_it->first);
 
-    if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: retrieved: %20.10lf , needing: %20.10lf\n", price, desprice);
+    if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %20.10lf needs to be LESS THAN  %20.10lf\n", desprice, price);
 
+    // is the desired price check satisfied?
     if (desprice < price) continue;
 
     indexes = my_it->second;
 
     // TODO: verify that the match should really be the first object off the list...
     // ...
-    // p_match = 
 
     for (md_Indexes::iterator iitt = indexes.begin(); iitt != indexes.end(); ++iitt)
     {
       p_match = &(*iitt);
 
+      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %12.11lf (its des curr= %u) = %s\n", price, p_match->getDesCurrency(), p_match->ToString().c_str());
+
+      // is the desired currency correct?
+      if (p_match->getDesCurrency() != currency) continue;
+
       if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %12.11lf = %s\n", price, p_match->ToString().c_str());
+
       found = true;
-  
-      break;  // first match is good !
+      break;  // matched!
     }
 
     if (found) break;
   }
 
-  return p_match;
+  return found;
 }
 
 // check if address is already in the outer map
@@ -277,7 +282,7 @@ std::string CMPMetaDEx::ToString() const
 {
   return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu",
    addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
-   currency, FormatDivisibleMP(amount_original), desired_currency, FormatDivisibleMP(desired_amount_original),
+   currency, FormatMP(currency, amount_original), desired_currency, FormatMP(desired_currency, desired_amount_original),
    price_int, price_frac, inverse_int, inverse_frac);
 }
 
@@ -779,7 +784,10 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
     meta[curr] = *p_prices;
 
     // TODO: clean up, testing for now...
-    const CMPMetaDEx *p_obj = get_Match(currency_desired, (1/price));
+    // trouble returning the pointer to the object?????
+    const CMPMetaDEx *p_obj = NULL;
+
+    (void) tradeMatch(curr, currency_desired, (1/price));
 
     if (msc_debug_metadex) if (p_obj) fprintf(mp_fp, "YES FOUND: %12.11lf = %s\n", price, p_obj->ToString().c_str());
   }
