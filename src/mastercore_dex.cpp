@@ -59,6 +59,7 @@ extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
 
 static md_Currencies meta;
 
+#if 0
 static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
 {
   if (!n2) return 0;
@@ -69,7 +70,6 @@ static uint64_t getGoodFractionalPartPrecision(uint64_t n1, uint64_t n2)
   return (GOOD_PRECISION * frac);
 }
 
-#if 0
 CMPMetaDEx *mastercore::getMetaDEx(const string &sender_addr, unsigned int curr)
 {
 const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
@@ -109,12 +109,13 @@ md_Prices::iterator it = p->find(price);
 }
 
 // find the best match on the market
+// INPUT: currency, descurr, desprice = of the new order being inserted
 bool tradeMatch(unsigned int currency, unsigned int descurr, const double desprice)
 {
 const CMPMetaDEx *p_match = NULL;
 bool found = false;
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(descurr=%u, desprice= %12.11lf), line %d, file: %s\n", __FUNCTION__, descurr, desprice, __LINE__, __FILE__);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(curr=%u, descurr=%u, desprice= %12.11lf), line %d, file: %s\n", __FUNCTION__, currency, descurr, desprice, __LINE__, __FILE__);
 
   md_Prices *prices = get_Prices(descurr);
 
@@ -130,10 +131,10 @@ bool found = false;
   {
     price = (my_it->first);
 
-    if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %20.10lf needs to be LESS THAN  %20.10lf\n", desprice, price);
+    if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %20.10lf needs to be LESS THAN OR EQUAL TO %20.10lf\n", desprice, price);
 
     // is the desired price check satisfied?
-    if (desprice < price) continue;
+    if (desprice > price) continue;
 
     indexes = my_it->second;
 
@@ -240,6 +241,7 @@ void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, 
   idx = i;
 }
 
+/*
 void CMPMetaDEx::Set(uint64_t nValue, uint64_t ad)
 {
   if (ad && nValue) // div by zero protection once more
@@ -251,6 +253,7 @@ void CMPMetaDEx::Set(uint64_t nValue, uint64_t ad)
     inverse_frac= getGoodFractionalPartPrecision(nValue, ad);
   }
 }
+*/
 
 /*
 void CMPMetaDEx::Set(uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
@@ -266,7 +269,9 @@ void CMPMetaDEx::Set(uint64_t pi, uint64_t pf, uint64_t ii, uint64_t i_f)
 CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
 {
   Set0(addr, b,c,nValue,cd,ad,tx,i);
+#if 0
   Set(nValue,ad);
+#endif
 }
 
 /*
@@ -280,10 +285,9 @@ CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValu
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s; unit_price = %lu.%010lu, inverse= %lu.%010lu",
-   addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
-   currency, FormatMP(currency, amount_original), desired_currency, FormatMP(desired_currency, desired_amount_original),
-   price_int, price_frac, inverse_int, inverse_frac);
+  return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
+   addr.c_str(), block, idx, txid.ToString().c_str(),
+   currency, FormatMP(currency, amount_original), desired_currency, FormatMP(desired_currency, desired_amount_original));
 }
 
 // check to see if such a sell offer exists
@@ -650,14 +654,6 @@ AcceptMap::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int mastercore::MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int currency_desired, uint64_t amount_desired,
- uint64_t price_int, uint64_t price_frac)
-{
-  fprintf(mp_fp, "%s(%s, %u for %u)\n", __FUNCTION__, customer.c_str(), currency, currency_desired);
-
-  return 0;
-}
-
 // bSell = true when selling property for MSC/TMSC
 int mastercore::MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx)
 {
@@ -737,11 +733,8 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 
     // given the currency & the price find the proper place for insertion
 
-    int64_t priceint = mdex.getPriceInt();
-    int64_t pricefrace = mdex.getPriceFrac();
-
     // price simulated with 'double' for now...
-    double price = priceint + (pricefrace / GOOD_PRECISION);
+    double price = (double)amount / (double)amount_desired;
 
     // TODO: reconsider for boost::multiprecision
     // FIXME
@@ -785,7 +778,7 @@ bool bPhase1Seller = true; // seller (property for MSC) or buyer (property for M
 
     // TODO: clean up, testing for now...
     // trouble returning the pointer to the object?????
-    const CMPMetaDEx *p_obj = NULL;
+    CMPMetaDEx *p_obj = NULL;
 
     (void) tradeMatch(curr, currency_desired, (1/price));
 

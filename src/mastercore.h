@@ -47,7 +47,9 @@ int const MAX_STATE_HISTORY = 50;
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
 
+#if 0
 #define GOOD_PRECISION  (1e10)
+#endif
 
 // Transaction types, from the spec
 enum TransactionType {

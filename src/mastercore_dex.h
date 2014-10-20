@@ -179,6 +179,7 @@ private:
   uint64_t desired_amount_original;
   unsigned char subaction;
 
+#if 0
   // price in 2 parts
   uint64_t  price_int;
   uint64_t  price_frac;
@@ -186,6 +187,7 @@ private:
   // inverse price in 2 parts
   uint64_t  inverse_int;
   uint64_t  inverse_frac;
+#endif
 
   string    addr;
   bool      bSell;  // selling Property for MSC: true or false
@@ -203,6 +205,7 @@ public:
   int getBlock() const { return block; }
   unsigned int getIdx() const { return idx; } 
 
+/*
   uint64_t* getPrice() const { 
     uint64_t* pricedata = new uint64_t[2];
     pricedata[0] = price_int;
@@ -215,6 +218,7 @@ public:
     pricedata[1] = inverse_frac;
     return pricedata; 
   }
+*/
 
   CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 //  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
@@ -225,9 +229,6 @@ public:
   void Set(uint64_t, uint64_t, uint64_t, uint64_t);
 
   std::string ToString() const;
-
-  uint64_t getPriceInt() { return price_int; }
-  uint64_t getPriceFrac() { return price_frac; }
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -290,7 +291,6 @@ int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, ui
 
 CMPMetaDEx *getMetaDEx(const string &sender_addr, unsigned int curr);
 
-int MetaDEx_Trade(const string &customer, unsigned int currency, unsigned int currency_desired, uint64_t amount_desired, uint64_t price_int, uint64_t price_frac);
 int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx);
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
