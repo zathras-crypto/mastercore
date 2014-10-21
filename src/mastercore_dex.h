@@ -171,7 +171,6 @@ class CMPMetaDEx
 {
 private:
   int block;
-  uint64_t blockTime;
   uint256 txid;
   unsigned int idx; // index within the block
   unsigned int currency;
@@ -194,8 +193,12 @@ public:
   unsigned char getAction() const { return subaction; }
 
   int getBlock() const { return block; }
-  uint64_t getBlockTime() const { return blockTime; }
   unsigned int getIdx() const { return idx; } 
+
+  uint64_t getBlockTime() const { 
+    CBlockIndex* pblockindex = chainActive[block];
+    return pblockindex->GetBlockTime();  
+  }
 
 /*
   uint64_t* getPrice() const { 
@@ -212,10 +215,10 @@ public:
   }
 */
 
-  CMPMetaDEx(const string &, int, uint64_t, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 //  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
 
-  void Set0(const string &, int, uint64_t, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  void Set0(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
 
   void Set(uint64_t, uint64_t);
   void Set(uint64_t, uint64_t, uint64_t, uint64_t);
@@ -258,6 +261,8 @@ typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
+
+extern md_Currencies meta;
 // TODO: explore a currency-pair, instead of a single currency as map's key........
 // ---------------
 
@@ -274,9 +279,9 @@ int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, ui
 CMPMetaDEx *getMetaDEx(const string &sender_addr, unsigned int curr);
 
 int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx);
-int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, uint64_t blockTime, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
-int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, uint64_t blockTime, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 
 // void MetaDEx_debug_print();
 void MetaDEx_debug_print3();

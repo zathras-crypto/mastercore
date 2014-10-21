@@ -1040,11 +1040,11 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   metadex_obj->push_back(Pair("currency_owned_divisible", c_own_div));
   metadex_obj->push_back(Pair("currency_desired_divisible", c_want_div));
 
-  uint64_t *price = obj.getPrice();
-  uint64_t *invprice = obj.getInversePrice();
+  //uint64_t *price = obj.getPrice();
+  //uint64_t *invprice = obj.getInversePrice();
 
-  metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-  metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
+  //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
+  //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
   //active?
   metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
   metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
@@ -1662,11 +1662,11 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                           _my_sps->getSP(mdex_propertyWanted, sp);
                                           mdex_propertyWanted_Div = sp.isDivisible();
 
-                                          uint64_t *price = obj.getPrice();
-                                          uint64_t *invprice = obj.getInversePrice();
+                                          //uint64_t *price = obj.getPrice();
+                                          //uint64_t *invprice = obj.getInversePrice();
 
-                                          mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
-                                          mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
+                                          //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
+                                          //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
                                           mdex_amt_orig_sale = obj.getAmtOrig();
                                           mdex_amt_des = obj.getAmtDes();
                                           mdex_action = obj.getAction();
@@ -1860,8 +1860,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             txobj->push_back(Pair("currency_owned_divisible", mdex_propertyId_Div));
             txobj->push_back(Pair("currency_desired", mdex_propertyWanted));
             txobj->push_back(Pair("currency_desired_divisible", mdex_propertyWanted_Div));
-            txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
-            txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
+            //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
+            //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
             txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
             txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
