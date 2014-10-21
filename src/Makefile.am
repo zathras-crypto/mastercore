@@ -39,6 +39,7 @@ BITCOIN_CORE_H = \
   compat.h \
   core.h \
   mastercore.h \
+  mastercore_parse_string.h \
   mastercore_tx.h \
   mastercore_dex.h \
   mastercore_sp.h \
@@ -131,6 +132,7 @@ libbitcoin_common_a_SOURCES = \
   chainparams.cpp \
   core.cpp \
   mastercore.cpp \
+  mastercore_parse_string.cpp \
   mastercore_tx.cpp \
   mastercore_rpc.cpp \
   mastercore_dex.cpp \

@@ -56,6 +56,7 @@ using namespace leveldb;
 // end potentially overzealous using
 
 #include "mastercore_dex.h"
+#include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 

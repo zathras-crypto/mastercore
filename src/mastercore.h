@@ -397,7 +397,6 @@ uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress
  unsigned int TransactionType, int64_t additional, int *error_code = NULL);
 
 bool isTestEcosystemProperty(unsigned int property);
-int64_t strToInt64(std::string strAmount, bool divisible);
 
 CMPTally *getTally(const string & address);
 
