@@ -128,16 +128,6 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 6:
-#if 0
-      for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
-      {
-        // it->first = key
-        // it->second = value
-        printf("%s = %s\n", (it->first).c_str(), (it->second).ToString().c_str());
-      }
-      printf("**************************\n");
-#endif
-//      MetaDEx_debug_print();
       MetaDEx_debug_print3();
       break;
   }

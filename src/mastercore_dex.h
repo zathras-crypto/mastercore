@@ -179,16 +179,6 @@ private:
   uint64_t desired_amount_original;
   unsigned char subaction;
 
-#if 0
-  // price in 2 parts
-  uint64_t  price_int;
-  uint64_t  price_frac;
-
-  // inverse price in 2 parts
-  uint64_t  inverse_int;
-  uint64_t  inverse_frac;
-#endif
-
   string    addr;
   bool      bSell;  // selling Property for MSC: true or false
 
@@ -260,16 +250,6 @@ public:
 
   bool operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const;
 };
-
-#if 0
-typedef std::multimap < MetaDExTypePrice , CMPMetaDEx > MetaDExTypeMMap;
-// typedef std::multimap < MetaDExTypePrice , CMPMetaDEx , mmap_compare > MetaDExTypeMMap;
-// typedef std::multiset < pair < MetaDExTypePrice , CMPMetaDEx > > MetaDExTypeMSet;
-typedef std::set < std::string > MetaDExTypeUniq;
-typedef std::pair < MetaDExTypeMMap, MetaDExTypeUniq > MetaDExTypePair;
-// typedef std::pair < MetaDExTypeMSet, MetaDExTypeUniq > MetaDExTypePair;
-typedef std::map < unsigned int, MetaDExTypePair > MetaDExTypeMap;  // uniq primary key = currency
-#endif
 
 // ---------------
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects sorted by block+idx
