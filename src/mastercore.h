@@ -47,7 +47,9 @@ int const MAX_STATE_HISTORY = 50;
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
 
+#if 0
 #define GOOD_PRECISION  (1e10)
+#endif
 
 // Transaction types, from the spec
 enum TransactionType {
@@ -130,7 +132,8 @@ enum FILETYPES {
 #define MASTERCOIN_CURRENCY_TMSC  2
 
 // forward declarations
-string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
 uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount);
 int64_t feeCheck(const string &address);
 

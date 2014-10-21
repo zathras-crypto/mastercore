@@ -90,7 +90,8 @@ int CMPTransaction::step2_Value()
   swapByteOrder32(currency);
 
   fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
-  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+//  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+  fprintf(mp_fp, "\t           value: %s\n", FormatMP(currency, nValue).c_str());
 
   if (MAX_INT_8_BYTES < nValue)
   {
@@ -439,9 +440,9 @@ int CMPTransaction::logicMath_MetaDEx()
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
     if (nNewValue > nValue) nNewValue = nValue;
 
-    CMPMetaDEx *p_metadex = getMetaDEx(sender, currency);
+//    CMPMetaDEx *p_metadex = getMetaDEx(sender, currency);
 
-    // do checks that are not application for the Cancel action
+    // do checks that are not applicable for the Cancel action
     if (CANCEL != action)
     {
       if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
@@ -482,17 +483,20 @@ int CMPTransaction::logicMath_MetaDEx()
 
         break;
 
-      case UPDATE:
+      case UPDATE:  // UPDATE is being removed from the spec: https://github.com/mastercoin-MSC/spec/issues/270
+/*
         if (!p_metadex) return (PKT_ERROR_METADEX -105);  // not found, nothing to update
 
         // TODO: check if the sender has enough money... for an update
 
         rc = MetaDEx_Update(sender, currency, nNewValue, block, blockTime, desired_currency, desired_value, txid, tx_idx);
 
+*/
         break;
 
       case CANCEL:
-        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
+        // FIXME: p_metadex no longer applicable here......... implement SUBTRACT per https://github.com/mastercoin-MSC/spec/issues/270
+//        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
 
         rc = MetaDEx_Destroy(sender, currency);
 
