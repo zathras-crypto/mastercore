@@ -35,10 +35,15 @@
 
 #include <openssl/sha.h>
 
+#include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 using boost::multiprecision::int128_t;
 using boost::multiprecision::cpp_int;
+using boost::multiprecision::cpp_dec_float;
+using boost::multiprecision::cpp_dec_float_50;
+
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
