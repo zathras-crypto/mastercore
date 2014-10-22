@@ -150,12 +150,12 @@ Value getbalance_MP(const Array& params, bool fHelp)
     std::string address = params[0].get_str();
     int64_t tmpPropertyId = params[1].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
     if (false == _my_sps->getSP(propertyId, sp)) {
-      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
     bool divisible = false;
@@ -208,12 +208,12 @@ if (fHelp || params.size() < 4 || params.size() > 6)
 
   int64_t tmpPropertyId = params[2].get_int64();
   if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
   unsigned int propertyId = int(tmpPropertyId);
 
   CMPSPInfo::Entry sp;
   if (false == _my_sps->getSP(propertyId, sp)) {
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
   }
 
   bool divisible = false;
@@ -224,7 +224,7 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   Amount = strToInt64(strAmount, divisible);
 
   if (0 >= Amount)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+   throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   std::string strAdditional = (params.size() > 5) ? (params[5].get_str()): "0";
   additional = strToInt64(strAdditional, true);
@@ -233,13 +233,13 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   printf("#: %d, additional= %ld\n", n, additional);
 
   if ((0.01 * COIN) < additional)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid referenceamount");
+   throw JSONRPCError(RPC_TYPE_ERROR, "Invalid reference amount");
 
   //some sanity checking of the data supplied?
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, ToAddress, RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SIMPLE_SEND, additional, &code);
 
-  if (0 != code) throw JSONRPCError(code, error_str(code) );
+  if (0 != code) throw JSONRPCError(code, error_str(code));
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -268,13 +268,13 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
   int64_t tmpPropertyId = params[1].get_int64();
   if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
   unsigned int propertyId = int(tmpPropertyId);
 
   CMPSPInfo::Entry sp;
   if (false == _my_sps->getSP(propertyId, sp)) {
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
   }
 
   bool divisible = false;
@@ -287,7 +287,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
   Amount = strToInt64(strAmount, divisible);
 
   if (0 >= Amount)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   // printf("%s() %40.25lf, %lu, line %d, file: %s\n", __FUNCTION__, tmpAmount, Amount, __LINE__, __FILE__);
 
@@ -295,7 +295,8 @@ if (fHelp || params.size() < 3 || params.size() > 4)
   int code = 0;
   uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyId, Amount, 0, 0, MSC_TYPE_SEND_TO_OWNERS, 0, &code);
 
-  if (0 != code) throw JSONRPCError(code, error_str(code) );
+  if (0 != code)
+    throw JSONRPCError(code, error_str(code));
 
   //we need to do better than just returning a string of 0000000 here if we can't send the TX
   return newTX.GetHex();
@@ -364,12 +365,12 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
     int64_t tmpPropertyId = params[0].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
     if (false == _my_sps->getSP(propertyId, sp)) {
-      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
     bool divisible=false;
@@ -511,12 +512,12 @@ Value getproperty_MP(const Array& params, bool fHelp)
 
     int64_t tmpPropertyId = params[0].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
     if (false == _my_sps->getSP(propertyId, sp)) {
-      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
     Object response;
@@ -668,12 +669,12 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
     int64_t tmpPropertyId = params[0].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
     if (false == _my_sps->getSP(propertyId, sp)) {
-      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
     bool showVerbose = false;
@@ -682,7 +683,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     bool fixedIssuance = sp.fixed;
     bool manualIssuance = sp.manual;
     if (fixedIssuance || manualIssuance) // property was not a variable issuance
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a crowdsale");
 
     uint256 creationHash = sp.txid;
 
@@ -692,7 +693,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
     if ((0 == hashBlock) || (NULL == mapBlockIndex[hashBlock]))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
 
     Object response;
 
@@ -731,7 +732,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
               }
           }
           if (!crowdFound)
-                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: crowdsale is flagged active but cannot be found in CrowdMap");
+                  throw JSONRPCError(RPC_INTERNAL_ERROR, "Crowdsale is flagged active but cannot be retrieved");
     }
     else
     {
@@ -745,7 +746,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     bool divisibleDesired = false;
     CMPSPInfo::Entry spDesired;
     if (false == _my_sps->getSP(propertyId, spDesired)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Desired property ID does not exist");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Desired property identifier does not exist");
     }
     divisibleDesired = spDesired.isDivisible();
     divisibleDesired = isPropertyDivisible(propertyIdDesired);
@@ -882,7 +883,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
                   throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
               if ((0 == hashBlock) || (NULL == mapBlockIndex[hashBlock]))
-                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0");
+                  throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
 
               bool divisible = false;
               divisible=sp.isDivisible();
@@ -953,18 +954,18 @@ Value getgrants_MP(const Array& params, bool fHelp)
 
     int64_t tmpPropertyId = params[0].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property ID");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid property identifier");
 
     unsigned int propertyId = int(tmpPropertyId);
     CMPSPInfo::Entry sp;
     if (false == _my_sps->getSP(propertyId, sp)) {
-      throw JSONRPCError(RPC_INVALID_PARAMETER, "Property ID does not exist");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
     bool fixedIssuance = sp.fixed;
     bool manualIssuance = sp.manual;
     if (fixedIssuance || !manualIssuance) // property was not a manual issuance
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a manual issuance");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property was not created with a manual issuance");
 
     uint256 creationHash = sp.txid;
 
@@ -1023,7 +1024,7 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
   CMPSPInfo::Entry sp;
 
   if ((1 > tmpPropId) || (4294967295 < tmpPropId)) 
-    throw JSONRPCError(RPC_INVALID_PARAMETER, error );
+    throw JSONRPCError(RPC_INVALID_PARAMETER, error);
   if (false == _my_sps->getSP(tmpPropId, sp)) 
     throw JSONRPCError(RPC_INVALID_PARAMETER, exist_error);
 
@@ -1075,13 +1076,13 @@ Value trade_MP(const Array& params, bool fHelp) {
   std::string FromAddress = params[0].get_str();
   std::string RedeemAddress = (params.size() > 6) ? (params[6].get_str()): "";
 
-  unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property ID (Sale)", "Property ID does not exist (Sale) "); 
+  unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
 
-  unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property ID (Want)", "Property ID does not exist (Want) "); 
+  unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   
   if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
   {
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Property IDs must be in the same ecosystem (main/test) ");
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be in the same ecosystem (Main/Test)");
   }
 
   _my_sps->getSP(propertyIdSale, sp);
@@ -1099,14 +1100,14 @@ Value trade_MP(const Array& params, bool fHelp) {
   Amount_Want = strToInt64(strAmountWant, divisible_want);
 
   if (0 >= Amount_Sale)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
 
   if (0 >= Amount_Want)
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
 
   int64_t action = params[5].get_int64();
   if ((action > 3) || (0 >= action))
-           throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1,2, or 3 only)");
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1, 2, or 3 only)");
 
  //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
   int code = 0;
@@ -1140,10 +1141,10 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
   bool filter_by_desired = (params.size() == 2) ? true : false;
 
-  propertyIdSaleFilter = check_prop_valid( params[0].get_int64() , "Invalid property ID (Sale)", "Property ID does not exist (Sale) " ); 
+  propertyIdSaleFilter = check_prop_valid( params[0].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
 
   if ( filter_by_desired ) {
-    propertyIdWantFilter = check_prop_valid( params[1].get_int64() , "Invalid property ID (Want)", "Property ID does not exist (Want) " ); 
+    propertyIdWantFilter = check_prop_valid( params[1].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
 
   //for each address
@@ -1203,11 +1204,11 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
   bool filter_by_both = (params.size() > 2) ? true : false;
 
   if( filter_by_one ) {
-    propertyIdSaleFilter = check_prop_valid( params[1].get_int64() , "Invalid property ID (Sale)", "Property ID does not exist (Sale) " ); 
+    propertyIdSaleFilter = check_prop_valid( params[1].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
 
   if ( filter_by_both ) {
-    propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property ID (Want)", "Property ID does not exist (Want) " ); 
+    propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
 
   for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
@@ -1298,7 +1299,7 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
   bool filter_by_one = (params.size() == 3) ? true : false;
 
   if( filter_by_one ) {
-    propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property ID (Sale)", "Property ID does not exist (Sale) " ); 
+    propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
 
   for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
@@ -1466,7 +1467,7 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
   // firstly let's get the block height given in the param
   int blockHeight = params[0].get_int();
   if (blockHeight < 0 || blockHeight > GetHeight())
-        throw runtime_error("Cannot display MP transactions for a non-existent block.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
   // next let's obtain the block for this height
   CBlockIndex* mpBlockIndex = chainActive[blockHeight];
@@ -1474,7 +1475,7 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
 
   // now let's read this block in from disk so we can loop its transactions
   if(!ReadBlockFromDisk(mpBlock, mpBlockIndex))
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal Error: Failed to read block from disk");
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Failed to read block from disk");
 
   // create an array to hold our response
   Array response;
@@ -1733,7 +1734,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                     MPTxType = "Crowdsale Purchase";
                                     CMPSPInfo::Entry sp;
                                     if (false == _my_sps->getSP(crowdPropertyId, sp)) { return -3334; }
-                                        //throw JSONRPCError(RPC_INVALID_PARAMETER, "Exception: Crowdsale Purchase but Property ID does not exist"); rc 3334
+                                        //throw JSONRPCError(RPC_INVALID_PARAMETER, "Potential database corruption: \"Crowdsale Purchase\" without valid property identifier"); rc 3334
 
                                     crowdName = sp.name;
                                     crowdDivisible = sp.isDivisible();
@@ -1789,7 +1790,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         else
         {
             return -3335;
-            //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction but TX exists in levelDB.  This may be a bug."); rc 3335
+            //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: Invalid transaction found"); rc 3335
         }
     }
     else
@@ -1914,10 +1915,10 @@ Value gettransaction_MP(const Array& params, bool fHelp)
         switch (populateResult)
         {
             case -3331: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
-            case -3332: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0, is transaction unconfirmed?");
-            case -3333: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: pBlockIndex is NULL, is transaction unconfirmed?");
-            case -3334: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: Crowdsale Purchase but Property ID does not exist. This may be a bug.");
-            case -3335: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction but TX exists in levelDB.  This may be a bug.");
+            case -3332: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
+            case -3333: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
+            case -3334: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: \"Crowdsale Purchase\" without valid property identifier");
+            case -3335: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: Invalid transaction found");
             case -3336: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
         }
     }
