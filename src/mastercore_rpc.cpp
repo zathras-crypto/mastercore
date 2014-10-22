@@ -1503,8 +1503,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
     CTransaction wtx;
     uint256 blockHash = 0;
-    if (!GetTransaction(txid, wtx, blockHash, true)) { return -3331; }
-       //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction"); rc 3331
+    if (!GetTransaction(txid, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
 
     CMPTransaction mp_obj;
     uint256 wtxid = txid;
@@ -1544,12 +1543,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     uint64_t mdex_amt_des = 0;
     unsigned int mdex_action = 0;
     
-    if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return -3332; }
-        //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: blockHash is 0"); rc 3332
+    if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return MP_TX_UNCONFIRMED; }
 
     CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
-    if (NULL == pBlockIndex) { return -3333; }
-        //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Exception: pBlockIndex is NULL"); rc 3333
+    if (NULL == pBlockIndex) { return MP_BLOCK_NOT_IN_CHAIN; }
 
     int blockHeight = pBlockIndex->nHeight;
     int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
@@ -1733,8 +1730,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                 {
                                     MPTxType = "Crowdsale Purchase";
                                     CMPSPInfo::Entry sp;
-                                    if (false == _my_sps->getSP(crowdPropertyId, sp)) { return -3334; }
-                                        //throw JSONRPCError(RPC_INVALID_PARAMETER, "Potential database corruption: \"Crowdsale Purchase\" without valid property identifier"); rc 3334
+                                    if (false == _my_sps->getSP(crowdPropertyId, sp)) { return MP_CROWDSALE_WITHOUT_PROPERTY; }
 
                                     crowdName = sp.name;
                                     crowdDivisible = sp.isDivisible();
@@ -1789,14 +1785,12 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         } //negative RC check
         else
         {
-            return -3335;
-            //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: Invalid transaction found"); rc 3335
+            return MP_INVALID_TX_IN_DB_FOUND;
         }
     }
     else
     {
-        return -3336;
-        //throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction"); rc 3336
+        return MP_TX_IS_NOT_MASTERCOIN;
     }
 
     if (isMPTx)
@@ -1912,14 +1906,27 @@ Value gettransaction_MP(const Array& params, bool fHelp)
     // check the response, throw any error codes if false
     if (0>populateResult)
     {
+        // TODO: consider throwing other error codes, check back with Bitcoin Core
         switch (populateResult)
         {
-            case -3331: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
-            case -3332: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
-            case -3333: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
-            case -3334: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: \"Crowdsale Purchase\" without valid property identifier");
-            case -3335: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Potential database corruption: Invalid transaction found");
-            case -3336: throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+            case MP_TX_NOT_FOUND:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+                
+            case MP_TX_UNCONFIRMED:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
+                
+            case MP_BLOCK_NOT_IN_CHAIN:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
+                
+            case MP_CROWDSALE_WITHOUT_PROPERTY:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: \
+                                                      \"Crowdsale Purchase\" without valid property identifier");
+                    
+            case MP_INVALID_TX_IN_DB_FOUND:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: Invalid transaction found");
+                
+            case MP_TX_IS_NOT_MASTERCOIN:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
         }
     }
     // everything seems ok, return the object
