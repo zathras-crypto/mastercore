@@ -4,21 +4,29 @@
 enum MPRPCErrorCode
 {
     //INTERNAL_1packet
-    MP_INSUF_FUNDS_BPENDI      = -1,  // balance before pending
-    MP_INSUF_FUNDS_APENDI      = -2,  // balance after pending
-    MP_INPUT_NOT_IN_RANGE      = -11, // input value larger than supported
+    MP_INSUF_FUNDS_BPENDI =         -1,     // balance before pending
+    MP_INSUF_FUNDS_APENDI =         -2,     // balance after pending
+    MP_INPUT_NOT_IN_RANGE =         -11,    // input value larger than supported
     
     //ClassB_send
-    MP_INPUTS_INVALID = -212,
-    MP_REDEMP_ILLEGAL = -233,
-    MP_REDEMP_BAD_KEYID = -220,
-    MP_REDEMP_FETCH_ERR_PUBKEY = -221,
-    MP_REDEMP_INVALID_PUBKEY = -222,
-    MP_REDEMP_BAD_VALIDATION = -223,
-    MP_ERR_WALLET_ACCESS = -205,
-    MP_ERR_INPUTSELECT_FAIL = -206,
-    MP_ERR_CREATE_TX = -211,
-    MP_ERR_COMMIT_TX = -213
+    MP_INPUTS_INVALID =             -212,
+    MP_REDEMP_ILLEGAL =             -233,
+    MP_REDEMP_BAD_KEYID =           -220,
+    MP_REDEMP_FETCH_ERR_PUBKEY =    -221,
+    MP_REDEMP_INVALID_PUBKEY =      -222,
+    MP_REDEMP_BAD_VALIDATION =      -223,
+    MP_ERR_WALLET_ACCESS =          -205,
+    MP_ERR_INPUTSELECT_FAIL =       -206,
+    MP_ERR_CREATE_TX =              -211,
+    MP_ERR_COMMIT_TX =              -213,
+    
+    //gettransaction_MP, listtransactions_MP
+    MP_TX_NOT_FOUND =               -3331,  // No information available about transaction. (GetTransaction failed)
+    MP_TX_UNCONFIRMED =             -3332,  // Unconfirmed transactions are not supported. (blockHash is 0)
+    MP_BLOCK_NOT_IN_CHAIN =         -3333,  // Transaction not part of the active chain.   (pBlockIndex is NULL)
+    MP_CROWDSALE_WITHOUT_PROPERTY = -3334,  // Potential database corruption: "Crowdsale Purchase" without valid property identifier.
+    MP_INVALID_TX_IN_DB_FOUND =     -3335,  // Potential database corruption: Invalid transaction found.
+    MP_TX_IS_NOT_MASTERCOIN =       -3336,  // Not a Master Protocol transaction.
 };
 
 inline std::string error_str(int ec) {
