@@ -54,7 +54,7 @@ using namespace mastercore;
 
 extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
 
-static md_Currencies meta;
+md_Currencies mastercore::meta;
 
 md_Prices *get_Prices(unsigned int curr)
 {
