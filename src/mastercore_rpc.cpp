@@ -1508,15 +1508,15 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
     CMPTransaction mp_obj;
     uint256 wtxid = txid;
-    bool bIsMine;
+    bool bIsMine = false;
     bool isMPTx = false;
-    int nFee = 0;
+    uint64_t nFee = 0;
     string MPTxType;
     unsigned int MPTxTypeInt;
     string selectedAddress;
     string senderAddress;
     string refAddress;
-    bool valid;
+    bool valid = false;
     bool showReference = false;
     uint64_t propertyId = 0;  //using 64 instead of 32 here as json::sprint chokes on 32 - research why
     bool divisible = false;
@@ -1785,6 +1785,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                     } // end switch
                     divisible=isPropertyDivisible(propertyId);
                 } // end step 1 if
+                else
+                {
+                    return -3336; // "Not a Master Protocol transaction"
+                }
             } // end payment check if
         } //negative RC check
         else
