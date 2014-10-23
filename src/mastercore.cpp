@@ -73,6 +73,7 @@ static const string getmoney_testnet = "moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP";
 
 using namespace mastercore;
 
+#include "mastercore_convert.h"
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
@@ -354,11 +355,6 @@ void swapByteOrder64(uint64_t& ull)
           ((ull>>24) & 0x0000000000FF0000) |
           ((ull>>40) & 0x000000000000FF00) |
           (ull << 56);
-}
-
-uint64_t rounduint64(double d)
-{
-  return (uint64_t)(abs(0.5 + d));
 }
 
 bool isNonMainNet()

@@ -34,6 +34,7 @@ using namespace json_spirit;
 
 using namespace mastercore;
 
+#include "mastercore_convert.h"
 #include "mastercore_dex.h"
 #include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
