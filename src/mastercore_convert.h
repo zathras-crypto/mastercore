@@ -14,6 +14,14 @@ namespace mastercore
  */
 uint64_t rounduint64(long double);
 
+/**
+ * Swaps byte order on little-endian systems and does nothing 
+ * otherwise.
+ */
+void swapByteOrder16(uint16_t&);
+void swapByteOrder32(uint32_t&);
+void swapByteOrder64(uint64_t&);
+
 } // namespace mastercore
 
 #endif // _MASTERCORE_CONVERT

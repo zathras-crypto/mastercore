@@ -444,12 +444,6 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, CBlockIndex const *pBlockIndex );
 int mastercore_save_state( CBlockIndex const *pBlockIndex );
 
-bool isBigEndian(void);
-
-void swapByteOrder16(unsigned short& us);
-void swapByteOrder32(unsigned int& ui);
-void swapByteOrder64(uint64_t& ull);
-
 namespace mastercore
 {
 extern std::map<string, CMPTally> mp_tally_map;
