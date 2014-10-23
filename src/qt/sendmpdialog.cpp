@@ -56,6 +56,7 @@ using namespace leveldb;
 // end potentially overzealous using
 
 #include "mastercore_dex.h"
+#include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 
@@ -292,7 +293,7 @@ void SendMPDialog::sendMPTransaction()
     }
 
     // use strToInt64 function to get the amount, using divisibility of the property
-    int64_t sendAmount = strToInt64(strAmount, divisible);
+    int64_t sendAmount = StrToInt64(strAmount, divisible);
     if (0>=sendAmount)
     {
         QMessageBox::critical( this, "Unable to send transaction",
