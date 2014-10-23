@@ -195,6 +195,12 @@ public:
   int getBlock() const { return block; }
   unsigned int getIdx() const { return idx; } 
 
+  uint64_t getBlockTime() const
+  { 
+    CBlockIndex* pblockindex = chainActive[block];
+    return pblockindex->GetBlockTime();  
+  }
+
 /*
   uint64_t* getPrice() const { 
     uint64_t* pricedata = new uint64_t[2];
@@ -258,6 +264,7 @@ typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects 
 typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
 
+extern md_Currencies meta;
 // TODO: explore a currency-pair, instead of a single currency as map's key........
 // ---------------
 
