@@ -6,9 +6,9 @@
 namespace mastercore
 {
 
-uint64_t rounduint64(double d)
+uint64_t rounduint64(long double ld)
 {
-    return (uint64_t)(std::abs(0.5 + d));
+    return static_cast<uint64_t>(roundl(fabsl(ld)));
 }
 
 } // namespace mastercore

@@ -12,7 +12,7 @@ namespace mastercore
  * is greater or equal than .5, then the result is rounded
  * up and down otherwise.
  */
-uint64_t rounduint64(double);
+uint64_t rounduint64(long double);
 
 } // namespace mastercore
 
