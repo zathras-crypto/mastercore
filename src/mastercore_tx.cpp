@@ -465,7 +465,7 @@ int CMPTransaction::logicMath_MetaDEx()
 
     switch (action)
     {
-      case NEW:
+      case ADD:
         // Does the sender have any money?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
@@ -483,18 +483,7 @@ int CMPTransaction::logicMath_MetaDEx()
 
         break;
 
-      case UPDATE:  // UPDATE is being removed from the spec: https://github.com/mastercoin-MSC/spec/issues/270
-/*
-        if (!p_metadex) return (PKT_ERROR_METADEX -105);  // not found, nothing to update
-
-        // TODO: check if the sender has enough money... for an update
-
-        rc = MetaDEx_Update(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
-
-*/
-        break;
-
-      case CANCEL:
+      case SUBTRACT:
         // FIXME: p_metadex no longer applicable here......... implement SUBTRACT per https://github.com/mastercoin-MSC/spec/issues/270
 //        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
 

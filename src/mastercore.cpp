@@ -52,7 +52,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -1260,9 +1260,8 @@ uint64_t txFee = 0;
               {
               // this must be the BTC payment - validate (?)
 //              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
-              fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-              fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
-              fprintf(mp_fp, "!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
+              fprintf(mp_fp, "!! sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
+              fprintf(mp_fp, "!! this may be the BTC payment for an offer !!\nn");
 
               // TODO collect all payments made to non-itself & non-exodus and their amounts -- these may be purchases!!!
 
@@ -2353,7 +2352,7 @@ int interp_ret = -555555, pop_ret;
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
     interp_ret = mp_obj.interpretPacket();
-    if (interp_ret) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!!!!!!!!!!!!!!!!!!!!\n", interp_ret);
+    if (interp_ret) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!\n", interp_ret);
 
     mp_obj.print();
 

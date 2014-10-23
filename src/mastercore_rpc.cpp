@@ -1107,8 +1107,8 @@ Value trade_MP(const Array& params, bool fHelp) {
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
 
   int64_t action = params[5].get_int64();
-  if ((action > 3) || (0 >= action))
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1, 2, or 3 only)");
+  if ((action > 2) || (0 >= action))
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1 or 2 only)");
 
  //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
   int code = 0;
@@ -1212,13 +1212,13 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
     propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
 
-  for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
-    md_Prices & prices = my_it->second;
-    for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
     {
-      md_Indexes & indexes = (it->second);
-      for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
           CMPSPInfo::Entry sp;
@@ -1303,13 +1303,13 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
     propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
 
-  for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
-    md_Prices & prices = my_it->second;
-    for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
     {
-      md_Indexes & indexes = (it->second);
-      for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
           CMPSPInfo::Entry sp;
@@ -1640,13 +1640,13 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                              {
                                 mdex = true;
 
-                                for (md_Currencies::iterator my_it = meta.begin(); my_it != meta.end(); ++my_it)
+                                for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
                                 {
-                                  md_Prices & prices = my_it->second;
-                                  for (md_Prices::iterator it = prices.begin(); it != prices.end(); ++it)
+                                  md_PricesMap & prices = my_it->second;
+                                  for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
                                   {
-                                    md_Indexes & indexes = (it->second);
-                                    for (md_Indexes::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                                    md_Set & indexes = (it->second);
+                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
                                     {
                                         CMPMetaDEx obj = *it;
                                         CMPSPInfo::Entry sp;

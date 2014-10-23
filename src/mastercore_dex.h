@@ -258,13 +258,13 @@ public:
 };
 
 // ---------------
-typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Indexes; // set of objects sorted by block+idx
+typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
-typedef std::map < double , md_Indexes > md_Prices;         // map of prices; there is a set of sorted objects for each price
-typedef std::map < unsigned int, md_Prices > md_Currencies; // map of currencies; there is a map of prices for each currency
+typedef std::map < double , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
+typedef std::map < unsigned int, md_PricesMap > md_CurrenciesMap; // map of currencies; there is a map of prices for each currency
 
-extern md_Currencies meta;
+extern md_CurrenciesMap metadex;
 // TODO: explore a currency-pair, instead of a single currency as map's key........
 // ---------------
 
@@ -278,12 +278,9 @@ int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64
 int DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-CMPMetaDEx *getMetaDEx(const string &sender_addr, unsigned int curr);
-
 int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx);
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
-int MetaDEx_Update(const string &sender_addr, unsigned int curr, uint64_t nValue, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 
 // void MetaDEx_debug_print();
 void MetaDEx_debug_print3();
