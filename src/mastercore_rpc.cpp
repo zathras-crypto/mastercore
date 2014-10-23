@@ -35,6 +35,7 @@ using namespace json_spirit;
 using namespace mastercore;
 
 #include "mastercore_dex.h"
+#include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
@@ -221,13 +222,13 @@ if (fHelp || params.size() < 4 || params.size() > 6)
 
   string strAmount = params[3].get_str();
   int64_t Amount = 0, additional = 0;
-  Amount = strToInt64(strAmount, divisible);
+  Amount = StrToInt64(strAmount, divisible);
 
   if (0 >= Amount)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
 
   std::string strAdditional = (params.size() > 5) ? (params[5].get_str()): "0";
-  additional = strToInt64(strAdditional, true);
+  additional = StrToInt64(strAdditional, true);
 
   int n = params.size();
   printf("#: %d, additional= %ld\n", n, additional);
@@ -284,7 +285,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
   string strAmount = params[2].get_str();
   int64_t Amount = 0;
-  Amount = strToInt64(strAmount, divisible);
+  Amount = StrToInt64(strAmount, divisible);
 
   if (0 >= Amount)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
@@ -328,7 +329,7 @@ if (fHelp || params.size() < 2 || params.size() > 5)
   int64_t referenceAmount = 0;
 
   if (params.size() > 4)
-      referenceAmount = strToInt64(params[4].get_str(), true);
+      referenceAmount = StrToInt64(params[4].get_str(), true);
 
   //some sanity checking of the data supplied?
   uint256 newTX;
@@ -1092,11 +1093,11 @@ Value trade_MP(const Array& params, bool fHelp) {
 
   std::string strAmountSale = params[1].get_str();
   int64_t Amount_Sale = 0;
-  Amount_Sale = strToInt64(strAmountSale, divisible_sale);
+  Amount_Sale = StrToInt64(strAmountSale, divisible_sale);
 
   std::string strAmountWant = params[3].get_str();
   int64_t Amount_Want = 0;
-  Amount_Want = strToInt64(strAmountWant, divisible_want);
+  Amount_Want = StrToInt64(strAmountWant, divisible_want);
 
   if (0 >= Amount_Sale)
            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
