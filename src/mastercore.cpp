@@ -2568,13 +2568,6 @@ int64_t feeCheck(const string &address)
     return selectCoins(address, coinControl, 0);
 }
 
-#define PUSH_BACK_BYTES(vector, value)\
-    vector.insert(vector.end(), reinterpret_cast<unsigned char *>(&(value)), reinterpret_cast<unsigned char *>(&(value)) + sizeof((value)));
-
-#define PUSH_BACK_BYTES_PTR(vector, ptr, size)\
-    vector.insert(vector.end(), reinterpret_cast<unsigned char *>((ptr)), reinterpret_cast<unsigned char *>((ptr)) + (size));
-
-
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
 // returns 0 if everything is OK, the transaction was sent
