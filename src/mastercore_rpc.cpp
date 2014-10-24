@@ -1124,19 +1124,16 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() < 1)
         throw runtime_error(
-            "getorderbook_MP\n"
+            "getorderbook_MP property_id1 ( property_id2 )\n"
             "\nAllows user to request active order information from the order book\n"
             
             "\nArguments:\n"
-            "1. currency_id1            (int, required) amount owned to up on sale\n"
-            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            "1. property_id1            (int, required) amount owned to up on sale\n"
+            "2. property_id2         (int, optional) currency owned to put up on sale\n"
         );
 
   Array response;
 
-  // FIXME: gutted out due to switch to latest data container types...........
-  // TODO: fix this
-#if 0
   Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
@@ -1151,33 +1148,42 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   //for each address
   //get currency pair and total order amount at a price
 
-  for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
+  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
-    CMPSPInfo::Entry sp;
-    CMPMetaDEx obj = it->second;
-    //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
-    bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+        CMPMetaDEx obj = *it;
+        CMPSPInfo::Entry sp;
 
-    if ( filter  ) {
-        //clear obj before reuse
-        metadex_obj.clear();
-        
-        _my_sps->getSP(obj.getCurrency(), sp);
-        bool c_own_div = sp.isDivisible();
+        //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
+        bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
 
-        _my_sps->getSP(obj.getDesCurrency(), sp);
-        bool c_want_div = sp.isDivisible();
+        if ( filter  ) {
+            //clear obj before reuse
+            metadex_obj.clear();
+            
+            _my_sps->getSP(obj.getCurrency(), sp);
+            bool c_own_div = sp.isDivisible();
 
-        string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
+            _my_sps->getSP(obj.getDesCurrency(), sp);
+            bool c_want_div = sp.isDivisible();
 
-        // add data to obj
-        add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
+            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
 
-        //add it to response
-        response.push_back(metadex_obj);
+            // add data to obj
+            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
+
+            //add it to response
+            response.push_back(metadex_obj);
+        }
+
+      }
     }
   }
-#endif
   
   return response;
 }
