@@ -344,6 +344,7 @@ extern uint64_t global_balance_money_maineco[100000];
 extern uint64_t global_balance_reserved_maineco[100000];
 extern uint64_t global_balance_money_testeco[100000];
 extern uint64_t global_balance_reserved_testeco[100000];
+extern string global_alert_message;
 
 int mastercore_init(void);
 
@@ -396,6 +397,7 @@ bool isTestEcosystemProperty(unsigned int property);
 CMPTally *getTally(const string & address);
 
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL);
+bool checkExpiredAlerts(unsigned int curBlock, uint64_t curTime);
 int set_wallet_totals();
 
 char *c_strMasterProtocolTXType(int i);

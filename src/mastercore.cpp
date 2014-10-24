@@ -84,6 +84,7 @@ static const int nBlockTop = 0;
 
 static int nWaterlineBlock = 0;  //
 
+string global_alert_message;
 uint64_t global_MSC_total = 0;
 uint64_t global_MSC_RESERVED_total = 0;
 uint64_t global_balance_money_maineco[100000];
@@ -473,6 +474,47 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   if ((MASTERCOIN_CURRENCY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
 
   return false;
+}
+
+bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
+{
+    //expire any alerts that need expiring
+    uint64_t expiryBlock;
+    uint64_t expiryTime;
+
+    std::vector<std::string> vstr;
+
+    //split the global message string if it's not empty
+    if(!global_alert_message.empty())
+    {
+        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 4 bits
+        if (4 == vstr.size())
+        {
+             expiryBlock = atoi(vstr[0]);
+             expiryTime = atoi(vstr[1]);
+        }
+        else
+        {
+             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 4 tokens\n");
+             return false;
+        }
+        if ((expiryBlock == 0) || (expiryTime == 0))
+        {
+             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are zero.\n");
+             return false;
+ 
+        }
+        if ((curBlock > expiryBlock) || (curTime > expiryTime))
+        {
+             //the alert has expired, clear the global alert string
+             fprintf(mp_fp, "DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+             global_alert_message = "";
+             return true;
+        }
+        else { return false; }
+    }
+    else { return false; }
 }
 
 // get total tokens for a property
@@ -3162,7 +3204,9 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
-//  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+
+  // check the alert status, do we need to do anything else here?
+  bool alertExpired = checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
 
   if (mp_fp) fflush(mp_fp);
 
