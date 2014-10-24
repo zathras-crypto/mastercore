@@ -2062,8 +2062,8 @@ Value getalert_MP(const Array& params, bool fHelp)
              expiryTime = atoi(vstr[1]);
              expiryVersion = atoi(vstr[2]);
              alertMessage = vstr[3];
-             alertResponse.push_back(Pair("amount_original", FormatIndivisibleMP(expiryBlock)));
-             alertResponse.push_back(Pair("amount_desired", FormatIndivisibleMP(expiryTime)));
+             alertResponse.push_back(Pair("expiryblock", FormatIndivisibleMP(expiryBlock)));
+             alertResponse.push_back(Pair("expirytime", FormatIndivisibleMP(expiryTime)));
              alertResponse.push_back(Pair("expiryversion", FormatIndivisibleMP(expiryVersion)));
              alertResponse.push_back(Pair("alertmessage", alertMessage));
         }
