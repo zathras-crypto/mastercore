@@ -433,12 +433,14 @@ void OverviewPage::updateDisplayUnit()
 
 void OverviewPage::updateAlerts(const QString &warnings)
 {
+    string alertMessage = getMasterCoreAlertString();
     // any BitcoinCore or MasterCore alerts to display?
     bool showAlert = false;
-    if((!global_alert_message.empty()) || (!warnings.isEmpty())) showAlert = true;
+    if((!alertMessage.empty()) || (!warnings.isEmpty())) showAlert = true;
     this->ui->labelAlerts->setVisible(showAlert);
-    string alertMessage = "MASTERCORE ALERT MESSAGE";
+    //string alertMessage = "MASTERCORE ALERT MESSAGE";
     QString totalMessage;
+    std::vector<std::string> vstr;
 
     // check if we have a Bitcoin alert to display
     if(!warnings.isEmpty())
@@ -447,9 +449,18 @@ void OverviewPage::updateAlerts(const QString &warnings)
     }
 
     // check if we have a MasterProtocol alert to display
-    if(!global_alert_message.empty())
+    if(!alertMessage.empty())
     {
-        totalMessage+=QString::fromStdString(alertMessage);
+        boost::split(vstr, alertMessage, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 4 bits
+        if (4 == vstr.size())
+        {
+             totalMessage+=QString::fromStdString(vstr[3]);
+        }
+        else
+        {
+             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
+        }
     }
 
     // display the alert if needed

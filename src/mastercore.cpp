@@ -84,13 +84,14 @@ static const int nBlockTop = 0;
 
 static int nWaterlineBlock = 0;  //
 
-string global_alert_message;
 uint64_t global_MSC_total = 0;
 uint64_t global_MSC_RESERVED_total = 0;
 uint64_t global_balance_money_maineco[100000];
 uint64_t global_balance_reserved_maineco[100000];
 uint64_t global_balance_money_testeco[100000];
 uint64_t global_balance_reserved_testeco[100000];
+
+string global_alert_message;
 
 static uint64_t exodus_prev = 0;
 static uint64_t exodus_balance;
@@ -474,6 +475,11 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   if ((MASTERCOIN_CURRENCY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
 
   return false;
+}
+
+std::string mastercore::getMasterCoreAlertString()
+{
+    return global_alert_message;
 }
 
 bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)

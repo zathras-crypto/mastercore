@@ -344,7 +344,6 @@ extern uint64_t global_balance_money_maineco[100000];
 extern uint64_t global_balance_reserved_maineco[100000];
 extern uint64_t global_balance_money_testeco[100000];
 extern uint64_t global_balance_reserved_testeco[100000];
-extern string global_alert_message;
 
 int mastercore_init(void);
 
@@ -407,6 +406,7 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 
 bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
+std::string getMasterCoreAlertString();
 }
 
 #endif

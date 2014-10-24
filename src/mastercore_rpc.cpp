@@ -2039,3 +2039,42 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     return response;   // return response array for JSON serialization
 }
 
+Value getalert_MP(const Array& params, bool fHelp)
+{
+    Object alertResponse;
+
+    string global_alert_message = getMasterCoreAlertString();
+    uint64_t expiryBlock;
+    uint64_t expiryTime;
+    uint64_t expiryVersion;
+    string alertMessage;
+
+    std::vector<std::string> vstr;
+
+    //split the global message string if it's not empty
+    if(!global_alert_message.empty())
+    {
+        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 4 bits
+        if (4 == vstr.size())
+        {
+             expiryBlock = atoi(vstr[0]);
+             expiryTime = atoi(vstr[1]);
+             expiryVersion = atoi(vstr[2]);
+             alertMessage = vstr[3];
+             alertResponse.push_back(Pair("amount_original", FormatIndivisibleMP(expiryBlock)));
+             alertResponse.push_back(Pair("amount_desired", FormatIndivisibleMP(expiryTime)));
+             alertResponse.push_back(Pair("expiryversion", FormatIndivisibleMP(expiryVersion)));
+             alertResponse.push_back(Pair("alertmessage", alertMessage));
+        }
+        else
+        {
+             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
+                  throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
+        }
+    }
+    else
+    {
+        return alertResponse;
+    }
+}

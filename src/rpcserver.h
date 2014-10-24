@@ -209,5 +209,5 @@ extern json_spirit::Value getopenorders_MP(const json_spirit::Array& params, boo
 extern json_spirit::Value gettradehistory_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listblocktransactions_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
-
+extern json_spirit::Value getalert_MP(const json_spirit::Array& params, bool fHelp);
 #endif
