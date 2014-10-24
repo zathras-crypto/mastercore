@@ -433,8 +433,27 @@ void OverviewPage::updateDisplayUnit()
 
 void OverviewPage::updateAlerts(const QString &warnings)
 {
-    this->ui->labelAlerts->setVisible(!warnings.isEmpty());
-    this->ui->labelAlerts->setText(warnings);
+    // any BitcoinCore or MasterCore alerts to display?
+    bool showAlert = false;
+    if((!global_alert_message.empty()) || (!warnings.isEmpty())) showAlert = true;
+    this->ui->labelAlerts->setVisible(showAlert);
+    string alertMessage = "MASTERCORE ALERT MESSAGE";
+    QString totalMessage;
+
+    // check if we have a Bitcoin alert to display
+    if(!warnings.isEmpty())
+    {
+        totalMessage=warnings + "\n";
+    }
+
+    // check if we have a MasterProtocol alert to display
+    if(!global_alert_message.empty())
+    {
+        totalMessage+=QString::fromStdString(alertMessage);
+    }
+
+    // display the alert if needed
+    if(showAlert) { this->ui->labelAlerts->setText(totalMessage); }
 }
 
 void OverviewPage::showOutOfSyncWarning(bool fShow)
