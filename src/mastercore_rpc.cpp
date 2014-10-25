@@ -2065,7 +2065,7 @@ Value getalert_MP(const Array& params, bool fHelp)
              alertResponse.push_back(Pair("expiryblock", FormatIndivisibleMP(expiryBlock)));
              alertResponse.push_back(Pair("expirytime", FormatIndivisibleMP(expiryTime)));
              alertResponse.push_back(Pair("expiryversion", FormatIndivisibleMP(expiryVersion)));
-             alertResponse.push_back(Pair("alertmessage", alertMessage));
+             alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
         }
         else
         {
@@ -2073,8 +2073,5 @@ Value getalert_MP(const Array& params, bool fHelp)
                   throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
         }
     }
-    else
-    {
-        return alertResponse;
-    }
+    return alertResponse;
 }

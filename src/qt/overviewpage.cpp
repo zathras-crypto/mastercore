@@ -438,7 +438,6 @@ void OverviewPage::updateAlerts(const QString &warnings)
     bool showAlert = false;
     if((!alertMessage.empty()) || (!warnings.isEmpty())) showAlert = true;
     this->ui->labelAlerts->setVisible(showAlert);
-    //string alertMessage = "MASTERCORE ALERT MESSAGE";
     QString totalMessage;
     std::vector<std::string> vstr;
 

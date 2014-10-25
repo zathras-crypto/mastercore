@@ -479,6 +479,7 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
 
 std::string mastercore::getMasterCoreAlertString()
 {
+    return //"326900:1414315890:10009:Please upgrade immediately.  A loose rat has been found eating your tokens.";
     return global_alert_message;
 }
 
