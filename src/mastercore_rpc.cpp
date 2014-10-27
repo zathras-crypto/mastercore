@@ -1048,8 +1048,8 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
   //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
   //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
-  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
+  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmount())));
+  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
   metadex_obj->push_back(Pair("action", (uint64_t) obj.getAction()));
   metadex_obj->push_back(Pair("block", obj.getBlock()));
   metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
@@ -1077,13 +1077,18 @@ Value trade_MP(const Array& params, bool fHelp) {
   std::string FromAddress = params[0].get_str();
   std::string RedeemAddress = (params.size() > 6) ? (params[6].get_str()): "";
 
-  unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
+  const unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
 
-  unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
+  const unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   
   if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
   {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be in the same ecosystem (Main/Test)");
+  }
+
+  if (propertyIdSale == propertyIdWant)
+  {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be different");
   }
 
   _my_sps->getSP(propertyIdSale, sp);
@@ -1672,8 +1677,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
                                           //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
                                           //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
-                                          mdex_amt_orig_sale = obj.getAmtOrig();
-                                          mdex_amt_des = obj.getAmtDes();
+                                          mdex_amt_orig_sale = obj.getAmount();
+                                          mdex_amt_des = obj.getAmountDesired();
                                           mdex_action = obj.getAction();
                                         }
                                     }

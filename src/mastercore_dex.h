@@ -174,22 +174,28 @@ private:
   uint256 txid;
   unsigned int idx; // index within the block
   unsigned int currency;
-  uint64_t amount_original; // the amount for sale specified when the offer was placed
+  uint64_t amount; // the amount for sale specified when the offer was placed
   unsigned int desired_currency;
-  uint64_t desired_amount_original;
+  uint64_t amount_desired;
   unsigned char subaction;
 
   string    addr;
-  bool      bSell;  // selling Property for MSC: true or false
 
 public:
   uint256 getHash() const { return txid; }
   unsigned int getCurrency() const { return currency; }
 
   unsigned int getDesCurrency() const { return desired_currency; }
-  string getAddr() const { return addr; }
-  uint64_t getAmtOrig() const { return amount_original; }
-  uint64_t getAmtDes() const { return desired_amount_original; }
+  const string & getAddr() const { return addr; }
+
+  uint64_t getAmount() const { return amount; }
+  uint64_t getAmountDesired() const { return amount_desired; }
+
+  void setAmount(int64_t ao) { amount = ao; }
+  void setAmountDesired(int64_t ad) { amount_desired = ad; }
+
+  void nullTxid() { txid = 0; }
+
   unsigned char getAction() const { return subaction; }
 
   int getBlock() const { return block; }
@@ -201,28 +207,9 @@ public:
     return pblockindex->GetBlockTime();  
   }
 
-/*
-  uint64_t* getPrice() const { 
-    uint64_t* pricedata = new uint64_t[2];
-    pricedata[0] = price_int;
-    pricedata[1] = price_frac;
-    return pricedata; 
-  }
-  uint64_t* getInversePrice() const { 
-    uint64_t* pricedata = new uint64_t[2];
-    pricedata[0] = inverse_int;
-    pricedata[1] = inverse_frac;
-    return pricedata; 
-  }
-*/
-
   CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
-//  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, uint64_t, uint64_t, uint64_t, uint64_t);
 
   void Set0(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
-
-  void Set(uint64_t, uint64_t);
-  void Set(uint64_t, uint64_t, uint64_t, uint64_t);
 
   std::string ToString() const;
 };
@@ -234,12 +221,8 @@ namespace mastercore
 typedef std::map<string, CMPOffer> OfferMap;
 typedef std::map<string, CMPAccept> AcceptMap;
 
-// typedef std::map<string, CMPMetaDEx> MetaDExMap;
-
 extern OfferMap my_offers;
 extern AcceptMap my_accepts;
-
-// extern MetaDExMap metadex;
 
 typedef std::pair < uint64_t, uint64_t > MetaDExTypePrice; // the price split up into integer & fractional part for precision
 
@@ -278,7 +261,6 @@ int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64
 int DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-int MetaDEx_Phase1(const string &addr, unsigned int property, bool bSell, const uint256 &txid, unsigned int idx);
 int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
 
