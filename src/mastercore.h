@@ -320,6 +320,8 @@ public:
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
 
+    int setLastAlert(int blockHeight);
+
     void printStats();
     void printAll();
 

@@ -1,3 +1,5 @@
+// REMEMBER TO ADD PACKET VERSION FF CHECK
+
 //
 // first & so far only Master protocol source file
 // WARNING: Work In Progress -- major refactoring will be occurring often
@@ -2232,7 +2234,6 @@ static void clear_all_state() {
   exodus_prev = 0;
 }
 
-
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
@@ -2340,6 +2341,10 @@ int mastercore_init()
   exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
+  // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
+  //  (void) setLastAlert(nWaterlineBlock);
+
+  // initial scan
   (void) msc_initial_scan(nWaterlineBlock);
 
   if (mp_fp) fflush(mp_fp);
@@ -2820,6 +2825,45 @@ const unsigned int curr = CurrencyID;
   if (mp_fp) fflush(mp_fp);
 
   return txid;
+}
+
+int CMPTxList::setLastAlert(int blockHeight)
+{
+    if (!pdb) return 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    string lastAlertTxid;
+    string lastAlertData;
+    string itData;
+    uint64_t lastAlertBlock;
+
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+       //lastAlertTxid = it->key();
+     //  itData = it->value();
+       std::vector<std::string> vstr;
+     //  boost::split(vstr, itData, boost::is_any_of(":"), token_compress_on);
+       // we expect 4 tokens
+     //  if (4 == vstr.size())
+     //  {
+     //      if (atoi(vstr[0]) == 0)
+     //      {
+     //          if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT)
+     //          {
+     //              if (atoi(vstr[1]) > lastAlertBlock)
+     //              {
+    //                   lastAlertTxid = it->key();
+    //                   lastAlertData = it->value();
+     //              }
+     //          }
+     //      }
+      // }
+    }
+    delete it;
+
+    // if lastAlertTxid is not empty, load the alert and see if it's still valid - if so, copy to global_alert_message
+//    fprintf(mp_fp, "lastAlertTxid %s\n", lastAlertTxid);
 }
 
 int CMPTxList::getNumberOfPurchases(const uint256 txid)
