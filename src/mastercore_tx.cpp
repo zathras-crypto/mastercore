@@ -85,10 +85,6 @@ int CMPTransaction::step2_Alert()
   int error_code = 0;
   char alertString[SP_STRING_FIELD_LEN];
 
-  // log, but don't include message until authorized
-  fprintf(mp_fp, "DEBUG ALERT : Alert detected from %s\n",sender.c_str());
-  printf("DEBUG ALERT : Alert detected from %s\n",sender.c_str());
-
   // is sender authorized?
   bool authorized = false;
   if (
@@ -127,9 +123,9 @@ int CMPTransaction::step2_Alert()
           uint64_t expiryTime;
           uint64_t expiryVersion;
           string alertMessage;
-          expiryBlock = atoi(vstr[0]);
-          expiryTime = atoi(vstr[1]);
-          expiryVersion = atoi(vstr[2]);
+          expiryBlock = boost::lexical_cast<uint64_t>(vstr[0]);
+          expiryTime = boost::lexical_cast<uint64_t>(vstr[1]);
+          expiryVersion = boost::lexical_cast<uint64_t>(vstr[2]);
           alertMessage = vstr[3];
           fprintf(mp_fp, "\t    expiry block: %llu\n",(unsigned long long)expiryBlock);
           fprintf(mp_fp, "\t     expiry time: %llu\n",(unsigned long long)expiryTime);
