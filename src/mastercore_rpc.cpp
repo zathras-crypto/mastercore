@@ -2058,9 +2058,9 @@ Value getalert_MP(const Array& params, bool fHelp)
         // make sure there are 4 bits
         if (4 == vstr.size())
         {
-             expiryBlock = atoi(vstr[0]);
-             expiryTime = atoi(vstr[1]);
-             expiryVersion = atoi(vstr[2]);
+             expiryBlock = boost::lexical_cast<uint64_t>(vstr[0]);
+             expiryTime = boost::lexical_cast<uint64_t>(vstr[1]);
+             expiryVersion = boost::lexical_cast<uint64_t>(vstr[2]);
              alertMessage = vstr[3];
              alertResponse.push_back(Pair("expiryblock", FormatIndivisibleMP(expiryBlock)));
              alertResponse.push_back(Pair("expirytime", FormatIndivisibleMP(expiryTime)));

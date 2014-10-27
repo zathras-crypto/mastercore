@@ -488,7 +488,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
     //expire any alerts that need expiring
     uint64_t expiryBlock;
     uint64_t expiryTime;
-
+    uint64_t expiryVersion;
     std::vector<std::string> vstr;
 
     //split the global message string if it's not empty
@@ -498,8 +498,9 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
         // make sure there are 4 bits
         if (4 == vstr.size())
         {
-             expiryBlock = atoi(vstr[0]);
-             expiryTime = atoi(vstr[1]);
+             expiryBlock = boost::lexical_cast<uint64_t>(vstr[0]);
+             expiryTime = boost::lexical_cast<uint64_t>(vstr[1]);
+             expiryVersion = boost::lexical_cast<uint64_t>(vstr[2]);
         }
         else
         {
@@ -512,7 +513,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
              return false;
  
         }
-        if ((curBlock > expiryBlock) || (curTime > expiryTime))
+        if ((curBlock > expiryBlock) || (curTime > expiryTime) || (MASTERCORE_VERSION > expiryVersion))
         {
              //the alert has expired, clear the global alert string
              fprintf(mp_fp, "DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());

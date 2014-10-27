@@ -17,8 +17,11 @@ int const MAX_STATE_HISTORY = 50;
 
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
+// define the version for alert messages
+#define MASTERCORE_VERSION 82 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
+
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
-// maximum numeric values from the spec: 
+// maximum numeric values from the spec:
 #define MAX_INT_8_BYTES (9223372036854775807UL)
 
 // what should've been in the Exodus address for this block if none were spent

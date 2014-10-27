@@ -82,7 +82,6 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
 {
   const char *p = 4 + (char *)&pkt;
   std::vector<std::string>spstr;
-  int error_code = 0;
   char alertString[SP_STRING_FIELD_LEN];
 
   // is sender authorized?
@@ -132,7 +131,8 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
           fprintf(mp_fp, "\t  expiry version: %llu\n",(unsigned long long)expiryVersion);
           fprintf(mp_fp, "\t   alert message: %s\n", alertMessage.c_str());
           // copy the alert string into the global_alert_message and return a 0 rc
-//          global_alert_messaga=alertString;
+          string message(alertString);
+          *new_global_alert_message=message;
           return 0;
       }
   }
