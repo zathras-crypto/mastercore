@@ -479,7 +479,7 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
 
 std::string mastercore::getMasterCoreAlertString()
 {
-    return //"326900:1414315890:10009:Please upgrade immediately.  A loose rat has been found eating your tokens.";
+    //return "326900:1414315890:10009:Please upgrade immediately.  A loose rat has been found eating your tokens.";
     return global_alert_message;
 }
 
@@ -3518,6 +3518,10 @@ int step_rc;
 
     case MSC_TYPE_SAVINGS_COMPROMISED:
       rc = logicMath_SavingsCompromised();
+      break;
+
+    case MASTERCORE_MESSAGE_TYPE_ALERT:
+      printf("alert packet detected\n");
       break;
 
     default:
