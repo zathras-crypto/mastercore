@@ -3544,6 +3544,9 @@ std::string new_global_alert_message;
     break;
 
     case MSC_TYPE_METADEX:
+#ifdef  MY_HACK
+      if (304500 > block) return -31337;
+#endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 

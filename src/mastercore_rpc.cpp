@@ -1048,8 +1048,8 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
   //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
   //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmtOrig())));
-  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmtDes())));
+  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmount())));
+  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
   metadex_obj->push_back(Pair("action", (uint64_t) obj.getAction()));
   metadex_obj->push_back(Pair("block", obj.getBlock()));
   metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
@@ -1077,13 +1077,18 @@ Value trade_MP(const Array& params, bool fHelp) {
   std::string FromAddress = params[0].get_str();
   std::string RedeemAddress = (params.size() > 6) ? (params[6].get_str()): "";
 
-  unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
+  const unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
 
-  unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
+  const unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   
   if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
   {
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be in the same ecosystem (Main/Test)");
+  }
+
+  if (propertyIdSale == propertyIdWant)
+  {
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be different");
   }
 
   _my_sps->getSP(propertyIdSale, sp);
@@ -1124,19 +1129,16 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() < 1)
         throw runtime_error(
-            "getorderbook_MP\n"
+            "getorderbook_MP property_id1 ( property_id2 )\n"
             "\nAllows user to request active order information from the order book\n"
             
             "\nArguments:\n"
-            "1. currency_id1            (int, required) amount owned to up on sale\n"
-            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            "1. property_id1            (int, required) amount owned to up on sale\n"
+            "2. property_id2         (int, optional) currency owned to put up on sale\n"
         );
 
   Array response;
 
-  // FIXME: gutted out due to switch to latest data container types...........
-  // TODO: fix this
-#if 0
   Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
@@ -1151,33 +1153,42 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   //for each address
   //get currency pair and total order amount at a price
 
-  for(MetaDExMap::iterator it = metadex.begin(); it != metadex.end(); ++it)
+  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
-    CMPSPInfo::Entry sp;
-    CMPMetaDEx obj = it->second;
-    //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
-    bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+        CMPMetaDEx obj = *it;
+        CMPSPInfo::Entry sp;
 
-    if ( filter  ) {
-        //clear obj before reuse
-        metadex_obj.clear();
-        
-        _my_sps->getSP(obj.getCurrency(), sp);
-        bool c_own_div = sp.isDivisible();
+        //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
+        bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
 
-        _my_sps->getSP(obj.getDesCurrency(), sp);
-        bool c_want_div = sp.isDivisible();
+        if ( filter  ) {
+            //clear obj before reuse
+            metadex_obj.clear();
+            
+            _my_sps->getSP(obj.getCurrency(), sp);
+            bool c_own_div = sp.isDivisible();
 
-        string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
+            _my_sps->getSP(obj.getDesCurrency(), sp);
+            bool c_want_div = sp.isDivisible();
 
-        // add data to obj
-        add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
+            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
 
-        //add it to response
-        response.push_back(metadex_obj);
+            // add data to obj
+            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
+
+            //add it to response
+            response.push_back(metadex_obj);
+        }
+
+      }
     }
   }
-#endif
   
   return response;
 }
@@ -1666,8 +1677,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
                                           //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
                                           //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
-                                          mdex_amt_orig_sale = obj.getAmtOrig();
-                                          mdex_amt_des = obj.getAmtDes();
+                                          mdex_amt_orig_sale = obj.getAmount();
+                                          mdex_amt_des = obj.getAmountDesired();
                                           mdex_action = obj.getAction();
                                         }
                                     }
