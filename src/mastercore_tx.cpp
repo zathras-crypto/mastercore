@@ -85,11 +85,61 @@ int CMPTransaction::step2_Alert()
   int error_code = 0;
   char alertString[SP_STRING_FIELD_LEN];
 
-  spstr.push_back(std::string(p));
-  memcpy(alertString, spstr[0].c_str(), std::min(spstr[0].length(),sizeof(alertString)-1));
-  printf("alertstring: %s\n", alertString);
+  // log, but don't include message until authorized
+  fprintf(mp_fp, "DEBUG ALERT : Alert detected from %s\n",sender.c_str());
+  printf("DEBUG ALERT : Alert detected from %s\n",sender.c_str());
 
-  return 0;
+  // is sender authorized?
+  bool authorized = false;
+  if (
+     (sender=="mMichaelsAddress") || // Michael
+     (sender=="mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64") || //Faiz
+     (sender=="mCraigAddress") || // Craig
+     (sender=="mpZATHupfCLqet5N1YL48ByCM1ZBfddbGJ") //Zathras
+     ) authorized = true;
+
+  if(!authorized)
+  {
+      // not authorized, ignore alert
+      fprintf(mp_fp, "\t      alert auth: false\n");
+      return (PKT_ERROR -912);
+  }
+  else
+  {
+      // authorized, decode and make sure there are 4 tokens, then replace global_alert_message
+      spstr.push_back(std::string(p));
+      memcpy(alertString, spstr[0].c_str(), std::min(spstr[0].length(),sizeof(alertString)-1));
+
+      std::vector<std::string> vstr;
+      boost::split(vstr, alertString, boost::is_any_of(":"), token_compress_on);
+      fprintf(mp_fp, "\t      alert auth: true\n");
+      fprintf(mp_fp, "\t    alert sender: %s\n", sender.c_str());
+
+      if (4 != vstr.size())
+      {
+          // there are not 4 tokens in the alert, badly formed alert and must discard
+          fprintf(mp_fp, "\t    packet error: badly formed alert != 4 tokens\n");
+          return (PKT_ERROR -911);
+      }
+      else
+      {
+          uint64_t expiryBlock;
+          uint64_t expiryTime;
+          uint64_t expiryVersion;
+          string alertMessage;
+          expiryBlock = atoi(vstr[0]);
+          expiryTime = atoi(vstr[1]);
+          expiryVersion = atoi(vstr[2]);
+          alertMessage = vstr[3];
+          fprintf(mp_fp, "\t    expiry block: %llu\n",(unsigned long long)expiryBlock);
+          fprintf(mp_fp, "\t     expiry time: %llu\n",(unsigned long long)expiryTime);
+          fprintf(mp_fp, "\t  expiry version: %llu\n",(unsigned long long)expiryVersion);
+          fprintf(mp_fp, "\t   alert message: %s\n", alertMessage.c_str());
+          // copy the alert string into the global_alert_message and return a 0 rc
+//          global_alert_messaga=alertString;
+          return 0;
+      }
+  }
 }
 
 // extract Value for certain types of packets
