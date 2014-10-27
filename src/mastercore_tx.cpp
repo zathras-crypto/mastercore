@@ -77,6 +77,21 @@ int CMPTransaction::step1()
   return (type);
 }
 
+// extract alert info for alert packets
+int CMPTransaction::step2_Alert()
+{
+  const char *p = 11 + (char *)&pkt;
+  std::vector<std::string>spstr;
+  int error_code = 0;
+  char alertString[SP_STRING_FIELD_LEN];
+
+  spstr.push_back(std::string(p));
+  memcpy(alertString, spstr[0].c_str(), std::min(spstr[0].length(),sizeof(alertString)-1));
+  printf("alertstring: %s\n", alertString);
+
+  return 0;
+}
+
 // extract Value for certain types of packets
 int CMPTransaction::step2_Value()
 {
