@@ -78,7 +78,7 @@ int CMPTransaction::step1()
 }
 
 // extract alert info for alert packets
-int CMPTransaction::step2_Alert()
+int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
 {
   const char *p = 4 + (char *)&pkt;
   std::vector<std::string>spstr;

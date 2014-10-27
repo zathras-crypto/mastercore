@@ -3270,6 +3270,7 @@ int CMPTransaction::interpretPacket(CMPOffer *obj_o)
 {
 int rc = PKT_ERROR;
 int step_rc;
+std::string new_global_alert_message;
 
   if (0>step1()) return -98765;
 
@@ -3521,7 +3522,9 @@ int step_rc;
       break;
 
     case MASTERCORE_MESSAGE_TYPE_ALERT:
-      rc = step2_Alert();
+      rc = step2_Alert(&new_global_alert_message);
+      if (rc == 0) global_alert_message = new_global_alert_message;
+      // end of block handler will expire any old alerts
       break;
 
     default:

@@ -124,7 +124,7 @@ public:
 
  int interpretPacket(CMPOffer *obj_o = NULL);
  int step1(void);
- int step2_Alert(void);
+ int step2_Alert(std::string *new_global_alert_message);
  int step2_Value(void);
  bool isOverrun(const char *p, unsigned int line);
  const char *step2_SmartProperty(int &error_code);
