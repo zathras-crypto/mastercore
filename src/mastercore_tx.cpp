@@ -80,7 +80,7 @@ int CMPTransaction::step1()
 // extract alert info for alert packets
 int CMPTransaction::step2_Alert()
 {
-  const char *p = 11 + (char *)&pkt;
+  const char *p = 4 + (char *)&pkt;
   std::vector<std::string>spstr;
   int error_code = 0;
   char alertString[SP_STRING_FIELD_LEN];
