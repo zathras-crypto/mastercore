@@ -3521,9 +3521,7 @@ int step_rc;
       break;
 
     case MASTERCORE_MESSAGE_TYPE_ALERT:
-      printf("alert packet detected\n");
-      step_rc = step2_Alert();
-      if (0>step_rc) return step_rc;
+      rc = step2_Alert();
       break;
 
     default:
