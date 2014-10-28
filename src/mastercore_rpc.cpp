@@ -716,7 +716,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     int64_t tokensIssued = getTotalTokens(propertyId);
     int64_t missedTokens = sp.missedTokens;
     int64_t tokensPerUnit = sp.num_tokens;
-    int64_t propertyIdDesired = sp.currency_desired;
+    int64_t propertyIdDesired = sp.property_desired;
     std::map<std::string, std::vector<uint64_t> > database;
 
     if (active)
@@ -895,7 +895,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               uint8_t percentToIssuer = sp.percentage;
               string issuer = sp.issuer;
               int64_t tokensPerUnit = sp.num_tokens;
-              int64_t propertyIdDesired = sp.currency_desired;
+              int64_t propertyIdDesired = sp.property_desired;
 
               responseObj.push_back(Pair("propertyid", propertyId));
               responseObj.push_back(Pair("name", propertyName));
@@ -1037,10 +1037,10 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
   metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
   metadex_obj->push_back(Pair("ecosystem", eco ));
-  metadex_obj->push_back(Pair("currency_owned", (uint64_t) obj.getCurrency()));
-  metadex_obj->push_back(Pair("currency_desired", (uint64_t) obj.getDesCurrency()));
-  metadex_obj->push_back(Pair("currency_owned_divisible", c_own_div));
-  metadex_obj->push_back(Pair("currency_desired_divisible", c_want_div));
+  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getCurrency()));
+  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesCurrency()));
+  metadex_obj->push_back(Pair("property_owned_divisible", c_own_div));
+  metadex_obj->push_back(Pair("property_desired_divisible", c_want_div));
 
   //uint64_t *price = obj.getPrice();
   //uint64_t *invprice = obj.getInversePrice();
@@ -1065,9 +1065,9 @@ Value trade_MP(const Array& params, bool fHelp) {
             "\nArguments:\n"
             "1. address           (string, required) address that is making the sale\n"
             "2. amount            (string, required) amount owned to put up on sale\n"
-            "3. currency_id1      (int, required) currency owned to put up on sale\n"
+            "3. property_id1      (int, required) property owned to put up on sale\n"
             "4. amount            (string, required) amount wanted/willing to purchase\n"
-            "5. currency_id2      (int, required) currency wanted/willing to purchase\n"
+            "5. property_id2      (int, required) property wanted/willing to purchase\n"
             "6. action            (int, required) decision to either start a new (1), update(2), or cancel(3) an offer\n"
             "7. RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
         );
@@ -1134,7 +1134,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
             
             "\nArguments:\n"
             "1. property_id1            (int, required) amount owned to up on sale\n"
-            "2. property_id2         (int, optional) currency owned to put up on sale\n"
+            "2. property_id2         (int, optional) property owned to put up on sale\n"
         );
 
   Array response;
@@ -1151,7 +1151,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   }
 
   //for each address
-  //get currency pair and total order amount at a price
+  //get property pair and total order amount at a price
 
   for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1202,8 +1202,8 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
             
             "\nArguments:\n"
             "1. timestamp               (int, optional, default=[" + strprintf("%s",GetLatestBlockTime() - 1209600) + "]) starting from the timestamp, orders to show"
-            "2. currency_id1            (int, optional) filter orders by currency_id1 on either side of the trade \n"
-            "3. currency_id2            (int, optional) filter orders by currency_id1 and currency_id2\n"
+            "2. property_id1            (int, optional) filter orders by property_id1 on either side of the trade \n"
+            "3. property_id2            (int, optional) filter orders by property_id1 and property_id2\n"
         );
 
   Array response;
@@ -1273,8 +1273,8 @@ Value getopenorders_MP(const Array& params, bool fHelp) {
             "\nAllows user to request active order information from the order book\n"
             
             "\nArguments:\n"
-            "1. currency_id1            (int, required) amount owned to up on sale\n"
-            "2. currency_id2         (int, optional) currency owned to put up on sale\n"
+            "1. property_id1            (int, required) amount owned to up on sale\n"
+            "2. property_id2         (int, optional) property owned to put up on sale\n"
             
             "\nResult:\n"
             "[                (array of string)\n"
@@ -1298,7 +1298,7 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
             "\nArguments:\n"
             "1. address          (string, required) address to query history on\n"
             "2. number            (int, optional ) number of trades to retreive\n"
-            "3. currency_id         (int, optional) filter by currencyid on one side\n"
+            "3. property_id         (int, optional) filter by propertyid on one side\n"
         );
   
   Array response;
@@ -1867,10 +1867,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         }
         if (mdex)
         {
-            txobj->push_back(Pair("currency_owned", propertyId));
-            txobj->push_back(Pair("currency_owned_divisible", mdex_propertyId_Div));
-            txobj->push_back(Pair("currency_desired", mdex_propertyWanted));
-            txobj->push_back(Pair("currency_desired_divisible", mdex_propertyWanted_Div));
+            txobj->push_back(Pair("property_owned", propertyId));
+            txobj->push_back(Pair("property_owned_divisible", mdex_propertyId_Div));
+            txobj->push_back(Pair("property_desired", mdex_propertyWanted));
+            txobj->push_back(Pair("property_desired_divisible", mdex_propertyWanted_Div));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
