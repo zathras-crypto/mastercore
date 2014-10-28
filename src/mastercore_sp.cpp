@@ -45,7 +45,7 @@ using namespace mastercore;
 unsigned int CMPSPInfo::updateSP(unsigned int propertyID, Entry const &info)
 {
     // cannot update implied SP
-    if (MASTERCOIN_CURRENCY_MSC == propertyID || MASTERCOIN_CURRENCY_TMSC == propertyID) {
+    if (MASTERCOIN_PROPERTY_MSC == propertyID || MASTERCOIN_PROPERTY_TMSC == propertyID) {
       return propertyID;
     }
 
@@ -83,10 +83,10 @@ unsigned int CMPSPInfo::putSP(unsigned char ecosystem, Entry const &info)
     std::string nextIdStr;
     unsigned int res = 0;
     switch(ecosystem) {
-    case MASTERCOIN_CURRENCY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+    case MASTERCOIN_PROPERTY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
       res = next_spid++;
       break;
-    case MASTERCOIN_CURRENCY_TMSC: // Test MSC ecosystem, same as above with high bit set
+    case MASTERCOIN_PROPERTY_TMSC: // Test MSC ecosystem, same as above with high bit set
       res = next_test_spid++;
       break;
     default: // non standard ecosystem, ID's start at 0
@@ -127,10 +127,10 @@ unsigned int CMPSPInfo::putSP(unsigned char ecosystem, Entry const &info)
 bool CMPSPInfo::getSP(unsigned int spid, Entry &info)
 {
     // special cases for constant SPs MSC and TMSC
-    if (MASTERCOIN_CURRENCY_MSC == spid) {
+    if (MASTERCOIN_PROPERTY_MSC == spid) {
       info = implied_msc;
       return true;
-    } else if (MASTERCOIN_CURRENCY_TMSC == spid) {
+    } else if (MASTERCOIN_PROPERTY_TMSC == spid) {
       info = implied_tmsc;
       return true;
     }
@@ -159,7 +159,7 @@ bool CMPSPInfo::getSP(unsigned int spid, Entry &info)
 bool CMPSPInfo::hasSP(unsigned int spid)
 {
     // special cases for constant SPs MSC and TMSC
-    if (MASTERCOIN_CURRENCY_MSC == spid || MASTERCOIN_CURRENCY_TMSC == spid) {
+    if (MASTERCOIN_PROPERTY_MSC == spid || MASTERCOIN_PROPERTY_TMSC == spid) {
       return true;
     }
 

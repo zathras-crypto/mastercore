@@ -86,12 +86,12 @@ int CMPTransaction::step2_Value()
   // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
   nNewValue = nValue;
 
-  memcpy(&currency, &pkt[4], 4);
-  swapByteOrder32(currency);
+  memcpy(&property, &pkt[4], 4);
+  swapByteOrder32(property);
 
-  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
+  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPCurrency(property).c_str());
 //  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
-  fprintf(mp_fp, "\t           value: %s\n", FormatMP(currency, nValue).c_str());
+  fprintf(mp_fp, "\t           value: %s\n", FormatMP(property, nValue).c_str());
 
   if (MAX_INT_8_BYTES < nValue)
   {
@@ -128,7 +128,7 @@ unsigned int prop_id;
   fprintf(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
 
   // valid values are 1 & 2
-  if ((MASTERCOIN_CURRENCY_MSC != ecosystem) && (MASTERCOIN_CURRENCY_TMSC != ecosystem))
+  if ((MASTERCOIN_PROPERTY_MSC != ecosystem) && (MASTERCOIN_PROPERTY_TMSC != ecosystem))
   {
     error_code = (PKT_ERROR_SP -501);
     return NULL;
@@ -234,11 +234,11 @@ int CMPTransaction::step3_sp_variable(const char *p)
 {
   if (!p) return (PKT_ERROR_SP -1);
 
-  memcpy(&currency, p, 4);  // currency desired
-  swapByteOrder32(currency);
+  memcpy(&property, p, 4);  // property desired
+  swapByteOrder32(property);
   p += 4;
 
-  fprintf(mp_fp, "\t        currency: %u (%s)\n", currency, strMPCurrency(currency).c_str());
+  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPCurrency(property).c_str());
 
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
@@ -298,14 +298,14 @@ uint64_t amount_desired, min_fee;
 unsigned char blocktimelimit, subaction = 0;
 static const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
-      if ((MASTERCOIN_CURRENCY_TMSC != currency) && (MASTERCOIN_CURRENCY_MSC != currency))
+      if ((MASTERCOIN_PROPERTY_TMSC != property) && (MASTERCOIN_PROPERTY_MSC != property))
       {
         fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
         return PKT_ERROR_TRADEOFFER -72;
       }
 
       // block height checks, for instance DEX is only available on MSC starting with block 290630
-      if (!isTransactionTypeAllowed(block, currency, type, version)) return -88888;
+      if (!isTransactionTypeAllowed(block, property, type, version)) return -88888;
 
       memcpy(&amount_desired, &pkt[16], 8);
       memcpy(&blocktimelimit, &pkt[24], 1);
@@ -332,21 +332,21 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
         case MP_TX_PKT_V0:
           if (0 != nValue)
           {
-            if (!DEx_offerExists(sender, currency))
+            if (!DEx_offerExists(sender, property))
             {
-              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
+              rc = DEx_offerCreate(sender, property, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
             }
             else
             {
-              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
+              rc = DEx_offerUpdate(sender, property, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
             }
           }
           else
           // what happens if nValue is 0 for V0 ?  ANSWER: check if exists and it does -- cancel, otherwise invalid
           {
-            if (DEx_offerExists(sender, currency))
+            if (DEx_offerExists(sender, property))
             {
-              rc = DEx_offerDestroy(sender, currency);
+              rc = DEx_offerDestroy(sender, property);
             }
           }
 
@@ -354,7 +354,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
 
         case MP_TX_PKT_V1:
         {
-          if (DEx_offerExists(sender, currency))
+          if (DEx_offerExists(sender, property))
           {
             if ((CANCEL != subaction) && (UPDATE != subaction))
             {
@@ -377,15 +377,15 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
           switch (subaction)
           {
             case NEW:
-              rc = DEx_offerCreate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
+              rc = DEx_offerCreate(sender, property, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
               break;
 
             case UPDATE:
-              rc = DEx_offerUpdate(sender, currency, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
+              rc = DEx_offerUpdate(sender, property, nValue, block, amount_desired, min_fee, blocktimelimit, txid, &nNewValue);
               break;
 
             case CANCEL:
-              rc = DEx_offerDestroy(sender, currency);
+              rc = DEx_offerDestroy(sender, property);
               break;
 
             default:
@@ -409,7 +409,7 @@ int CMPTransaction::logicMath_AcceptOffer_BTC()
 int rc = DEX_ERROR_ACCEPT;
 
     // the min fee spec requirement is checked in the following function
-    rc = DEx_acceptCreate(sender, receiver, currency, nValue, block, tx_fee_paid, &nNewValue);
+    rc = DEx_acceptCreate(sender, receiver, property, nValue, block, tx_fee_paid, &nNewValue);
 
     return rc;
 }
@@ -419,41 +419,39 @@ int CMPTransaction::logicMath_MetaDEx()
   int rc = PKT_ERROR_METADEX -100;
   unsigned char action = 0;
 
-    if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_METADEX -888);
+    if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_METADEX -888);
 
-    memcpy(&desired_currency, &pkt[16], 4);
-    swapByteOrder32(desired_currency);
+    memcpy(&desired_property, &pkt[16], 4);
+    swapByteOrder32(desired_property);
 
     memcpy(&desired_value, &pkt[20], 8);
     swapByteOrder64(desired_value);
 
-    fprintf(mp_fp, "\tdesired currency: %u (%s)\n", desired_currency, strMPCurrency(desired_currency).c_str());
+    fprintf(mp_fp, "\tdesired property: %u (%s)\n", desired_property, strMPCurrency(desired_property).c_str());
     fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
 
     memcpy(&action, &pkt[28], 1);
 
     fprintf(mp_fp, "\t          action: %u\n", action);
 
-    nNewValue = getMPbalance(sender, currency, MONEY);
+    nNewValue = getMPbalance(sender, property, MONEY);
 
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
     if (nNewValue > nValue) nNewValue = nValue;
 
-//    CMPMetaDEx *p_metadex = getMetaDEx(sender, currency);
-
     // do checks that are not applicable for the Cancel action
     if (CANCEL != action)
     {
-      if (!isTransactionTypeAllowed(block, desired_currency, type, version)) return (PKT_ERROR_METADEX -889);
+      if (!isTransactionTypeAllowed(block, desired_property, type, version)) return (PKT_ERROR_METADEX -889);
 
-      // ensure we are not trading same currency for itself
-      if (currency == desired_currency) return (PKT_ERROR_METADEX -5);
+      // ensure we are not trading same property for itself
+      if (property == desired_property) return (PKT_ERROR_METADEX -5);
 
       // ensure no cross-over of currencies from Test Eco to normal
-      if (isTestEcosystemProperty(currency) != isTestEcosystemProperty(desired_currency)) return (PKT_ERROR_METADEX -4);
+      if (isTestEcosystemProperty(property) != isTestEcosystemProperty(desired_property)) return (PKT_ERROR_METADEX -4);
 
-      // ensure the desired currency exists in our universe
-      if (!_my_sps->hasSP(desired_currency)) return (PKT_ERROR_METADEX -30);
+      // ensure the desired property exists in our universe
+      if (!_my_sps->hasSP(desired_property)) return (PKT_ERROR_METADEX -30);
 
       if (!nValue) return (PKT_ERROR_METADEX -11);
       if (!desired_value) return (PKT_ERROR_METADEX -12);
@@ -476,7 +474,7 @@ int CMPTransaction::logicMath_MetaDEx()
 
         // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
 
-        rc = MetaDEx_Create(sender, currency, nNewValue, block, desired_currency, desired_value, txid, tx_idx);
+        rc = MetaDEx_Create(sender, property, nNewValue, block, desired_property, desired_value, txid, tx_idx);
 
         // ...
 
@@ -486,7 +484,7 @@ int CMPTransaction::logicMath_MetaDEx()
         // FIXME: p_metadex no longer applicable here......... implement SUBTRACT per https://github.com/mastercoin-MSC/spec/issues/270
 //        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
 
-        rc = MetaDEx_Destroy(sender, currency);
+        rc = MetaDEx_Destroy(sender, property);
 
         break;
 
@@ -500,7 +498,7 @@ int CMPTransaction::logicMath_GrantTokens()
 {
     int rc = PKT_ERROR_TOKENS - 1000;
 
-    if (!isTransactionTypeAllowed(block, currency, type, version)) {
+    if (!isTransactionTypeAllowed(block, property, type, version)) {
       fprintf(mp_fp, "\tRejecting Grant: Transaction type not yet allowed\n");
       return (PKT_ERROR_TOKENS - 22);
     }
@@ -511,23 +509,23 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // manual issuance check
-    if (false == _my_sps->hasSP(currency)) {
-      fprintf(mp_fp, "\tRejecting Grant: SP id:%d does not exist\n", currency);
+    if (false == _my_sps->hasSP(property)) {
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d does not exist\n", property);
       return (PKT_ERROR_TOKENS - 24);
     }
 
     CMPSPInfo::Entry sp;
-    _my_sps->getSP(currency, sp);
+    _my_sps->getSP(property, sp);
 
     if (false == sp.manual) {
-      fprintf(mp_fp, "\tRejecting Grant: SP id:%d was not issued with a TX 54\n", currency);
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%d was not issued with a TX 54\n", property);
       return (PKT_ERROR_TOKENS - 25);
     }
 
 
     // issuer check
     if (false == boost::iequals(sender, sp.issuer)) {
-      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id:%d\n", sender.c_str(), property);
       return (PKT_ERROR_TOKENS - 26);
     }
 
@@ -539,12 +537,12 @@ int CMPTransaction::logicMath_GrantTokens()
       } else {
         snprintf(prettyTokens, 256, "%lu", nValue);
       }
-      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%d would overflow the maximum limit for tokens in a smart property\n", prettyTokens, currency);
+      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%d would overflow the maximum limit for tokens in a smart property\n", prettyTokens, property);
       return (PKT_ERROR_TOKENS - 27);
     }
 
     // grant the tokens
-    update_tally_map(sender, currency, nValue, MONEY);
+    update_tally_map(sender, property, nValue, MONEY);
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -556,7 +554,7 @@ int CMPTransaction::logicMath_GrantTokens()
     string txidStr = txid.ToString();
     sp.historicalData.insert(std::make_pair(txidStr, dataPt));
     sp.update_block = chainActive[block]->GetBlockHash();
-    _my_sps->updateSP(currency, sp);
+    _my_sps->updateSP(property, sp);
 
     return rc;
 }
@@ -565,7 +563,7 @@ int CMPTransaction::logicMath_RevokeTokens()
 {
     int rc = PKT_ERROR_TOKENS - 1000;
 
-    if (!isTransactionTypeAllowed(block, currency, type, version)) {
+    if (!isTransactionTypeAllowed(block, property, type, version)) {
       fprintf(mp_fp, "\tRejecting Revoke: Transaction type not yet allowed\n");
       return (PKT_ERROR_TOKENS - 22);
     }
@@ -576,21 +574,21 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // manual issuance check
-    if (false == _my_sps->hasSP(currency)) {
-      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d does not exist\n", currency);
+    if (false == _my_sps->hasSP(property)) {
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d does not exist\n", property);
       return (PKT_ERROR_TOKENS - 24);
     }
 
     CMPSPInfo::Entry sp;
-    _my_sps->getSP(currency, sp);
+    _my_sps->getSP(property, sp);
 
     if (false == sp.manual) {
-      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", currency);
+      fprintf(mp_fp, "\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", property);
       return (PKT_ERROR_TOKENS - 25);
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, currency, -nValue, MONEY)) {
+    if (false == update_tally_map(sender, property, -nValue, MONEY)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }
@@ -602,7 +600,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     string txidStr = txid.ToString();
     sp.historicalData.insert(std::make_pair(txidStr, dataPt));
     sp.update_block = chainActive[block]->GetBlockHash();
-    _my_sps->updateSP(currency, sp);
+    _my_sps->updateSP(property, sp);
 
     rc = 0;
     return rc;
@@ -612,7 +610,7 @@ int CMPTransaction::logicMath_ChangeIssuer()
 {
   int rc = PKT_ERROR_TOKENS - 1000;
 
-  if (!isTransactionTypeAllowed(block, currency, type, version)) {
+  if (!isTransactionTypeAllowed(block, property, type, version)) {
     fprintf(mp_fp, "\tRejecting Change of Issuer: Transaction type not yet allowed\n");
     return (PKT_ERROR_TOKENS - 22);
   }
@@ -627,24 +625,24 @@ int CMPTransaction::logicMath_ChangeIssuer()
     return (PKT_ERROR_TOKENS - 23);
   }
 
-  if (false == _my_sps->hasSP(currency)) {
-    fprintf(mp_fp, "\tRejecting Change of Issuer: SP id:%d does not exist\n", currency);
+  if (false == _my_sps->hasSP(property)) {
+    fprintf(mp_fp, "\tRejecting Change of Issuer: SP id:%d does not exist\n", property);
     return (PKT_ERROR_TOKENS - 24);
   }
 
   CMPSPInfo::Entry sp;
-  _my_sps->getSP(currency, sp);
+  _my_sps->getSP(property, sp);
 
   // issuer check
   if (false == boost::iequals(sender, sp.issuer)) {
-    fprintf(mp_fp, "\tRejecting Change of Issuer: %s is not the issuer of SP id:%d\n", sender.c_str(), currency);
+    fprintf(mp_fp, "\tRejecting Change of Issuer: %s is not the issuer of SP id:%d\n", sender.c_str(), property);
     return (PKT_ERROR_TOKENS - 26);
   }
 
   // record this change of issuer
   sp.issuer = receiver;
   sp.update_block = chainActive[block]->GetBlockHash();
-  _my_sps->updateSP(currency, sp);
+  _my_sps->updateSP(property, sp);
 
   rc = 0;
   return rc;
@@ -676,7 +674,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_RATELIMITED_MARK: return ((char *)"Rate-Limiting");
     case MSC_TYPE_AUTOMATIC_DISPENSARY: return ((char *)"Automatic Dispensary");
     case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
-    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Coins for another");
+    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Tokens for another");
     case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");

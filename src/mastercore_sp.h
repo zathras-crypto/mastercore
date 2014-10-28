@@ -19,7 +19,7 @@ public:
     uint64_t num_tokens;
 
     // Crowdsale generated SP
-    unsigned int currency_desired;
+    unsigned int property_desired;
     uint64_t deadline;
     unsigned char early_bird;
     unsigned char percentage;
@@ -52,7 +52,7 @@ public:
     , url()
     , data()
     , num_tokens(0)
-    , currency_desired(0)
+    , property_desired(0)
     , deadline(0)
     , early_bird(0)
     , percentage(0)
@@ -86,7 +86,7 @@ public:
 
       spInfo.push_back(Pair("num_tokens", (boost::format("%d") % num_tokens).str()));
       if (false == fixed && false == manual) {
-        spInfo.push_back(Pair("currency_desired", (uint64_t)currency_desired));
+        spInfo.push_back(Pair("property_desired", (uint64_t)property_desired));
         spInfo.push_back(Pair("deadline", (boost::format("%d") % deadline).str()));
         spInfo.push_back(Pair("early_bird", (int)early_bird));
         spInfo.push_back(Pair("percentage", (int)percentage));
@@ -147,7 +147,7 @@ public:
 
       num_tokens = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
       if (false == fixed && false == manual) {
-        currency_desired = (unsigned int)json[idx++].value_.get_uint64();
+        property_desired = (unsigned int)json[idx++].value_.get_uint64();
         deadline = boost::lexical_cast<uint64_t>(json[idx++].value_.get_str());
         early_bird = (unsigned char)json[idx++].value_.get_int();
         percentage = (unsigned char)json[idx++].value_.get_int();
@@ -306,10 +306,10 @@ public:
     unsigned int nextId = 0;
 
     switch(ecosystem) {
-    case MASTERCOIN_CURRENCY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+    case MASTERCOIN_PROPERTY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
       nextId = next_spid;
       break;
-    case MASTERCOIN_CURRENCY_TMSC: // Test MSC ecosystem, same as above with high bit set
+    case MASTERCOIN_PROPERTY_TMSC: // Test MSC ecosystem, same as above with high bit set
       nextId = next_test_spid;
       break;
     default: // non standard ecosystem, ID's start at 0
@@ -356,7 +356,7 @@ public:
   void printAll()
   {
     // print off the hard coded MSC and TMSC entries
-    for (unsigned int idx = MASTERCOIN_CURRENCY_MSC; idx <= MASTERCOIN_CURRENCY_TMSC; idx++ ) {
+    for (unsigned int idx = MASTERCOIN_PROPERTY_MSC; idx <= MASTERCOIN_PROPERTY_TMSC; idx++ ) {
       Entry info;
       printf("%10d => ", idx);
       if (getSP(idx, info)) {
@@ -402,7 +402,7 @@ private:
 
   uint64_t nValue;
 
-  unsigned int currency_desired;
+  unsigned int property_desired;
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
@@ -414,19 +414,19 @@ private:
 
   std::map<std::string, std::vector<uint64_t> > txFundraiserData;  // schema is 'txid:amtSent:deadlineUnix:userIssuedTokens:IssuerIssuedTokens;'
 public:
-  CMPCrowd():propertyId(0),nValue(0),currency_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
+  CMPCrowd():propertyId(0),nValue(0),property_desired(0),deadline(0),early_bird(0),percentage(0),u_created(0),i_created(0)
   {
   }
 
   CMPCrowd(unsigned int pid, uint64_t nv, unsigned int cd, uint64_t dl, unsigned char eb, unsigned char per, uint64_t uct, uint64_t ict):
-   propertyId(pid),nValue(nv),currency_desired(cd),deadline(dl),early_bird(eb),percentage(per),u_created(uct),i_created(ict)
+   propertyId(pid),nValue(nv),property_desired(cd),deadline(dl),early_bird(eb),percentage(per),u_created(uct),i_created(ict)
   {
   }
 
   unsigned int getPropertyId() const { return propertyId; }
 
   uint64_t getDeadline() const { return deadline; }
-  uint64_t getCurrDes() const { return currency_desired; }
+  uint64_t getCurrDes() const { return property_desired; }
 
   void incTokensUserCreated(uint64_t amount) { u_created += amount; }
   void incTokensIssuerCreated(uint64_t amount) { i_created += amount; }
@@ -440,18 +440,18 @@ public:
   void print(const string & address, FILE *fp = stdout) const
   {
     fprintf(fp, "%34s : id=%u=%X; curr=%u, value= %lu, deadline: %s (%lX)\n", address.c_str(), propertyId, propertyId,
-     currency_desired, nValue, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
+     property_desired, nValue, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline).c_str(), deadline);
   }
 
   void saveCrowdSale(ofstream &file, SHA256_CTX *shaCtx, string const &addr) const
   {
     // compose the outputline
-    // addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,created,mined
+    // addr,propertyId,nValue,property_desired,deadline,early_bird,percentage,created,mined
     string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%d")
       % addr
       % propertyId
       % nValue
-      % currency_desired
+      % property_desired
       % deadline
       % (int)early_bird
       % (int)percentage

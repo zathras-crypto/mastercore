@@ -122,9 +122,9 @@ enum FILETYPES {
 #define METADEX_ERROR         (-81000)
 #define PKT_ERROR_TOKENS      (-82000)
 
-#define MASTERCOIN_CURRENCY_BTC   0
-#define MASTERCOIN_CURRENCY_MSC   1
-#define MASTERCOIN_CURRENCY_TMSC  2
+#define MASTERCOIN_PROPERTY_BTC   0
+#define MASTERCOIN_PROPERTY_MSC   1
+#define MASTERCOIN_PROPERTY_TMSC  2
 
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
@@ -154,9 +154,9 @@ typedef struct
   TokenMap mp_token;
   TokenMap::iterator my_it;
 
-  bool propertyExists(unsigned int which_currency) const
+  bool propertyExists(unsigned int which_property) const
   {
-  const TokenMap::const_iterator it = mp_token.find(which_currency);
+  const TokenMap::const_iterator it = mp_token.find(which_property);
 
     return (it != mp_token.end());
   }
@@ -186,7 +186,7 @@ public:
     return ret;
   }
 
-  bool updateMoney(unsigned int which_currency, int64_t amount, TallyType ttype)
+  bool updateMoney(unsigned int which_property, int64_t amount, TallyType ttype)
   {
   bool bRet = false;
   int64_t now64;
@@ -195,7 +195,7 @@ public:
 
     LOCK(cs_tally);
 
-    now64 = mp_token[which_currency].balance[ttype];
+    now64 = mp_token[which_property].balance[ttype];
 
     if ((PENDING != ttype) && (0>(now64 + amount)))
     {
@@ -203,7 +203,7 @@ public:
     else
     {
       now64 += amount;
-      mp_token[which_currency].balance[ttype] = now64;
+      mp_token[which_property].balance[ttype] = now64;
 
       bRet = true;
     }
@@ -217,19 +217,19 @@ public:
     my_it = mp_token.begin();
   }
 
-  int64_t print(int which_currency = MASTERCOIN_CURRENCY_MSC, bool bDivisible = true)
+  int64_t print(int which_property = MASTERCOIN_PROPERTY_MSC, bool bDivisible = true)
   {
   int64_t money = 0;
   int64_t so_r = 0;
   int64_t a_r = 0;
   int64_t pending = 0;
 
-    if (propertyExists(which_currency))
+    if (propertyExists(which_property))
     {
-      money = mp_token[which_currency].balance[MONEY];
-      so_r = mp_token[which_currency].balance[SELLOFFER_RESERVE];
-      a_r = mp_token[which_currency].balance[ACCEPT_RESERVE];
-      pending = mp_token[which_currency].balance[PENDING];
+      money = mp_token[which_property].balance[MONEY];
+      so_r = mp_token[which_property].balance[SELLOFFER_RESERVE];
+      a_r = mp_token[which_property].balance[ACCEPT_RESERVE];
+      pending = mp_token[which_property].balance[PENDING];
     }
 
     if (bDivisible)
@@ -245,7 +245,7 @@ public:
     return (money + so_r + a_r);
   }
 
-  int64_t getMoney(unsigned int which_currency, TallyType ttype)
+  int64_t getMoney(unsigned int which_property, TallyType ttype)
   {
   int64_t ret64 = 0;
 
@@ -253,7 +253,7 @@ public:
 
     LOCK(cs_tally);
 
-    if (propertyExists(which_currency)) ret64 = mp_token[which_currency].balance[ttype];
+    if (propertyExists(which_property)) ret64 = mp_token[which_property].balance[ttype];
 
     return ret64;
   }
@@ -347,8 +347,8 @@ extern uint64_t global_balance_reserved_testeco[100000];
 
 int mastercore_init(void);
 
-int64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype);
-int64_t getUserAvailableMPbalance(const string &Address, unsigned int currency);
+int64_t getMPbalance(const string &Address, unsigned int property, TallyType ttype);
+int64_t getUserAvailableMPbalance(const string &Address, unsigned int property);
 bool IsMyAddress(const std::string &address);
 
 string getLabel(const string &address);
@@ -404,7 +404,7 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int
 
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 
-bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
+bool update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype);
 }
 
 #endif

@@ -107,7 +107,7 @@ int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 1;
 int msc_debug_send  = 1;
-int msc_debug_coins = 0;
+int msc_debug_tokens= 0;
 int msc_debug_spec  = 1;
 int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
@@ -332,9 +332,9 @@ string str = "*unknown*";
   else
   switch (i)
   {
-    case MASTERCOIN_CURRENCY_BTC: str = "BTC"; break;
-    case MASTERCOIN_CURRENCY_MSC: str = "MSC"; break;
-    case MASTERCOIN_CURRENCY_TMSC: str = "TMSC"; break;
+    case MASTERCOIN_PROPERTY_BTC: str = "BTC"; break;
+    case MASTERCOIN_PROPERTY_MSC: str = "MSC"; break;
+    case MASTERCOIN_PROPERTY_TMSC: str = "TMSC"; break;
     default: str = strprintf("SP token: %d", i);
   }
 
@@ -507,7 +507,7 @@ CMPTally *mastercore::getTally(const string & address)
 }
 
 // look at balance for an address
-int64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
+int64_t getMPbalance(const string &Address, unsigned int property, TallyType ttype)
 {
 uint64_t balance = 0;
 
@@ -519,16 +519,16 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
 
   if (my_it != mp_tally_map.end())
   {
-    balance = (my_it->second).getMoney(currency, ttype);
+    balance = (my_it->second).getMoney(property, ttype);
   }
 
   return balance;
 }
 
-int64_t getUserAvailableMPbalance(const string &Address, unsigned int currency)
+int64_t getUserAvailableMPbalance(const string &Address, unsigned int property)
 {
-int64_t money = getMPbalance(Address, currency, MONEY);
-int64_t pending = getMPbalance(Address, currency, PENDING);
+int64_t money = getMPbalance(Address, property, MONEY);
+int64_t pending = getMPbalance(Address, property, PENDING);
 
   if (0 > pending)
   {
@@ -567,7 +567,7 @@ bool isMultiplicationOK(const uint64_t a, const uint64_t b)
 
 bool mastercore::isTestEcosystemProperty(unsigned int property)
 {
-  if ((MASTERCOIN_CURRENCY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
+  if ((MASTERCOIN_PROPERTY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
 
   return false;
 }
@@ -614,20 +614,20 @@ int64_t prev = 0, owners = 0;
 }
 
 // return true if everything is ok
-bool mastercore::update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype)
+bool mastercore::update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype)
 {
 bool bRet = false;
 uint64_t before, after;
 
   if (0 == amount)
   {
-    fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) 0 FUNDS !\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
+    fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) 0 FUNDS !\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
     return false;
   }
 
   LOCK(cs_tally);
 
-  before = getMPbalance(who, which_currency, ttype);
+  before = getMPbalance(who, which_property, ttype);
 
   map<string, CMPTally>::iterator my_it = mp_tally_map.find(who);
   if (my_it == mp_tally_map.end())
@@ -638,17 +638,17 @@ uint64_t before, after;
 
   CMPTally &tally = my_it->second;
 
-  bRet = tally.updateMoney(which_currency, amount, ttype);
+  bRet = tally.updateMoney(which_property, amount, ttype);
 
-  after = getMPbalance(who, which_currency, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
+  after = getMPbalance(who, which_property, ttype);
+  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
 
   if (msc_debug_tally)
   {
     if ((exodus_address != who) || (exodus_address == who && msc_debug_exo))
     {
       fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
-       __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype, before, after);
+       __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype, before, after);
     }
   }
 
@@ -794,8 +794,8 @@ unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
-  // BTC as currency/property is never allowed
-  if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
+  // BTC as property is never allowed
+  if (MASTERCOIN_PROPERTY_BTC == txCurrency) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
   if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency))
@@ -861,7 +861,7 @@ const double available_reward=all_reward * part_available;
   // skip if a block's timestamp is older than that of a previous one!
   if (0>exodus_delta) return 0;
 
-  update_tally_map(exodus_address, MASTERCOIN_CURRENCY_MSC, exodus_delta, MONEY);
+  update_tally_map(exodus_address, MASTERCOIN_PROPERTY_MSC, exodus_delta, MONEY);
   exodus_prev = devmsc;
 
   return devmsc;
@@ -965,8 +965,8 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
-    update_tally_map(sender, MASTERCOIN_CURRENCY_MSC, msc_tot, MONEY);
-    update_tally_map(sender, MASTERCOIN_CURRENCY_TMSC, msc_tot, MONEY);
+    update_tally_map(sender, MASTERCOIN_PROPERTY_MSC, msc_tot, MONEY);
+    update_tally_map(sender, MASTERCOIN_PROPERTY_TMSC, msc_tot, MONEY);
 
     return 0;
   }
@@ -1376,7 +1376,7 @@ uint64_t txFee = 0;
                     if (exodus_address == strAddress) continue;
                     fprintf(mp_fp, "payment #%d %s %11.8lf\n", count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
-                    // check everything & pay BTC for the currency we are buying here...
+                    // check everything & pay BTC for the property we are buying here...
                     if (bRPConly) count = 55555;  // no real way to validate a payment during simple RPC call
                     else if (0 == DEx_payment(wtx.GetHash(), i, strAddress, strSender, wtx.vout[i].nValue, nBlock)) ++count;
                   }
@@ -1609,16 +1609,16 @@ int input_msc_balances_string(const string &s)
     std::vector<std::string> curData;
     boost::split(curData, *iter, boost::is_any_of(","), token_compress_on);
     if (curData.size() < 1) {
-      // malformed currency entry
+      // malformed property entry
        return -1;
     }
 
     size_t delimPos = curData[0].find(':');
-    int currency = MASTERCOIN_CURRENCY_MSC;
+    int property = MASTERCOIN_PROPERTY_MSC;
     uint64_t balance = 0, sellReserved = 0, acceptReserved = 0;
 
     if (delimPos != curData[0].npos) {
-      currency = atoi(curData[0].substr(0,delimPos));
+      property = atoi(curData[0].substr(0,delimPos));
       balance = boost::lexical_cast<boost::uint64_t>(curData[0].substr(delimPos + 1, curData[0].npos));
     } else {
       balance = boost::lexical_cast<boost::uint64_t>(curData[0]);
@@ -1636,15 +1636,15 @@ int input_msc_balances_string(const string &s)
       continue;
     }
 
-    if (balance) update_tally_map(strAddress, currency, balance, MONEY);
-    if (sellReserved) update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
-    if (acceptReserved) update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
+    if (balance) update_tally_map(strAddress, property, balance, MONEY);
+    if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
+    if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
   }
 
   return 1;
 }
 
-// seller-address, offer_block, amount, currency, desired BTC , currency_desired, fee, blocktimelimit
+// seller-address, offer_block, amount, property, desired BTC , property_desired, fee, blocktimelimit
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,0,10000,6
 int input_mp_offers_string(const string &s)
 {
@@ -1670,7 +1670,7 @@ int input_mp_offers_string(const string &s)
   blocktimelimit = atoi(vstr[i++]);
   txidStr = vstr[i++];
 
-  if (MASTERCOIN_CURRENCY_BTC == curr_desired)
+  if (MASTERCOIN_PROPERTY_BTC == curr_desired)
   {
   const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sellerAddr);
   CMPOffer newOffer(offerBlock, amountOriginal, curr, btcDesired, minFee, blocktimelimit, uint256(txidStr));
@@ -1693,7 +1693,7 @@ int input_mp_offers_string(const string &s)
   return 0;
 }
 
-// seller-address, currency, buyer-address, amount, fee, block
+// seller-address, property, buyer-address, amount, fee, block
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1, 148EFCFXbk2LrUhEHDfs9y3A5dJ4tttKVd,100000,11000,299126
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1,1Md8GwMtWpiobRnjRabMT98EW6Jh4rEUNy,50000000,11000,299132
 int input_mp_accepts_string(const string &s)
@@ -1748,13 +1748,13 @@ int input_globals_state_string(const string &s)
   return 0;
 }
 
-// addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,txid
+// addr,propertyId,nValue,property_desired,deadline,early_bird,percentage,txid
 int input_mp_crowdsale_string(const string &s)
 {
   string sellerAddr;
   unsigned int propertyId;
   uint64_t nValue;
-  unsigned int currency_desired;
+  unsigned int property_desired;
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
@@ -1770,14 +1770,14 @@ int input_mp_crowdsale_string(const string &s)
   sellerAddr = vstr[i++];
   propertyId = atoi(vstr[i++]);
   nValue = boost::lexical_cast<uint64_t>(vstr[i++]);
-  currency_desired = atoi(vstr[i++]);
+  property_desired = atoi(vstr[i++]);
   deadline = boost::lexical_cast<uint64_t>(vstr[i++]);
   early_bird = (unsigned char)atoi(vstr[i++]);
   percentage = (unsigned char)atoi(vstr[i++]);
   u_created = boost::lexical_cast<uint64_t>(vstr[i++]);
   i_created = boost::lexical_cast<uint64_t>(vstr[i++]);
 
-  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage,u_created,i_created);
+  CMPCrowd newCrowdsale(propertyId,nValue,property_desired,deadline,early_bird,percentage,u_created,i_created);
 
   // load the remaining as database pairs
   while (i < vstr.size()) {
@@ -2108,8 +2108,8 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  unsigned int nextSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_MSC);
-  unsigned int nextTestSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_TMSC);
+  unsigned int nextSPID = _my_sps->peekNextSPID(MASTERCOIN_PROPERTY_MSC);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(MASTERCOIN_PROPERTY_TMSC);
   string lineOut = (boost::format("%d,%d,%d")
     % exodus_prev
     % nextSPID
@@ -2386,7 +2386,7 @@ int mastercore_init()
   }
 
   // collect the real Exodus balances available at the snapshot time
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -2396,7 +2396,7 @@ int mastercore_init()
   if (mp_fp) fflush(mp_fp);
 
   // display Exodus balance
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -2572,7 +2572,7 @@ static int64_t selectCoins(const string &FromAddress, CCoinControl &coinControl,
           int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
 
           sAddress = CBitcoinAddress(dest).ToString();
-          if (msc_debug_coins)
+          if (msc_debug_tokens)
             fprintf(mp_fp,
                 "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
                 sAddress.c_str(), bIsMine ? "yes" : "NO",
@@ -2814,11 +2814,11 @@ const unsigned int curr = CurrencyID;
     return 0;
   }
 
-  // make sure this address has enough MP currency available!
+  // make sure this address has enough MP property available!
   if (((uint64_t)iAvailable < Amount) || (0 == Amount))
   {
-    LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
-    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
+    LogPrintf("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
+    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
 
     if (error_code) *error_code = rc;
 
@@ -2826,11 +2826,11 @@ const unsigned int curr = CurrencyID;
   }
 
   // check once more, this time considering PENDING amount reduction
-  // make sure this address has enough MP currency available!
+  // make sure this address has enough MP property available!
   if ((iUserAvailable < (int64_t)Amount) || (0 == Amount))
   {
-    LogPrintf("%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
-    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+    LogPrintf("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
 
     rc = MP_INSUF_FUNDS_APENDI;
     if (error_code) *error_code = rc;
@@ -3263,7 +3263,7 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   if (msc_debug_exo)
     fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
-        devmsc, getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY));
+        devmsc, getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
@@ -3397,8 +3397,8 @@ int step_rc;
       // check if one exists for this address already !
       if (NULL != getCrowd(sender)) return (PKT_ERROR_SP -20);
 
-      // must check that the desired currency exists in our universe
-      if (false == _my_sps->hasSP(currency)) return (PKT_ERROR_SP -30);
+      // must check that the desired property exists in our universe
+      if (false == _my_sps->hasSP(property)) return (PKT_ERROR_SP -30);
 
       if (0 == step_rc)
       {
@@ -3413,15 +3413,15 @@ int step_rc;
         newSP.url.assign(url);
         newSP.data.assign(data);
         newSP.fixed = false;
-        newSP.currency_desired = currency;
+        newSP.property_desired = property;
         newSP.deadline = deadline;
         newSP.early_bird = early_bird;
         newSP.percentage = percentage;
         newSP.creation_block = newSP.update_block = chainActive[block]->GetBlockHash();
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
-        fprintf(mp_fp, "CREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, property, deadline, early_bird, percentage, 0, 0)));
+        fprintf(mp_fp, "CREATED CROWDSALE id: %u value: %lu property: %u\n", id, nValue, property);  
       }
       rc = 0;
       break;
@@ -3434,14 +3434,14 @@ int step_rc;
       if (it != my_crowds.end())
       {
         // retrieve the property id from the incoming packet
-        memcpy(&currency, &pkt[4], 4);
-        swapByteOrder32(currency);
+        memcpy(&property, &pkt[4], 4);
+        swapByteOrder32(property);
 
         if (msc_debug_sp) fprintf(mp_fp, "%s() trying to ERASE CROWDSALE for propid= %u=%X, line %d, file: %s\n",
-         __FUNCTION__, currency, currency, __LINE__, __FILE__);
+         __FUNCTION__, property, property, __LINE__, __FILE__);
 
-        // ensure we are closing the crowdsale which we opened by checking the currency
-        if ((it->second).getPropertyId() != currency)
+        // ensure we are closing the crowdsale which we opened by checking the property
+        if ((it->second).getPropertyId() != property)
         {
           rc = (PKT_ERROR_SP -606);
           break;
@@ -3562,9 +3562,9 @@ int step_rc;
       break;
 
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
-      // parse the currency from the packet
-      memcpy(&currency, &pkt[4], 4);
-      swapByteOrder32(currency);
+      // parse the property from the packet
+      memcpy(&property, &pkt[4], 4);
+      swapByteOrder32(property);
 
       rc = logicMath_ChangeIssuer();
       break;
@@ -3590,7 +3590,7 @@ int CMPTransaction::logicMath_SimpleSend()
 int rc = PKT_ERROR_SEND -1000;
 int invalid = 0;  // unused
 
-      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_SEND -22);
+      if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_SEND -22);
 
       if (sender.empty()) ++invalid;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -3603,12 +3603,12 @@ int invalid = 0;  // unused
       if (receiver.empty()) ++invalid;
 
       // insufficient funds check & return
-      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      if (!update_tally_map(sender, property, - nValue, MONEY))
       {
         return (PKT_ERROR -111);
       }
 
-      update_tally_map(receiver, currency, nValue, MONEY);
+      update_tally_map(receiver, property, nValue, MONEY);
 
       // is there a crowdsale running from this recepient ?
       {
@@ -3616,7 +3616,7 @@ int invalid = 0;  // unused
 
         crowd = getCrowd(receiver);
 
-        if (crowd && (crowd->getCurrDes() == currency) )
+        if (crowd && (crowd->getCurrDes() == property) )
         {
           CMPSPInfo::Entry sp;
           bool spFound = _my_sps->getSP(crowd->getPropertyId(), sp);
@@ -3640,7 +3640,7 @@ int invalid = 0;  // unused
             //account for 1.0 Div != 1 Indiv but actually 1.0 Div == 100000000 Indiv.
             //The unit must be shifted or your values will be incorrect,
             //that is what we check for below.
-            if ( !(isPropertyDivisible(currency)) ) {
+            if ( !(isPropertyDivisible(property)) ) {
               nValue = nValue * 1e8;
             }
 
@@ -3698,12 +3698,12 @@ int CMPTransaction::logicMath_SendToOwners(FILE *fhandle)
 {
 int rc = PKT_ERROR_STO -1000;
 
-      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_STO -888);
+      if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_STO -888);
 
-      // totalTokens will be 0 for non-existing currency
-      int64_t totalTokens = getTotalTokens(currency);
+      // totalTokens will be 0 for non-existing property
+      int64_t totalTokens = getTotalTokens(property);
 
-      fprintf(mp_fp, "\t    Total Tokens: %s\n", FormatMP(currency, totalTokens).c_str());
+      fprintf(mp_fp, "\t    Total Tokens: %s\n", FormatMP(property, totalTokens).c_str());
 
       if (0 >= totalTokens)
       {
@@ -3711,7 +3711,7 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       // does the sender have enough of the property he's trying to "Send To Owners" ?
-      if (getMPbalance(sender, currency, MONEY) < (int64_t)nValue)
+      if (getMPbalance(sender, property, MONEY) < (int64_t)nValue)
       {
         return (PKT_ERROR_STO -3);
       }
@@ -3732,9 +3732,9 @@ int rc = PKT_ERROR_STO -1000;
 
           int64_t tokens = 0;
 
-          tokens += getMPbalance(address, currency, MONEY);
-          tokens += getMPbalance(address, currency, SELLOFFER_RESERVE);
-          tokens += getMPbalance(address, currency, ACCEPT_RESERVE);
+          tokens += getMPbalance(address, property, MONEY);
+          tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
           if (tokens)
           {
@@ -3744,7 +3744,7 @@ int rc = PKT_ERROR_STO -1000;
         }
       }
 
-      fprintf(mp_fp, "  Excluding Sender: %s\n", FormatMP(currency, totalTokens).c_str());
+      fprintf(mp_fp, "  Excluding Sender: %s\n", FormatMP(property, totalTokens).c_str());
 
       // loop #1 -- count the actual number of owners to receive the payment
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
@@ -3762,8 +3762,8 @@ int rc = PKT_ERROR_STO -1000;
 
       int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
 
-      // determine which currency the fee will be paid in
-      const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
+      // determine which property the fee will be paid in
+      const unsigned int feeCurrency = isTestEcosystemProperty(property) ? MASTERCOIN_PROPERTY_TMSC : MASTERCOIN_PROPERTY_MSC;
 
       fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
 
@@ -3773,8 +3773,8 @@ int rc = PKT_ERROR_STO -1000;
         return (PKT_ERROR_STO -5);
       }
 
-      // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
-      if (feeCurrency == currency)
+      // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
+      if (feeCurrency == property)
       {
         if (getMPbalance(sender, feeCurrency, MONEY) < (int64_t)(nValue + nXferFee))
         {
@@ -3821,14 +3821,14 @@ int rc = PKT_ERROR_STO -1000;
 
         // record the detailed info as needed
 //        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(currency, will_really_receive).c_str());
+        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
 
-        if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
+        if (!update_tally_map(sender, property, - will_really_receive, MONEY))
         {
           return (PKT_ERROR_STO -1);
         }
 
-        update_tally_map(address, currency, will_really_receive, MONEY);
+        update_tally_map(address, property, will_really_receive, MONEY);
 
         if (sent_so_far >= nValue)
         {
