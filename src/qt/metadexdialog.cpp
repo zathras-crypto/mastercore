@@ -54,6 +54,7 @@ using namespace leveldb;
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
+#include "mastercore_parse_string.h"
 
 #include <QDateTime>
 #include <QMessageBox>
@@ -369,11 +370,15 @@ void MetaDExDialog::buyRecalc()
     bool divisible = isPropertyDivisible(propertyId);
     bool testeco = false;
     if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
-    int64_t buyAmount = strToInt64(ui->buyAmountLE->text().toStdString(),divisible);
-    int64_t buyPrice = strToInt64(ui->buyPriceLE->text().toStdString(),true);
+    uint64_t buyAmount = StrToInt64(ui->buyAmountLE->text().toStdString(),divisible);
+    uint64_t buyPrice = StrToInt64(ui->buyPriceLE->text().toStdString(),true);
+
     if ((0>=buyAmount) || (0>=buyPrice)) { ui->buyTotalLabel->setText("N/A"); return; } // break out before invalid calc
+
     //could result in overflow TODO
-    uint64_t totalPrice = buyAmount * buyPrice;
+    uint64_t totalPrice = 0;
+    if(divisible) { totalPrice = (buyAmount * buyPrice)/COIN; } else { totalPrice = buyAmount * buyPrice; }
+
     string totalLabel = FormatDivisibleMP(totalPrice);
     if (testeco)
     {
@@ -391,11 +396,14 @@ void MetaDExDialog::sellRecalc()
     bool divisible = isPropertyDivisible(propertyId);
     bool testeco = false;
     if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
-    int64_t sellAmount = strToInt64(ui->sellAmountLE->text().toStdString(),divisible);
-    int64_t sellPrice = strToInt64(ui->sellPriceLE->text().toStdString(),true);
+    uint64_t sellAmount = StrToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+    uint64_t sellPrice = StrToInt64(ui->sellPriceLE->text().toStdString(),true);
     if ((0>=sellAmount) || (0>=sellPrice)) { ui->sellTotalLabel->setText("N/A"); return; } // break out before invalid calc
+
     //could result in overflow TODO
-    uint64_t totalPrice = sellAmount * sellPrice;
+    uint64_t totalPrice;
+    if(divisible) { totalPrice = (sellAmount * sellPrice)/COIN; } else { totalPrice = sellAmount * sellPrice; }
+
     string totalLabel = FormatDivisibleMP(totalPrice);
     if (testeco)
     {
@@ -453,22 +461,31 @@ void MetaDExDialog::sendTrade(bool sell)
     }
 
     // use strToInt64 function to get the amounts, using divisibility of the property
-    int64_t amount = 0;
-    int64_t price = 0;
-    if (!sell)
+    // make fields for trade
+    uint64_t amountDes;
+    uint64_t amountSell;
+    uint64_t price;
+    unsigned int propertyIdDes;
+    unsigned int propertyIdSell;
+
+    if(sell)
     {
-        amount = strToInt64(ui->buyAmountLE->text().toStdString(),divisible);
-        price = strToInt64(ui->buyPriceLE->text().toStdString(),true);
+        amountSell = StrToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+        price = StrToInt64(ui->sellPriceLE->text().toStdString(),true);
+        if(divisible) { amountDes = (amountSell * price)/COIN; } else { amountDes = amountSell * price; }
+        if(testeco) { propertyIdDes = 2; } else { propertyIdDes = 1; }
+        propertyIdSell = global_metadex_market;
     }
     else
     {
-        amount = strToInt64(ui->sellAmountLE->text().toStdString(),divisible);
-        price = strToInt64(ui->sellPriceLE->text().toStdString(),true);
+        amountDes = StrToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+        price = StrToInt64(ui->buyPriceLE->text().toStdString(),true);
+        if(divisible) { amountSell = (amountDes * price)/COIN; } else { amountSell = amountDes * price; }
+        if(testeco) { propertyIdSell = 2; } else { propertyIdSell = 1; }
+        propertyIdDes = global_metadex_market;
     }
 
-    //could result in overflow TODO
-    uint64_t totalPrice = amount * price;
-    if ((0>=amount) || (0>=price) || (0>=totalPrice))
+    if ((0>=amountDes) || (0>=amountSell) || (0>=propertyIdDes) || (0>=propertyIdSell))
     {
         QMessageBox::critical( this, "Unable to send MetaDEx transaction",
         "The amount entered is not valid.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
@@ -477,22 +494,8 @@ void MetaDExDialog::sendTrade(bool sell)
 
     // check if sending address has enough funds
     int64_t balanceAvailable = 0;
-    if (!sell)
-    {
-        if (testeco)
-        {
-            balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), MASTERCOIN_CURRENCY_TMSC);
-        }
-        else
-        {
-            balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), MASTERCOIN_CURRENCY_MSC);
-        }
-    }
-    else
-    {
-        balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), propertyId);
-    }
-    if (((!sell) && (totalPrice>balanceAvailable)) || ((sell) && (amount>balanceAvailable)))
+    balanceAvailable = getUserAvailableMPbalance(fromAddress.ToString(), propertyIdSell);
+    if (amountSell>balanceAvailable)
     {
         QMessageBox::critical( this, "Unable to send MetaDEx transaction",
         "The selected sending address does not have a sufficient balance to cover the amount entered.\n\nPlease double-check the transction details thoroughly before retrying your transaction." );
@@ -520,9 +523,9 @@ void MetaDExDialog::sendTrade(bool sell)
     strMsgText += "Type: Trade Request\nFrom: " + fromAddress.ToString() + "\n\n";
     if (!sell) // clicked buy
     {
-        if (divisible) { buyStr = FormatDivisibleMP(amount); } else { buyStr = FormatIndivisibleMP(amount); }
+        if (divisible) { buyStr = FormatDivisibleMP(amountDes); } else { buyStr = FormatIndivisibleMP(amountDes); }
         buyStr += "   SPT " + propDetails + "";
-        sellStr = FormatDivisibleMP(totalPrice);
+        sellStr = FormatDivisibleMP(amountSell);
         if (testeco) { sellStr += "   TMSC"; } else { sellStr += "   MSC"; }
         strMsgText += "Buying: " + buyStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
         if (testeco) { strMsgText += "TMSC"; } else { strMsgText += "MSC"; }
@@ -530,8 +533,8 @@ void MetaDExDialog::sendTrade(bool sell)
     }
     else // clicked sell
     {
-        buyStr = FormatDivisibleMP(totalPrice);
-        if (divisible) { sellStr = FormatDivisibleMP(amount); } else { sellStr = FormatIndivisibleMP(amount); }
+        buyStr = FormatDivisibleMP(amountDes);
+        if (divisible) { sellStr = FormatDivisibleMP(amountSell); } else { sellStr = FormatIndivisibleMP(amountSell); }
         if (testeco) { buyStr += "   TMSC"; } else { buyStr += "   MSC"; }
         sellStr += "   SPT " + propDetails + "";
         strMsgText += "Selling: " + sellStr + "\nPrice: " + FormatDivisibleMP(price) + "   SP" + propDetails + "/";
@@ -559,10 +562,12 @@ void MetaDExDialog::sendTrade(bool sell)
         "The transaction has been cancelled.\n\nThe wallet unlock process must be completed to send a transaction." );
         return;
     }
-/*
+
     // send the transaction - UI will not send any extra reference amounts at this stage
     int code = 0;
-    uint256 sendTXID = send_INTERNAL_1packet(fromAddress.ToString(), refAddress.ToString(), fromAddress.ToString(), propertyId, sendAmount, 0, 0, MSC_TYPE_SIMPLE_SEND, 0, &code);
+//    uint256 sendTXID = send_INTERNAL_1packet(fromAddress.ToString(), refAddress.ToString(), fromAddress.ToString(), propertyId, sendAmount, 0, 0, MSC_TYPE_SIMPLE_SEND, 0, &code);
+    uint256 tradeTXID = send_INTERNAL_1packet(fromAddress.ToString(), "", fromAddress.ToString(), propertyIdSell, amountSell, propertyIdDes, amountDes, MSC_TYPE_METADEX, 1, &code);
+
     if (0 != code)
     {
         string strCode = boost::lexical_cast<string>(code);
@@ -608,12 +613,12 @@ void MetaDExDialog::sendTrade(bool sell)
     else
     {
         // call an update of the balances
-        set_wallet_totals();
-        updateBalances();
+//        set_wallet_totals();
+//        updateBalances();
 
         // display the result
         string strSentText = "Your Master Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
-        strSentText += sendTXID.GetHex() + "\n\n";
+        strSentText += tradeTXID.GetHex() + "\n\n";
         QString sentText = QString::fromStdString(strSentText);
         QMessageBox sentDialog;
         sentDialog.setIcon(QMessageBox::Information);
@@ -625,12 +630,12 @@ void MetaDExDialog::sendTrade(bool sell)
         if(sentDialog.exec() == QMessageBox::Yes)
         {
             // copy TXID to clipboard
-            GUIUtil::setClipboard(QString::fromStdString(sendTXID.GetHex()));
+            GUIUtil::setClipboard(QString::fromStdString(tradeTXID.GetHex()));
         }
         // clear the form
-        clearFields();
+//        clearFields();
     }
-*/
+
 }
 
 
