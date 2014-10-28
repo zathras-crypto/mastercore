@@ -1650,40 +1650,14 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                              if (0 == mp_obj.step2_Value())
                              {
                                 mdex = true;
-
-                                for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-                                {
-                                  md_PricesMap & prices = my_it->second;
-                                  for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-                                  {
-                                    md_Set & indexes = (it->second);
-                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                                    {
-                                        CMPMetaDEx obj = *it;
-                                        CMPSPInfo::Entry sp;
-
-
-                                        if( obj.getHash().GetHex() == wtxid.GetHex() ) {
-                                          propertyId = mp_obj.getCurrency();
-                                          amount = mp_obj.getAmount();
-                                          _my_sps->getSP(propertyId, sp);
-                                          mdex_propertyId_Div = sp.isDivisible();
-                                          mdex_propertyWanted = obj.getDesCurrency();
-                                          _my_sps->getSP(mdex_propertyWanted, sp);
-                                          mdex_propertyWanted_Div = sp.isDivisible();
-
-                                          //uint64_t *price = obj.getPrice();
-                                          //uint64_t *invprice = obj.getInversePrice();
-
-                                          //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
-                                          //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
-                                          mdex_amt_orig_sale = obj.getAmount();
-                                          mdex_amt_des = obj.getAmountDesired();
-                                          mdex_action = obj.getAction();
-                                        }
-                                    }
-                                  }
-                                 }
+                                propertyId = mp_obj.getCurrency();
+                                amount = mp_obj.getAmount(); //duplicate attribute?
+                                mdex_propertyId_Div = isPropertyDivisible(propertyId);
+                                mdex_propertyWanted = obj.getDesCurrency();
+                                mdex_propertyWanted_Div = isPropertyDivisible(propertyWanted);
+                                mdex_amt_orig_sale = obj.getAmount();
+                                mdex_amt_des = obj.getAmountDesired();
+                                mdex_action = obj.getAction();
                              }
                         break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
