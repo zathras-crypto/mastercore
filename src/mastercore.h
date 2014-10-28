@@ -40,14 +40,11 @@ int const MAX_STATE_HISTORY = 50;
 // Maximum outputs per BTC Transaction
 #define MAX_BTC_OUTPUTS 16
 
-// TODO: clean up is needed for pre-production #DEFINEs , consts & alike belong in header files (classes)
 #define MAX_SHA256_OBFUSCATION_TIMES  255
 
 #define PACKET_SIZE_CLASS_A 19
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
-
-#define GOOD_PRECISION  (1e10)
 
 // Transaction types, from the spec
 enum TransactionType {
@@ -130,7 +127,8 @@ enum FILETYPES {
 #define MASTERCOIN_CURRENCY_TMSC  2
 
 // forward declarations
-string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
 uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount);
 int64_t feeCheck(const string &address);
 
@@ -393,7 +391,6 @@ uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress
  unsigned int TransactionType, int64_t additional, int *error_code = NULL);
 
 bool isTestEcosystemProperty(unsigned int property);
-int64_t strToInt64(std::string strAmount, bool divisible);
 
 CMPTally *getTally(const string & address);
 

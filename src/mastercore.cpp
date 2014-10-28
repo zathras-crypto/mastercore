@@ -315,60 +315,16 @@ string str = strprintf("%d.%08d", quotient, remainder);
   return str;
 }
 
-int64_t mastercore::strToInt64(std::string strAmount, bool divisible)
-{
-  int64_t Amount = 0;
-
-  //check for a negative (minus sign) and invalidate if present
-  size_t negSignPos = strAmount.find("-");
-  if (negSignPos!=std::string::npos) return 0;
-
-  //convert the string into a usable int64
-  if (divisible)
-  {
-      //check for existance of decimal point
-      size_t pos = strAmount.find(".");
-      if (pos==std::string::npos)
-      { //no decimal point but divisible so pad 8 zeros on right
-          strAmount+="00000000";
-      }
-      else
-      {
-          size_t posSecond = strAmount.find(".", pos+1); //check for existence of second decimal point, if so invalidate amount
-          if (posSecond!=std::string::npos) return 0;
-          if ((strAmount.size()-pos)<9)
-          { //there are decimals either exact or not enough, pad as needed
-              string strRightOfDecimal = strAmount.substr(pos+1);
-              unsigned int zerosToPad = 8-strRightOfDecimal.size();
-              if (zerosToPad>0) //do we need to pad?
-              {
-                  for(unsigned int it = 0; it != zerosToPad; it++)
-                  {
-                      strAmount+="0";
-                  }
-              }
-          }
-          else
-          { //there are too many decimals, truncate after 8
-              strAmount = strAmount.substr(0,pos+9);
-          }
-      }
-      strAmount.erase(std::remove(strAmount.begin(), strAmount.end(), '.'), strAmount.end());
-      try { Amount = boost::lexical_cast<int64_t>(strAmount); } catch(const boost::bad_lexical_cast &e) { }
-  }
-  else
-  {
-      size_t pos = strAmount.find(".");
-      string newStrAmount = strAmount.substr(0,pos);
-      try { Amount = boost::lexical_cast<int64_t>(newStrAmount); } catch(const boost::bad_lexical_cast &e) { }
-  }
-return Amount;
-}
-
 std::string mastercore::FormatIndivisibleMP(int64_t n)
 {
   string str = strprintf("%ld", n);
   return str;
+}
+
+std::string FormatMP(unsigned int property, int64_t n, bool fSign)
+{
+  if (isPropertyDivisible(property)) return FormatDivisibleMP(n, fSign);
+  else return FormatIndivisibleMP(n);
 }
 
 string const CMPSPInfo::watermarkKey("watermark");
@@ -1303,9 +1259,8 @@ uint64_t txFee = 0;
               {
               // this must be the BTC payment - validate (?)
 //              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
-              fprintf(mp_fp, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-              fprintf(mp_fp, "sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
-              fprintf(mp_fp, "!!!!!!!!!!!!!!!!! this may be the BTC payment for an offer !!!!!!!!!!!!!!!!!!!!!!!!\n");
+              fprintf(mp_fp, "!! sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
+              fprintf(mp_fp, "!! this may be the BTC payment for an offer !!\nn");
 
               // TODO collect all payments made to non-itself & non-exodus and their amounts -- these may be purchases!!!
 
@@ -2306,6 +2261,7 @@ int mastercore_init()
 //    nWaterlineBlock = MSC_DEX_BLOCK-3;
 //    if (isNonMainNet()) nWaterlineBlock = 272700;
 
+#if 0
     if (isNonMainNet()) nWaterlineBlock = 272790;
 
     update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, MONEY);
@@ -2325,6 +2281,7 @@ int mastercore_init()
 
     update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, MONEY);
     update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, MONEY);
+#endif
 #endif
   }
 
@@ -2394,7 +2351,7 @@ int interp_ret = -555555, pop_ret;
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
     interp_ret = mp_obj.interpretPacket();
-    if (interp_ret) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!!!!!!!!!!!!!!!!!!!!\n", interp_ret);
+    if (interp_ret) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!\n", interp_ret);
 
     mp_obj.print();
 
@@ -3489,6 +3446,9 @@ int step_rc;
     break;
 
     case MSC_TYPE_METADEX:
+#ifdef  MY_HACK
+      if (304500 > block) return -31337;
+#endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
@@ -3636,10 +3596,8 @@ int rc = PKT_ERROR_STO -1000;
 
       // totalTokens will be 0 for non-existing currency
       int64_t totalTokens = getTotalTokens(currency);
-      bool bDivisible = isPropertyDivisible(currency);
 
-      if (!bDivisible)fprintf(mp_fp, "\t    Total Tokens: %lu\n", totalTokens);
-      else fprintf(mp_fp, "\t    Total Tokens: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+      fprintf(mp_fp, "\t    Total Tokens: %s\n", FormatMP(currency, totalTokens).c_str());
 
       if (0 >= totalTokens)
       {
@@ -3680,8 +3638,7 @@ int rc = PKT_ERROR_STO -1000;
         }
       }
 
-      if (!bDivisible)fprintf(mp_fp, "  Excluding Sender: %lu\n", totalTokens);
-      else fprintf(mp_fp, "  Excluding Sender: %lu.%08lu\n", totalTokens/COIN, totalTokens%COIN);
+      fprintf(mp_fp, "  Excluding Sender: %s\n", FormatMP(currency, totalTokens).c_str());
 
       // loop #1 -- count the actual number of owners to receive the payment
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
@@ -3757,7 +3714,8 @@ int rc = PKT_ERROR_STO -1000;
           owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         // record the detailed info as needed
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
+//        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
+        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(currency, will_really_receive).c_str());
 
         if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
         {
