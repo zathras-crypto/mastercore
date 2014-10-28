@@ -70,7 +70,7 @@ md_CurrenciesMap::iterator it = metadex.find(curr);
   return (md_PricesMap *) NULL;
 }
 
-md_Set *get_Indexes(md_PricesMap *p, double price)
+md_Set *get_Indexes(md_PricesMap *p, cpp_dec_float_50 price)
 {
 md_PricesMap::iterator it = p->find(price);
 
@@ -82,7 +82,7 @@ md_PricesMap::iterator it = p->find(price);
 // find the best match on the market
 // INPUT: currency, descurr, desprice = of the new order being inserted; the new object being processed
 // RETURN: true if an insert (as if fresh) must follow
-static bool MetaDExMatch(const double desprice, bool bTrade, CMPMetaDEx *newo)
+static bool MetaDExMatch(const cpp_dec_float_50 desprice, bool bTrade, CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
 bool found = false;
@@ -96,8 +96,7 @@ bool bRet = false;
   if (bTrade) label = "INVERSE";
   else label = "Straight";
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: curr=%u, descurr=%u, desprice= %12.11lf:%s), line %d, file: %s\n",
-   __FUNCTION__, buyer_addr.c_str(), curr, descurr, desprice, label.c_str(), __LINE__, __FILE__);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(curr=%u, descurr=%u, desprice= %s:%s), line %d, file: %s\n", __FUNCTION__, curr, descurr, desprice.str(30, std::ios_base::fixed ).c_str(), label.c_str(), __LINE__, __FILE__);
 
   if (bTrade)
   {
@@ -112,7 +111,7 @@ bool bRet = false;
   if (!prices) return true;
 
   md_Set *indexes;
-  double price;
+  cpp_dec_float_50 price;
 
   // within the desired currency map walk iterate over the items looking at prices
   md_Set::iterator iitt;
@@ -122,7 +121,7 @@ bool bRet = false;
 
     if (bTrade)
     {
-      if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %20.10lf needs to be LESS THAN OR EQUAL TO %20.10lf\n", desprice, price);
+      if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %s needs to be LESS THAN OR EQUAL TO %s\n", desprice.str(30, std::ios_base::fixed).c_str(), price.str(30, std::ios_base::fixed).c_str());
 
       // is the desired price check satisfied?
       if (desprice > price) continue;
@@ -142,8 +141,8 @@ bool bRet = false;
     {
       p_older = &(*iitt);
 
-      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %12.11lf (its curr= %u, its des curr= %u) = %s\n",
-       price, p_older->getCurrency(), p_older->getDesCurrency(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %s (its curr= %u, its des curr= %u) = %s\n",
+       price.str(30, std::ios_base::fixed).c_str(), p_older->getCurrency(), p_older->getDesCurrency(), p_older->ToString().c_str());
 
       // is the desired currency correct?
       if (bTrade)
@@ -155,7 +154,7 @@ bool bRet = false;
         if ((p_older->getDesCurrency() != descurr) || (p_older->getAddr() != buyer_addr)) continue;
       }
 
-      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %12.11lf = %s\n", price, p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(30, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
       found = true;
       break;  // matched!
@@ -174,7 +173,7 @@ bool bRet = false;
         const int64_t seller_amountOffered = p_older->getAmount();
         const int64_t buyer_amountWanted = newo->getAmountDesired();
 
-        if (msc_debug_metadex) fprintf(mp_fp, "$$ trading using price: %12.11lf; amount offered= %ld, amount wanted= %ld\n", price, seller_amountOffered, buyer_amountWanted);
+        if (msc_debug_metadex) fprintf(mp_fp, "$$ trading using price: %s; amount offered= %ld, amount wanted= %ld\n", price.str(30, std::ios_base::fixed).c_str(), seller_amountOffered, buyer_amountWanted);
         if (msc_debug_metadex) fprintf(mp_fp, "$$ old: %s\n", p_older->ToString().c_str());
         if (msc_debug_metadex) fprintf(mp_fp, "$$ new: %s\n", newo->ToString().c_str());
 
@@ -185,7 +184,10 @@ bool bRet = false;
           buyer_amountGot = seller_amountOffered;
         }
 
-        const int64_t paymentAmount = buyer_amountGot * price;
+        cpp_dec_float_50 amount_paid = (cpp_dec_float_50) buyer_amountGot * price;
+        std::string str_amount_paid = amount_paid.str(50, std::ios_base::fixed);
+        std::string str_paid_int_part = str_amount_paid.substr(0, str_amount_paid.find_first_of("."));
+        const int64_t paymentAmount = boost::lexical_cast<int64_t>( str_paid_int_part );
 
         const int64_t seller_amountLeft = seller_amountOffered - buyer_amountGot;
         const int64_t buyer_amountStillWanted = buyer_amountWanted - buyer_amountGot;
@@ -193,8 +195,11 @@ bool bRet = false;
         if (msc_debug_metadex) fprintf(mp_fp, "$$ got= %ld, left= %ld, still= %ld, payment= %ld\n",
          buyer_amountGot, seller_amountLeft, buyer_amountStillWanted, paymentAmount);
 
+        cpp_dec_float_50 amount_left = (cpp_dec_float_50) seller_amountLeft * price;
+        std::string str_amount_left = amount_left.str(50, std::ios_base::fixed);
+        std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
         replacement.setAmount(seller_amountLeft);
-        replacement.setAmountDesired(seller_amountLeft * price);
+        replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
 
         // transfer the payment currency from buyer to seller
         if (update_tally_map(newo->getAddr(), newo->getCurrency(), - paymentAmount, MONEY))
@@ -210,8 +215,12 @@ bool bRet = false;
           update_tally_map(newo->getAddr(), newo->getDesCurrency(), buyer_amountGot, MONEY);
         }
 
+        cpp_dec_float_50 amount_wanted = (cpp_dec_float_50) buyer_amountStillWanted * price;
+        std::string str_amount_wanted = amount_wanted.str(50, std::ios_base::fixed);
+        std::string str_wanted_int_part = str_amount_wanted.substr(0, str_amount_wanted.find_first_of("."));
+
         newo->setAmount(buyer_amountStillWanted);
-        newo->setAmountDesired(buyer_amountStillWanted * price);
+        newo->setAmountDesired(boost::lexical_cast<int64_t>( str_wanted_int_part ));
 
         if (0 < buyer_amountStillWanted)
         {
@@ -257,14 +266,14 @@ void mastercore::MetaDEx_debug_print3()
 
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
     {
-      double price = (it->first);
+      cpp_dec_float_50 price = (it->first);
       md_Set & indexes = (it->second);
 
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
       CMPMetaDEx obj = *it;
 
-        printf("%20.10lf = %s\n", price, obj.ToString().c_str());
+        printf("%s= %s\n", price.str(30, std::ios_base::fixed).c_str() , obj.ToString().c_str());
       }
     }
   }
@@ -679,7 +688,7 @@ int count_mustInsert = 0;
 
     // given the currency & the price find the proper place for insertion
     // price simulated with 'double' for now...
-    double neworder_price = (double)amount / (double)amount_desired;
+    cpp_dec_float_50 neworder_price = (cpp_dec_float_50)amount / (cpp_dec_float_50)amount_desired;
 
     // TODO: reconsider for boost::multiprecision
     // FIXME
@@ -727,7 +736,7 @@ int count_mustInsert = 0;
           update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
         }
 
-        if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %12.11lf = %s\n", neworder_price, new_mdex.ToString().c_str());
+        if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %s= %s\n", neworder_price.str(50, std::ios_base::fixed).c_str(), new_mdex.ToString().c_str());
       }
     }
 
@@ -759,4 +768,5 @@ bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) c
   if (lhs.getBlock() == rhs.getBlock()) return lhs.getIdx() < rhs.getIdx();
   else return lhs.getBlock() < rhs.getBlock();
 }
+
 

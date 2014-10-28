@@ -10,6 +10,8 @@
 #define STR_ACCEPT_ADDR_CURR_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", curr) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
+#include <boost/multiprecision/cpp_dec_float.hpp>
+using boost::multiprecision::cpp_dec_float_50;
 // a single outstanding offer -- from one seller of one currency, internally may have many accepts
 class CMPOffer
 {
@@ -244,7 +246,7 @@ public:
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
-typedef std::map < double , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
+typedef std::map < cpp_dec_float_50 , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_PricesMap > md_CurrenciesMap; // map of currencies; there is a map of prices for each currency
 
 extern md_CurrenciesMap metadex;
