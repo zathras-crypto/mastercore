@@ -291,7 +291,6 @@ void CMPTransaction::printInfo(FILE *fp)
   fprintf(fp, "sender: %s\n", sender.c_str());
 }
 
-
 int CMPTransaction::logicMath_TradeOffer(CMPOffer *obj_o)
 {
 int rc = PKT_ERROR_TRADEOFFER;

@@ -49,6 +49,8 @@
 
 #include <openssl/sha.h>
 
+#include "tinyformat.h"
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
@@ -166,6 +168,101 @@ uint32_t mastercore::GetLatestBlockTime()
     else
         return (int)(Params().GenesisBlock().nTime); // Genesis block's time of current network
 }
+
+#define NEW_LOG_FILENAME  "temp-ok-to-remove.log"
+//--- CUT HERE --- mostly copied from util.h & util.cpp
+// LogPrintf() has been broken a couple of times now
+// by well-meaning people adding mutexes in the most straightforward way.
+// It breaks because it may be called by global destructors during shutdown.
+// Since the order of destruction of static/global objects is undefined,
+// defining a mutex as a global object doesn't work (the mutex gets
+// destroyed, and then some later destructor calls OutputDebugStringF,
+// maybe indirectly, and you get a core dump at shutdown trying to lock
+// the mutex).
+static boost::once_flag mp_debugPrintInitFlag = BOOST_ONCE_INIT;
+// We use boost::call_once() to make sure these are initialized in
+// in a thread-safe manner the first time it is called:
+static FILE* fileout = NULL;
+static boost::mutex* mutexDebugLog = NULL;
+
+static void mp_DebugPrintInit()
+{
+    assert(fileout == NULL);
+    assert(mutexDebugLog == NULL);
+
+    boost::filesystem::path pathDebug = GetDataDir() / NEW_LOG_FILENAME ;
+    fileout = fopen(pathDebug.string().c_str(), "a");
+    if (fileout) setbuf(fileout, NULL); // unbuffered
+
+    mutexDebugLog = new boost::mutex();
+}
+
+int mp_LogPrintStr(const std::string &str)
+{
+    int ret = 0; // Returns total number of characters written
+    if (fPrintToConsole)
+    {
+        // print to console
+        ret = fwrite(str.data(), 1, str.size(), stdout);
+    }
+    else if (fPrintToDebugLog)
+    {
+        static bool fStartedNewLine = true;
+        boost::call_once(&mp_DebugPrintInit, mp_debugPrintInitFlag);
+
+        if (fileout == NULL)
+            return ret;
+
+        boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
+
+        // reopen the log file, if requested
+        if (fReopenDebugLog) {
+            fReopenDebugLog = false;
+            boost::filesystem::path pathDebug = GetDataDir() / NEW_LOG_FILENAME ;
+            if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
+                setbuf(fileout, NULL); // unbuffered
+        }
+
+        // Debug print useful for profiling
+        if (fLogTimestamps && fStartedNewLine)
+            ret += fprintf(fileout, "%s ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+        if (!str.empty() && str[str.size()-1] == '\n')
+            fStartedNewLine = true;
+        else
+            fStartedNewLine = false;
+
+        ret = fwrite(str.data(), 1, str.size(), fileout);
+    }
+
+    return ret;
+}
+
+/* When we switch to C++11, this can be switched to variadic templates instead
+ * of this macro-based construction (see tinyformat.h).
+ */
+#define MP_MAKE_ERROR_AND_LOG_FUNC(n)                                        \
+    /*   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_category_log(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        if(!LogAcceptCategory(category)) return 0;                            \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_log(const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    /*   Log error and return false */                                        \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline bool mp_error(const char* format, TINYFORMAT_VARARGS(n))                     \
+    {                                                                         \
+        mp_LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
+        return false;                                                         \
+    }
+
+TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
+//--- CUT HERE ---
 
 // indicate whether persistence is enabled at this point, or not
 // used to write/read files, for breakout mode, debugging, etc.
@@ -2206,6 +2303,8 @@ int mastercore_init()
 
   fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
+  mp_log("\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+
   if (isNonMainNet())
   {
     exodus_address = exodus_testnet;
@@ -2290,6 +2389,8 @@ int mastercore_init()
   exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
+  mp_log("Exodus balance: %lu\n", exodus_balance);
+
   (void) msc_initial_scan(nWaterlineBlock);
 
   if (mp_fp) fflush(mp_fp);
@@ -2297,6 +2398,8 @@ int mastercore_init()
   // display Exodus balance
   exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
+
+  mp_log("Exodus balance: %lu\n", exodus_balance);
 
   return 0;
 }
@@ -2323,6 +2426,8 @@ int mastercore_shutdown()
   {
     delete _my_sps; _my_sps = NULL;
   }
+
+  mp_log("\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   return 0;
 }

@@ -81,7 +81,7 @@ md_PricesMap::iterator it = p->find(price);
 
 // find the best match on the market
 // INPUT: currency, descurr, desprice = of the new order being inserted; the new object being processed
-// RETURN: true if an insert (as if fresh) must follow
+// RETURN: true if an insert (same as in fresh) must follow
 static bool MetaDExMatch(const double desprice, bool bTrade, CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
