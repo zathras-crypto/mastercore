@@ -191,8 +191,8 @@ public:
   uint64_t getAmount() const { return amount; }
   uint64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao) { amount = ao; }
-  void setAmountDesired(int64_t ad) { amount_desired = ad; }
+  void setAmount(int64_t ao) { fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); amount = ao; }
+  void setAmountDesired(int64_t ad) { fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); amount_desired = ad; }
 
   void nullTxid() { txid = 0; }
 
@@ -241,10 +241,13 @@ public:
 };
 
 // ---------------
+typedef cpp_dec_float_50 xdouble;
+// typedef double xdouble;
+
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
-typedef std::map < cpp_dec_float_50 , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
+typedef std::map < xdouble , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_PricesMap > md_PropertiesMap; // map of properties; there is a map of prices for each property
 
 extern md_PropertiesMap metadex;

@@ -510,7 +510,7 @@ int CMPTransaction::logicMath_GrantTokens()
 
     // manual issuance check
     if (false == _my_sps->hasSP(property)) {
-      fprintf(mp_fp, "\tRejecting Grant: SP id:%d does not exist\n", property);
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%u does not exist\n", property);
       return (PKT_ERROR_TOKENS - 24);
     }
 
@@ -518,14 +518,14 @@ int CMPTransaction::logicMath_GrantTokens()
     _my_sps->getSP(property, sp);
 
     if (false == sp.manual) {
-      fprintf(mp_fp, "\tRejecting Grant: SP id:%d was not issued with a TX 54\n", property);
+      fprintf(mp_fp, "\tRejecting Grant: SP id:%u was not issued with a TX 54\n", property);
       return (PKT_ERROR_TOKENS - 25);
     }
 
 
     // issuer check
     if (false == boost::iequals(sender, sp.issuer)) {
-      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id:%d\n", sender.c_str(), property);
+      fprintf(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id: %u\n", sender.c_str(), property);
       return (PKT_ERROR_TOKENS - 26);
     }
 
@@ -537,7 +537,7 @@ int CMPTransaction::logicMath_GrantTokens()
       } else {
         snprintf(prettyTokens, 256, "%lu", nValue);
       }
-      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%d would overflow the maximum limit for tokens in a smart property\n", prettyTokens, property);
+      fprintf(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%u would overflow the maximum limit for tokens in a smart property\n", prettyTokens, property);
       return (PKT_ERROR_TOKENS - 27);
     }
 

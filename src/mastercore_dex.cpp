@@ -70,7 +70,7 @@ md_PropertiesMap::iterator it = metadex.find(prop);
   return (md_PricesMap *) NULL;
 }
 
-md_Set *get_Indexes(md_PricesMap *p, cpp_dec_float_50 price)
+md_Set *get_Indexes(md_PricesMap *p, xdouble price)
 {
 md_PricesMap::iterator it = p->find(price);
 
@@ -82,7 +82,7 @@ md_PricesMap::iterator it = p->find(price);
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: true if an insert (same as in fresh) must follow
-static bool MetaDExMatch(const cpp_dec_float_50 desprice, bool bTrade, CMPMetaDEx *newo)
+static bool MetaDExMatch(const xdouble forwardprice, bool bTrade, CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
 bool found = false;
@@ -92,9 +92,17 @@ const string buyer_addr = newo->getAddr();
 const unsigned int prop = newo->getProperty();
 const unsigned int desprop = newo->getDesProperty();
 bool bRet = false;
+xdouble desprice = 0;
 
-  if (bTrade) label = "INVERSE";
-  else label = "Straight";
+  if (bTrade)
+  {
+    desprice = (1 / forwardprice);
+    label = "INVERSE";
+  }
+  else
+  {
+    label = "Straight";
+  }
 
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %s:%s), line %d, file: %s\n",
    __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(30, std::ios_base::fixed).c_str(), label.c_str(), __LINE__, __FILE__);
@@ -112,7 +120,7 @@ bool bRet = false;
   if (!prices) return true;
 
   md_Set *indexes;
-  cpp_dec_float_50 price;
+  xdouble price;
 
   // within the desired property map walk iterate over the items looking at prices
   md_Set::iterator iitt;
@@ -129,7 +137,7 @@ bool bRet = false;
     }
     else
     {
-      if (desprice != price) continue;
+      if (forwardprice != price) continue;
     }
 
     indexes = &(my_it->second);
@@ -185,7 +193,7 @@ bool bRet = false;
           buyer_amountGot = seller_amountOffered;
         }
 
-        cpp_dec_float_50 amount_paid = (cpp_dec_float_50) buyer_amountGot * price;
+        xdouble amount_paid = (xdouble) buyer_amountGot * price;
         std::string str_amount_paid = amount_paid.str(50, std::ios_base::fixed);
         std::string str_paid_int_part = str_amount_paid.substr(0, str_amount_paid.find_first_of("."));
         const int64_t paymentAmount = boost::lexical_cast<int64_t>( str_paid_int_part );
@@ -196,7 +204,7 @@ bool bRet = false;
         if (msc_debug_metadex) fprintf(mp_fp, "$$ got= %ld, left= %ld, still= %ld, payment= %ld\n",
          buyer_amountGot, seller_amountLeft, buyer_amountStillWanted, paymentAmount);
 
-        cpp_dec_float_50 amount_left = (cpp_dec_float_50) seller_amountLeft * price;
+        xdouble amount_left = (xdouble) seller_amountLeft * price;
         std::string str_amount_left = amount_left.str(50, std::ios_base::fixed);
         std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
         replacement.setAmount(seller_amountLeft);
@@ -216,7 +224,7 @@ bool bRet = false;
           update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MONEY);
         }
 
-        cpp_dec_float_50 amount_wanted = (cpp_dec_float_50) buyer_amountStillWanted * price;
+        xdouble amount_wanted = (xdouble) buyer_amountStillWanted * price;
         std::string str_amount_wanted = amount_wanted.str(50, std::ios_base::fixed);
         std::string str_wanted_int_part = str_amount_wanted.substr(0, str_amount_wanted.find_first_of("."));
 
@@ -225,6 +233,7 @@ bool bRet = false;
 
         if (0 < buyer_amountStillWanted)
         {
+          CMPMetaDEx replacement = *newo;
           bRet = true;
         }
 
@@ -267,7 +276,7 @@ void mastercore::MetaDEx_debug_print3()
 
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
     {
-      cpp_dec_float_50 price = (it->first);
+      xdouble price = (it->first);
       md_Set & indexes = (it->second);
 
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
@@ -689,7 +698,7 @@ int count_mustInsert = 0;
 
     // given the property & the price find the proper place for insertion
     // price simulated with 'double' for now...
-    cpp_dec_float_50 neworder_price = (cpp_dec_float_50)amount / (cpp_dec_float_50)amount_desired;
+    xdouble neworder_price = (xdouble)amount / (xdouble)amount_desired;
 
     // TODO: reconsider for boost::multiprecision
     // FIXME
@@ -700,7 +709,7 @@ int count_mustInsert = 0;
     }
 
     // check matches (to ADD and to TRADE)
-    if (MetaDExMatch((1/neworder_price), true, &new_mdex)) ++count_mustInsert; // inverse price match to TRADE
+    if (MetaDExMatch((neworder_price), true, &new_mdex)) ++count_mustInsert; // inverse price match to TRADE
 
     // if anything is left in the new order
     if (0 < new_mdex.getAmount())
