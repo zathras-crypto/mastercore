@@ -129,7 +129,7 @@ enum FILETYPES {
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
-uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount);
+uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount);
 int64_t feeCheck(const string &address);
 
 const std::string ExodusAddress();
@@ -326,13 +326,12 @@ class CMPPending
 {
 public:
   string src; // the FromAddress
-//  string dest;
-  unsigned int curr;
+  unsigned int prop;
   int64_t amount;
 
   void print(uint256 txid) const
   {
-    printf("%s : %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), curr, amount);
+    printf("%s : %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), prop, amount);
   }
 };
 
@@ -375,7 +374,7 @@ extern CMPTxList *p_txlistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
 
-string strMPCurrency(unsigned int i);
+string strMPProperty(unsigned int i);
 
 int GetHeight(void);
 uint32_t GetLatestBlockTime(void);
@@ -388,7 +387,7 @@ std::string FormatIndivisibleMP(int64_t n);
 
 int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const vector<unsigned char> &data, uint256 & txid, int64_t additional = 0);
 
-uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int CurrencyID_2, uint64_t Amount_2,
+uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount, unsigned int PropertyID_2, uint64_t Amount_2,
  unsigned int TransactionType, int64_t additional, int *error_code = NULL);
 
 bool isTestEcosystemProperty(unsigned int property);
@@ -400,7 +399,7 @@ int set_wallet_totals();
 
 char *c_strMasterProtocolTXType(int i);
 
-bool isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType, unsigned short version);
+bool isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version);
 
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 

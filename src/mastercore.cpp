@@ -320,7 +320,7 @@ static void shrinkDebugFile()
 #endif
 }
 
-string mastercore::strMPCurrency(unsigned int i)
+string mastercore::strMPProperty(unsigned int i)
 {
 string str = "*unknown*";
 
@@ -450,13 +450,13 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 
     p_pending->print(txid);
 
-    int64_t src_amount = getMPbalance(p_pending->src, p_pending->curr, PENDING);
+    int64_t src_amount = getMPbalance(p_pending->src, p_pending->prop, PENDING);
 
     fprintf(mp_fp, "%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
 
     if (src_amount)
     {
-      update_tally_map(p_pending->src, p_pending->curr, p_pending->amount, PENDING);
+      update_tally_map(p_pending->src, p_pending->prop, p_pending->amount, PENDING);
     }
 
     if (bErase)
@@ -483,7 +483,7 @@ CMPPending pending;
   {
     pending.src = FromAddress;
     pending.amount = Amount;
-    pending.curr = propId;
+    pending.prop = propId;
 
     pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
@@ -492,7 +492,7 @@ CMPPending pending;
   return 0;
 }
 
-// this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
+// this is the master list of all amounts for all addresses for all properties, map is sorted by Bitcoin address
 std::map<string, CMPTally> mastercore::mp_tally_map;
 
 CMPTally *mastercore::getTally(const string & address)
@@ -786,7 +786,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // certain transaction types are not live on the network until some specific block height
 // certain transactions will be unknown to the client, i.e. "black holes" based on their version
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
-bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType, unsigned short version)
+bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version)
 {
 bool bAllowed = false;
 bool bBlackHole = false;
@@ -795,10 +795,10 @@ int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
   // BTC as property is never allowed
-  if (MASTERCOIN_PROPERTY_BTC == txCurrency) return false;
+  if (MASTERCOIN_PROPERTY_BTC == txProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
-  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency))
+  if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
   {
     bAllowed = true;
   }
@@ -813,7 +813,7 @@ unsigned short version_TopAllowed;
 
     if (version_TopAllowed < version)
     {
-      fprintf(mp_fp, "Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txCurrency, txType, version);
+      fprintf(mp_fp, "Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txProperty, txType, version);
 
       bBlackHole = true;
 
@@ -1596,12 +1596,12 @@ int input_msc_balances_string(const string &s)
 
   string strAddress = addrData[0];
 
-  // split the tuples of currencies
-  std::vector<std::string> vCurrencies;
-  boost::split(vCurrencies, addrData[1], boost::is_any_of(";"), token_compress_on);
+  // split the tuples of properties
+  std::vector<std::string> vProperties;
+  boost::split(vProperties, addrData[1], boost::is_any_of(";"), token_compress_on);
 
   std::vector<std::string>::const_iterator iter;
-  for (iter = vCurrencies.begin(); iter != vCurrencies.end(); ++iter) {
+  for (iter = vProperties.begin(); iter != vProperties.end(); ++iter) {
     if ((*iter).empty()) {
       continue;
     }
@@ -1650,7 +1650,7 @@ int input_mp_offers_string(const string &s)
 {
   int offerBlock;
   uint64_t amountOriginal, btcDesired, minFee;
-  unsigned int curr, curr_desired;
+  unsigned int prop, prop_desired;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
@@ -1663,17 +1663,17 @@ int input_mp_offers_string(const string &s)
   sellerAddr = vstr[i++];
   offerBlock = atoi(vstr[i++]);
   amountOriginal = boost::lexical_cast<uint64_t>(vstr[i++]);
-  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
+  prop = boost::lexical_cast<unsigned int>(vstr[i++]);
   btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
-  curr_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
+  prop_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
   minFee = boost::lexical_cast<uint64_t>(vstr[i++]);
   blocktimelimit = atoi(vstr[i++]);
   txidStr = vstr[i++];
 
-  if (MASTERCOIN_PROPERTY_BTC == curr_desired)
+  if (MASTERCOIN_PROPERTY_BTC == prop_desired)
   {
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sellerAddr);
-  CMPOffer newOffer(offerBlock, amountOriginal, curr, btcDesired, minFee, blocktimelimit, uint256(txidStr));
+  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(sellerAddr);
+  CMPOffer newOffer(offerBlock, amountOriginal, prop, btcDesired, minFee, blocktimelimit, uint256(txidStr));
 
     if (my_offers.insert(std::make_pair(combo, newOffer)).second)
     {
@@ -1703,14 +1703,14 @@ int input_mp_accepts_string(const string &s)
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
   uint64_t amountRemaining, amountOriginal, offerOriginal, btcDesired;
-  unsigned int curr;
+  unsigned int prop;
   string sellerAddr, buyerAddr, txidStr;
   int i = 0;
 
   if (10 != vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
-  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
+  prop = boost::lexical_cast<unsigned int>(vstr[i++]);
   buyerAddr = vstr[i++];
   nBlock = atoi(vstr[i++]);
   amountRemaining = boost::lexical_cast<uint64_t>(vstr[i++]);
@@ -1720,8 +1720,8 @@ int input_mp_accepts_string(const string &s)
   btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
   txidStr = vstr[i++];
 
-  const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(sellerAddr, buyerAddr);
-  CMPAccept newAccept(amountOriginal, amountRemaining, nBlock, blocktimelimit, curr, offerOriginal, btcDesired, uint256(txidStr));
+  const string combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(sellerAddr, buyerAddr);
+  CMPAccept newAccept(amountOriginal, amountRemaining, nBlock, blocktimelimit, prop, offerOriginal, btcDesired, uint256(txidStr));
   if (my_accepts.insert(std::make_pair(combo, newAccept)).second) {
     return 0;
   } else {
@@ -2033,11 +2033,11 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
     lineOut.append("=");
     CMPTally &curAddr = (*iter).second;
     curAddr.init();
-    unsigned int curr = 0;
-    while (0 != (curr = curAddr.next())) {
-      uint64_t balance = (*iter).second.getMoney(curr, MONEY);
-      uint64_t sellReserved = (*iter).second.getMoney(curr, SELLOFFER_RESERVE);
-      uint64_t acceptReserved = (*iter).second.getMoney(curr, ACCEPT_RESERVE);
+    unsigned int prop = 0;
+    while (0 != (prop = curAddr.next())) {
+      uint64_t balance = (*iter).second.getMoney(prop, MONEY);
+      uint64_t sellReserved = (*iter).second.getMoney(prop, SELLOFFER_RESERVE);
+      uint64_t acceptReserved = (*iter).second.getMoney(prop, ACCEPT_RESERVE);
 
       // we don't allow 0 balances to read in, so if we don't write them
       // it makes things match up better between persisted state and processed state
@@ -2048,7 +2048,7 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
       emptyWallet = false;
 
       lineOut.append((boost::format("%d:%d,%d,%d;")
-          % curr
+          % prop
           % balance
           % sellReserved
           % acceptReserved).str());
@@ -2792,17 +2792,17 @@ vector< pair<CScript, int64_t> > vecSend;
 }
 
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
-uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int CurrencyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
+uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount, unsigned int PropertyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
 {
-const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
-const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
+const int64_t iAvailable = getMPbalance(FromAddress, PropertyID, MONEY);
+const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, PropertyID);
 int rc = MP_INSUF_FUNDS_BPENDI;
 uint256 txid = 0;
 const int64_t amount = Amount;
-const unsigned int curr = CurrencyID;
+const unsigned int prop = PropertyID;
 
-  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
-   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, iAvailable, iUserAvailable);
+  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Property= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), PropertyID, Amount, iAvailable, iUserAvailable);
 
   if (mp_fp) fflush(mp_fp);
 
@@ -2840,24 +2840,24 @@ const unsigned int curr = CurrencyID;
 
   vector<unsigned char> data;
   swapByteOrder32(TransactionType);
-  swapByteOrder32(CurrencyID);
+  swapByteOrder32(PropertyID);
   swapByteOrder64(Amount);
 
   PUSH_BACK_BYTES(data, TransactionType);
-  PUSH_BACK_BYTES(data, CurrencyID);
+  PUSH_BACK_BYTES(data, PropertyID);
   PUSH_BACK_BYTES(data, Amount);
   
-  if ( CurrencyID_2 != 0 ) //for trade_MP
+  if ( PropertyID_2 != 0 ) //for trade_MP
   {
     //use additional to pass action byte
     unsigned char action = boost::lexical_cast<int>(additional); 
     //zero out additional for trade_MP
     additional = 0;
 
-    swapByteOrder32(CurrencyID_2);
+    swapByteOrder32(PropertyID_2);
     swapByteOrder64(Amount_2);
 
-    PUSH_BACK_BYTES(data, CurrencyID_2);
+    PUSH_BACK_BYTES(data, PropertyID_2);
     PUSH_BACK_BYTES(data, Amount_2);
     PUSH_BACK_BYTES(data, action);
   }
@@ -2869,7 +2869,7 @@ const unsigned int curr = CurrencyID;
 
   if (0 == rc)
   {
-    (void) pendingAdd(txid, FromAddress, curr, amount);
+    (void) pendingAdd(txid, FromAddress, prop, amount);
   }
 
   if (mp_fp) fflush(mp_fp);
@@ -3763,27 +3763,27 @@ int rc = PKT_ERROR_STO -1000;
       int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
 
       // determine which property the fee will be paid in
-      const unsigned int feeCurrency = isTestEcosystemProperty(property) ? MASTERCOIN_PROPERTY_TMSC : MASTERCOIN_PROPERTY_MSC;
+      const unsigned int feeProperty = isTestEcosystemProperty(property) ? MASTERCOIN_PROPERTY_TMSC : MASTERCOIN_PROPERTY_MSC;
 
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
+      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
       // enough coins to pay the fee?
-      if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
+      if (getMPbalance(sender, feeProperty, MONEY) < nXferFee)
       {
         return (PKT_ERROR_STO -5);
       }
 
       // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
-      if (feeCurrency == property)
+      if (feeProperty == property)
       {
-        if (getMPbalance(sender, feeCurrency, MONEY) < (int64_t)(nValue + nXferFee))
+        if (getMPbalance(sender, feeProperty, MONEY) < (int64_t)(nValue + nXferFee))
         {
           return (PKT_ERROR_STO -55);
         }
       }
 
       // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeCurrency, - nXferFee, MONEY))
+      if (!update_tally_map(sender, feeProperty, - nXferFee, MONEY))
       {
         // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
         return (PKT_ERROR_STO -500);

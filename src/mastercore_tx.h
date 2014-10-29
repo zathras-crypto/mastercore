@@ -62,7 +62,7 @@ public:
 
   unsigned int getType() const { return type; }
   const string getTypeString() const { return string(c_strMasterProtocolTXType(getType())); }
-  unsigned int getCurrency() const { return property; }
+  unsigned int getProperty() const { return property; }
   unsigned short getVersion() const { return version; }
   unsigned short getPropertyType() const { return prop_type; }
   uint64_t getFeePaid() const { return tx_fee_paid; }
