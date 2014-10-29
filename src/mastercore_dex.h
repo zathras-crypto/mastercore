@@ -3,11 +3,9 @@
 
 #include "mastercore.h"
 
-//
-
 // this is the internal format for the offer primary key (TODO: replace by a class method)
-#define STR_SELLOFFER_ADDR_CURR_COMBO(x) ( x + "-" + strprintf("%d", curr))
-#define STR_ACCEPT_ADDR_CURR_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", curr) + "+" + _buyer)
+#define STR_SELLOFFER_ADDR_PROP_COMBO(x) ( x + "-" + strprintf("%d", prop))
+#define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
 // a single outstanding offer -- from one seller of one property, internally may have many accepts
@@ -25,7 +23,7 @@ private:
 
 public:
   uint256 getHash() const { return txid; }
-  unsigned int getCurrency() const { return property; }
+  unsigned int getProperty() const { return property; }
   uint64_t getMinFee() const { return min_fee ; }
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
   unsigned char getSubaction() { return subaction; }
@@ -98,7 +96,7 @@ public:
   int block;          // 'accept' message sent in this block
 
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
-  unsigned int getCurrency() const { return property; }
+  unsigned int getProperty() const { return property; }
 
   int getAcceptBlock()  { return block; }
 
@@ -183,9 +181,9 @@ private:
 
 public:
   uint256 getHash() const { return txid; }
-  unsigned int getCurrency() const { return property; }
+  unsigned int getProperty() const { return property; }
 
-  unsigned int getDesCurrency() const { return desired_property; }
+  unsigned int getDesProperty() const { return desired_property; }
   const string & getAddr() const { return addr; }
 
   uint64_t getAmount() const { return amount; }
@@ -245,24 +243,24 @@ typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sort
 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < double , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
-typedef std::map < unsigned int, md_PricesMap > md_CurrenciesMap; // map of currencies; there is a map of prices for each property
+typedef std::map < unsigned int, md_PricesMap > md_PropertiesMap; // map of properties; there is a map of prices for each property
 
-extern md_CurrenciesMap metadex;
+extern md_PropertiesMap metadex;
 // TODO: explore a property-pair, instead of a single property as map's key........
 // ---------------
 
-bool DEx_offerExists(const string &seller_addr, unsigned int curr);
-CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int curr);
-CMPAccept *DEx_getAccept(const string &seller_addr, unsigned int curr, const string &buyer_addr);
-int DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL);
-int DEx_offerDestroy(const string &seller_addr, unsigned int curr);
-int DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL);
-int DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL);
-int DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase = false);
+bool DEx_offerExists(const string &seller_addr, unsigned int);
+CMPOffer *DEx_getOffer(const string &seller_addr, unsigned int);
+CMPAccept *DEx_getAccept(const string &seller_addr, unsigned int, const string &buyer_addr);
+int DEx_offerCreate(string seller_addr, unsigned int, uint64_t nValue, int block, uint64_t amount_desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL);
+int DEx_offerDestroy(const string &seller_addr, unsigned int);
+int DEx_offerUpdate(const string &seller_addr, unsigned int, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended = NULL);
+int DEx_acceptCreate(const string &buyer, const string &seller, int, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended = NULL);
+int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-int MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
-int MetaDEx_Destroy(const string &sender_addr, unsigned int curr);
+int MetaDEx_Create(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_Destroy(const string &sender_addr, unsigned int);
 
 // void MetaDEx_debug_print();
 void MetaDEx_debug_print3();

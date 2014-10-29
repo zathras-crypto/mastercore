@@ -59,11 +59,11 @@ using namespace mastercore;
 
 extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
 
-md_CurrenciesMap mastercore::metadex;
+md_PropertiesMap mastercore::metadex;
 
-md_PricesMap *get_Prices(unsigned int curr)
+md_PricesMap *get_Prices(unsigned int prop)
 {
-md_CurrenciesMap::iterator it = metadex.find(curr);
+md_PropertiesMap::iterator it = metadex.find(prop);
 
   if (it != metadex.end()) return &(it->second);
 
@@ -80,7 +80,7 @@ md_PricesMap::iterator it = p->find(price);
 }
 
 // find the best match on the market
-// INPUT: property, descurr, desprice = of the new order being inserted; the new object being processed
+// INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: true if an insert (same as in fresh) must follow
 static bool MetaDExMatch(const double desprice, bool bTrade, CMPMetaDEx *newo)
 {
@@ -89,23 +89,23 @@ bool found = false;
 string label;
 md_PricesMap *prices = NULL;
 const string buyer_addr = newo->getAddr();
-const unsigned int curr = newo->getCurrency();
-const unsigned int descurr = newo->getDesCurrency();
+const unsigned int prop = newo->getProperty();
+const unsigned int desprop = newo->getDesProperty();
 bool bRet = false;
 
   if (bTrade) label = "INVERSE";
   else label = "Straight";
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: curr=%u, descurr=%u, desprice= %12.11lf:%s), line %d, file: %s\n",
-   __FUNCTION__, buyer_addr.c_str(), curr, descurr, desprice, label.c_str(), __LINE__, __FILE__);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %12.11lf:%s), line %d, file: %s\n",
+   __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice, label.c_str(), __LINE__, __FILE__);
 
   if (bTrade)
   {
-    prices = get_Prices(descurr);
+    prices = get_Prices(desprop);
   }
   else
   {
-    prices = get_Prices(curr);
+    prices = get_Prices(prop);
   }
 
   // nothing for the desired property exists in the market, sorry!
@@ -142,17 +142,17 @@ bool bRet = false;
     {
       p_older = &(*iitt);
 
-      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %12.11lf (its curr= %u, its des curr= %u) = %s\n",
-       price, p_older->getCurrency(), p_older->getDesCurrency(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %12.11lf (its prop= %u, its des prop= %u) = %s\n",
+       price, p_older->getProperty(), p_older->getDesProperty(), p_older->ToString().c_str());
 
       // is the desired property correct?
       if (bTrade)
       {
-        if (p_older->getDesCurrency() != curr) continue;
+        if (p_older->getDesProperty() != prop) continue;
       }
       else
       {
-        if ((p_older->getDesCurrency() != descurr) || (p_older->getAddr() != buyer_addr)) continue;
+        if ((p_older->getDesProperty() != desprop) || (p_older->getAddr() != buyer_addr)) continue;
       }
 
       if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %12.11lf = %s\n", price, p_older->ToString().c_str());
@@ -197,17 +197,17 @@ bool bRet = false;
         replacement.setAmountDesired(seller_amountLeft * price);
 
         // transfer the payment property from buyer to seller
-        if (update_tally_map(newo->getAddr(), newo->getCurrency(), - paymentAmount, MONEY))
+        if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, MONEY))
         {
-          if (update_tally_map(p_older->getAddr(), p_older->getDesCurrency(), paymentAmount, MONEY))
+          if (update_tally_map(p_older->getAddr(), p_older->getDesProperty(), paymentAmount, MONEY))
           {
           }
         }
 
         // transfer the market (the one being sold) property from seller to buyer
-        if (update_tally_map(p_older->getAddr(), p_older->getCurrency(), - buyer_amountGot, SELLOFFER_RESERVE))
+        if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
-          update_tally_map(newo->getAddr(), newo->getDesCurrency(), buyer_amountGot, MONEY);
+          update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MONEY);
         }
 
         newo->setAmount(buyer_amountStillWanted);
@@ -248,11 +248,11 @@ bool bRet = false;
 void mastercore::MetaDEx_debug_print3()
 {
   printf("<<<\n");
-  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
-    unsigned int curr = my_it->first;
+    unsigned int prop = my_it->first;
 
-    printf(" ## property: %u\n", curr);
+    printf(" ## property: %u\n", prop);
     md_PricesMap & prices = my_it->second;
 
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -297,10 +297,10 @@ std::string CMPMetaDEx::ToString() const
 }
 
 // check to see if such a sell offer exists
-bool mastercore::DEx_offerExists(const string &seller_addr, unsigned int curr)
+bool mastercore::DEx_offerExists(const string &seller_addr, unsigned int prop)
 {
 //  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
-const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
+const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(seller_addr);
 OfferMap::iterator my_it = my_offers.find(combo);
 
   return !(my_it == my_offers.end());
@@ -308,10 +308,10 @@ OfferMap::iterator my_it = my_offers.find(combo);
 
 // getOffer may replace DEx_offerExists() in the near future
 // TODO: locks are needed around map's insert & erase
-CMPOffer *mastercore::DEx_getOffer(const string &seller_addr, unsigned int curr)
+CMPOffer *mastercore::DEx_getOffer(const string &seller_addr, unsigned int prop)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, seller_addr.c_str(), curr);
-const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, seller_addr.c_str(), prop);
+const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(seller_addr);
 OfferMap::iterator my_it = my_offers.find(combo);
 
   if (my_it != my_offers.end()) return &(my_it->second);
@@ -320,10 +320,10 @@ OfferMap::iterator my_it = my_offers.find(combo);
 }
 
 // TODO: locks are needed around map's insert & erase
-CMPAccept *mastercore::DEx_getAccept(const string &seller_addr, unsigned int curr, const string &buyer_addr)
+CMPAccept *mastercore::DEx_getAccept(const string &seller_addr, unsigned int prop, const string &buyer_addr)
 {
-  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u, %s)\n", __FUNCTION__, seller_addr.c_str(), curr, buyer_addr.c_str());
-const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller_addr, buyer_addr);
+  if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %u, %s)\n", __FUNCTION__, seller_addr.c_str(), prop, buyer_addr.c_str());
+const string combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller_addr, buyer_addr);
 AcceptMap::iterator my_it = my_accepts.find(combo);
 
   if (my_it != my_accepts.end()) return &(my_it->second);
@@ -332,21 +332,21 @@ AcceptMap::iterator my_it = my_accepts.find(combo);
 }
 
 // returns 0 if everything is OK
-int mastercore::DEx_offerCreate(string seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t amount_des, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
+int mastercore::DEx_offerCreate(string seller_addr, unsigned int prop, uint64_t nValue, int block, uint64_t amount_des, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
 {
 int rc = DEX_ERROR_SELLOFFER;
 
   // sanity check our params are OK
   if ((!btl) || (!amount_des)) return (DEX_ERROR_SELLOFFER -101); // time limit or amount desired empty
 
-  if (DEx_getOffer(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
+  if (DEx_getOffer(seller_addr, prop)) return (DEX_ERROR_SELLOFFER -10);  // offer already exists
 
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
+  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(seller_addr);
 
   if (msc_debug_dex)
    fprintf(mp_fp, "%s(%s|%s), nValue=%lu)\n", __FUNCTION__, seller_addr.c_str(), combo.c_str(), nValue);
 
-  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, curr, MONEY);
+  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, prop, MONEY);
 
   // if offering more than available -- put everything up on sale
   if (nValue > balanceReallyAvailable)
@@ -363,11 +363,11 @@ int rc = DEX_ERROR_SELLOFFER;
     if (nAmended) *nAmended = nValue;
   }
 
-  if (update_tally_map(seller_addr, curr, - nValue, MONEY)) // subtract from what's available
+  if (update_tally_map(seller_addr, prop, - nValue, MONEY)) // subtract from what's available
   {
-    update_tally_map(seller_addr, curr, nValue, SELLOFFER_RESERVE); // put in reserve
+    update_tally_map(seller_addr, prop, nValue, SELLOFFER_RESERVE); // put in reserve
 
-    my_offers.insert(std::make_pair(combo, CMPOffer(block, nValue, curr, amount_des, fee, btl, txid)));
+    my_offers.insert(std::make_pair(combo, CMPOffer(block, nValue, prop, amount_des, fee, btl, txid)));
 
     rc = 0;
   }
@@ -376,13 +376,13 @@ int rc = DEX_ERROR_SELLOFFER;
 }
 
 // returns 0 if everything is OK
-int mastercore::DEx_offerDestroy(const string &seller_addr, unsigned int curr)
+int mastercore::DEx_offerDestroy(const string &seller_addr, unsigned int prop)
 {
-const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
+const uint64_t amount = getMPbalance(seller_addr, prop, SELLOFFER_RESERVE);
 
-  if (!DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -11); // offer does not exist
+  if (!DEx_offerExists(seller_addr, prop)) return (DEX_ERROR_SELLOFFER -11); // offer does not exist
 
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller_addr);
+  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(seller_addr);
 
   OfferMap::iterator my_it;
 
@@ -390,8 +390,8 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 
   if (amount)
   {
-    update_tally_map(seller_addr, curr, amount, MONEY);   // give money back to the seller from SellOffer-Reserve
-    update_tally_map(seller_addr, curr, - amount, SELLOFFER_RESERVE);
+    update_tally_map(seller_addr, prop, amount, MONEY);   // give money back to the seller from SellOffer-Reserve
+    update_tally_map(seller_addr, prop, - amount, SELLOFFER_RESERVE);
   }
 
   // delete the offer
@@ -404,32 +404,32 @@ const uint64_t amount = getMPbalance(seller_addr, curr, SELLOFFER_RESERVE);
 }
 
 // returns 0 if everything is OK
-int mastercore::DEx_offerUpdate(const string &seller_addr, unsigned int curr, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
+int mastercore::DEx_offerUpdate(const string &seller_addr, unsigned int prop, uint64_t nValue, int block, uint64_t desired, uint64_t fee, unsigned char btl, const uint256 &txid, uint64_t *nAmended)
 {
 int rc = DEX_ERROR_SELLOFFER;
 
-  fprintf(mp_fp, "%s(%s, %d)\n", __FUNCTION__, seller_addr.c_str(), curr);
+  fprintf(mp_fp, "%s(%s, %d)\n", __FUNCTION__, seller_addr.c_str(), prop);
 
-  if (!DEx_offerExists(seller_addr, curr)) return (DEX_ERROR_SELLOFFER -12); // offer does not exist
+  if (!DEx_offerExists(seller_addr, prop)) return (DEX_ERROR_SELLOFFER -12); // offer does not exist
 
-  rc = DEx_offerDestroy(seller_addr, curr);
+  rc = DEx_offerDestroy(seller_addr, prop);
 
   if (!rc)
   {
-    rc = DEx_offerCreate(seller_addr, curr, nValue, block, desired, fee, btl, txid, nAmended);
+    rc = DEx_offerCreate(seller_addr, prop, nValue, block, desired, fee, btl, txid, nAmended);
   }
 
   return rc;
 }
 
 // returns 0 if everything is OK
-int mastercore::DEx_acceptCreate(const string &buyer, const string &seller, int curr, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended)
+int mastercore::DEx_acceptCreate(const string &buyer, const string &seller, int prop, uint64_t nValue, int block, uint64_t fee_paid, uint64_t *nAmended)
 {
 int rc = DEX_ERROR_ACCEPT - 10;
 OfferMap::iterator my_it;
-const string selloffer_combo = STR_SELLOFFER_ADDR_CURR_COMBO(seller);
-const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
-uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
+const string selloffer_combo = STR_SELLOFFER_ADDR_PROP_COMBO(seller);
+const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
+uint64_t nActualAmount = getMPbalance(seller, prop, SELLOFFER_RESERVE);
 
   my_it = my_offers.find(selloffer_combo);
 
@@ -449,7 +449,7 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   fprintf(mp_fp, "%s(%s) OFFER FOUND\n", __FUNCTION__, selloffer_combo.c_str());
 
   // the older accept is the valid one: do not accept any new ones!
-  if (DEx_getAccept(seller, curr, buyer))
+  if (DEx_getAccept(seller, prop, buyer))
   {
     fprintf(mp_fp, "%s() ERROR: an accept from this same seller for this same offer is already open !!!!!\n", __FUNCTION__);
     return DEX_ERROR_ACCEPT -205;
@@ -463,13 +463,13 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
   }
 
   // TODO: think if we want to save nValue -- as the amount coming off the wire into the object or not
-  if (update_tally_map(seller, curr, - nActualAmount, SELLOFFER_RESERVE))
+  if (update_tally_map(seller, prop, - nActualAmount, SELLOFFER_RESERVE))
   {
-    if (update_tally_map(seller, curr, nActualAmount, ACCEPT_RESERVE))
+    if (update_tally_map(seller, prop, nActualAmount, ACCEPT_RESERVE))
     {
       // insert into the map !
       my_accepts.insert(std::make_pair(accept_combo, CMPAccept(nActualAmount, block,
-       offer.getBlockTimeLimit(), offer.getCurrency(), offer.getOfferAmountOriginal(), offer.getBTCDesiredOriginal(), offer.getHash() )));
+       offer.getBlockTimeLimit(), offer.getProperty(), offer.getOfferAmountOriginal(), offer.getBTCDesiredOriginal(), offer.getHash() )));
 
       rc = 0;
     }
@@ -482,13 +482,13 @@ uint64_t nActualAmount = getMPbalance(seller, curr, SELLOFFER_RESERVE);
 // this function is also called when the purchase has been completed (the buyer bought everything he was allocated)
 //
 // returns 0 if everything is OK
-int mastercore::DEx_acceptDestroy(const string &buyer, const string &seller, int curr, bool bForceErase)
+int mastercore::DEx_acceptDestroy(const string &buyer, const string &seller, int prop, bool bForceErase)
 {
 int rc = DEX_ERROR_ACCEPT - 20;
-CMPOffer *p_offer = DEx_getOffer(seller, curr);
-CMPAccept *p_accept = DEx_getAccept(seller, curr, buyer);
+CMPOffer *p_offer = DEx_getOffer(seller, prop);
+CMPAccept *p_accept = DEx_getAccept(seller, prop, buyer);
 bool bReturnToMoney; // return to MONEY of the seller, otherwise return to SELLOFFER_RESERVE
-const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
+const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
 
   if (!p_accept) return rc; // sanity check
 
@@ -518,18 +518,18 @@ const string accept_combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(seller, buyer);
 
   if (bReturnToMoney)
   {
-    if (update_tally_map(seller, curr, - nActualAmount, ACCEPT_RESERVE))
+    if (update_tally_map(seller, prop, - nActualAmount, ACCEPT_RESERVE))
     {
-      update_tally_map(seller, curr, nActualAmount, MONEY);
+      update_tally_map(seller, prop, nActualAmount, MONEY);
       rc = 0;
     }
   }
   else
   {
     // return to SELLOFFER_RESERVE
-    if (update_tally_map(seller, curr, - nActualAmount, ACCEPT_RESERVE))
+    if (update_tally_map(seller, prop, - nActualAmount, ACCEPT_RESERVE))
     {
-      update_tally_map(seller, curr, nActualAmount, SELLOFFER_RESERVE);
+      update_tally_map(seller, prop, nActualAmount, SELLOFFER_RESERVE);
       rc = 0;
     }
   }
@@ -552,15 +552,15 @@ int mastercore::DEx_payment(uint256 txid, unsigned int vout, string seller, stri
 //  if (msc_debug_dex) fprintf(mp_fp, "%s()\n", __FUNCTION__);
 int rc = DEX_ERROR_PAYMENT;
 CMPAccept *p_accept;
-int curr;
+int prop;
 
-curr = MASTERCOIN_PROPERTY_MSC; //test for MSC accept first
-p_accept = DEx_getAccept(seller, curr, buyer);
+prop = MASTERCOIN_PROPERTY_MSC; //test for MSC accept first
+p_accept = DEx_getAccept(seller, prop, buyer);
 
   if (!p_accept) 
   {
-    curr = MASTERCOIN_PROPERTY_TMSC; //test for TMSC accept second
-    p_accept = DEx_getAccept(seller, curr, buyer); 
+    prop = MASTERCOIN_PROPERTY_TMSC; //test for TMSC accept second
+    p_accept = DEx_getAccept(seller, prop, buyer); 
   }
 
   if (msc_debug_dex) fprintf(mp_fp, "%s(%s, %s)\n", __FUNCTION__, seller.c_str(), buyer.c_str());
@@ -591,12 +591,12 @@ p_accept = DEx_getAccept(seller, curr, buyer);
     if (nAmended) *nAmended = units_purchased;
   }
 
-  if (update_tally_map(seller, curr, - units_purchased, ACCEPT_RESERVE))
+  if (update_tally_map(seller, prop, - units_purchased, ACCEPT_RESERVE))
   {
-      update_tally_map(buyer, curr, units_purchased, MONEY);
+      update_tally_map(buyer, prop, units_purchased, MONEY);
       rc = 0;
       bool bValid = true;
-      p_txlistdb->recordPaymentTX(txid, bValid, blockNow, vout, curr, units_purchased, buyer, seller);
+      p_txlistdb->recordPaymentTX(txid, bValid, blockNow, vout, prop, units_purchased, buyer, seller);
 
       fprintf(mp_fp, "#######################################################\n");
   }
@@ -604,15 +604,15 @@ p_accept = DEx_getAccept(seller, curr, buyer);
   // reduce the amount of units still desired by the buyer and if 0 must destroy the Accept
   if (p_accept->reduceAcceptAmountRemaining_andIsZero(units_purchased))
   {
-  const uint64_t selloffer_reserve = getMPbalance(seller, curr, SELLOFFER_RESERVE);
-  const uint64_t accept_reserve = getMPbalance(seller, curr, ACCEPT_RESERVE);
+  const uint64_t selloffer_reserve = getMPbalance(seller, prop, SELLOFFER_RESERVE);
+  const uint64_t accept_reserve = getMPbalance(seller, prop, ACCEPT_RESERVE);
 
-    DEx_acceptDestroy(buyer, seller, curr, true);
+    DEx_acceptDestroy(buyer, seller, prop, true);
 
     // delete the Offer object if there is nothing in its Reserves -- everything got puchased and paid for
     if ((0 == selloffer_reserve) && (0 == accept_reserve))
     {
-      DEx_offerDestroy(seller, curr);
+      DEx_offerDestroy(seller, prop);
     }
   }
 
@@ -656,26 +656,26 @@ AcceptMap::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
+int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int prop, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 int count_mustInsert = 0;
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), prop, amount);
 
   // MetaDEx implementation phase 1 check
-  if ((curr != MASTERCOIN_PROPERTY_MSC) && (property_desired != MASTERCOIN_PROPERTY_MSC) &&
-   (curr != MASTERCOIN_PROPERTY_TMSC) && (property_desired != MASTERCOIN_PROPERTY_TMSC))
+  if ((prop != MASTERCOIN_PROPERTY_MSC) && (property_desired != MASTERCOIN_PROPERTY_MSC) &&
+   (prop != MASTERCOIN_PROPERTY_TMSC) && (property_desired != MASTERCOIN_PROPERTY_TMSC))
   {
     return METADEX_ERROR -800;
   }
 
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sender_addr);
+  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(sender_addr);
 
   // --------------------------------
   {
     // store the data into the temp MetaDEx object here
-    CMPMetaDEx new_mdex(sender_addr, block, curr, amount, property_desired, amount_desired, txid, idx);
+    CMPMetaDEx new_mdex(sender_addr, block, prop, amount, property_desired, amount_desired, txid, idx);
 
     // given the property & the price find the proper place for insertion
     // price simulated with 'double' for now...
@@ -700,7 +700,7 @@ int count_mustInsert = 0;
 
     if (count_mustInsert)
     { // not added nor subtracted, insert as new or post-traded amounts
-    md_PricesMap temp_prices, *p_prices = get_Prices(curr);
+    md_PricesMap temp_prices, *p_prices = get_Prices(prop);
     md_Set temp_indexes, *p_indexes = NULL;
 
     std::pair<md_Set::iterator,bool> ret;
@@ -722,9 +722,9 @@ int count_mustInsert = 0;
       }
       else
       {
-        if (update_tally_map(sender_addr, curr, - amount, MONEY)) // subtract from what's available
+        if (update_tally_map(sender_addr, prop, - amount, MONEY)) // subtract from what's available
         {
-          update_tally_map(sender_addr, curr, amount, SELLOFFER_RESERVE); // put in reserve
+          update_tally_map(sender_addr, prop, amount, SELLOFFER_RESERVE); // put in reserve
         }
 
         if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %12.11lf = %s\n", neworder_price, new_mdex.ToString().c_str());
@@ -735,7 +735,7 @@ int count_mustInsert = 0;
 
     (*p_prices)[neworder_price] = *p_indexes;
 
-    metadex[curr] = *p_prices;
+    metadex[prop] = *p_prices;
     } // bMustInsert
   }
 
@@ -747,9 +747,9 @@ int count_mustInsert = 0;
 }
 
 // returns 0 if everything is OK
-int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int curr)
+int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int prop)
 {
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), curr);
+  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), prop);
 
   return 0;
 }

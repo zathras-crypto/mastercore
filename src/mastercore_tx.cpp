@@ -89,7 +89,7 @@ int CMPTransaction::step2_Value()
   memcpy(&property, &pkt[4], 4);
   swapByteOrder32(property);
 
-  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPCurrency(property).c_str());
+  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property).c_str());
 //  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
   fprintf(mp_fp, "\t           value: %s\n", FormatMP(property, nValue).c_str());
 
@@ -142,7 +142,7 @@ unsigned int prop_id;
   memcpy(&prev_prop_id, &pkt[7], 4);
   swapByteOrder32(prev_prop_id);
 
-  fprintf(mp_fp, "\t     Property ID: %u (%s)\n", prop_id, strMPCurrency(prop_id).c_str());
+  fprintf(mp_fp, "\t     Property ID: %u (%s)\n", prop_id, strMPProperty(prop_id).c_str());
   fprintf(mp_fp, "\t   Property type: %u (%s)\n", prop_type, c_strPropertyType(prop_type));
   fprintf(mp_fp, "\tPrev Property ID: %u\n", prev_prop_id);
 
@@ -238,7 +238,7 @@ int CMPTransaction::step3_sp_variable(const char *p)
   swapByteOrder32(property);
   p += 4;
 
-  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPCurrency(property).c_str());
+  fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property).c_str());
 
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
@@ -427,7 +427,7 @@ int CMPTransaction::logicMath_MetaDEx()
     memcpy(&desired_value, &pkt[20], 8);
     swapByteOrder64(desired_value);
 
-    fprintf(mp_fp, "\tdesired property: %u (%s)\n", desired_property, strMPCurrency(desired_property).c_str());
+    fprintf(mp_fp, "\tdesired property: %u (%s)\n", desired_property, strMPProperty(desired_property).c_str());
     fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
 
     memcpy(&action, &pkt[28], 1);

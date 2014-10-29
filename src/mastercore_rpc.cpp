@@ -1037,8 +1037,8 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
   metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
   metadex_obj->push_back(Pair("ecosystem", eco ));
-  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getCurrency()));
-  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesCurrency()));
+  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
+  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
   metadex_obj->push_back(Pair("property_owned_divisible", c_own_div));
   metadex_obj->push_back(Pair("property_desired_divisible", c_want_div));
 
@@ -1153,7 +1153,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   //for each address
   //get property pair and total order amount at a price
 
-  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
     md_PricesMap & prices = my_it->second;
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -1165,16 +1165,16 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
         CMPSPInfo::Entry sp;
 
         //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
-        bool filter = ( filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getCurrency() == propertyIdSaleFilter ) );
+        bool filter = ( filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) && ( obj.getDesProperty() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) );
 
         if ( filter  ) {
             //clear obj before reuse
             metadex_obj.clear();
             
-            _my_sps->getSP(obj.getCurrency(), sp);
+            _my_sps->getSP(obj.getProperty(), sp);
             bool c_own_div = sp.isDivisible();
 
-            _my_sps->getSP(obj.getDesCurrency(), sp);
+            _my_sps->getSP(obj.getDesProperty(), sp);
             bool c_want_div = sp.isDivisible();
 
             string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
@@ -1223,7 +1223,7 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
     propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
 
-  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
     md_PricesMap & prices = my_it->second;
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -1238,17 +1238,17 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
 
           if( filter_by_one || filter_by_both ) {
           //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
-          filter = ( filter_by_both && ( obj.getCurrency() == propertyIdSaleFilter ) && ( obj.getDesCurrency() == propertyIdWantFilter ) ) || ( !filter_by_both && ( obj.getCurrency() == propertyIdSaleFilter ) );
+          filter = ( filter_by_both && ( obj.getProperty() == propertyIdSaleFilter ) && ( obj.getDesProperty() == propertyIdWantFilter ) ) || ( !filter_by_both && ( obj.getProperty() == propertyIdSaleFilter ) );
           }
 
           if ( filter &&  (obj.getBlockTime() >= timestamp)) {
             //clear obj before reuse
             metadex_obj.clear();
             
-            _my_sps->getSP(obj.getCurrency(), sp);
+            _my_sps->getSP(obj.getProperty(), sp);
             bool c_own_div = sp.isDivisible();
 
-            _my_sps->getSP(obj.getDesCurrency(), sp);
+            _my_sps->getSP(obj.getDesProperty(), sp);
             bool c_want_div = sp.isDivisible();
 
             string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
@@ -1314,7 +1314,7 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
     propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
 
-  for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
     md_PricesMap & prices = my_it->second;
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -1329,17 +1329,17 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
 
           //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
           filter = (obj.getAddr() == address) && 
-                   ( ( ( filter_by_one && (obj.getCurrency() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
+                   ( ( ( filter_by_one && (obj.getProperty() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
                    (response.size() < number_trades);
           if ( filter ) {
 
             //clear obj before reuse
             metadex_obj.clear();
             
-            _my_sps->getSP(obj.getCurrency(), sp);
+            _my_sps->getSP(obj.getProperty(), sp);
             bool c_own_div = sp.isDivisible();
 
-            _my_sps->getSP(obj.getDesCurrency(), sp);
+            _my_sps->getSP(obj.getDesProperty(), sp);
             bool c_want_div = sp.isDivisible();
 
             string eco = (isTestEcosystemProperty(propertyIdFilter) == true) ? "Test" : "Main";
@@ -1400,7 +1400,7 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
 
           uint256 sellHash = selloffer.getHash();
           string txid = sellHash.GetHex();
-          uint64_t propertyId = selloffer.getCurrency();
+          uint64_t propertyId = selloffer.getProperty();
           uint64_t minFee = selloffer.getMinFee();
           unsigned char timeLimit = selloffer.getBlockTimeLimit();
           uint64_t sellOfferAmount = selloffer.getOfferAmountOriginal(); //badly named - "Original" implies off the wire, but is amended amount
@@ -1651,7 +1651,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                              {
                                 mdex = true;
 
-                                for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+                                for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
                                 {
                                   md_PricesMap & prices = my_it->second;
                                   for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -1664,11 +1664,11 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
 
                                         if( obj.getHash().GetHex() == wtxid.GetHex() ) {
-                                          propertyId = mp_obj.getCurrency();
+                                          propertyId = mp_obj.getProperty();
                                           amount = mp_obj.getAmount();
                                           _my_sps->getSP(propertyId, sp);
                                           mdex_propertyId_Div = sp.isDivisible();
-                                          mdex_propertyWanted = obj.getDesCurrency();
+                                          mdex_propertyWanted = obj.getDesProperty();
                                           _my_sps->getSP(mdex_propertyWanted, sp);
                                           mdex_propertyWanted_Div = sp.isDivisible();
 
@@ -1690,14 +1690,14 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                              if (0 == mp_obj.step2_Value())
                              {
                                 showReference = true;
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                              }
                         break;
                         case MSC_TYPE_REVOKE_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
                              {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                              }
                         break;
@@ -1733,7 +1733,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                         case MSC_TYPE_SIMPLE_SEND:
                             if (0 == mp_obj.step2_Value())
                             {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                                 showReference = true;
                                 //check crowdsale invest?
@@ -1752,7 +1752,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                         case MSC_TYPE_TRADE_OFFER:
                             if (0 == mp_obj.step2_Value())
                             {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                             }
                             if (0 <= mp_obj.interpretPacket(&temp_offer))
@@ -1771,7 +1771,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                         case MSC_TYPE_ACCEPT_OFFER_BTC:
                             if (0 == mp_obj.step2_Value())
                             {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                                 showReference = true;
                             }
@@ -1780,13 +1780,13 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                         case MSC_TYPE_CLOSE_CROWDSALE:
                             if (0 == mp_obj.step2_Value())
                             {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                             }
                         break;
                         case  MSC_TYPE_SEND_TO_OWNERS:
                             if (0 == mp_obj.step2_Value())
                             {
-                                propertyId = mp_obj.getCurrency();
+                                propertyId = mp_obj.getProperty();
                                 amount = mp_obj.getAmount();
                             }
                         break;
