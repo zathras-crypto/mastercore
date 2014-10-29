@@ -76,26 +76,7 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->buyList->setColumnCount(3);
     ui->sellList->setColumnCount(3);
     ui->openOrders->setColumnCount(5);
-        //dummy data
-        for(int i=0; i<5; ++i)
-        {
-            string strprice = "349.00000006";
-            string strtotal = "123456.00000001";
-            string strmsctotal = "123456.00000001";
-            QString pstr = QString::fromStdString(strprice);
-            QString tstr = QString::fromStdString(strtotal);
-            QString mstr = QString::fromStdString(strmsctotal);
-            if (!ui->buyList) { printf("metadex dialog error\n"); return; }
-            const int currentRow = ui->buyList->rowCount();
-            ui->buyList->setRowCount(currentRow + 1);
-            ui->buyList->setItem(currentRow, 0, new QTableWidgetItem(pstr));
-            ui->buyList->setItem(currentRow, 1, new QTableWidgetItem(tstr));
-            ui->buyList->setItem(currentRow, 2, new QTableWidgetItem(mstr));
-            ui->sellList->setRowCount(currentRow + 1);
-            ui->sellList->setItem(currentRow, 0, new QTableWidgetItem(pstr));
-            ui->sellList->setItem(currentRow, 1, new QTableWidgetItem(tstr));
-            ui->sellList->setItem(currentRow, 2, new QTableWidgetItem(mstr));
-        }
+
         //dummy orders
         const int currentRow = ui->openOrders->rowCount();
         ui->openOrders->setRowCount(currentRow + 1);
@@ -154,7 +135,15 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
 void MetaDExDialog::setModel(WalletModel *model)
 {
     this->model = model;
-//    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(OrderRefresh()));
+printf("setmodel\n");
+}
+
+void MetaDExDialog::OrderRefresh()
+{
+    UpdateSellOffers();
+    UpdateBuyOffers();
+printf("orderrefresh\n");
 }
 
 void MetaDExDialog::SwitchMarket()
@@ -192,6 +181,115 @@ void MetaDExDialog::SwitchMarket()
             FullRefresh();
         }
     }
+    OrderRefresh();
+}
+
+void MetaDExDialog::UpdateSellOffers()
+{
+    ui->sellList->clear();
+    int rowcount = 0;
+    bool testeco = isTestEcosystemProperty(global_metadex_market);
+    for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    {
+        // look for the property
+        if (my_it->first != global_metadex_market) continue;
+
+        // loop prices and list any sells for the right pair
+printf("here1\n");
+        md_PricesMap & prices = my_it->second;
+        for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+        {
+            double price = (it->first);
+            double available = 0;
+            double total = 0;
+printf("here2\n");
+            md_Set & indexes = (it->second);
+            // loop through each entry and sum up any sells for the right pair
+            for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+            {
+                CMPMetaDEx obj = *it;
+                if ( ((testeco) && (obj.getDesCurrency() == 2)) || ((!testeco) && (obj.getDesCurrency() == 1)) )
+                {
+printf("here3\n");
+                    available += obj.getAmount();
+                    total += obj.getAmountDesired();
+                }
+            }
+
+            // done checking this price, if there are any available/total add to pricebook
+            if ((available > 0) && (total > 0))
+            {
+printf("here4\n");
+                // add to pricebook
+                QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
+                QString tstr = QString::fromStdString(FormatDivisibleMP(available));
+                QString mstr = QString::fromStdString(FormatDivisibleMP(total));
+                if (!ui->sellList) { printf("metadex dialog error\n"); return; }
+                ui->sellList->setRowCount(rowcount+2);
+                ui->sellList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
+                ui->sellList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
+                ui->sellList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                rowcount += 1;
+            }
+        }
+    }
+    ui->sellList->setHorizontalHeaderItem(0, new QTableWidgetItem("Unit Price"));
+    ui->sellList->setHorizontalHeaderItem(1, new QTableWidgetItem("Total SP#" + QString::fromStdString(FormatIndivisibleMP(global_metadex_market))));
+    if (!testeco) { ui->sellList->setHorizontalHeaderItem(2, new QTableWidgetItem("Total MSC")); } else { ui->sellList->setHorizontalHeaderItem(2, new QTableWidgetItem("Total TMSC")); }
+}
+
+void MetaDExDialog::UpdateBuyOffers()
+{
+    ui->buyList->clear();
+    int rowcount = 0;
+    bool testeco = isTestEcosystemProperty(global_metadex_market);
+    for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    {
+        // look for the property
+        unsigned int mapPropertyId = my_it->first;
+        if ( ((testeco) && (mapPropertyId != 2)) || ((!testeco) && (mapPropertyId != 1)) ) continue;
+
+        // loop prices and list any sells for the right pair
+printf("here1\n");
+        md_PricesMap & prices = my_it->second;
+        for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+        {
+            double price = (it->first);
+            double available = 0;
+            double total = 0;
+printf("here2\n");
+            md_Set & indexes = (it->second);
+            // loop through each entry and sum up any sells for the right pair
+            for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+            {
+                CMPMetaDEx obj = *it;
+                if(obj.getDesCurrency()==global_metadex_market)
+                {
+printf("here3\n");
+                    available += obj.getAmountDesired();
+                    total += obj.getAmount();
+                }
+            }
+            // done checking this price, if there are any available/total add to pricebook
+            if ((available > 0) && (total > 0))
+            {
+printf("here4\n");
+                // add to pricebook
+                QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
+                QString tstr = QString::fromStdString(FormatDivisibleMP(available));
+                QString mstr = QString::fromStdString(FormatDivisibleMP(total));
+                if (!ui->buyList) { printf("metadex dialog error\n"); return; }
+                ui->buyList->setRowCount(rowcount+2);
+                ui->buyList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
+                ui->buyList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
+                ui->buyList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                rowcount += 1;
+            }
+        }
+    }
+    ui->buyList->setHorizontalHeaderItem(0, new QTableWidgetItem("Unit Price"));
+    ui->buyList->setHorizontalHeaderItem(1, new QTableWidgetItem("Total SP#" + QString::fromStdString(FormatIndivisibleMP(global_metadex_market))));
+    if (!testeco) { ui->buyList->setHorizontalHeaderItem(2, new QTableWidgetItem("Total MSC")); } else { ui->buyList->setHorizontalHeaderItem(2, new QTableWidgetItem("Total TMSC")); }
 }
 
 void MetaDExDialog::UpdateSellAddress()
@@ -223,12 +321,12 @@ void MetaDExDialog::UpdateBuyAddress()
     string tokenStr;
     if (testeco)
     {
-        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_CURRENCY_TMSC);
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_PROPERTY_TMSC);
         tokenStr = " TMSC";
     }
     else
     {
-        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_CURRENCY_MSC);
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_PROPERTY_MSC);
         tokenStr = " MSC";
 
     }
@@ -310,8 +408,8 @@ void MetaDExDialog::FullRefresh()
         (my_it->second).init();
         while (0 != (id = (my_it->second).next()))
         {
-            if((id==MASTERCOIN_CURRENCY_MSC) && (!testeco)) { includeAddress=true; break; }
-            if((id==MASTERCOIN_CURRENCY_TMSC) && (testeco)) { includeAddress=true; break; }
+            if((id==MASTERCOIN_PROPERTY_MSC) && (!testeco)) { includeAddress=true; break; }
+            if((id==MASTERCOIN_PROPERTY_TMSC) && (testeco)) { includeAddress=true; break; }
         }
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours

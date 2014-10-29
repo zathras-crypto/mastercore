@@ -30,6 +30,8 @@ public:
     void SwitchMarket();
     void UpdateSellAddress();
     void UpdateBuyAddress();
+    void UpdateSellOffers();
+    void UpdateBuyOffers();
     explicit MetaDExDialog(QWidget *parent = 0);
     void setModel(WalletModel *model);
 
@@ -43,6 +45,7 @@ public slots:
     void sellAddressComboBoxChanged(int idx);
     void buyAddressComboBoxChanged(int idx);
     void sendTrade(bool sell);
+    void OrderRefresh();
 
 private:
     Ui::MetaDExDialog *ui;
