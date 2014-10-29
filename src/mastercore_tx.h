@@ -20,7 +20,7 @@ private:
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
   unsigned int type;
-  unsigned int currency;
+  unsigned int property;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
   int64_t blockTime;  // internally nTime is still an "unsigned int"
@@ -41,7 +41,7 @@ private:
   unsigned char percentage;
 
   // METADEX additions
-  unsigned int desired_currency;
+  unsigned int desired_property;
   uint64_t desired_value;
 
   class SendToOwners_compare
@@ -62,7 +62,7 @@ public:
 
   unsigned int getType() const { return type; }
   const string getTypeString() const { return string(c_strMasterProtocolTXType(getType())); }
-  unsigned int getCurrency() const { return currency; }
+  unsigned int getCurrency() const { return property; }
   unsigned short getVersion() const { return version; }
   unsigned short getPropertyType() const { return prop_type; }
   uint64_t getFeePaid() const { return tx_fee_paid; }
@@ -79,7 +79,7 @@ public:
 
   void SetNull()
   {
-    currency = 0;
+    property = 0;
     type = 0;
     txid = 0;
     tx_idx = 0;  // tx # within the block, 0-based

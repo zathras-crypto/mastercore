@@ -80,8 +80,8 @@ md_PricesMap::iterator it = p->find(price);
 }
 
 // find the best match on the market
-// INPUT: currency, descurr, desprice = of the new order being inserted; the new object being processed
-// RETURN: true if an insert (as if fresh) must follow
+// INPUT: property, descurr, desprice = of the new order being inserted; the new object being processed
+// RETURN: true if an insert (same as in fresh) must follow
 static bool MetaDExMatch(const cpp_dec_float_50 desprice, bool bTrade, CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
@@ -107,13 +107,13 @@ bool bRet = false;
     prices = get_Prices(curr);
   }
 
-  // nothing for the desired currency exists in the market, sorry!
+  // nothing for the desired property exists in the market, sorry!
   if (!prices) return true;
 
   md_Set *indexes;
   cpp_dec_float_50 price;
 
-  // within the desired currency map walk iterate over the items looking at prices
+  // within the desired property map walk iterate over the items looking at prices
   md_Set::iterator iitt;
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
   {
@@ -144,7 +144,7 @@ bool bRet = false;
       if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %s (its curr= %u, its des curr= %u) = %s\n",
        price.str(30, std::ios_base::fixed).c_str(), p_older->getCurrency(), p_older->getDesCurrency(), p_older->ToString().c_str());
 
-      // is the desired currency correct?
+      // is the desired property correct?
       if (bTrade)
       {
         if (p_older->getDesCurrency() != curr) continue;
@@ -201,7 +201,7 @@ bool bRet = false;
         replacement.setAmount(seller_amountLeft);
         replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
 
-        // transfer the payment currency from buyer to seller
+        // transfer the payment property from buyer to seller
         if (update_tally_map(newo->getAddr(), newo->getCurrency(), - paymentAmount, MONEY))
         {
           if (update_tally_map(p_older->getAddr(), p_older->getDesCurrency(), paymentAmount, MONEY))
@@ -209,7 +209,7 @@ bool bRet = false;
           }
         }
 
-        // transfer the market (the one being sold) currency from seller to buyer
+        // transfer the market (the one being sold) property from seller to buyer
         if (update_tally_map(p_older->getAddr(), p_older->getCurrency(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
           update_tally_map(newo->getAddr(), newo->getDesCurrency(), buyer_amountGot, MONEY);
@@ -261,7 +261,7 @@ void mastercore::MetaDEx_debug_print3()
   {
     unsigned int curr = my_it->first;
 
-    printf(" ## currency: %u\n", curr);
+    printf(" ## property: %u\n", curr);
     md_PricesMap & prices = my_it->second;
 
     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
@@ -285,9 +285,9 @@ void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, 
   addr = sa;
   block = b;
   txid = tx;
-  currency = c;
+  property = c;
   amount= nValue;
-  desired_currency = cd;
+  desired_property = cd;
   amount_desired = ad;
 
   idx = i;
@@ -302,7 +302,7 @@ std::string CMPMetaDEx::ToString() const
 {
   return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
    addr.c_str(), block, idx, txid.ToString().c_str(),
-   currency, FormatMP(currency, amount), desired_currency, FormatMP(desired_currency, amount_desired));
+   property, FormatMP(property, amount), desired_property, FormatMP(desired_property, amount_desired));
 }
 
 // check to see if such a sell offer exists
@@ -563,12 +563,12 @@ int rc = DEX_ERROR_PAYMENT;
 CMPAccept *p_accept;
 int curr;
 
-curr = MASTERCOIN_CURRENCY_MSC; //test for MSC accept first
+curr = MASTERCOIN_PROPERTY_MSC; //test for MSC accept first
 p_accept = DEx_getAccept(seller, curr, buyer);
 
   if (!p_accept) 
   {
-    curr = MASTERCOIN_CURRENCY_TMSC; //test for TMSC accept second
+    curr = MASTERCOIN_PROPERTY_TMSC; //test for TMSC accept second
     p_accept = DEx_getAccept(seller, curr, buyer); 
   }
 
@@ -645,14 +645,14 @@ AcceptMap::iterator my_it = my_accepts.begin();
       fprintf(mp_fp, "%s() FOUND EXPIRED ACCEPT, erasing: blockNow=%d, offer block=%d, blocktimelimit= %d\n",
        __FUNCTION__, blockNow, mpaccept.block, mpaccept.getBlockTimeLimit());
 
-      // extract the seller, buyer & currency from the Key
+      // extract the seller, buyer & property from the Key
       std::vector<std::string> vstr;
       boost::split(vstr, my_it->first, boost::is_any_of("-+"), token_compress_on);
       string seller = vstr[0];
-      int currency = atoi(vstr[1]);
+      int property = atoi(vstr[1]);
       string buyer = vstr[2];
 
-      DEx_acceptDestroy(buyer, seller, currency);
+      DEx_acceptDestroy(buyer, seller, property);
 
       my_accepts.erase(my_it++);
 
@@ -665,7 +665,7 @@ AcceptMap::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int currency_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
+int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int curr, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 int count_mustInsert = 0;
@@ -673,8 +673,8 @@ int count_mustInsert = 0;
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), curr, amount);
 
   // MetaDEx implementation phase 1 check
-  if ((curr != MASTERCOIN_CURRENCY_MSC) && (currency_desired != MASTERCOIN_CURRENCY_MSC) &&
-   (curr != MASTERCOIN_CURRENCY_TMSC) && (currency_desired != MASTERCOIN_CURRENCY_TMSC))
+  if ((curr != MASTERCOIN_PROPERTY_MSC) && (property_desired != MASTERCOIN_PROPERTY_MSC) &&
+   (curr != MASTERCOIN_PROPERTY_TMSC) && (property_desired != MASTERCOIN_PROPERTY_TMSC))
   {
     return METADEX_ERROR -800;
   }
@@ -684,9 +684,9 @@ int count_mustInsert = 0;
   // --------------------------------
   {
     // store the data into the temp MetaDEx object here
-    CMPMetaDEx new_mdex(sender_addr, block, curr, amount, currency_desired, amount_desired, txid, idx);
+    CMPMetaDEx new_mdex(sender_addr, block, curr, amount, property_desired, amount_desired, txid, idx);
 
-    // given the currency & the price find the proper place for insertion
+    // given the property & the price find the proper place for insertion
     // price simulated with 'double' for now...
     cpp_dec_float_50 neworder_price = (cpp_dec_float_50)amount / (cpp_dec_float_50)amount_desired;
 
