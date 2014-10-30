@@ -428,7 +428,7 @@ int CMPTransaction::logicMath_MetaDEx()
     swapByteOrder64(desired_value);
 
     fprintf(mp_fp, "\tdesired property: %u (%s)\n", desired_property, strMPProperty(desired_property).c_str());
-    fprintf(mp_fp, "\t   desired value: %lu.%08lu\n", desired_value/COIN, desired_value%COIN);
+    fprintf(mp_fp, "\t   desired value: %s\n", FormatMP(desired_property, desired_value).c_str());
 
     memcpy(&action, &pkt[28], 1);
 
