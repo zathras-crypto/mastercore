@@ -126,6 +126,7 @@ enum FILETYPES {
 #define MASTERCOIN_PROPERTY_MSC   1
 #define MASTERCOIN_PROPERTY_TMSC  2
 
+
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
