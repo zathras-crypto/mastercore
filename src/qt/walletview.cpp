@@ -99,6 +99,7 @@ WalletView::WalletView(QWidget *parent):
     QTabWidget *exTabHolder = new QTabWidget();
     exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin"));
     exTabHolder->addTab(metaDExTab,tr("Trade Mastercoin/Smart Properties"));
+    exTabHolder->addTab(new QWidget(),tr("Open Orders"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
 

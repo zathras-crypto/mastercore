@@ -75,32 +75,32 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     //prep lists
     ui->buyList->setColumnCount(3);
     ui->sellList->setColumnCount(3);
-    ui->openOrders->setColumnCount(5);
+//    ui->openOrders->setColumnCount(5);
 
         //dummy orders
-        const int currentRow = ui->openOrders->rowCount();
-        ui->openOrders->setRowCount(currentRow + 1);
-        ui->openOrders->setItem(currentRow, 0, new QTableWidgetItem("1FakeBitcoinAddressDoNotSend"));
-        ui->openOrders->setItem(currentRow, 1, new QTableWidgetItem("Sell"));
-        ui->openOrders->setItem(currentRow, 2, new QTableWidgetItem("0.00004565"));
-        ui->openOrders->setItem(currentRow, 3, new QTableWidgetItem("345.45643222"));
-        ui->openOrders->setItem(currentRow, 4, new QTableWidgetItem("0.015770081"));
+//        const int currentRow = ui->openOrders->rowCount();
+//        ui->openOrders->setRowCount(currentRow + 1);
+//        ui->openOrders->setItem(currentRow, 0, new QTableWidgetItem("1FakeBitcoinAddressDoNotSend"));
+//        ui->openOrders->setItem(currentRow, 1, new QTableWidgetItem("Sell"));
+//        ui->openOrders->setItem(currentRow, 2, new QTableWidgetItem("0.00004565"));
+//        ui->openOrders->setItem(currentRow, 3, new QTableWidgetItem("345.45643222"));
+//        ui->openOrders->setItem(currentRow, 4, new QTableWidgetItem("0.015770081"));
 
-    ui->openOrders->setHorizontalHeaderItem(0, new QTableWidgetItem("Address"));
-    ui->openOrders->setHorizontalHeaderItem(1, new QTableWidgetItem("Type"));
-    ui->openOrders->setHorizontalHeaderItem(2, new QTableWidgetItem("Unit Price"));
-    ui->openOrders->verticalHeader()->setVisible(false);
+//    ui->openOrders->setHorizontalHeaderItem(0, new QTableWidgetItem("Address"));
+//    ui->openOrders->setHorizontalHeaderItem(1, new QTableWidgetItem("Type"));
+//    ui->openOrders->setHorizontalHeaderItem(2, new QTableWidgetItem("Unit Price"));
+//    ui->openOrders->verticalHeader()->setVisible(false);
     #if QT_VERSION < 0x050000
-       ui->openOrders->horizontalHeader()->setResizeMode(0, QHeaderView::Stretch);
+//       ui->openOrders->horizontalHeader()->setResizeMode(0, QHeaderView::Stretch);
     #else
-       ui->openOrders->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+//       ui->openOrders->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     #endif
-    ui->openOrders->horizontalHeader()->resizeSection(1, 60);
-    ui->openOrders->horizontalHeader()->resizeSection(2, 140);
-    ui->openOrders->horizontalHeader()->resizeSection(3, 140);
-    ui->openOrders->horizontalHeader()->resizeSection(4, 140);
-    ui->openOrders->setShowGrid(false);
-    ui->openOrders->setSelectionBehavior(QAbstractItemView::SelectRows);
+//    ui->openOrders->horizontalHeader()->resizeSection(1, 60);
+//    ui->openOrders->horizontalHeader()->resizeSection(2, 140);
+//    ui->openOrders->horizontalHeader()->resizeSection(3, 140);
+//    ui->openOrders->horizontalHeader()->resizeSection(4, 140);
+//    ui->openOrders->setShowGrid(false);
+//    ui->openOrders->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     ui->buyList->setHorizontalHeaderItem(0, new QTableWidgetItem("Unit Price"));
     ui->buyList->setHorizontalHeaderItem(1, new QTableWidgetItem("Total SP#3"));
@@ -189,10 +189,12 @@ void MetaDExDialog::UpdateSellOffers()
     ui->sellList->clear();
     int rowcount = 0;
     bool testeco = isTestEcosystemProperty(global_metadex_market);
+printf("here\n");
     for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
+printf("here0\n");
         // look for the property
-        if (my_it->first != global_metadex_market) continue;
+        if (my_it->first != global_metadex_market) { printf("continue\n"); continue; }
 
         // loop prices and list any sells for the right pair
 printf("here1\n");
@@ -254,7 +256,7 @@ printf("here1\n");
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
-            XDOUBLE price = (it->first);
+            XDOUBLE price = (1/it->first);
             double available = 0;
             double total = 0;
 printf("here2\n");
@@ -359,8 +361,8 @@ void MetaDExDialog::FullRefresh()
         ui->sellList->setHorizontalHeaderItem(2, new QTableWidgetItem("TMSC"));
         ui->buyTotalLabel->setText("0.00000000 TMSC");
         ui->sellTotalLabel->setText("0.00000000 TMSC");
-        ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
-        ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("TMSC"));
+//        ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
+//        ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("TMSC"));
         ui->sellTM->setText("TMSC");
         ui->buyTM->setText("TMSC");
     }
@@ -371,8 +373,8 @@ void MetaDExDialog::FullRefresh()
         ui->sellList->setHorizontalHeaderItem(2, new QTableWidgetItem("MSC"));
         ui->buyTotalLabel->setText("0.00000000 MSC");
         ui->sellTotalLabel->setText("0.00000000 MSC");
-        ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
-        ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("MSC"));
+//        ui->openOrders->setHorizontalHeaderItem(3, new QTableWidgetItem("SP#" + QString::fromStdString(FormatIndivisibleMP(propertyId))));
+//        ui->openOrders->setHorizontalHeaderItem(4, new QTableWidgetItem("MSC"));
         ui->sellTM->setText("MSC");
         ui->buyTM->setText("MSC");
     }
@@ -427,13 +429,13 @@ void MetaDExDialog::FullRefresh()
     UpdateBuyAddress();
 
     // silly sizing
-    QRect rect = ui->openOrders->geometry();
-    int tableHeight = 2 + ui->openOrders->horizontalHeader()->height();
-    for(int i = 0; i < ui->openOrders->rowCount(); i++){
-        tableHeight += ui->openOrders->rowHeight(i);
-    }
-    rect.setHeight(tableHeight);
-    ui->openOrders->setGeometry(rect);
+//    QRect rect = ui->openOrders->geometry();
+//    int tableHeight = 2 + ui->openOrders->horizontalHeader()->height();
+//    for(int i = 0; i < ui->openOrders->rowCount(); i++){
+//        tableHeight += ui->openOrders->rowHeight(i);
+//    }
+//    rect.setHeight(tableHeight);
+//    ui->openOrders->setGeometry(rect);
 }
 
 void MetaDExDialog::buyAddressComboBoxChanged(int idx)
