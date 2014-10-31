@@ -189,7 +189,7 @@ void MetaDExDialog::UpdateSellOffers()
     ui->sellList->clear();
     int rowcount = 0;
     bool testeco = isTestEcosystemProperty(global_metadex_market);
-    for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
         // look for the property
         if (my_it->first != global_metadex_market) continue;
@@ -199,7 +199,7 @@ printf("here1\n");
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
-            double price = (it->first);
+            XDOUBLE price = (it->first);
             double available = 0;
             double total = 0;
 printf("here2\n");
@@ -208,11 +208,11 @@ printf("here2\n");
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
             {
                 CMPMetaDEx obj = *it;
-                if ( ((testeco) && (obj.getDesCurrency() == 2)) || ((!testeco) && (obj.getDesCurrency() == 1)) )
+                if ( ((testeco) && (obj.getDesProperty() == 2)) || ((!testeco) && (obj.getDesProperty() == 1)) )
                 {
 printf("here3\n");
-                    available += obj.getAmount();
-                    total += obj.getAmountDesired();
+                    available += obj.getAmountDesired();
+                    total += obj.getAmount();
                 }
             }
 
@@ -243,7 +243,7 @@ void MetaDExDialog::UpdateBuyOffers()
     ui->buyList->clear();
     int rowcount = 0;
     bool testeco = isTestEcosystemProperty(global_metadex_market);
-    for (md_CurrenciesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
         // look for the property
         unsigned int mapPropertyId = my_it->first;
@@ -254,7 +254,7 @@ printf("here1\n");
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
-            double price = (it->first);
+            XDOUBLE price = (it->first);
             double available = 0;
             double total = 0;
 printf("here2\n");
@@ -263,7 +263,7 @@ printf("here2\n");
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
             {
                 CMPMetaDEx obj = *it;
-                if(obj.getDesCurrency()==global_metadex_market)
+                if(obj.getDesProperty()==global_metadex_market)
                 {
 printf("here3\n");
                     available += obj.getAmountDesired();
@@ -534,6 +534,8 @@ void MetaDExDialog::sendTrade(bool sell)
     }
 
     // warn if we have to truncate the amount due to a decimal amount for an indivisible property, but allow send to continue
+
+// need to handle sell too
     string strAmount = ui->buyAmountLE->text().toStdString();
     if (!divisible)
     {
@@ -576,7 +578,7 @@ void MetaDExDialog::sendTrade(bool sell)
     }
     else
     {
-        amountDes = StrToInt64(ui->sellAmountLE->text().toStdString(),divisible);
+        amountDes = StrToInt64(ui->buyAmountLE->text().toStdString(),divisible);
         price = StrToInt64(ui->buyPriceLE->text().toStdString(),true);
         if(divisible) { amountSell = (amountDes * price)/COIN; } else { amountSell = amountDes * price; }
         if(testeco) { propertyIdSell = 2; } else { propertyIdSell = 1; }
