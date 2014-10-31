@@ -54,7 +54,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -3293,7 +3293,7 @@ static const string addr = "1MpNote1jsHkbQLwEmgoMr29EoUC1nyxxV";
  // optional: provide the pointer to the CMPOffer object, it will get filled in
  // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
  //
-int CMPTransaction::interpretPacket(CMPOffer *obj_o)
+int CMPTransaction::interpretPacket(CMPOffer *obj_o, CMPMetaDEx *mdex_o)
 {
 int rc = PKT_ERROR;
 int step_rc;

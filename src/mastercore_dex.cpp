@@ -88,6 +88,19 @@ enum MatchReturnType
   ADDED,
 };
 
+const string getTradeReturnType(MatchReturnType ret)
+{
+  switch (ret)
+  {
+    case NOTHING: return string("NOTHING");
+    case TRADED: return string("TRADED");
+    case TRADED_MOREINSELLER: return string("TRADED_MOREINSELLER");
+    case TRADED_MOREINBUYER: return string("TRADED_MOREINBUYER");
+    case ADDED: return string("ADDED");
+    default: return string("* unknown *");
+  }
+}
+
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: true if an insert (same as in fresh) must follow
@@ -119,7 +132,7 @@ MatchReturnType NewReturn = NOTHING;
      __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), newo->ToString().c_str());
 
     mp_log( "%s(%s: prop=%u, desprop=%u, desprice= %s:%s);newo: %s\n",
-     __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), newo->ToString().c_str());
+     __FUNCTION__, buyer_addr, prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed), label, newo->ToString());
   }
 
   if (bTrade)
@@ -134,7 +147,7 @@ MatchReturnType NewReturn = NOTHING;
   // nothing for the desired property exists in the market, sorry!
   if (!prices)
   {
-    fprintf(mp_fp, "%s()=%u, line %d, file: %s\n", __FUNCTION__, NewReturn, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s()=%u:%s, line %d, file: %s\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str(), __LINE__, __FILE__);
     return NewReturn;
   }
 
@@ -228,11 +241,6 @@ MatchReturnType NewReturn = NOTHING;
         replacement.setAmount(seller_amountLeft);
         replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
 
-        if (0 < seller_amountLeft)
-        {
-          NewReturn = TRADED_MOREINSELLER;
-        }
-
         // transfer the payment property from buyer to seller
         if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, MONEY))
         {
@@ -245,6 +253,13 @@ MatchReturnType NewReturn = NOTHING;
         if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
           update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MONEY);
+        }
+
+        NewReturn = TRADED;
+
+        if (0 < seller_amountLeft)
+        {
+          NewReturn = TRADED_MOREINSELLER;
         }
 
         XDOUBLE amount_wanted = (XDOUBLE) buyer_amountStillWanted * price;
@@ -292,7 +307,7 @@ MatchReturnType NewReturn = NOTHING;
     } // if found
   }
   
-  fprintf(mp_fp, "%s()=%u, line %d, file: %s\n", __FUNCTION__, NewReturn, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s()=%u:%s, line %d, file: %s\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str(), __LINE__, __FILE__);
 
   return NewReturn;
 }
@@ -346,7 +361,7 @@ CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValu
 std::string CMPMetaDEx::ToString() const
 {
   return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
-   addr.c_str(), block, idx, txid.ToString().c_str(),
+   addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
    property, FormatMP(property, amount), desired_property, FormatMP(desired_property, amount_desired));
 }
 
@@ -744,19 +759,22 @@ int count_mustInsert = 0;
       // do not work with 0 prices
       return METADEX_ERROR -66;
     }
-  MetaDEx_debug_print3(mp_fp);
+
+  if (msc_debug_metadex2) MetaDEx_debug_print3(mp_fp);
 
     // TRADE, check matches, remainder of the order will be put into the order book
     // TODO: loop here to scan the whole book...
     MetaDExMatch(neworder_price, true, &new_mdex); // inverse price match to TRADE
 
-  MetaDEx_debug_print3(mp_fp);
+  if (msc_debug_metadex2) MetaDEx_debug_print3(mp_fp);
+
     // if anything is left in the new order, INSERT
     if (0 < new_mdex.getAmount())
     {
       if (NOTHING == MetaDExMatch(neworder_price, false, &new_mdex)) ++count_mustInsert; // straight match to ADD
     }
-  MetaDEx_debug_print3(mp_fp);
+
+  if (msc_debug_metadex2) MetaDEx_debug_print3(mp_fp);
 
     if (count_mustInsert)
     { // not added nor subtracted, insert as new or post-traded amounts
