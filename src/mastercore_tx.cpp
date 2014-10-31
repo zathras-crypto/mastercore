@@ -90,7 +90,6 @@ int CMPTransaction::step2_Value()
   swapByteOrder32(property);
 
   fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property).c_str());
-//  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
   fprintf(mp_fp, "\t           value: %s\n", FormatMP(property, nValue).c_str());
 
   if (MAX_INT_8_BYTES < nValue)

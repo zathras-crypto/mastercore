@@ -113,8 +113,14 @@ MatchReturnType NewReturn = NOTHING;
     label = "Straight";
   }
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %s:%s), line %d, file: %s\n",
-   __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), __LINE__, __FILE__);
+  if (msc_debug_metadex)
+  {
+    fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %s:%s);newo: %s\n",
+     __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), newo->ToString().c_str());
+
+    mp_log( "%s(%s: prop=%u, desprop=%u, desprice= %s:%s);newo: %s\n",
+     __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), newo->ToString().c_str());
+  }
 
   if (bTrade)
   {
