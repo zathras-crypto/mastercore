@@ -322,7 +322,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
       if (obj_o)
       {
         obj_o->Set(amount_desired, min_fee, blocktimelimit, subaction);
-        return PKT_RETURN_OFFER;
+        return PKT_RETURNED_OBJECT;
       }
 
       // figure out which Action this is based on amount for sale, version & etc.
@@ -436,7 +436,7 @@ int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
     if (mdex_o)
     {
       mdex_o->Set(sender, block, property, nValue, desired_property, desired_value, txid, tx_idx, action);
-      return PKT_RETURN_OFFER;
+      return PKT_RETURNED_OBJECT;
     }
 
     nNewValue = getMPbalance(sender, property, MONEY);

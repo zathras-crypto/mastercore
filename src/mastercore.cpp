@@ -3281,7 +3281,7 @@ static const string addr = "1MpNote1jsHkbQLwEmgoMr29EoUC1nyxxV";
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
- // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
+ // RETURNS: >0 the only known case today is: return PKT_RETURNED_OBJECT
  //
  // 
  // the following functions may augment the amount in question (nValue):
