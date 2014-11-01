@@ -413,7 +413,7 @@ int rc = DEX_ERROR_ACCEPT;
     return rc;
 }
 
-int CMPTransaction::logicMath_MetaDEx()
+int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
 {
   int rc = PKT_ERROR_METADEX -100;
   unsigned char action = 0;
@@ -432,6 +432,12 @@ int CMPTransaction::logicMath_MetaDEx()
     memcpy(&action, &pkt[28], 1);
 
     fprintf(mp_fp, "\t          action: %u\n", action);
+
+    if (mdex_o)
+    {
+      mdex_o->Set(sender, block, property, nValue, desired_property, desired_value, txid, tx_idx, action);
+      return PKT_RETURN_OFFER;
+    }
 
     nNewValue = getMPbalance(sender, property, MONEY);
 

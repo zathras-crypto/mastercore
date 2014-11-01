@@ -3301,6 +3301,7 @@ int step_rc;
   if (0>step1()) return -98765;
 
   if ((obj_o) && (MSC_TYPE_TRADE_OFFER != type)) return -777; // can't fill in the Offer object !
+  if ((mdex_o) && (MSC_TYPE_METADEX != type)) return -778; // can't fill in the MetaDEx object !
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -3533,7 +3534,7 @@ int step_rc;
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
-      rc = logicMath_MetaDEx();
+      rc = logicMath_MetaDEx(mdex_o);
       break;
 
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
