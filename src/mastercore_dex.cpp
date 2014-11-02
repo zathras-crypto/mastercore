@@ -623,12 +623,12 @@ int rc = DEX_ERROR_PAYMENT;
 CMPAccept *p_accept;
 int prop;
 
-prop = MASTERCOIN_PROPERTY_MSC; //test for MSC accept first
+prop = OMNI_PROPERTY_MSC; //test for MSC accept first
 p_accept = DEx_getAccept(seller, prop, buyer);
 
   if (!p_accept) 
   {
-    prop = MASTERCOIN_PROPERTY_TMSC; //test for TMSC accept second
+    prop = OMNI_PROPERTY_TMSC; //test for TMSC accept second
     p_accept = DEx_getAccept(seller, prop, buyer); 
   }
 
@@ -733,8 +733,8 @@ int count_mustInsert = 0;
   if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), prop, amount);
 
   // MetaDEx implementation phase 1 check
-  if ((prop != MASTERCOIN_PROPERTY_MSC) && (property_desired != MASTERCOIN_PROPERTY_MSC) &&
-   (prop != MASTERCOIN_PROPERTY_TMSC) && (property_desired != MASTERCOIN_PROPERTY_TMSC))
+  if ((prop != OMNI_PROPERTY_MSC) && (property_desired != OMNI_PROPERTY_MSC) &&
+   (prop != OMNI_PROPERTY_TMSC) && (property_desired != OMNI_PROPERTY_TMSC))
   {
     return METADEX_ERROR -800;
   }

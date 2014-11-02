@@ -123,9 +123,9 @@ enum FILETYPES {
 #define METADEX_ERROR         (-81000)
 #define PKT_ERROR_TOKENS      (-82000)
 
-#define MASTERCOIN_PROPERTY_BTC   0
-#define MASTERCOIN_PROPERTY_MSC   1
-#define MASTERCOIN_PROPERTY_TMSC  2
+#define OMNI_PROPERTY_BTC   0
+#define OMNI_PROPERTY_MSC   1
+#define OMNI_PROPERTY_TMSC  2
 
 int mp_LogPrintStr(const std::string &str);
 
@@ -248,7 +248,7 @@ public:
     my_it = mp_token.begin();
   }
 
-  int64_t print(int which_property = MASTERCOIN_PROPERTY_MSC, bool bDivisible = true)
+  int64_t print(int which_property = OMNI_PROPERTY_MSC, bool bDivisible = true)
   {
   int64_t money = 0;
   int64_t so_r = 0;

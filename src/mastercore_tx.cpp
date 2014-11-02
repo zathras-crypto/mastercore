@@ -127,7 +127,7 @@ unsigned int prop_id;
   fprintf(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
 
   // valid values are 1 & 2
-  if ((MASTERCOIN_PROPERTY_MSC != ecosystem) && (MASTERCOIN_PROPERTY_TMSC != ecosystem))
+  if ((OMNI_PROPERTY_MSC != ecosystem) && (OMNI_PROPERTY_TMSC != ecosystem))
   {
     error_code = (PKT_ERROR_SP -501);
     return NULL;
@@ -297,7 +297,7 @@ uint64_t amount_desired, min_fee;
 unsigned char blocktimelimit, subaction = 0;
 static const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
-      if ((MASTERCOIN_PROPERTY_TMSC != property) && (MASTERCOIN_PROPERTY_MSC != property))
+      if ((OMNI_PROPERTY_TMSC != property) && (OMNI_PROPERTY_MSC != property))
       {
         fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
         return PKT_ERROR_TRADEOFFER -72;

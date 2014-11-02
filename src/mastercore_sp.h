@@ -306,10 +306,10 @@ public:
     unsigned int nextId = 0;
 
     switch(ecosystem) {
-    case MASTERCOIN_PROPERTY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
+    case OMNI_PROPERTY_MSC: // mastercoin ecosystem, MSC: 1, TMSC: 2, First available SP = 3
       nextId = next_spid;
       break;
-    case MASTERCOIN_PROPERTY_TMSC: // Test MSC ecosystem, same as above with high bit set
+    case OMNI_PROPERTY_TMSC: // Test MSC ecosystem, same as above with high bit set
       nextId = next_test_spid;
       break;
     default: // non standard ecosystem, ID's start at 0
@@ -356,7 +356,7 @@ public:
   void printAll()
   {
     // print off the hard coded MSC and TMSC entries
-    for (unsigned int idx = MASTERCOIN_PROPERTY_MSC; idx <= MASTERCOIN_PROPERTY_TMSC; idx++ ) {
+    for (unsigned int idx = OMNI_PROPERTY_MSC; idx <= OMNI_PROPERTY_TMSC; idx++ ) {
       Entry info;
       printf("%10d => ", idx);
       if (getSP(idx, info)) {

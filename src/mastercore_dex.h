@@ -62,7 +62,7 @@ public:
       % offer_amount_original
       % property
       % BTC_desired_original
-      % ( MASTERCOIN_PROPERTY_BTC )
+      % ( OMNI_PROPERTY_BTC )
       % min_fee
       % (int)blocktimelimit
       % txid.ToString()).str();

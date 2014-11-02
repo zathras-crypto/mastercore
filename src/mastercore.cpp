@@ -305,9 +305,9 @@ string str = "*unknown*";
   else
   switch (i)
   {
-    case MASTERCOIN_PROPERTY_BTC: str = "BTC"; break;
-    case MASTERCOIN_PROPERTY_MSC: str = "MSC"; break;
-    case MASTERCOIN_PROPERTY_TMSC: str = "TMSC"; break;
+    case OMNI_PROPERTY_BTC: str = "BTC"; break;
+    case OMNI_PROPERTY_MSC: str = "MSC"; break;
+    case OMNI_PROPERTY_TMSC: str = "TMSC"; break;
     default: str = strprintf("SP token: %d", i);
   }
 
@@ -540,7 +540,7 @@ bool isMultiplicationOK(const uint64_t a, const uint64_t b)
 
 bool mastercore::isTestEcosystemProperty(unsigned int property)
 {
-  if ((MASTERCOIN_PROPERTY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
+  if ((OMNI_PROPERTY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
 
   return false;
 }
@@ -768,7 +768,7 @@ int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
   // BTC as property is never allowed
-  if (MASTERCOIN_PROPERTY_BTC == txProperty) return false;
+  if (OMNI_PROPERTY_BTC == txProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
   if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
@@ -834,7 +834,7 @@ const double available_reward=all_reward * part_available;
   // skip if a block's timestamp is older than that of a previous one!
   if (0>exodus_delta) return 0;
 
-  update_tally_map(exodus_address, MASTERCOIN_PROPERTY_MSC, exodus_delta, MONEY);
+  update_tally_map(exodus_address, OMNI_PROPERTY_MSC, exodus_delta, MONEY);
   exodus_prev = devmsc;
 
   return devmsc;
@@ -938,8 +938,8 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
-    update_tally_map(sender, MASTERCOIN_PROPERTY_MSC, msc_tot, MONEY);
-    update_tally_map(sender, MASTERCOIN_PROPERTY_TMSC, msc_tot, MONEY);
+    update_tally_map(sender, OMNI_PROPERTY_MSC, msc_tot, MONEY);
+    update_tally_map(sender, OMNI_PROPERTY_TMSC, msc_tot, MONEY);
 
     return 0;
   }
@@ -1587,7 +1587,7 @@ int input_msc_balances_string(const string &s)
     }
 
     size_t delimPos = curData[0].find(':');
-    int property = MASTERCOIN_PROPERTY_MSC;
+    int property = OMNI_PROPERTY_MSC;
     uint64_t balance = 0, sellReserved = 0, acceptReserved = 0;
 
     if (delimPos != curData[0].npos) {
@@ -1643,7 +1643,7 @@ int input_mp_offers_string(const string &s)
   blocktimelimit = atoi(vstr[i++]);
   txidStr = vstr[i++];
 
-  if (MASTERCOIN_PROPERTY_BTC == prop_desired)
+  if (OMNI_PROPERTY_BTC == prop_desired)
   {
   const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(sellerAddr);
   CMPOffer newOffer(offerBlock, amountOriginal, prop, btcDesired, minFee, blocktimelimit, uint256(txidStr));
@@ -2081,8 +2081,8 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  unsigned int nextSPID = _my_sps->peekNextSPID(MASTERCOIN_PROPERTY_MSC);
-  unsigned int nextTestSPID = _my_sps->peekNextSPID(MASTERCOIN_PROPERTY_TMSC);
+  unsigned int nextSPID = _my_sps->peekNextSPID(OMNI_PROPERTY_MSC);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(OMNI_PROPERTY_TMSC);
   string lineOut = (boost::format("%d,%d,%d")
     % exodus_prev
     % nextSPID
@@ -2359,7 +2359,7 @@ int mastercore_init()
   }
 
   // collect the real Exodus balances available at the snapshot time
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -2369,7 +2369,7 @@ int mastercore_init()
   if (mp_fp) fflush(mp_fp);
 
   // display Exodus balance
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MONEY);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -3236,7 +3236,7 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   if (msc_debug_exo)
     fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
-        devmsc, getMPbalance(exodus_address, MASTERCOIN_PROPERTY_MSC, MONEY));
+        devmsc, getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MONEY));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
@@ -3739,7 +3739,7 @@ int rc = PKT_ERROR_STO -1000;
       int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
 
       // determine which property the fee will be paid in
-      const unsigned int feeProperty = isTestEcosystemProperty(property) ? MASTERCOIN_PROPERTY_TMSC : MASTERCOIN_PROPERTY_MSC;
+      const unsigned int feeProperty = isTestEcosystemProperty(property) ? OMNI_PROPERTY_TMSC : OMNI_PROPERTY_MSC;
 
       fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
