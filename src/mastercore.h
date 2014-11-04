@@ -290,6 +290,12 @@ public:
   }
 };
 
+/* leveldb-based storage for trade history - trades will be listed here atomically with key txid1:txid2 */
+class CMPTradeList
+{
+
+}
+
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
 class CMPTxList
 {
