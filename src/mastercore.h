@@ -293,7 +293,42 @@ public:
 /* leveldb-based storage for trade history - trades will be listed here atomically with key txid1:txid2 */
 class CMPTradeList
 {
+protected:
+    // datebase options reused from MPTxList
+    leveldb::Options options;
+    leveldb::ReadOptions readoptions;
+    leveldb::ReadOptions iteroptions;
+    leveldb::WriteOptions writeoptions;
+    leveldb::WriteOptions syncoptions;
+    leveldb::DB *tdb;
+    // statistics
+    unsigned int nWritten;
+    unsigned int nRead;
 
+public:
+    CMPTradeList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)
+    {
+      options.paranoid_checks = true;
+      options.create_if_missing = true;
+      readoptions.verify_checksums = true;
+      iteroptions.verify_checksums = true;
+      iteroptions.fill_cache = false;
+      syncoptions.sync = true;
+      leveldb::Status status = leveldb::DB::Open(options, path.string(), &tdb);
+      printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    }
+
+    ~CMPTradeList()
+    {
+      delete tdb;
+      tdb = NULL;
+    }
+
+    void recordTrade(const uint256 &txid1, const uint256 &txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum);
+    bool exists(const uint256 &txid);
+    //bool getTrade(const uint256 &txid, string &value);
+    void printStats();
+    void printAll();
 }
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
