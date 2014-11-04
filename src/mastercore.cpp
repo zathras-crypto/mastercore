@@ -114,6 +114,7 @@ int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
+int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
