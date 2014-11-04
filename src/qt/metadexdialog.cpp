@@ -72,6 +72,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     //open
     global_metadex_market = 3;
 
+    //hide pending
+//    ui->pendingLabel->setVisible(false);
     //prep lists
     ui->buyList->setColumnCount(3);
     ui->sellList->setColumnCount(3);
@@ -148,6 +150,14 @@ void MetaDExDialog::OrderRefresh()
 {
     UpdateSellOffers();
     UpdateBuyOffers();
+    // check for pending transactions, could be more filtered to just trades here
+    bool pending = false;
+//    for(PendingMap::iterator my_it = my_pending.begin(); my_it != my_pending.end(); ++my_it)
+//    {
+        // if we get here there are pending transactions in the wallet, flag warning to MetaDEx
+//        pending = true;
+//    }
+//    if(pending) { ui->pendingLabel->setVisible(true); } else { ui->pendingLabel->setVisible(false); }
 }
 
 void MetaDExDialog::SwitchMarket()
@@ -207,7 +217,7 @@ void MetaDExDialog::UpdateSellOffers()
     for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
         // look for the property
-        if (my_it->first != global_metadex_market) { printf("continue\n"); continue; }
+        if (my_it->first != global_metadex_market) { continue; }
 
         // loop prices and list any sells for the right pair
         md_PricesMap & prices = my_it->second;
@@ -348,12 +358,12 @@ void MetaDExDialog::UpdateBuyAddress()
     string tokenStr;
     if (testeco)
     {
-        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_PROPERTY_TMSC);
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), OMNI_PROPERTY_TMSC);
         tokenStr = " TMSC";
     }
     else
     {
-        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), MASTERCOIN_PROPERTY_MSC);
+        balanceAvailable = getUserAvailableMPbalance(currentSetBuyAddress.toStdString(), OMNI_PROPERTY_MSC);
         tokenStr = " MSC";
 
     }
@@ -435,8 +445,8 @@ void MetaDExDialog::FullRefresh()
         (my_it->second).init();
         while (0 != (id = (my_it->second).next()))
         {
-            if((id==MASTERCOIN_PROPERTY_MSC) && (!testeco)) { includeAddress=true; break; }
-            if((id==MASTERCOIN_PROPERTY_TMSC) && (testeco)) { includeAddress=true; break; }
+            if((id==OMNI_PROPERTY_MSC) && (!testeco)) { includeAddress=true; break; }
+            if((id==OMNI_PROPERTY_TMSC) && (testeco)) { includeAddress=true; break; }
         }
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
