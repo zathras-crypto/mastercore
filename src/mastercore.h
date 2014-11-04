@@ -329,7 +329,7 @@ public:
     //bool getTrade(const uint256 &txid, string &value);
     void printStats();
     void printAll();
-}
+};
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
 class CMPTxList
@@ -443,6 +443,7 @@ namespace mastercore
 {
 extern std::map<string, CMPTally> mp_tally_map;
 extern CMPTxList *p_txlistdb;
+extern CMPTradeList *t_tradelistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
 

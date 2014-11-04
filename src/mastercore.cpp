@@ -151,6 +151,7 @@ static const int txRestrictionsRules[][3] = {
 };
 
 CMPTxList *mastercore::p_txlistdb;
+CMPTradeList *mastercore::t_tradelistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -2289,6 +2290,7 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2385,6 +2387,11 @@ int mastercore_shutdown()
   if (p_txlistdb)
   {
     delete p_txlistdb; p_txlistdb = NULL;
+  }
+
+  if (t_tradelistdb)
+  {
+    delete t_tradelistdb; t_tradelistdb = NULL;
   }
 
   if (mp_fp)
