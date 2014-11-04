@@ -439,7 +439,7 @@ int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
       return PKT_RETURNED_OBJECT;
     }
 
-    nNewValue = getMPbalance(sender, property, MONEY);
+    nNewValue = getMPbalance(sender, property, MAIN_RESERVE);
 
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
     if (nNewValue > nValue) nNewValue = nValue;
@@ -468,7 +468,7 @@ int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
     switch (action)
     {
       case ADD:
-        // Does the sender have any money?
+        // Does the sender have any tokens?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
         // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
@@ -547,7 +547,7 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // grant the tokens
-    update_tally_map(sender, property, nValue, MONEY);
+    update_tally_map(sender, property, nValue, MAIN_RESERVE);
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -593,7 +593,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, property, -nValue, MONEY)) {
+    if (false == update_tally_map(sender, property, -nValue, MAIN_RESERVE)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }

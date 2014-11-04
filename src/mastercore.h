@@ -171,7 +171,7 @@ extern int msc_debug_dex;
 
 extern CCriticalSection cs_tally;
 
-enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, PENDING = 3, TALLY_TYPE_COUNT };
+enum TallyType { MAIN_RESERVE = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, PENDING = 3, TALLY_TYPE_COUNT };
 
 class CMPTally
 {
@@ -257,7 +257,7 @@ public:
 
     if (propertyExists(which_property))
     {
-      money = mp_token[which_property].balance[MONEY];
+      money = mp_token[which_property].balance[MAIN_RESERVE];
       so_r = mp_token[which_property].balance[SELLOFFER_RESERVE];
       a_r = mp_token[which_property].balance[ACCEPT_RESERVE];
       pending = mp_token[which_property].balance[PENDING];

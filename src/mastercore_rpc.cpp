@@ -129,7 +129,7 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 6:
-      MetaDEx_debug_print3();
+      MetaDEx_debug_print();
       break;
   }
 
