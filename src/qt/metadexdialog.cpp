@@ -221,6 +221,7 @@ printf("here1\n");
             XDOUBLE price = (it->first);
             double available = 0;
             double total = 0;
+            bool includesMe = false;
 printf("here2\n");
             md_Set & indexes = (it->second);
             // loop through each entry and sum up any sells for the right pair
@@ -232,6 +233,7 @@ printf("here2\n");
 printf("here3\n");
                     available += obj.getAmountDesired();
                     total += obj.getAmount();
+                    if(IsMyAddress(obj.getAddr())) includesMe = true;
                 }
             }
 
@@ -248,6 +250,14 @@ printf("here4\n");
                 ui->sellList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
                 ui->sellList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
                 ui->sellList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                if(includesMe)
+                {
+                    QFont font;
+                    font.setBold(true);
+                    ui->sellList->item(rowcount, 0)->setFont(font);
+                    ui->sellList->item(rowcount, 1)->setFont(font);
+                    ui->sellList->item(rowcount, 2)->setFont(font);
+                }
                 rowcount += 1;
             }
         }
@@ -276,6 +286,7 @@ printf("here1\n");
             XDOUBLE price = (1/it->first);
             double available = 0;
             double total = 0;
+            bool includesMe = false;
 printf("here2\n");
             md_Set & indexes = (it->second);
             // loop through each entry and sum up any sells for the right pair
@@ -287,6 +298,7 @@ printf("here2\n");
 printf("here3\n");
                     available += obj.getAmountDesired();
                     total += obj.getAmount();
+                    if(IsMyAddress(obj.getAddr())) includesMe = true;
                 }
             }
             // done checking this price, if there are any available/total add to pricebook
@@ -302,6 +314,14 @@ printf("here4\n");
                 ui->buyList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
                 ui->buyList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
                 ui->buyList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                if(includesMe)
+                {
+                    QFont font;
+                    font.setBold(true);
+                    ui->buyList->item(rowcount, 0)->setFont(font);
+                    ui->buyList->item(rowcount, 1)->setFont(font);
+                    ui->buyList->item(rowcount, 2)->setFont(font);
+                }
                 rowcount += 1;
             }
         }
