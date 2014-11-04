@@ -111,29 +111,25 @@ bool operator!=(XDOUBLE first, XDOUBLE second)
   return !(first == second);
 }
 
-bool equals(XDOUBLE first, XDOUBLE second)
-{
-  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) == second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
-}
-
-bool operator<(XDOUBLE first, XDOUBLE second)
-{
-  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) < second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
-}
-
-bool operator>(XDOUBLE first, XDOUBLE second)
-{
-  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) > second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
-}
-
 bool operator<=(XDOUBLE first, XDOUBLE second)
 {
-  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) <= second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+  return ((first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) < second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed)) || (first == second));
 }
 
 bool operator>=(XDOUBLE first, XDOUBLE second)
 {
-  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) >= second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+  return ((first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) > second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed)) || (first == second));
+}
+
+static void PriceCheck(const string &label, XDOUBLE left, XDOUBLE right, FILE *fp = stdout)
+{
+const bool bOK = (left == right);
+
+  fprintf(fp, "PRICE CHECK %s: buyer = %s , inserted = %s : %s\n", label.c_str(),
+   left.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
+   right.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
+
+  assert(bOK);
 }
 
 // find the best match on the market
@@ -165,7 +161,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
   // nothing for the desired property exists in the market, sorry!
   if (!prices)
   {
-    fprintf(mp_fp, "%s()=%u:%s NOTHING FOUND ON THE MARKET\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
+    fprintf(mp_fp, "%s()=%u:%s NOT FOUND ON THE MARKET\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
     return NewReturn;
   }
 
@@ -274,34 +270,17 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
 
         if (0 < buyer_amountStillWanted)
         {
-        const XDOUBLE effective = newo->getEffectivePrice();
-        bool bOK = false;
-
           NewReturn = TRADED_MOREINBUYER;
 
-          if (effective == buyersprice) bOK = true;
-
-          // check the price
-          fprintf(mp_fp, "PRICE CHECK buyer: old = %s , new = %s : %s\n",
-           buyersprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
-           effective.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
+          PriceCheck(getTradeReturnType(NewReturn), buyersprice, newo->getEffectivePrice(), mp_fp);
         }
 
         if (0 < seller_amountLeft)  // done with all loops, update the seller, buyer is fully satisfied
         {
-        const XDOUBLE effective_old = p_older->getEffectivePrice();
-        const XDOUBLE effective_new = seller_replacement.getEffectivePrice();
-        bool bOK = false;
-
           NewReturn = TRADED_MOREINSELLER;
           bBuyerSatisfied = true;
 
-          if (effective_old == effective_new) bOK = true;
-
-          // check the price
-          fprintf(mp_fp, "PRICE CHECK seller: old = %s , new = %s : %s\n",
-           effective_old.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
-           effective_new.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
+          PriceCheck(getTradeReturnType(NewReturn), p_older->getEffectivePrice(), seller_replacement.getEffectivePrice(), mp_fp);
         }
 
         if (msc_debug_metadex) fprintf(mp_fp, "==== TRADED !!! %u=%s\n", NewReturn, getTradeReturnType(NewReturn).c_str());
@@ -862,7 +841,7 @@ int rc = METADEX_ERROR -1;
     CMPMetaDEx new_mdex(sender_addr, block, prop, amount, property_desired, amount_desired, txid, idx, CMPTransaction::ADD);
     XDOUBLE neworder_buyersprice = new_mdex.getEffectivePrice();
 
-    if (msc_debug_metadex) fprintf(mp_fp, "%s(); temp buyer object: %s\n", __FUNCTION__, new_mdex.ToString().c_str());
+    if (msc_debug_metadex) fprintf(mp_fp, "%s(); buyer obj: %s\n", __FUNCTION__, new_mdex.ToString().c_str());
 
     // given the property & the price find the proper place for insertion
 
@@ -919,11 +898,7 @@ int rc = METADEX_ERROR -1;
         }
 
         // price check
-        {
-        const XDOUBLE neworder_buyersprice;
-        const XDOUBLE obj_price = new_mdex.getEffectivePrice();
-
-        }
+        PriceCheck("Insert", neworder_buyersprice, new_mdex.getEffectivePrice(), mp_fp);
 
         if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %s= %s\n", neworder_buyersprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), new_mdex.ToString().c_str());
       }

@@ -8,7 +8,7 @@
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
-#define DISPLAY_PRECISION_LEN  10
+#define DISPLAY_PRECISION_LEN  20
 #define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
@@ -221,7 +221,7 @@ public:
   {
   XDOUBLE effective_price = 0;
 
-    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' oranges:
+    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' of oranges:
     // example: I have 10 dollars, want 5 oranges; to me the price of 1 orange is thus: $10 / 5 or. = $2
     if (amount_desired) effective_price = (XDOUBLE) amount / (XDOUBLE) amount_desired; // division by 0 check
 
