@@ -131,6 +131,13 @@ int extra2 = 0, extra3 = 0;
     case 6:
       MetaDEx_debug_print();
       break;
+
+    case 7:
+      // display the whole CMPTradeList (leveldb)
+      t_tradelistdb->printAll();
+      t_tradelistdb->printStats();
+      break;
+
   }
 
   return GetHeight();
