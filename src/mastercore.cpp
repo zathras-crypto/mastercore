@@ -3084,6 +3084,7 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+// MPTradeList here
 void CMPTradeList::recordTrade(const uint256 &txid1, const uint256 &txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
 {
   if (!tdb) return;
@@ -3097,6 +3098,31 @@ void CMPTradeList::recordTrade(const uint256 &txid1, const uint256 &txid2, strin
     ++tWritten;
     if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
   }
+}
+
+void CMPTradeList::printStats()
+{
+  fprintf(mp_fp, "CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
+}
+
+void CMPTradeList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = tdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
 }
 
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
