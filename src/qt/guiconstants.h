@@ -9,7 +9,8 @@
 static const int MODEL_UPDATE_DELAY = 250;
 
 /* Milliseconds for MasterCore forced updates to catch anything missed - every 10s */
-static const int MASTERCORE_UPDATE_DELAY = 10000;
+/* Updated to 60 seconds, balance/block triggers should be getting all the refreshes in */
+static const int MASTERCORE_UPDATE_DELAY = 60000;
 
 /* AskPassphraseDialog -- Maximum passphrase length */
 static const int MAX_PASSPHRASE_SIZE = 1024;
