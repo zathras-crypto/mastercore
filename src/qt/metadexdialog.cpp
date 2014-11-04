@@ -142,14 +142,12 @@ void MetaDExDialog::setModel(WalletModel *model)
 {
     this->model = model;
     connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(OrderRefresh()));
-printf("setmodel\n");
 }
 
 void MetaDExDialog::OrderRefresh()
 {
     UpdateSellOffers();
     UpdateBuyOffers();
-printf("orderrefresh\n");
 }
 
 void MetaDExDialog::SwitchMarket()
@@ -206,15 +204,12 @@ void MetaDExDialog::UpdateSellOffers()
     ui->sellList->clear();
     int rowcount = 0;
     bool testeco = isTestEcosystemProperty(global_metadex_market);
-printf("here\n");
     for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
-printf("here0\n");
         // look for the property
         if (my_it->first != global_metadex_market) { printf("continue\n"); continue; }
 
         // loop prices and list any sells for the right pair
-printf("here1\n");
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
@@ -222,7 +217,6 @@ printf("here1\n");
             double available = 0;
             double total = 0;
             bool includesMe = false;
-printf("here2\n");
             md_Set & indexes = (it->second);
             // loop through each entry and sum up any sells for the right pair
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
@@ -230,7 +224,6 @@ printf("here2\n");
                 CMPMetaDEx obj = *it;
                 if ( ((testeco) && (obj.getDesProperty() == 2)) || ((!testeco) && (obj.getDesProperty() == 1)) )
                 {
-printf("here3\n");
                     available += obj.getAmountDesired();
                     total += obj.getAmount();
                     if(IsMyAddress(obj.getAddr())) includesMe = true;
@@ -240,7 +233,6 @@ printf("here3\n");
             // done checking this price, if there are any available/total add to pricebook
             if ((available > 0) && (total > 0))
             {
-printf("here4\n");
                 // add to pricebook
                 QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
                 QString tstr = QString::fromStdString(FormatDivisibleMP(available));
@@ -279,7 +271,6 @@ void MetaDExDialog::UpdateBuyOffers()
         if ( ((testeco) && (mapPropertyId != 2)) || ((!testeco) && (mapPropertyId != 1)) ) continue;
 
         // loop prices and list any sells for the right pair
-printf("here1\n");
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
@@ -287,7 +278,6 @@ printf("here1\n");
             double available = 0;
             double total = 0;
             bool includesMe = false;
-printf("here2\n");
             md_Set & indexes = (it->second);
             // loop through each entry and sum up any sells for the right pair
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
@@ -295,7 +285,6 @@ printf("here2\n");
                 CMPMetaDEx obj = *it;
                 if(obj.getDesProperty()==global_metadex_market)
                 {
-printf("here3\n");
                     available += obj.getAmountDesired();
                     total += obj.getAmount();
                     if(IsMyAddress(obj.getAddr())) includesMe = true;
@@ -304,7 +293,6 @@ printf("here3\n");
             // done checking this price, if there are any available/total add to pricebook
             if ((available > 0) && (total > 0))
             {
-printf("here4\n");
                 // add to pricebook
                 QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
                 QString tstr = QString::fromStdString(FormatDivisibleMP(available));
