@@ -128,8 +128,6 @@ const bool bOK = (left == right);
   fprintf(fp, "PRICE CHECK %s: buyer = %s , inserted = %s : %s\n", label.c_str(),
    left.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
    right.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
-
-  assert(bOK);
 }
 
 // find the best match on the market
