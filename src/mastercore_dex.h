@@ -8,7 +8,8 @@
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
-#define DISPLAY_PRECISION_LEN 10
+#define DISPLAY_PRECISION_LEN  10
+#define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 using boost::multiprecision::cpp_dec_float_50;

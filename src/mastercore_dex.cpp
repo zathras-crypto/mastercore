@@ -101,6 +101,41 @@ const string getTradeReturnType(MatchReturnType ret)
   }
 }
 
+bool operator==(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) == second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
+bool operator!=(XDOUBLE first, XDOUBLE second)
+{
+  return !(first == second);
+}
+
+bool equals(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) == second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
+bool operator<(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) < second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
+bool operator>(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) > second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
+bool operator<=(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) <= second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
+bool operator>=(XDOUBLE first, XDOUBLE second)
+{
+  return (first.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed) >= second.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed));
+}
+
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: 
@@ -114,7 +149,7 @@ const unsigned int desprop = newo->getDesProperty();
 MatchReturnType NewReturn = NOTHING;
 bool bBuyerSatisfied = false;
 const XDOUBLE buyersprice = newo->getEffectivePrice();
-const XDOUBLE desprice = (1/buyersprice);
+const XDOUBLE desprice = (1/buyersprice); // inverse
 
   if (msc_debug_metadex)
   {
@@ -191,7 +226,7 @@ const XDOUBLE desprice = (1/buyersprice);
         }
 
         XDOUBLE amount_paid = (XDOUBLE) buyer_amountGot * price;
-        std::string str_amount_paid = amount_paid.str(50, std::ios_base::fixed);
+        std::string str_amount_paid = amount_paid.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_paid_int_part = str_amount_paid.substr(0, str_amount_paid.find_first_of("."));
         const int64_t paymentAmount = boost::lexical_cast<int64_t>( str_paid_int_part );
 
@@ -202,7 +237,7 @@ const XDOUBLE desprice = (1/buyersprice);
          buyer_amountGot, seller_amountLeft, buyer_amountStillWanted, paymentAmount);
 
         XDOUBLE amount_left = (XDOUBLE) seller_amountLeft / price;
-        std::string str_amount_left = amount_left.str(50, std::ios_base::fixed);
+        std::string str_amount_left = amount_left.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
 
         CMPMetaDEx seller_replacement = *p_older;
@@ -231,7 +266,7 @@ const XDOUBLE desprice = (1/buyersprice);
         NewReturn = TRADED;
 
         XDOUBLE will_pay = (XDOUBLE) buyer_amountStillWanted * buyersprice;
-        std::string str_will_pay = will_pay.str(50, std::ios_base::fixed);
+        std::string str_will_pay = will_pay.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_wanted_int_part = str_will_pay.substr(0, str_will_pay.find_first_of("."));
 
         newo->setAmount(boost::lexical_cast<int64_t>( str_wanted_int_part ));
@@ -827,7 +862,7 @@ int rc = METADEX_ERROR -1;
     CMPMetaDEx new_mdex(sender_addr, block, prop, amount, property_desired, amount_desired, txid, idx, CMPTransaction::ADD);
     XDOUBLE neworder_buyersprice = new_mdex.getEffectivePrice();
 
-    if (msc_debug_metadex) fprintf(mp_fp, "%s(); temp object: %s\n", __FUNCTION__, new_mdex.ToString().c_str());
+    if (msc_debug_metadex) fprintf(mp_fp, "%s(); temp buyer object: %s\n", __FUNCTION__, new_mdex.ToString().c_str());
 
     // given the property & the price find the proper place for insertion
 
@@ -850,7 +885,7 @@ int rc = METADEX_ERROR -1;
     // if anything is left in the new order, INSERT
     if (0 < new_mdex.getAmount())
     {
-//      MetaDEx_Add(&new_mdex); // straight match to ADD
+      MetaDEx_Add(&new_mdex); // straight match to ADD
     }
 
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
@@ -881,6 +916,13 @@ int rc = METADEX_ERROR -1;
         if (update_tally_map(sender_addr, prop, - amount, MAIN_RESERVE)) // subtract from what's available
         {
           update_tally_map(sender_addr, prop, amount, SELLOFFER_RESERVE); // put in reserve
+        }
+
+        // price check
+        {
+        const XDOUBLE neworder_buyersprice;
+        const XDOUBLE obj_price = new_mdex.getEffectivePrice();
+
         }
 
         if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %s= %s\n", neworder_buyersprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), new_mdex.ToString().c_str());
