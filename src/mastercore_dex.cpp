@@ -57,7 +57,7 @@ using namespace mastercore;
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 
-extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2;
+extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2, msc_debug_metadex3;
 
 md_PropertiesMap mastercore::metadex;
 
@@ -88,104 +88,89 @@ enum MatchReturnType
   ADDED,
 };
 
+const string getTradeReturnType(MatchReturnType ret)
+{
+  switch (ret)
+  {
+    case NOTHING: return string("NOTHING");
+    case TRADED: return string("TRADED");
+    case TRADED_MOREINSELLER: return string("TRADED_MOREINSELLER");
+    case TRADED_MOREINBUYER: return string("TRADED_MOREINBUYER");
+    case ADDED: return string("ADDED");
+    default: return string("* unknown *");
+  }
+}
+
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
-// RETURN: true if an insert (same as in fresh) must follow
-static MatchReturnType MetaDExMatch(const XDOUBLE forwardprice, bool bTrade, CMPMetaDEx *newo)
+// RETURN: 
+static MatchReturnType MetaDEx_Trade(CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
-bool found = false;
-string label;
 md_PricesMap *prices = NULL;
 const string buyer_addr = newo->getAddr();
 const unsigned int prop = newo->getProperty();
 const unsigned int desprop = newo->getDesProperty();
-XDOUBLE desprice = 0;
 MatchReturnType NewReturn = NOTHING;
+bool bBuyerSatisfied = false;
+const XDOUBLE buyersprice = newo->getEffectivePrice();
+const XDOUBLE desprice = (1/buyersprice);
 
-  if (bTrade)
+  if (msc_debug_metadex)
   {
-    desprice = (1 / forwardprice);
-    label = "INVERSE";
-  }
-  else
-  {
-    label = "Straight";
+    fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %s);newo: %s\n",
+     __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), newo->ToString().c_str());
+
+    mp_log( "%s(%s: prop=%u, desprop=%u, desprice= %s);newo: %s\n",
+     __FUNCTION__, buyer_addr, prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed), newo->ToString());
   }
 
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u, desprice= %s:%s), line %d, file: %s\n",
-   __FUNCTION__, buyer_addr.c_str(), prop, desprop, desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), label.c_str(), __LINE__, __FILE__);
-
-  if (bTrade)
-  {
-    prices = get_Prices(desprop);
-  }
-  else
-  {
-    prices = get_Prices(prop);
-  }
+  prices = get_Prices(desprop);
 
   // nothing for the desired property exists in the market, sorry!
   if (!prices)
   {
-    fprintf(mp_fp, "%s()=%u, line %d, file: %s\n", __FUNCTION__, NewReturn, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s()=%u:%s NOTHING FOUND ON THE MARKET\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
     return NewReturn;
   }
 
   md_Set *indexes;
   XDOUBLE price;
 
-  // within the desired property map walk iterate over the items looking at prices
+  // within the desired property map (given one property) iterate over the items looking at prices
   md_Set::iterator iitt;
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
-  {
+  { // check all prices
     price = (my_it->first);
 
-    if (bTrade)
-    {
-      if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %s needs to be GREATER THAN OR EQUAL TO %s\n",
+      if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %s needs to be LESS THAN OR EQUAL TO %s\n",
        desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
 
       // is the desired price check satisfied?
-      if (desprice < price) continue;
-    }
-    else
-    {
-      if (forwardprice != price) continue;
-    }
+      if (desprice > price) continue;
 
     indexes = &(my_it->second);
 
+    // at good (single) price level and property iterate over offers looking at all parameters to find the match
     md_Set::iterator iitt;
-    for (iitt = indexes->begin(); iitt != indexes->end(); ++iitt)
-    {
+    for (iitt = indexes->begin(); iitt != indexes->end();)
+    { // specific price, check all properties
       p_older = &(*iitt);
 
-      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %s (its prop= %u, its des prop= %u) = %s\n",
+      if (msc_debug_metadex) fprintf(mp_fp, "Looking at existing: %s (its prop= %u, its des prop= %u) = %s\n",
        price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->getProperty(), p_older->getDesProperty(), p_older->ToString().c_str());
 
       // is the desired property correct?
-      if (bTrade)
-      {
-        if (p_older->getDesProperty() != prop) continue;
-      }
-      else
-      {
-        if ((p_older->getDesProperty() != desprop) || (p_older->getAddr() != buyer_addr)) continue;
-      }
+        if (p_older->getDesProperty() != prop)
+        {
+          ++iitt;
+          continue;
+        }
 
       if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
-      found = true;
-      break;  // matched!
-    }
+      // if found
 
-    if (found)
-    { // if found
-    CMPMetaDEx replacement = *p_older;
-
-      if (bTrade)
-      {
         // All Matched ! Trade now.
         // p_older is the old order pointer
         // newo is the new order pointer
@@ -216,59 +201,176 @@ MatchReturnType NewReturn = NOTHING;
         if (msc_debug_metadex) fprintf(mp_fp, "$$ buyer_got= %ld, seller_left= %ld, buyer_still= %ld, payment= %ld\n",
          buyer_amountGot, seller_amountLeft, buyer_amountStillWanted, paymentAmount);
 
-        XDOUBLE amount_left = (XDOUBLE) seller_amountLeft * price;
+        XDOUBLE amount_left = (XDOUBLE) seller_amountLeft / price;
         std::string str_amount_left = amount_left.str(50, std::ios_base::fixed);
         std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
-        replacement.setAmount(seller_amountLeft);
-        replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
 
-        if (0 < seller_amountLeft)
-        {
-          NewReturn = TRADED_MOREINSELLER;
-        }
+        CMPMetaDEx seller_replacement = *p_older;
+
+        seller_replacement.setAmount(seller_amountLeft);
+        seller_replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
 
         // transfer the payment property from buyer to seller
-        if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, MONEY))
+        // TODO: do something when failing here............
+        // ...
+        if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, MAIN_RESERVE))
         {
-          if (update_tally_map(p_older->getAddr(), p_older->getDesProperty(), paymentAmount, MONEY))
+          if (update_tally_map(p_older->getAddr(), p_older->getDesProperty(), paymentAmount, MAIN_RESERVE))
           {
           }
         }
 
         // transfer the market (the one being sold) property from seller to buyer
+        // TODO: do something when failing here............
+        // ...
         if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
-          update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MONEY);
+          update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MAIN_RESERVE);
         }
 
-        XDOUBLE amount_wanted = (XDOUBLE) buyer_amountStillWanted * price;
-        std::string str_amount_wanted = amount_wanted.str(50, std::ios_base::fixed);
-        std::string str_wanted_int_part = str_amount_wanted.substr(0, str_amount_wanted.find_first_of("."));
+        NewReturn = TRADED;
 
-        newo->setAmount(buyer_amountStillWanted);
-        newo->setAmountDesired(boost::lexical_cast<int64_t>( str_wanted_int_part ));
+        XDOUBLE will_pay = (XDOUBLE) buyer_amountStillWanted * buyersprice;
+        std::string str_will_pay = will_pay.str(50, std::ios_base::fixed);
+        std::string str_wanted_int_part = str_will_pay.substr(0, str_will_pay.find_first_of("."));
+
+        newo->setAmount(boost::lexical_cast<int64_t>( str_wanted_int_part ));
+        newo->setAmountDesired(buyer_amountStillWanted);
 
         if (0 < buyer_amountStillWanted)
         {
-          CMPMetaDEx replacement = *newo;
+        const XDOUBLE effective = newo->getEffectivePrice();
+        bool bOK = false;
 
           NewReturn = TRADED_MOREINBUYER;
+
+          if (effective == buyersprice) bOK = true;
+
+          // check the price
+          fprintf(mp_fp, "PRICE CHECK buyer: old = %s , new = %s : %s\n",
+           buyersprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
+           effective.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
         }
 
-        if (msc_debug_metadex) fprintf(mp_fp, "==== TRADED !!!!!!!!!!!!!!!!!!!!!\n");
+        if (0 < seller_amountLeft)  // done with all loops, update the seller, buyer is fully satisfied
+        {
+        const XDOUBLE effective_old = p_older->getEffectivePrice();
+        const XDOUBLE effective_new = seller_replacement.getEffectivePrice();
+        bool bOK = false;
+
+          NewReturn = TRADED_MOREINSELLER;
+          bBuyerSatisfied = true;
+
+          if (effective_old == effective_new) bOK = true;
+
+          // check the price
+          fprintf(mp_fp, "PRICE CHECK seller: old = %s , new = %s : %s\n",
+           effective_old.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(),
+           effective_new.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), bOK ? "good":"PROBLEM!");
+        }
+
+        if (msc_debug_metadex) fprintf(mp_fp, "==== TRADED !!! %u=%s\n", NewReturn, getTradeReturnType(NewReturn).c_str());
+
+      if (msc_debug_metadex) fprintf(mp_fp, "++ erased old: %s\n", iitt->ToString().c_str());
+      // erase the old seller element
+      indexes->erase(iitt++);
+
+      if (bBuyerSatisfied)
+      {
+        // insert the updated one in place of the old
+        if (0 < seller_replacement.getAmount())
+        {
+          fprintf(mp_fp, "++ inserting seller_replacement: %s\n", seller_replacement.ToString().c_str());
+          indexes->insert(seller_replacement);
+        }
+        break;
       }
-      else
+    } // specific price, check all properties
+
+    if (bBuyerSatisfied) break;
+  } // check all prices
+  
+  fprintf(mp_fp, "%s()=%u:%s\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
+
+  return NewReturn;
+}
+
+// find the best match on the market
+// INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
+// RETURN: 
+static MatchReturnType MetaDEx_Add(CMPMetaDEx *newo)
+{
+const CMPMetaDEx *p_older = NULL;
+md_PricesMap *prices = NULL;
+const string buyer_addr = newo->getAddr();
+const unsigned int prop = newo->getProperty();
+const unsigned int desprop = newo->getDesProperty();
+const XDOUBLE buyersprice = newo->getEffectivePrice();
+XDOUBLE price = 0;
+MatchReturnType NewReturn = NOTHING;
+bool found = false;
+
+  if (msc_debug_metadex)
+  {
+    fprintf(mp_fp, "%s(%s: prop=%u, desprop=%u);newo: %s\n",
+     __FUNCTION__, buyer_addr.c_str(), prop, desprop, newo->ToString().c_str());
+
+    mp_log( "%s(%s: prop=%u, desprop=%u);newo: %s\n",
+     __FUNCTION__, buyer_addr, prop, desprop, newo->ToString());
+  }
+
+  prices = get_Prices(prop);
+
+  // nothing for the desired property exists in the market, sorry!
+  if (!prices)
+  {
+    fprintf(mp_fp, "%s()=%u:%s NOTHING FOUND FOR THE PRICE\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
+
+    return NewReturn;
+  }
+
+  md_Set *indexes;
+
+  // within the desired property map (given one property) iterate over the items looking at prices
+  md_Set::iterator iitt;
+  for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
+  {
+    price = (my_it->first);
+
+    if (buyersprice != price) continue;
+
+    indexes = &(my_it->second);
+
+    // at good price level and property iterate over offers looking at all parameters to find the match
+    md_Set::iterator iitt;
+    for (iitt = indexes->begin(); iitt != indexes->end(); ++iitt)
+    { // for iitt
+      p_older = &(*iitt);
+
+      if (msc_debug_metadex) fprintf(mp_fp, "Looking at: %s (its prop= %u, its des prop= %u) = %s\n",
+       price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->getProperty(), p_older->getDesProperty(), p_older->ToString().c_str());
+
+      // is the desired property correct?
+      if ((p_older->getDesProperty() != desprop) || (p_older->getAddr() != buyer_addr))
+      {
+        continue;
+      }
+
+      CMPMetaDEx replacement = *p_older;
+
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
+
       {
         // ADD, bump the replacement's amounts
-        replacement.setAmount(newo->getAmount() + replacement.getAmount());
-        replacement.setAmountDesired(newo->getAmountDesired() + replacement.getAmountDesired());
+        replacement.setAmount(newo->getAmount() + p_older->getAmount());
+        replacement.setAmountDesired(newo->getAmountDesired() + p_older->getAmountDesired());
 
         // destroy the txid as a marker...
         replacement.nullTxid();
 
         NewReturn = ADDED;
 
-        if (msc_debug_metadex) fprintf(mp_fp, "==== ADDED !!!!!!!!!!!!!!!!!!!!!\n");
+        if (msc_debug_metadex) fprintf(mp_fp, "==== ADDED !!! %s\n", replacement.ToString().c_str());
       }
 
       if (msc_debug_metadex) fprintf(mp_fp, "++ erased old: %s\n", iitt->ToString().c_str());
@@ -282,16 +384,21 @@ MatchReturnType NewReturn = NOTHING;
         indexes->insert(replacement);
       }
 
-      break;
-    } // if found
+      newo->setAmount(0);
+      newo->setAmountDesired(0);
+      found = true;
+      break;  // do not need to and can't iterate any more
+    }
+
+    if (found) break;
   }
   
-  fprintf(mp_fp, "%s()=%u, line %d, file: %s\n", __FUNCTION__, NewReturn, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s()=%u:%s\n", __FUNCTION__, NewReturn, getTradeReturnType(NewReturn).c_str());
 
   return NewReturn;
 }
 
-void mastercore::MetaDEx_debug_print3(FILE *fp)
+void mastercore::MetaDEx_debug_print(FILE *fp)
 {
   fprintf(fp, "<<<\n");
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
@@ -319,7 +426,7 @@ void mastercore::MetaDEx_debug_print3(FILE *fp)
   fprintf(fp, ">>>\n");
 }
 
-void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+void CMPMetaDEx::Set(const string &sa, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba)
 {
   addr = sa;
   block = b;
@@ -328,19 +435,20 @@ void CMPMetaDEx::Set0(const string &sa, int b, unsigned int c, uint64_t nValue, 
   amount= nValue;
   desired_property = cd;
   amount_desired = ad;
-
   idx = i;
+  subaction = suba;
 }
 
-CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i)
+CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba)
 {
-  Set0(addr, b,c,nValue,cd,ad,tx,i);
+  Set(addr, b,c,nValue,cd,ad,tx,i,suba);
 }
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
-   addr.c_str(), block, idx, txid.ToString().c_str(),
+  return strprintf("%s:%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
+   getEffectivePrice().str(DISPLAY_PRECISION_LEN, std::ios_base::fixed),
+   addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
    property, FormatMP(property, amount), desired_property, FormatMP(desired_property, amount_desired));
 }
 
@@ -394,7 +502,7 @@ int rc = DEX_ERROR_SELLOFFER;
   if (msc_debug_dex)
    fprintf(mp_fp, "%s(%s|%s), nValue=%lu)\n", __FUNCTION__, seller_addr.c_str(), combo.c_str(), nValue);
 
-  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, prop, MONEY);
+  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, prop, MAIN_RESERVE);
 
   // if offering more than available -- put everything up on sale
   if (nValue > balanceReallyAvailable)
@@ -411,7 +519,7 @@ int rc = DEX_ERROR_SELLOFFER;
     if (nAmended) *nAmended = nValue;
   }
 
-  if (update_tally_map(seller_addr, prop, - nValue, MONEY)) // subtract from what's available
+  if (update_tally_map(seller_addr, prop, - nValue, MAIN_RESERVE)) // subtract from what's available
   {
     update_tally_map(seller_addr, prop, nValue, SELLOFFER_RESERVE); // put in reserve
 
@@ -438,7 +546,7 @@ const uint64_t amount = getMPbalance(seller_addr, prop, SELLOFFER_RESERVE);
 
   if (amount)
   {
-    update_tally_map(seller_addr, prop, amount, MONEY);   // give money back to the seller from SellOffer-Reserve
+    update_tally_map(seller_addr, prop, amount, MAIN_RESERVE);   // give back to the seller from SellOffer-Reserve
     update_tally_map(seller_addr, prop, - amount, SELLOFFER_RESERVE);
   }
 
@@ -535,14 +643,14 @@ int mastercore::DEx_acceptDestroy(const string &buyer, const string &seller, int
 int rc = DEX_ERROR_ACCEPT - 20;
 CMPOffer *p_offer = DEx_getOffer(seller, prop);
 CMPAccept *p_accept = DEx_getAccept(seller, prop, buyer);
-bool bReturnToMoney; // return to MONEY of the seller, otherwise return to SELLOFFER_RESERVE
+bool bReturnToMoney; // return to MAIN_RESERVE of the seller, otherwise return to SELLOFFER_RESERVE
 const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
 
   if (!p_accept) return rc; // sanity check
 
   const uint64_t nActualAmount = p_accept->getAcceptAmountRemaining();
 
-  // if the offer is gone ACCEPT_RESERVE should go back to MONEY
+  // if the offer is gone ACCEPT_RESERVE should go back to MAIN_RESERVE
   if (!p_offer)
   {
     bReturnToMoney = true;
@@ -568,7 +676,7 @@ const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
   {
     if (update_tally_map(seller, prop, - nActualAmount, ACCEPT_RESERVE))
     {
-      update_tally_map(seller, prop, nActualAmount, MONEY);
+      update_tally_map(seller, prop, nActualAmount, MAIN_RESERVE);
       rc = 0;
     }
   }
@@ -602,12 +710,12 @@ int rc = DEX_ERROR_PAYMENT;
 CMPAccept *p_accept;
 int prop;
 
-prop = MASTERCOIN_PROPERTY_MSC; //test for MSC accept first
+prop = OMNI_PROPERTY_MSC; //test for MSC accept first
 p_accept = DEx_getAccept(seller, prop, buyer);
 
   if (!p_accept) 
   {
-    prop = MASTERCOIN_PROPERTY_TMSC; //test for TMSC accept second
+    prop = OMNI_PROPERTY_TMSC; //test for TMSC accept second
     p_accept = DEx_getAccept(seller, prop, buyer); 
   }
 
@@ -641,7 +749,7 @@ p_accept = DEx_getAccept(seller, prop, buyer);
 
   if (update_tally_map(seller, prop, - units_purchased, ACCEPT_RESERVE))
   {
-      update_tally_map(buyer, prop, units_purchased, MONEY);
+      update_tally_map(buyer, prop, units_purchased, MAIN_RESERVE);
       rc = 0;
       bool bValid = true;
       p_txlistdb->recordPaymentTX(txid, bValid, blockNow, vout, prop, units_purchased, buyer, seller);
@@ -707,66 +815,60 @@ AcceptMap::iterator my_it = my_accepts.begin();
 int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int prop, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
-int count_mustInsert = 0;
-
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u, %lu)\n", __FUNCTION__, sender_addr.c_str(), prop, amount);
 
   // MetaDEx implementation phase 1 check
-  if ((prop != MASTERCOIN_PROPERTY_MSC) && (property_desired != MASTERCOIN_PROPERTY_MSC) &&
-   (prop != MASTERCOIN_PROPERTY_TMSC) && (property_desired != MASTERCOIN_PROPERTY_TMSC))
+  if ((prop != OMNI_PROPERTY_MSC) && (property_desired != OMNI_PROPERTY_MSC) &&
+   (prop != OMNI_PROPERTY_TMSC) && (property_desired != OMNI_PROPERTY_TMSC))
   {
     return METADEX_ERROR -800;
   }
 
-  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(sender_addr);
-
-  // --------------------------------
-  {
     // store the data into the temp MetaDEx object here
-    CMPMetaDEx new_mdex(sender_addr, block, prop, amount, property_desired, amount_desired, txid, idx);
+    CMPMetaDEx new_mdex(sender_addr, block, prop, amount, property_desired, amount_desired, txid, idx, CMPTransaction::ADD);
+    XDOUBLE neworder_buyersprice = new_mdex.getEffectivePrice();
 
-    if (msc_debug_metadex) fprintf(mp_fp, "%s(); temp object: %s, line %d, file: %s\n", __FUNCTION__, new_mdex.ToString().c_str(), __LINE__, __FILE__);
+    if (msc_debug_metadex) fprintf(mp_fp, "%s(); temp object: %s\n", __FUNCTION__, new_mdex.ToString().c_str());
 
     // given the property & the price find the proper place for insertion
-    // price simulated with 'double' for now...
-    XDOUBLE neworder_price = (XDOUBLE) amount_desired / (XDOUBLE) amount;
 
     // TODO: reconsider for boost::multiprecision
     // FIXME
-    if (0 >= neworder_price)
+    if (0 >= neworder_buyersprice)
     {
       // do not work with 0 prices
       return METADEX_ERROR -66;
     }
-  MetaDEx_debug_print3(mp_fp);
+
+    if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
     // TRADE, check matches, remainder of the order will be put into the order book
     // TODO: loop here to scan the whole book...
-    MetaDExMatch(neworder_price, true, &new_mdex); // inverse price match to TRADE
+    MetaDEx_Trade(&new_mdex); // inverse price match to TRADE
 
-  MetaDEx_debug_print3(mp_fp);
+    if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
+
     // if anything is left in the new order, INSERT
     if (0 < new_mdex.getAmount())
     {
-      if (NOTHING == MetaDExMatch(neworder_price, false, &new_mdex)) ++count_mustInsert; // straight match to ADD
+//      MetaDEx_Add(&new_mdex); // straight match to ADD
     }
-  MetaDEx_debug_print3(mp_fp);
 
-    if (count_mustInsert)
+    if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
+
+    // plain insert
+    if (0 < new_mdex.getAmount())
     { // not added nor subtracted, insert as new or post-traded amounts
     md_PricesMap temp_prices, *p_prices = get_Prices(prop);
     md_Set temp_indexes, *p_indexes = NULL;
-
     std::pair<md_Set::iterator,bool> ret;
 
-    if (p_prices)
-    {
-      p_indexes = get_Indexes(p_prices, neworder_price);
-    }
+      if (p_prices)
+      {
+        p_indexes = get_Indexes(p_prices, neworder_buyersprice);
+      }
 
-    if (!p_indexes) p_indexes = &temp_indexes;
+      if (!p_indexes) p_indexes = &temp_indexes;
 
-    {
       ret = p_indexes->insert(new_mdex);
 
       if (false == ret.second)
@@ -776,27 +878,24 @@ int count_mustInsert = 0;
       }
       else
       {
-        if (update_tally_map(sender_addr, prop, - amount, MONEY)) // subtract from what's available
+        if (update_tally_map(sender_addr, prop, - amount, MAIN_RESERVE)) // subtract from what's available
         {
           update_tally_map(sender_addr, prop, amount, SELLOFFER_RESERVE); // put in reserve
         }
 
-        if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %s= %s\n", neworder_price.str(50, std::ios_base::fixed).c_str(), new_mdex.ToString().c_str());
+        if (msc_debug_metadex) fprintf(mp_fp, "==== INSERTED: %s= %s\n", neworder_buyersprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), new_mdex.ToString().c_str());
       }
-    }
 
-    if (!p_prices) p_prices = &temp_prices;
+      if (!p_prices) p_prices = &temp_prices;
 
-    (*p_prices)[neworder_price] = *p_indexes;
+      (*p_prices)[neworder_buyersprice] = *p_indexes;
 
-    metadex[prop] = *p_prices;
-    } // bMustInsert
-  }
-
-  // --------------------------------
+      metadex[prop] = *p_prices;
+    } // Must Insert
 
   rc = 0;
-  MetaDEx_debug_print3(mp_fp);
+
+  if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
   return rc;
 }
@@ -814,5 +913,4 @@ bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) c
   if (lhs.getBlock() == rhs.getBlock()) return lhs.getIdx() < rhs.getIdx();
   else return lhs.getBlock() < rhs.getBlock();
 }
-
 

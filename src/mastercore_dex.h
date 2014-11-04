@@ -8,7 +8,7 @@
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
-#define DISPLAY_PRECISION_LEN 20
+#define DISPLAY_PRECISION_LEN 10
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 using boost::multiprecision::cpp_dec_float_50;
@@ -29,11 +29,11 @@ public:
   uint256 getHash() const { return txid; }
   unsigned int getProperty() const { return property; }
   uint64_t getMinFee() const { return min_fee ; }
-  unsigned char getBlockTimeLimit() { return blocktimelimit; }
-  unsigned char getSubaction() { return subaction; }
+  unsigned char getBlockTimeLimit() const { return blocktimelimit; }
+  unsigned char getSubaction() const { return subaction; }
 
-  uint64_t getOfferAmountOriginal() { return offer_amount_original; }
-  uint64_t getBTCDesiredOriginal() { return BTC_desired_original; }
+  uint64_t getOfferAmountOriginal() const { return offer_amount_original; }
+  uint64_t getBTCDesiredOriginal() const { return BTC_desired_original; }
 
   CMPOffer():offerBlock(0),offer_amount_original(0),property(0),BTC_desired_original(0),min_fee(0),blocktimelimit(0),txid(0)
   {
@@ -62,7 +62,7 @@ public:
       % offer_amount_original
       % property
       % BTC_desired_original
-      % ( MASTERCOIN_PROPERTY_BTC )
+      % ( OMNI_PROPERTY_BTC )
       % min_fee
       % (int)blocktimelimit
       % txid.ToString()).str();
@@ -166,9 +166,10 @@ public:
 
 };  // end of CMPAccept class
 
+typedef cpp_dec_float_50 XDOUBLE;
+// typedef double XDOUBLE;
+
 // a metadex trade
-// TODO
-// ...
 class CMPMetaDEx
 {
 private:
@@ -193,8 +194,8 @@ public:
   uint64_t getAmount() const { return amount; }
   uint64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao) { fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); amount = ao; }
-  void setAmountDesired(int64_t ad) { fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); amount_desired = ad; }
+  void setAmount(int64_t ao) { amount = ao; fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); }
+  void setAmountDesired(int64_t ad) { amount_desired = ad; fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); }
 
   void nullTxid() { txid = 0; }
 
@@ -209,11 +210,22 @@ public:
     return pblockindex->GetBlockTime();  
   }
 
-  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
 
-  void Set0(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int);
+  void Set(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
 
   std::string ToString() const;
+
+  XDOUBLE getEffectivePrice() const
+  {
+  XDOUBLE effective_price = 0;
+
+    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' oranges:
+    // example: I have 10 dollars, want 5 oranges; to me the price of 1 orange is thus: $10 / 5 or. = $2
+    if (amount_desired) effective_price = (XDOUBLE) amount / (XDOUBLE) amount_desired; // division by 0 check
+
+    return (effective_price);
+  }
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -228,13 +240,6 @@ extern AcceptMap my_accepts;
 
 typedef std::pair < uint64_t, uint64_t > MetaDExTypePrice; // the price split up into integer & fractional part for precision
 
-class mmap_compare
-{
-public:
-
-  bool operator()(const MetaDExTypePrice &lhs, const MetaDExTypePrice &rhs) const;
-};
-
 class MetaDEx_compare
 {
 public:
@@ -243,9 +248,6 @@ public:
 };
 
 // ---------------
-typedef cpp_dec_float_50 XDOUBLE;
-// typedef double XDOUBLE;
-
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
 // TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
@@ -270,7 +272,7 @@ int MetaDEx_Create(const string &sender_addr, unsigned int, uint64_t amount, int
 int MetaDEx_Destroy(const string &sender_addr, unsigned int);
 
 // void MetaDEx_debug_print();
-void MetaDEx_debug_print3(FILE * fp = stdout);
+void MetaDEx_debug_print(FILE * fp = stdout);
 }
 
 #endif // #ifndef _MASTERCOIN_DEX

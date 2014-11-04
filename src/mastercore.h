@@ -9,6 +9,8 @@
 #include "netbase.h"
 #include "protocol.h"
 
+#include "tinyformat.h"
+
 #define LOG_FILENAME    "mastercore.log"
 #define INFO_FILENAME   "mastercore_crowdsales.log"
 #define OWNERS_FILENAME "mastercore_owners.log"
@@ -105,8 +107,7 @@ enum FILETYPES {
   NUM_FILETYPES
 };
 
-#define PKT_RETURN_OFFER    (1000)
-// #define PKT_RETURN_ACCEPT   (2000)
+#define PKT_RETURNED_OBJECT    (1000)
 
 #define PKT_ERROR             ( -9000)
 #define DEX_ERROR_SELLOFFER   (-10000)
@@ -122,9 +123,38 @@ enum FILETYPES {
 #define METADEX_ERROR         (-81000)
 #define PKT_ERROR_TOKENS      (-82000)
 
-#define MASTERCOIN_PROPERTY_BTC   0
-#define MASTERCOIN_PROPERTY_MSC   1
-#define MASTERCOIN_PROPERTY_TMSC  2
+#define OMNI_PROPERTY_BTC   0
+#define OMNI_PROPERTY_MSC   1
+#define OMNI_PROPERTY_TMSC  2
+
+int mp_LogPrintStr(const std::string &str);
+
+/* When we switch to C++11, this can be switched to variadic templates instead
+ * of this macro-based construction (see tinyformat.h).
+ */
+#define MP_MAKE_ERROR_AND_LOG_FUNC(n)                                        \
+    /*   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_category_log(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        if(!LogAcceptCategory(category)) return 0;                            \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_log(const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    /*   Log error and return false */                                        \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline bool mp_error(const char* format, TINYFORMAT_VARARGS(n))                     \
+    {                                                                         \
+        mp_LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
+        return false;                                                         \
+    }
+
+TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
+//--- CUT HERE ---
 
 
 // forward declarations
@@ -141,7 +171,7 @@ extern int msc_debug_dex;
 
 extern CCriticalSection cs_tally;
 
-enum TallyType { MONEY = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, PENDING = 3, TALLY_TYPE_COUNT };
+enum TallyType { MAIN_RESERVE = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, PENDING = 3, TALLY_TYPE_COUNT };
 
 class CMPTally
 {
@@ -218,7 +248,7 @@ public:
     my_it = mp_token.begin();
   }
 
-  int64_t print(int which_property = MASTERCOIN_PROPERTY_MSC, bool bDivisible = true)
+  int64_t print(int which_property = OMNI_PROPERTY_MSC, bool bDivisible = true)
   {
   int64_t money = 0;
   int64_t so_r = 0;
@@ -227,7 +257,7 @@ public:
 
     if (propertyExists(which_property))
     {
-      money = mp_token[which_property].balance[MONEY];
+      money = mp_token[which_property].balance[MAIN_RESERVE];
       so_r = mp_token[which_property].balance[SELLOFFER_RESERVE];
       a_r = mp_token[which_property].balance[ACCEPT_RESERVE];
       pending = mp_token[which_property].balance[PENDING];

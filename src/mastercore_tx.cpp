@@ -90,7 +90,6 @@ int CMPTransaction::step2_Value()
   swapByteOrder32(property);
 
   fprintf(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property).c_str());
-//  fprintf(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
   fprintf(mp_fp, "\t           value: %s\n", FormatMP(property, nValue).c_str());
 
   if (MAX_INT_8_BYTES < nValue)
@@ -128,7 +127,7 @@ unsigned int prop_id;
   fprintf(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
 
   // valid values are 1 & 2
-  if ((MASTERCOIN_PROPERTY_MSC != ecosystem) && (MASTERCOIN_PROPERTY_TMSC != ecosystem))
+  if ((OMNI_PROPERTY_MSC != ecosystem) && (OMNI_PROPERTY_TMSC != ecosystem))
   {
     error_code = (PKT_ERROR_SP -501);
     return NULL;
@@ -298,7 +297,7 @@ uint64_t amount_desired, min_fee;
 unsigned char blocktimelimit, subaction = 0;
 static const char * const subaction_name[] = { "empty", "new", "update", "cancel" };
 
-      if ((MASTERCOIN_PROPERTY_TMSC != property) && (MASTERCOIN_PROPERTY_MSC != property))
+      if ((OMNI_PROPERTY_TMSC != property) && (OMNI_PROPERTY_MSC != property))
       {
         fprintf(mp_fp, "No smart properties allowed on the DeX...\n");
         return PKT_ERROR_TRADEOFFER -72;
@@ -323,7 +322,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
       if (obj_o)
       {
         obj_o->Set(amount_desired, min_fee, blocktimelimit, subaction);
-        return PKT_RETURN_OFFER;
+        return PKT_RETURNED_OBJECT;
       }
 
       // figure out which Action this is based on amount for sale, version & etc.
@@ -414,7 +413,7 @@ int rc = DEX_ERROR_ACCEPT;
     return rc;
 }
 
-int CMPTransaction::logicMath_MetaDEx()
+int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
 {
   int rc = PKT_ERROR_METADEX -100;
   unsigned char action = 0;
@@ -434,7 +433,13 @@ int CMPTransaction::logicMath_MetaDEx()
 
     fprintf(mp_fp, "\t          action: %u\n", action);
 
-    nNewValue = getMPbalance(sender, property, MONEY);
+    if (mdex_o)
+    {
+      mdex_o->Set(sender, block, property, nValue, desired_property, desired_value, txid, tx_idx, action);
+      return PKT_RETURNED_OBJECT;
+    }
+
+    nNewValue = getMPbalance(sender, property, MAIN_RESERVE);
 
     // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
     if (nNewValue > nValue) nNewValue = nValue;
@@ -463,7 +468,7 @@ int CMPTransaction::logicMath_MetaDEx()
     switch (action)
     {
       case ADD:
-        // Does the sender have any money?
+        // Does the sender have any tokens?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
         // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
@@ -542,7 +547,7 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // grant the tokens
-    update_tally_map(sender, property, nValue, MONEY);
+    update_tally_map(sender, property, nValue, MAIN_RESERVE);
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -588,7 +593,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, property, -nValue, MONEY)) {
+    if (false == update_tally_map(sender, property, -nValue, MAIN_RESERVE)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }

@@ -129,7 +129,7 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 6:
-      MetaDEx_debug_print3();
+      MetaDEx_debug_print();
       break;
   }
 
@@ -1806,7 +1806,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     }
     else
     {
-        return MP_TX_IS_NOT_MASTERCOIN;
+        return MP_TX_IS_NOT_MASTER_PROTOCOL;
     }
 
     if (isMPTx)
@@ -1941,7 +1941,7 @@ Value gettransaction_MP(const Array& params, bool fHelp)
             case MP_INVALID_TX_IN_DB_FOUND:
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: Invalid transaction found");
                 
-            case MP_TX_IS_NOT_MASTERCOIN:
+            case MP_TX_IS_NOT_MASTER_PROTOCOL:
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
         }
     }
