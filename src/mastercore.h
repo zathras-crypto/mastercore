@@ -306,7 +306,7 @@ protected:
     unsigned int tRead;
 
 public:
-    CMPTradeList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)
+    CMPTradeList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):tWritten(0),tRead(0)
     {
       options.paranoid_checks = true;
       options.create_if_missing = true;

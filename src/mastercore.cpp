@@ -3089,7 +3089,7 @@ void CMPTradeList::recordTrade(const uint256 &txid1, const uint256 &txid2, strin
   if (!tdb) return;
 
   const string key = txid1.ToString() + txid2.ToString();
-  const string value = strprintf("%s:%s:&u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, nblockNum);
+  const string value = strprintf("%s:%s:&u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
   Status status;
   if (tdb)
   {
