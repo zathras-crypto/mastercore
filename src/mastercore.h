@@ -302,8 +302,8 @@ protected:
     leveldb::WriteOptions syncoptions;
     leveldb::DB *tdb;
     // statistics
-    unsigned int nWritten;
-    unsigned int nRead;
+    unsigned int tWritten;
+    unsigned int tRead;
 
 public:
     CMPTradeList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):nWritten(0),nRead(0)

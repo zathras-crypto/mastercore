@@ -3083,6 +3083,21 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+void CMPTradeList::recordTrade(const uint256 &txid1, const uint256 &txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
+{
+  if (!tdb) return;
+
+  const string key = txid1.ToString() + txid2.ToString();
+  const string value = strprintf("%s:%s:&u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, nblockNum);
+  Status status;
+  if (tdb)
+  {
+    status = tdb->Put(writeoptions, key, value);
+    ++tWritten;
+    if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+  }
+}
+
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
 bool mastercore::isMPinBlockRange(int starting_block, int ending_block, bool bDeleteFound)
 {
