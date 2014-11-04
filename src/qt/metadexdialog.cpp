@@ -109,6 +109,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->buyList->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
     ui->buyList->setShowGrid(false);
     ui->buyList->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->buyList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->buyList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     ui->sellList->setHorizontalHeaderItem(0, new QTableWidgetItem("Unit Price"));
     ui->sellList->setHorizontalHeaderItem(1, new QTableWidgetItem("Total SP#3"));
@@ -117,6 +119,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->sellList->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
     ui->sellList->setShowGrid(false);
     ui->sellList->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->sellList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->sellList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
     connect(ui->buyButton, SIGNAL(clicked()), this, SLOT(buyTrade()));
