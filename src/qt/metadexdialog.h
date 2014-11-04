@@ -44,6 +44,8 @@ public slots:
     void switchButtonClicked();
     void sellAddressComboBoxChanged(int idx);
     void buyAddressComboBoxChanged(int idx);
+    void sellClicked(int row, int col);
+    void buyClicked(int row, int col);
     void sendTrade(bool sell);
     void OrderRefresh();
 

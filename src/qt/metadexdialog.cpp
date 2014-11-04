@@ -127,6 +127,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     connect(ui->sellPriceLE, SIGNAL(textEdited(const QString &)), this, SLOT(sellRecalc()));
     connect(ui->buyAmountLE, SIGNAL(textEdited(const QString &)), this, SLOT(buyRecalc()));
     connect(ui->buyPriceLE, SIGNAL(textEdited(const QString &)), this, SLOT(buyRecalc()));
+    connect(ui->sellList, SIGNAL(cellClicked(int,int)), this, SLOT(sellClicked(int,int)));
+    connect(ui->buyList, SIGNAL(cellClicked(int,int)), this, SLOT(buyClicked(int,int)));
 
     FullRefresh();
 
@@ -182,6 +184,17 @@ void MetaDExDialog::SwitchMarket()
         }
     }
     OrderRefresh();
+}
+
+
+void MetaDExDialog::buyClicked(int row, int col)
+{
+printf("clickedbuyoffer\n");
+}
+
+void MetaDExDialog::sellClicked(int row, int col)
+{
+printf("clickedselloffer\n");
 }
 
 void MetaDExDialog::UpdateSellOffers()
