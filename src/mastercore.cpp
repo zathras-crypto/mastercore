@@ -3094,8 +3094,6 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
   unsigned int count = 0;
   std::vector<std::string> vstr;
   string txidStr = txid.ToString();
-  int block;
-  unsigned int n_found = 0;
   leveldb::Iterator* it = tdb->NewIterator(iteroptions);
   for(it->SeekToFirst(); it->Valid(); it->Next())
   {
