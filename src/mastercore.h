@@ -324,7 +324,7 @@ public:
       tdb = NULL;
     }
 
-    void recordTrade(const uint256 &txid1, const uint256 &txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum);
+    void recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum);
     bool exists(const uint256 &txid);
     //bool getTrade(const uint256 &txid, string &value);
     void printStats();

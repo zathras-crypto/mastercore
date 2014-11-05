@@ -3085,12 +3085,11 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-void CMPTradeList::recordTrade(const uint256 &txid1, const uint256 &txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
+void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
 {
   if (!tdb) return;
-
   const string key = txid1.ToString() + txid2.ToString();
-  const string value = strprintf("%s:%s:&u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
+  const string value = strprintf("%s:%s:%u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
   Status status;
   if (tdb)
   {
