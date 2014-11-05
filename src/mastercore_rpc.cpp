@@ -2057,3 +2057,7 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     return response;   // return response array for JSON serialization
 }
 
+Value gettrade_MP(const Array& params, bool fHelp)
+{
+
+}
