@@ -1832,7 +1832,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         {
             txobj->push_back(Pair("propertyname", propertyName));
         }
-        txobj->push_back(Pair("divisible", divisible));
+        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
         if (!MSC_TYPE_METADEX == MPTxTypeInt)
         {
             if (divisible)
@@ -1883,7 +1883,6 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
             txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
             txobj->push_back(Pair("action", (uint64_t) mdex_action));
-            txobj->push_back(Pair("status", "status"));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
@@ -2127,15 +2126,16 @@ Value gettrade_MP(const Array& params, bool fHelp)
     }
 
     // everything seems ok, now add status and get an array of matches to add to the object
-    // status - is order cancelled/filled/open?
+    // status - is order cancelled/closed-filled/open/open-partialfilled?
     bool orderOpen = false;
     bool orderFilled = false;
-
+    bool orderPartialFilled = false;
     //txobj->push_back(Pair("status", wtxid.GetHex()));
 
     // create array of matches
     Array tradeArray;
-    t_tradelistdb->getMatchingTrades(hash, senderAddress, &tradeArray);
+    uint64_t totalBought;
+    t_tradelistdb->getMatchingTrades(hash, senderAddress, &tradeArray, &totalBought);
 
     // add array to object
     txobj.push_back(Pair("matches", tradeArray));

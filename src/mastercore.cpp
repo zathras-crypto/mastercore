@@ -3085,9 +3085,10 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, Array *tradeArray)
+bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, Array *tradeArray, uint64_t *totalBought)
 {
   if (!tdb) return false;
+  totalBought = 0;
   leveldb::Slice skey, svalue;
   unsigned int count = 0;
   std::vector<std::string> vstr;
@@ -3149,6 +3150,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, A
                   trade.push_back(Pair("price", FormatDivisibleMP(1)));
                   tradeArray->push_back(trade);
                   ++count;
+                  totalBought=totalBought + amountBought;
               }
           }
       }
