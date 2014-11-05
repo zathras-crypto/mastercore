@@ -3085,6 +3085,34 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
+bool CMPTradeList::getMatchingTrades(const uint256 txid, Array *tradeArray)
+{
+  if (!tdb) return false;
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string strkey = it->key().ToString();
+      size_t txidMatch = strkey.find(txidStr);
+      if(txidMatch!=std::string::npos)
+      {
+          // we have a matching trade involving this txid
+          string strvalue = it->value().ToString();
+          boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+          printf("match\n");
+          if (7 == vstr.size()) { }
+          Object trade;
+      }
+  }
+}
+
 void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
 {
   if (!tdb) return;

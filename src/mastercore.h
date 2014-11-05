@@ -327,9 +327,9 @@ public:
     void recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum);
     int deleteAboveBlock(int blockNum);
     bool exists(const uint256 &txid);
-    //bool getTrade(const uint256 &txid, string &value);
     void printStats();
     void printAll();
+    bool getMatchingTrades(const uint256 txid, Array *tradeArray);
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */

@@ -2110,9 +2110,13 @@ Value gettrade_MP(const Array& params, bool fHelp)
     bool orderFilled = false;
 
     //txobj->push_back(Pair("status", wtxid.GetHex()));
+
     // create array of matches
+    Array tradeArray;
+    t_tradelistdb->getMatchingTrades(hash,&tradeArray);
 
     // add array to object
+    txobj.push_back(Pair("matches", tradeArray));
 
     // return object
     return txobj;
