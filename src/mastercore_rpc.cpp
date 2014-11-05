@@ -1827,19 +1827,22 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
         txobj->push_back(Pair("type", MPTxType));
-        txobj->push_back(Pair("propertyid", propertyId));
+        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
         {
             txobj->push_back(Pair("propertyname", propertyName));
         }
         txobj->push_back(Pair("divisible", divisible));
-        if (divisible)
+        if (!MSC_TYPE_METADEX == MPTxTypeInt)
         {
-            txobj->push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
-        }
-        else
-        {
-            txobj->push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
+            if (divisible)
+            {
+                txobj->push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
+            }
+            else
+            {
+                txobj->push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
+            }
         }
         if (crowdPurchase)
         {
@@ -1866,18 +1869,26 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             if (3 == sell_subaction) txobj->push_back(Pair("subaction", "Cancel"));
             txobj->push_back(Pair("bitcoindesired", ValueFromAmount(sell_btcdesired)));
         }
-        if (mdex)
+        if (MSC_TYPE_METADEX == MPTxTypeInt)
         {
-            txobj->push_back(Pair("property_owned", propertyId));
-            txobj->push_back(Pair("property_owned_divisible", mdex_propertyId_Div));
-            txobj->push_back(Pair("property_desired", mdex_propertyWanted));
-            txobj->push_back(Pair("property_desired_divisible", mdex_propertyWanted_Div));
+            string amountOffered;
+            string amountDesired;
+            if (mdex_propertyId_Div) {amountOffered=FormatDivisibleMP(amount);} else {amountOffered=FormatIndivisibleMP(amount);}
+            if (mdex_propertyWanted_Div) {amountDesired=FormatDivisibleMP(mdex_amountWanted);} else {amountDesired=FormatIndivisibleMP(mdex_amountWanted);}
+
+            txobj->push_back(Pair("amountoffered", amountOffered));
+            txobj->push_back(Pair("propertyoffered", propertyId));
+            txobj->push_back(Pair("propertyofferedisdivisible", mdex_propertyId_Div));
+            txobj->push_back(Pair("amountdesired", amountDesired));
+            txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
+            txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
+            txobj->push_back(Pair("action", (uint64_t) mdex_action));
+            txobj->push_back(Pair("status", "status"));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
             //txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
             //txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
-            txobj->push_back(Pair("action", (uint64_t) mdex_action));
         }
         txobj->push_back(Pair("valid", valid));
     }
