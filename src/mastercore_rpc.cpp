@@ -1669,23 +1669,6 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                  }
                              }
 
-                             // is the sell offer still open - need more efficient way to do this
-                             for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-                             {
-                                 if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
-                                 {
-                                     md_PricesMap & prices = my_it->second;
-                                     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-                                     {
-                                         md_Set & indexes = (it->second);
-                                         for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                                         {
-                                              CMPMetaDEx obj = *it;
-                                              if( obj.getHash().GetHex() == wtxid.GetHex() ) offerOpen = true;
-                                         }
-                                     }
-                                 }
-                             }
                         break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
@@ -2083,8 +2066,9 @@ Value gettrade_MP(const Array& params, bool fHelp)
     Object tradeobj;
     Object txobj;
 
-    //get sender
+    //get sender & propId
     string senderAddress;
+    unsigned int propertyId = 0;
     CTransaction wtx;
     uint256 blockHash = 0;
     if (!GetTransaction(hash, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
@@ -2095,6 +2079,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
         if (0<=mp_obj.step1())
         {
             senderAddress = mp_obj.getSender();
+            propertyId = mp_obj.getProperty();
         }
     }
     if (senderAddress.empty()) // something went wrong, couldn't decode transaction
@@ -2130,12 +2115,29 @@ Value gettrade_MP(const Array& params, bool fHelp)
     bool orderOpen = false;
     bool orderFilled = false;
     bool orderPartialFilled = false;
-    //txobj->push_back(Pair("status", wtxid.GetHex()));
+    // is the sell offer still open - need more efficient way to do this
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    {
+        if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+        {
+             md_PricesMap & prices = my_it->second;
+             for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+             {
+                  md_Set & indexes = (it->second);
+                  for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                  {
+                       CMPMetaDEx obj = *it;
+                       if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
+                  }
+             }
+        }
+    }
+    txobj.push_back(Pair("orderopen", orderOpen));
 
     // create array of matches
     Array tradeArray;
     uint64_t totalBought;
-    t_tradelistdb->getMatchingTrades(hash, senderAddress, &tradeArray, &totalBought);
+    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
 
     // add array to object
     txobj.push_back(Pair("matches", tradeArray));

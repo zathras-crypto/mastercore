@@ -3085,7 +3085,7 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, Array *tradeArray, uint64_t *totalBought)
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought)
 {
   if (!tdb) return false;
   totalBought = 0;
@@ -3119,25 +3119,26 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, A
                   string address;
                   string address1 = vstr[0];
                   string address2 = vstr[1];
+                  unsigned int prop1;
+                  unsigned int prop2;
                   unsigned int propBought;
                   unsigned int propSold;
                   uint64_t amountBought;
                   uint64_t amountSold;
-                  if (address1 == sellerAddress)
+                  prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
+                  prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+
+                  if (prop1 == propertyId)
                   {
                       address = address2;
-                      propBought = boost::lexical_cast<unsigned int>(vstr[2]);
-                      propSold = boost::lexical_cast<unsigned int>(vstr[3]);
-                      amountBought = boost::lexical_cast<uint64_t>(vstr[4]);
-                      amountSold = boost::lexical_cast<uint64_t>(vstr[5]);
+                      amountBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                      amountSold = boost::lexical_cast<uint64_t>(vstr[4]);
                   }
                   else
                   {
                       address = address1;
-                      propBought = boost::lexical_cast<unsigned int>(vstr[3]);
-                      propSold = boost::lexical_cast<unsigned int>(vstr[2]);
-                      amountBought = boost::lexical_cast<uint64_t>(vstr[5]);
-                      amountSold = boost::lexical_cast<uint64_t>(vstr[4]);
+                      amountBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                      amountSold = boost::lexical_cast<uint64_t>(vstr[5]);
                   }
                   int blockNum = atoi(vstr[6]);
 
