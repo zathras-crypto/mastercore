@@ -3099,6 +3099,43 @@ void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string 
   }
 }
 
+// delete any trades after blockNum
+int CMPTradeList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+    // only care about the block number/height here
+    if (7 == vstr.size())
+    {
+      block = atoi(vstr[6]);
+
+      if (block >= blockNum)
+      {
+        ++n_found;
+        fprintf(mp_fp, "%s() DELETING FROM TRADEDB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        tdb->Delete(writeoptions, skey);
+      }
+    }
+  }
+
+  printf("%s(%d); tradedb n_found= %d\n", __FUNCTION__, blockNum, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
 void CMPTradeList::printStats()
 {
   fprintf(mp_fp, "CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
@@ -3224,6 +3261,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     // reset states
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
+    t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
