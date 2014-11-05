@@ -56,7 +56,7 @@ private:
   };
 
 public:
-  enum ActionTypes { INVALID = 0, NEW = 1, ADD = 1, UPDATE = 2, SUBTRACT = 2, CANCEL = 3 };
+  enum ActionTypes { INVALID = 0, NEW = 1, ADD = 1, UPDATE = 2, CANCEL = 3 };
 
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 

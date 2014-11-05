@@ -195,8 +195,17 @@ public:
   uint64_t getAmount() const { return amount; }
   uint64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao) { amount = ao; fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); }
-  void setAmountDesired(int64_t ad) { amount_desired = ad; fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); }
+  void setAmount(int64_t ao, const string &label = "")
+  {
+    amount = ao;
+    fprintf(mp_fp, "setAmount(%ld %s):%s\n", ao, label.c_str(), ToString().c_str());
+  }
+
+  void setAmountDesired(int64_t ad, const string &label = "")
+  {
+    amount_desired = ad;
+    fprintf(mp_fp, "setAmountDesired(%ld %s):%s\n", ad, label.c_str(), ToString().c_str());
+  }
 
   void nullTxid() { txid = 0; }
 
@@ -211,6 +220,7 @@ public:
     return pblockindex->GetBlockTime();  
   }
 
+  // needed only by the RPC functions
   CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount(0),desired_property(0),amount_desired(0),subaction(0)
   {
     addr.empty();
@@ -256,7 +266,7 @@ public:
 // ---------------
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
-// TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
+// replaced double with float512 or float1024 // hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < XDOUBLE , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_PricesMap > md_PropertiesMap; // map of properties; there is a map of prices for each property
 
@@ -274,11 +284,9 @@ int DEx_acceptCreate(const string &buyer, const string &seller, int, uint64_t nV
 int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-int MetaDEx_Create(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
-int MetaDEx_Destroy(const string &sender_addr, unsigned int);
+int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 
-// void MetaDEx_debug_print();
-void MetaDEx_debug_print(FILE * fp = stdout);
+void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }
 
 #endif // #ifndef _MASTERCOIN_DEX
