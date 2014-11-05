@@ -3125,22 +3125,37 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   unsigned int prop2;
                   unsigned int propBought;
                   unsigned int propSold;
-                  uint64_t amountBought;
-                  uint64_t amountSold;
+                  uint64_t nBought;
+                  string amountBought;
+                  string amountSold;
+                  string amount1;
+                  string amount2;
                   prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
                   prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+printf("propertyid %d   prop1 %d   prop2 %d\n",propertyId,prop1,prop2);
+                  if(isPropertyDivisible(prop1))
+                     { amount1 = FormatDivisibleMP(boost::lexical_cast<uint64_t>(vstr[4])); }
+                  else
+                     { amount1 = FormatIndivisibleMP(boost::lexical_cast<uint64_t>(vstr[4])); }
+                  if(isPropertyDivisible(prop2))
+                     { amount2 = FormatDivisibleMP(boost::lexical_cast<uint64_t>(vstr[5])); }
+                  else
+                     { amount2 = FormatIndivisibleMP(boost::lexical_cast<uint64_t>(vstr[5])); }
 
+                  // correct orientation of trade
                   if (prop1 == propertyId)
                   {
                       address = address2;
-                      amountBought = boost::lexical_cast<uint64_t>(vstr[5]);
-                      amountSold = boost::lexical_cast<uint64_t>(vstr[4]);
+                      amountBought = amount2;
+                      amountSold = amount1;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[5]);
                   }
                   else
                   {
                       address = address1;
-                      amountBought = boost::lexical_cast<uint64_t>(vstr[4]);
-                      amountSold = boost::lexical_cast<uint64_t>(vstr[5]);
+                      amountBought = amount1;
+                      amountSold = amount2;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[4]);
                   }
                   int blockNum = atoi(vstr[6]);
 
@@ -3148,12 +3163,13 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   trade.push_back(Pair("txid", matchTxid));
                   trade.push_back(Pair("address", address));
                   trade.push_back(Pair("block", blockNum));
-                  trade.push_back(Pair("amountpaid", FormatDivisibleMP(amountSold)));
-                  trade.push_back(Pair("amountbought", FormatDivisibleMP(amountBought)));
+                  
+                  trade.push_back(Pair("amountsold", amountSold));
+                  trade.push_back(Pair("amountbought", amountBought));
                   trade.push_back(Pair("price", FormatDivisibleMP(1)));
                   tradeArray->push_back(trade);
                   ++count;
-                  totalBought=totalBought + amountBought;
+                  totalBought=totalBought + nBought;
               }
           }
       }

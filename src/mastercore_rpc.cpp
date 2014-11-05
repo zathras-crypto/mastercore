@@ -2079,9 +2079,14 @@ Value gettrade_MP(const Array& params, bool fHelp)
         if (0<=mp_obj.step1())
         {
             senderAddress = mp_obj.getSender();
-            propertyId = mp_obj.getProperty();
+            if (0 == mp_obj.step2_Value())
+            {
+                propertyId = mp_obj.getProperty();
+            }
         }
     }
+    if (propertyId == 0) // something went wrong, couldn't decode property ID - bad packet?
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
     if (senderAddress.empty()) // something went wrong, couldn't decode transaction
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
 
