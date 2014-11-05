@@ -133,7 +133,7 @@ const bool bOK = (left == right);
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: 
-static MatchReturnType MetaDEx_Trade(CMPMetaDEx *newo)
+static MatchReturnType x_Trade(CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
 md_PricesMap *prices = NULL;
@@ -314,7 +314,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: 
-static MatchReturnType MetaDEx_Add(CMPMetaDEx *newo)
+static MatchReturnType x_Add(CMPMetaDEx *newo)
 {
 const CMPMetaDEx *p_older = NULL;
 md_PricesMap *prices = NULL;
@@ -414,7 +414,7 @@ bool found = false;
   return NewReturn;
 }
 
-void mastercore::MetaDEx_debug_print(FILE *fp)
+void mastercore::MetaDEx_debug_print(FILE *fp, bool bShowPriceLevel)
 {
   fprintf(fp, "<<<\n");
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
@@ -429,7 +429,7 @@ void mastercore::MetaDEx_debug_print(FILE *fp)
       XDOUBLE price = (it->first);
       md_Set & indexes = (it->second);
 
-      fprintf(fp, "  # Price Level: %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
+      if (bShowPriceLevel) fprintf(fp, "  # Price Level: %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
 
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
@@ -828,7 +828,8 @@ AcceptMap::iterator my_it = my_accepts.begin();
   return how_many_erased;
 }
 
-int mastercore::MetaDEx_Create(const string &sender_addr, unsigned int prop, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
+// pretty much directly linked to the ADD TX21 command off the wire
+int mastercore::MetaDEx_ADD(const string &sender_addr, unsigned int prop, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx)
 {
 int rc = METADEX_ERROR -1;
 
@@ -858,15 +859,14 @@ int rc = METADEX_ERROR -1;
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
     // TRADE, check matches, remainder of the order will be put into the order book
-    // TODO: loop here to scan the whole book...
-    MetaDEx_Trade(&new_mdex); // inverse price match to TRADE
+    x_Trade(&new_mdex);
 
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
     // if anything is left in the new order, INSERT
     if (0 < new_mdex.getAmount())
     {
-      MetaDEx_Add(&new_mdex); // straight match to ADD
+      x_Add(&new_mdex); // straight match to ADD
     }
 
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
@@ -917,14 +917,6 @@ int rc = METADEX_ERROR -1;
   if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
   return rc;
-}
-
-// returns 0 if everything is OK
-int mastercore::MetaDEx_Destroy(const string &sender_addr, unsigned int prop)
-{
-  if (msc_debug_metadex) fprintf(mp_fp, "%s(%s, %u)\n", __FUNCTION__, sender_addr.c_str(), prop);
-
-  return 0;
 }
 
 bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) const

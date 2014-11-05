@@ -623,6 +623,8 @@ uint64_t before, after;
     {
       fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
        __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype, before, after);
+
+      mp_log("%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n", __FUNCTION__, who, which_property, which_property, amount, ttype, before, after);
     }
   }
 
