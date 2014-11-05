@@ -3104,19 +3104,45 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, Array *tradeArray)
       if(txidMatch!=std::string::npos)
       {
           // we have a matching trade involving this txid
-          string strvalue = it->value().ToString();
-          boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
-          printf("match\n");
-          if (7 == vstr.size()) { }
-          Object trade;
+          // get the txid of the match
+          string matchTxid;
+          // make sure string is correct length
+          if (strkey.length() == 129)
+          {
+              if (txidMatch==0) { matchTxid = strkey.substr(65,64); } else { matchTxid = strkey.substr(0,64); }
+
+              string strvalue = it->value().ToString();
+              boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+              if (7 == vstr.size()) // ensure there are the expected amount of tokens
+              {
+                  string address1 = vstr[0];
+                  string address2 = vstr[1];
+                  unsigned int prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
+                  unsigned int prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+                  uint64_t amount1 = boost::lexical_cast<uint64_t>(vstr[4]);
+                  uint64_t amount2 = boost::lexical_cast<uint64_t>(vstr[5]);
+                  int blockNum = atoi(vstr[6]);
+
+                  Object trade;
+                  //determine orientation of trade
+                  trade.push_back(Pair("txid", matchTxid));
+                  trade.push_back(Pair("address", "address"));
+                  trade.push_back(Pair("amountpaid", FormatDivisibleMP(1)));
+                  trade.push_back(Pair("amountbought", FormatDivisibleMP(1)));
+                  trade.push_back(Pair("price", FormatDivisibleMP(1)));
+                  tradeArray->push_back(trade);
+                  ++count;
+              }
+          }
       }
   }
+if (count) { return true; } else { return false; }
 }
 
 void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
 {
   if (!tdb) return;
-  const string key = txid1.ToString() + txid2.ToString();
+  const string key = txid1.ToString() + "+" + txid2.ToString();
   const string value = strprintf("%s:%s:%u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
   Status status;
   if (tdb)
