@@ -2059,5 +2059,61 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
 Value gettrade_MP(const Array& params, bool fHelp)
 {
+   // note this call has been refactored to use the singular populateRPCTransactionObject function
 
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "gettransaction_MP \"txid\"\n"
+            "\nGet detailed information about a Master Protocol transaction <txid>\n"
+            "\nArguments:\n"
+            "1. \"txid\"    (string, required) The transaction id\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id\n"
+            + HelpExampleCli("gettrade_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+            + HelpExampleRpc("gettrade_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+        );
+
+    uint256 hash;
+    hash.SetHex(params[0].get_str());
+    Object tradeobj;
+    Object txobj;
+
+    // make a request to new RPC populator function to populate a transaction object
+    int populateResult = populateRPCTransactionObject(hash, &txobj);
+
+    // check the response, throw any error codes if false
+    if (0>populateResult)
+    {
+        // TODO: consider throwing other error codes, check back with Bitcoin Core
+        switch (populateResult)
+        {
+            case MP_TX_NOT_FOUND:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+            case MP_TX_UNCONFIRMED:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
+            case MP_BLOCK_NOT_IN_CHAIN:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
+            case MP_CROWDSALE_WITHOUT_PROPERTY:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: \
+                                                      \"Crowdsale Purchase\" without valid property identifier");
+            case MP_INVALID_TX_IN_DB_FOUND:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: Invalid transaction found");
+            case MP_TX_IS_NOT_MASTER_PROTOCOL:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+        }
+    }
+
+    // everything seems ok, now add status and get an array of matches to add to the object
+    // status - is order cancelled/filled/open?
+    bool orderOpen = false;
+    bool orderFilled = false;
+
+    //txobj->push_back(Pair("status", wtxid.GetHex()));
+    // create array of matches
+
+    // add array to object
+
+    // return object
+    return txobj;
 }
