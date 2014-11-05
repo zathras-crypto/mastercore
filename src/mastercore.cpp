@@ -2391,11 +2391,12 @@ int mastercore_shutdown()
   {
     delete p_txlistdb; p_txlistdb = NULL;
   }
-
+printf("here1\n");
   if (t_tradelistdb)
   {
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
+printf("here2\n");
 
   if (mp_fp)
   {
@@ -3123,8 +3124,8 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   string address2 = vstr[1];
                   unsigned int prop1;
                   unsigned int prop2;
-                  unsigned int propBought;
-                  unsigned int propSold;
+                  uint64_t uAmount1;
+                  uint64_t uAmount2;
                   uint64_t nBought;
                   string amountBought;
                   string amountSold;
@@ -3132,15 +3133,16 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   string amount2;
                   prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
                   prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
-printf("propertyid %d   prop1 %d   prop2 %d\n",propertyId,prop1,prop2);
+                  uAmount1 = boost::lexical_cast<uint64_t>(vstr[4]);
+                  uAmount2 = boost::lexical_cast<uint64_t>(vstr[5]);
                   if(isPropertyDivisible(prop1))
-                     { amount1 = FormatDivisibleMP(boost::lexical_cast<uint64_t>(vstr[4])); }
+                     { amount1 = FormatDivisibleMP(uAmount1); }
                   else
-                     { amount1 = FormatIndivisibleMP(boost::lexical_cast<uint64_t>(vstr[4])); }
+                     { amount1 = FormatIndivisibleMP(uAmount1); }
                   if(isPropertyDivisible(prop2))
-                     { amount2 = FormatDivisibleMP(boost::lexical_cast<uint64_t>(vstr[5])); }
+                     { amount2 = FormatDivisibleMP(uAmount2); }
                   else
-                     { amount2 = FormatIndivisibleMP(boost::lexical_cast<uint64_t>(vstr[5])); }
+                     { amount2 = FormatIndivisibleMP(uAmount2); }
 
                   // correct orientation of trade
                   if (prop1 == propertyId)
@@ -3158,15 +3160,12 @@ printf("propertyid %d   prop1 %d   prop2 %d\n",propertyId,prop1,prop2);
                       nBought = boost::lexical_cast<uint64_t>(vstr[4]);
                   }
                   int blockNum = atoi(vstr[6]);
-
                   Object trade;
                   trade.push_back(Pair("txid", matchTxid));
                   trade.push_back(Pair("address", address));
                   trade.push_back(Pair("block", blockNum));
-                  
                   trade.push_back(Pair("amountsold", amountSold));
                   trade.push_back(Pair("amountbought", amountBought));
-                  trade.push_back(Pair("price", FormatDivisibleMP(1)));
                   tradeArray->push_back(trade);
                   ++count;
                   totalBought=totalBought + nBought;

@@ -2118,8 +2118,6 @@ Value gettrade_MP(const Array& params, bool fHelp)
     // everything seems ok, now add status and get an array of matches to add to the object
     // status - is order cancelled/closed-filled/open/open-partialfilled?
     bool orderOpen = false;
-    bool orderFilled = false;
-    bool orderPartialFilled = false;
     // is the sell offer still open - need more efficient way to do this
     for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
     {
@@ -2137,7 +2135,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
              }
         }
     }
-    txobj.push_back(Pair("orderopen", orderOpen));
+    txobj.push_back(Pair("active", orderOpen));
 
     // create array of matches
     Array tradeArray;
