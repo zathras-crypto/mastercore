@@ -3085,7 +3085,7 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-bool CMPTradeList::getMatchingTrades(const uint256 txid, Array *tradeArray)
+bool CMPTradeList::getMatchingTrades(const uint256 txid, string sellerAddress, Array *tradeArray)
 {
   if (!tdb) return false;
   leveldb::Slice skey, svalue;
@@ -3115,20 +3115,37 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, Array *tradeArray)
               boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
               if (7 == vstr.size()) // ensure there are the expected amount of tokens
               {
+                  string address;
                   string address1 = vstr[0];
                   string address2 = vstr[1];
-                  unsigned int prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
-                  unsigned int prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
-                  uint64_t amount1 = boost::lexical_cast<uint64_t>(vstr[4]);
-                  uint64_t amount2 = boost::lexical_cast<uint64_t>(vstr[5]);
+                  unsigned int propBought;
+                  unsigned int propSold;
+                  uint64_t amountBought;
+                  uint64_t amountSold;
+                  if (address1 == sellerAddress)
+                  {
+                      address = address2;
+                      propBought = boost::lexical_cast<unsigned int>(vstr[2]);
+                      propSold = boost::lexical_cast<unsigned int>(vstr[3]);
+                      amountBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                      amountSold = boost::lexical_cast<uint64_t>(vstr[5]);
+                  }
+                  else
+                  {
+                      address = address1;
+                      propBought = boost::lexical_cast<unsigned int>(vstr[3]);
+                      propSold = boost::lexical_cast<unsigned int>(vstr[2]);
+                      amountBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                      amountSold = boost::lexical_cast<uint64_t>(vstr[4]);
+                  }
                   int blockNum = atoi(vstr[6]);
 
                   Object trade;
-                  //determine orientation of trade
                   trade.push_back(Pair("txid", matchTxid));
-                  trade.push_back(Pair("address", "address"));
-                  trade.push_back(Pair("amountpaid", FormatDivisibleMP(1)));
-                  trade.push_back(Pair("amountbought", FormatDivisibleMP(1)));
+                  trade.push_back(Pair("address", address));
+                  trade.push_back(Pair("block", blockNum));
+                  trade.push_back(Pair("amountpaid", FormatDivisibleMP(amountSold)));
+                  trade.push_back(Pair("amountbought", FormatDivisibleMP(amountBought)));
                   trade.push_back(Pair("price", FormatDivisibleMP(1)));
                   tradeArray->push_back(trade);
                   ++count;
@@ -3136,7 +3153,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, Array *tradeArray)
           }
       }
   }
-if (count) { return true; } else { return false; }
+  if (count) { return true; } else { return false; }
 }
 
 void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)

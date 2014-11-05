@@ -211,6 +211,11 @@ public:
     return pblockindex->GetBlockTime();  
   }
 
+  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount(0),desired_property(0),amount_desired(0),subaction(0)
+  {
+    addr.empty();
+  }
+
   CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
 
   void Set(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);

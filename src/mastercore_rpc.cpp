@@ -1529,6 +1529,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool bIsMine = false;
     bool isMPTx = false;
     uint64_t nFee = 0;
+    bool offerOpen = false;
     string MPTxType;
     unsigned int MPTxTypeInt;
     string selectedAddress;
@@ -1555,11 +1556,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool mdex = false;
     bool mdex_propertyId_Div = false;
     uint64_t mdex_propertyWanted = 0;
+    uint64_t mdex_amountWanted = 0;
     bool mdex_propertyWanted_Div = false;
-    string mdex_unitPrice;
-    string mdex_invUnitPrice;
-    uint64_t mdex_amt_orig_sale = 0;
-    uint64_t mdex_amt_des = 0;
     unsigned int mdex_action = 0;
     
     if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return MP_TX_UNCONFIRMED; }
@@ -1573,6 +1571,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
     mp_obj.SetNull();
     CMPOffer temp_offer;
+    CMPMetaDEx temp_metadexoffer;
 
     // replace initial MP detection with levelDB lookup instead of parse, this is much faster especially in calls like list/search
     if (p_txlistdb->exists(wtxid))
@@ -1654,42 +1653,37 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                     switch (MPTxTypeInt)
                     {
                         case MSC_TYPE_METADEX:
+                             offerOpen = false;
                              if (0 == mp_obj.step2_Value())
                              {
-                                mdex = true;
+                                 mdex = true;
+                                 propertyId = mp_obj.getProperty();
+                                 amount = mp_obj.getAmount();
+                                 mdex_propertyId_Div = isPropertyDivisible(propertyId);
+                                 if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer))
+                                 {
+                                     mdex_propertyWanted = temp_metadexoffer.getDesProperty();
+                                     mdex_propertyWanted_Div = isPropertyDivisible(mdex_propertyWanted);
+                                     mdex_amountWanted = temp_metadexoffer.getAmountDesired();
+                                     mdex_action = temp_metadexoffer.getAction();
+                                 }
+                             }
 
-                                for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-                                {
-                                  md_PricesMap & prices = my_it->second;
-                                  for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-                                  {
-                                    md_Set & indexes = (it->second);
-                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                                    {
-                                        CMPMetaDEx obj = *it;
-                                        CMPSPInfo::Entry sp;
-
-
-                                        if( obj.getHash().GetHex() == wtxid.GetHex() ) {
-                                          propertyId = mp_obj.getProperty();
-                                          amount = mp_obj.getAmount();
-                                          _my_sps->getSP(propertyId, sp);
-                                          mdex_propertyId_Div = sp.isDivisible();
-                                          mdex_propertyWanted = obj.getDesProperty();
-                                          _my_sps->getSP(mdex_propertyWanted, sp);
-                                          mdex_propertyWanted_Div = sp.isDivisible();
-
-                                          //uint64_t *price = obj.getPrice();
-                                          //uint64_t *invprice = obj.getInversePrice();
-
-                                          //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
-                                          //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
-                                          mdex_amt_orig_sale = obj.getAmount();
-                                          mdex_amt_des = obj.getAmountDesired();
-                                          mdex_action = obj.getAction();
-                                        }
-                                    }
-                                  }
+                             // is the sell offer still open - need more efficient way to do this
+                             for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+                             {
+                                 if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+                                 {
+                                     md_PricesMap & prices = my_it->second;
+                                     for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+                                     {
+                                         md_Set & indexes = (it->second);
+                                         for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                                         {
+                                              CMPMetaDEx obj = *it;
+                                              if( obj.getHash().GetHex() == wtxid.GetHex() ) offerOpen = true;
+                                         }
+                                     }
                                  }
                              }
                         break;
@@ -1881,8 +1875,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
-            txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
-            txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
+            //txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
+            //txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
             txobj->push_back(Pair("action", (uint64_t) mdex_action));
         }
         txobj->push_back(Pair("valid", valid));
@@ -2079,6 +2073,23 @@ Value gettrade_MP(const Array& params, bool fHelp)
     Object tradeobj;
     Object txobj;
 
+    //get sender
+    string senderAddress;
+    CTransaction wtx;
+    uint256 blockHash = 0;
+    if (!GetTransaction(hash, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
+    CMPTransaction mp_obj;
+    int parseRC = parseTransaction(true, wtx, 0, 0, &mp_obj);
+    if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sa$
+    {
+        if (0<=mp_obj.step1())
+        {
+            senderAddress = mp_obj.getSender();
+        }
+    }
+    if (senderAddress.empty()) // something went wrong, couldn't decode transaction
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+
     // make a request to new RPC populator function to populate a transaction object
     int populateResult = populateRPCTransactionObject(hash, &txobj);
 
@@ -2113,7 +2124,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
 
     // create array of matches
     Array tradeArray;
-    t_tradelistdb->getMatchingTrades(hash,&tradeArray);
+    t_tradelistdb->getMatchingTrades(hash, senderAddress, &tradeArray);
 
     // add array to object
     txobj.push_back(Pair("matches", tradeArray));
