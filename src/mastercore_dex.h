@@ -195,8 +195,17 @@ public:
   uint64_t getAmount() const { return amount; }
   uint64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao) { amount = ao; fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); }
-  void setAmountDesired(int64_t ad) { amount_desired = ad; fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); }
+  void setAmount(int64_t ao, const string &label = "")
+  {
+    amount = ao;
+    fprintf(mp_fp, "setAmount(%ld %s):%s\n", ao, label.c_str(), ToString().c_str());
+  }
+
+  void setAmountDesired(int64_t ad, const string &label = "")
+  {
+    amount_desired = ad;
+    fprintf(mp_fp, "setAmountDesired(%ld %s):%s\n", ad, label.c_str(), ToString().c_str());
+  }
 
   void nullTxid() { txid = 0; }
 

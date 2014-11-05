@@ -196,7 +196,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
           continue;
         }
 
-      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND, Trade: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
       // if found
 
@@ -236,8 +236,8 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
 
         CMPMetaDEx seller_replacement = *p_older;
 
-        seller_replacement.setAmount(seller_amountLeft);
-        seller_replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ));
+        seller_replacement.setAmount(seller_amountLeft, "seller_replacement");
+        seller_replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ), "seller_replacement");
 
         // transfer the payment property from buyer to seller
         // TODO: do something when failing here............
@@ -263,14 +263,18 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
         std::string str_will_pay = will_pay.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_wanted_int_part = str_will_pay.substr(0, str_will_pay.find_first_of("."));
 
-        newo->setAmount(boost::lexical_cast<int64_t>( str_wanted_int_part ));
-        newo->setAmountDesired(buyer_amountStillWanted);
+        newo->setAmount(boost::lexical_cast<int64_t>( str_wanted_int_part ), "buyer");
+        newo->setAmountDesired(buyer_amountStillWanted, "buyer");
 
         if (0 < buyer_amountStillWanted)
         {
           NewReturn = TRADED_MOREINBUYER;
 
           PriceCheck(getTradeReturnType(NewReturn), buyersprice, newo->getEffectivePrice(), mp_fp);
+        }
+        else
+        {
+          bBuyerSatisfied = true;
         }
 
         if (0 < seller_amountLeft)  // done with all loops, update the seller, buyer is fully satisfied
@@ -370,12 +374,12 @@ bool found = false;
 
       CMPMetaDEx replacement = *p_older;
 
-      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND, Add: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
       {
         // ADD, bump the replacement's amounts
-        replacement.setAmount(newo->getAmount() + p_older->getAmount());
-        replacement.setAmountDesired(newo->getAmountDesired() + p_older->getAmountDesired());
+        replacement.setAmount(newo->getAmount() + p_older->getAmount(), "ADDing");
+        replacement.setAmountDesired(newo->getAmountDesired() + p_older->getAmountDesired(), "ADDing");
 
         // destroy the txid as a marker...
         replacement.nullTxid();
@@ -396,8 +400,8 @@ bool found = false;
         indexes->insert(replacement);
       }
 
-      newo->setAmount(0);
-      newo->setAmountDesired(0);
+      newo->setAmount(0, "ADD-destroy");
+      newo->setAmountDesired(0, "ADD-destroy");
       found = true;
       break;  // do not need to and can't iterate any more
     }
