@@ -2391,12 +2391,10 @@ int mastercore_shutdown()
   {
     delete p_txlistdb; p_txlistdb = NULL;
   }
-printf("here1\n");
   if (t_tradelistdb)
   {
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
-printf("here2\n");
 
   if (mp_fp)
   {
@@ -3173,6 +3171,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
           }
       }
   }
+  delete it;
   if (count) { return true; } else { return false; }
 }
 
