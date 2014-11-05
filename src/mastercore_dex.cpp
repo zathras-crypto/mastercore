@@ -164,19 +164,19 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
   }
 
   md_Set *indexes;
-  XDOUBLE price;
+  XDOUBLE sellers_price;
 
   // within the desired property map (given one property) iterate over the items looking at prices
   md_Set::iterator iitt;
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
   { // check all prices
-    price = (my_it->first);
+    sellers_price = (my_it->first);
 
       if (msc_debug_metadex2) fprintf(mp_fp, "comparing prices: desprice %s needs to be LESS THAN OR EQUAL TO %s\n",
-       desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
+       desprice.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), sellers_price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
 
       // is the desired price check satisfied?
-      if (desprice > price) continue;
+      if (desprice > sellers_price) continue;
 
     indexes = &(my_it->second);
 
@@ -187,7 +187,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
       p_older = &(*iitt);
 
       if (msc_debug_metadex) fprintf(mp_fp, "Looking at existing: %s (its prop= %u, its des prop= %u) = %s\n",
-       price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->getProperty(), p_older->getDesProperty(), p_older->ToString().c_str());
+       sellers_price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->getProperty(), p_older->getDesProperty(), p_older->ToString().c_str());
 
       // is the desired property correct?
         if (p_older->getDesProperty() != prop)
@@ -196,7 +196,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
           continue;
         }
 
-      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND, Trade: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND, Trade: %s = %s\n", sellers_price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
       // if found
 
@@ -208,7 +208,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
         const int64_t buyer_amountWanted = newo->getAmountDesired();
 
         if (msc_debug_metadex) fprintf(mp_fp, "$$ trading using price: %s; amount offered= %ld, amount wanted= %ld\n",
-         price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), seller_amountOffered, buyer_amountWanted);
+         sellers_price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), seller_amountOffered, buyer_amountWanted);
         if (msc_debug_metadex) fprintf(mp_fp, "$$ old: %s\n", p_older->ToString().c_str());
         if (msc_debug_metadex) fprintf(mp_fp, "$$ new: %s\n", newo->ToString().c_str());
 
@@ -219,7 +219,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
           buyer_amountGot = seller_amountOffered;
         }
 
-        XDOUBLE amount_paid = (XDOUBLE) buyer_amountGot * price;
+        XDOUBLE amount_paid = (XDOUBLE) buyer_amountGot / sellers_price;
         std::string str_amount_paid = amount_paid.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_paid_int_part = str_amount_paid.substr(0, str_amount_paid.find_first_of("."));
         const int64_t paymentAmount = boost::lexical_cast<int64_t>( str_paid_int_part );
@@ -230,7 +230,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
         if (msc_debug_metadex) fprintf(mp_fp, "$$ buyer_got= %ld, seller_left= %ld, buyer_still= %ld, payment= %ld\n",
          buyer_amountGot, seller_amountLeft, buyer_amountStillWanted, paymentAmount);
 
-        XDOUBLE amount_left = (XDOUBLE) seller_amountLeft / price;
+        XDOUBLE amount_left = (XDOUBLE) seller_amountLeft / sellers_price;
         std::string str_amount_left = amount_left.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
 
@@ -894,9 +894,9 @@ int rc = METADEX_ERROR -1;
       }
       else
       {
-        if (update_tally_map(sender_addr, prop, - amount, MAIN_RESERVE)) // subtract from what's available
+        if (update_tally_map(sender_addr, prop, - new_mdex.getAmount(), MAIN_RESERVE)) // subtract from what's available
         {
-          update_tally_map(sender_addr, prop, amount, SELLOFFER_RESERVE); // put in reserve
+          update_tally_map(sender_addr, prop, new_mdex.getAmount(), SELLOFFER_RESERVE); // put in reserve
         }
 
         // price check
