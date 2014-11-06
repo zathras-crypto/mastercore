@@ -2046,12 +2046,10 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
 Value gettrade_MP(const Array& params, bool fHelp)
 {
-   // note this call has been refactored to use the singular populateRPCTransactionObject function
-
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "gettransaction_MP \"txid\"\n"
-            "\nGet detailed information about a Master Protocol transaction <txid>\n"
+            "gettrade_MP \"txid\"\n"
+            "\nGet detailed information and trade matches for a Master Protocol MetaDEx trade offer <txid>\n"
             "\nArguments:\n"
             "1. \"txid\"    (string, required) The transaction id\n"
             "\nResult:\n"
