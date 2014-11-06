@@ -37,6 +37,7 @@
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
 // end potentially overzealous includes
+using namespace json_spirit; // since now using Array in mastercore.h this needs to come first
 
 #include "mastercore.h"
 using namespace mastercore;
@@ -45,7 +46,6 @@ using namespace mastercore;
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
-using namespace json_spirit;
 using namespace leveldb;
 // end potentially overzealous using
 
