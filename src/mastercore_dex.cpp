@@ -315,8 +315,9 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
 
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
+// INPUT: CancelAtPrice will CANCEL the order once the exact match is found
 // RETURN: 
-static MatchReturnType x_Add(CMPMetaDEx *newo)
+static MatchReturnType x_Add(CMPMetaDEx *newo, bool bCancelAtPrice = false)
 {
 const CMPMetaDEx *p_older = NULL;
 md_PricesMap *prices = NULL;
@@ -396,7 +397,7 @@ bool found = false;
       indexes->erase(iitt);
 
       // insert the updated one in place of the old
-      if (0 < replacement.getAmount())
+      if ((0 < replacement.getAmount()) && (!bCancelAtPrice))
       {
         fprintf(mp_fp, "++ inserting replacement: %s\n", replacement.ToString().c_str());
         indexes->insert(replacement);
@@ -917,6 +918,18 @@ int rc = METADEX_ERROR -1;
   rc = 0;
 
   if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
+
+  return rc;
+}
+
+int mastercore::MetaDEx_CANCEL_AT_PRICE(const string &sender_addr, unsigned int prop, uint64_t amount, unsigned int property_desired, uint64_t amount_desired)
+{
+int rc = METADEX_ERROR -20;
+
+  mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
 
   return rc;
 }

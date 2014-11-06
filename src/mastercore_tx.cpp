@@ -445,44 +445,40 @@ unsigned char action = 0;
       return PKT_ERROR_METADEX -567;
     }
 
-    // do checks that are not applicable for the Cancel action
-    if (CANCEL != action)
-    {
-      if (!isTransactionTypeAllowed(block, desired_property, type, version)) return (PKT_ERROR_METADEX -889);
-
-      // ensure we are not trading same property for itself
-      if (property == desired_property) return (PKT_ERROR_METADEX -5);
-
-      // ensure no cross-over of currencies from Test Eco to normal
-      if (isTestEcosystemProperty(property) != isTestEcosystemProperty(desired_property)) return (PKT_ERROR_METADEX -4);
-
-      // ensure the desired property exists in our universe
-      if (!_my_sps->hasSP(desired_property)) return (PKT_ERROR_METADEX -30);
-
-      if (!nValue) return (PKT_ERROR_METADEX -11);
-      if (!desired_value) return (PKT_ERROR_METADEX -12);
-    }
-
     switch (action)
     {
       case ADD:
+        if (!isTransactionTypeAllowed(block, desired_property, type, version)) return (PKT_ERROR_METADEX -889);
+
+        // ensure we are not trading same property for itself
+        if (property == desired_property) return (PKT_ERROR_METADEX -5);
+
+        // ensure no cross-over of currencies from Test Eco to normal
+        if (isTestEcosystemProperty(property) != isTestEcosystemProperty(desired_property)) return (PKT_ERROR_METADEX -4);
+
+        // ensure the desired property exists in our universe
+        if (!_my_sps->hasSP(desired_property)) return (PKT_ERROR_METADEX -30);
+
+        if (!nValue) return (PKT_ERROR_METADEX -11);
+        if (!desired_value) return (PKT_ERROR_METADEX -12);
+
         // Does the sender have any tokens?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
-        // TODO: more stuff like the old offer MONEY into RESERVE
-
         rc = MetaDEx_ADD(sender, property, nNewValue, block, desired_property, desired_value, txid, tx_idx);
-
-        // ...
-
         break;
 
-      case CANCEL:
-        // TODO
+      case CANCEL_AT_PRICE:
+        rc = MetaDEx_CANCEL_AT_PRICE(sender, property, nNewValue, desired_property, desired_value);
 
+      case CANCEL_ALL_FOR_CURRENCY_PAIR:
         break;
 
-      default: return (PKT_ERROR_METADEX -999);
+      case CANCEL_EVERYTHING:
+        break;
+
+      default:
+        return (PKT_ERROR_METADEX -999);
     }
 
     return rc;

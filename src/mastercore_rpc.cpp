@@ -1529,7 +1529,6 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool bIsMine = false;
     bool isMPTx = false;
     uint64_t nFee = 0;
-    bool offerOpen = false;
     string MPTxType;
     unsigned int MPTxTypeInt;
     string selectedAddress;
@@ -1553,7 +1552,6 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool crowdDivisible = false;
     string crowdName;
     string propertyName;
-    bool mdex = false;
     bool mdex_propertyId_Div = false;
     uint64_t mdex_propertyWanted = 0;
     uint64_t mdex_amountWanted = 0;
@@ -1653,10 +1651,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                     switch (MPTxTypeInt)
                     {
                         case MSC_TYPE_METADEX:
-                             offerOpen = false;
                              if (0 == mp_obj.step2_Value())
                              {
-                                 mdex = true;
                                  propertyId = mp_obj.getProperty();
                                  amount = mp_obj.getAmount();
                                  mdex_propertyId_Div = isPropertyDivisible(propertyId);

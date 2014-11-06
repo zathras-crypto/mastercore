@@ -285,6 +285,7 @@ int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForc
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
 int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
 
 void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }
