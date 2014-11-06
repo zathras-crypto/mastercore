@@ -286,6 +286,8 @@ int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, ui
 
 int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
+int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
+int MetaDEx_CANCEL_EVERYTHING(const string &);
 
 void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }

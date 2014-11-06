@@ -66,10 +66,10 @@ public:
 
     CANCEL = 3,
 
-    ADD                           = 1,
-    CANCEL_AT_PRICE               = 2,
-    CANCEL_ALL_FOR_CURRENCY_PAIR  = 3,
-    CANCEL_EVERYTHING             = 4,
+    ADD                 = 1,
+    CANCEL_AT_PRICE     = 2,
+    CANCEL_ALL_FOR_PAIR = 3,
+    CANCEL_EVERYTHING   = 4,
   };
 
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...

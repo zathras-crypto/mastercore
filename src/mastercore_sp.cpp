@@ -560,7 +560,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
      _my_sps->updateSP(crowd.getPropertyId() , sp);
 
       //update values
-      update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MAIN_RESERVE);
+      update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, BALANCE);
       //End
                      
       my_crowds.erase(my_it++);

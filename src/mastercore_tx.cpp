@@ -440,7 +440,7 @@ unsigned char action = 0;
     }
 
     // do we have enough?
-    if (getMPbalance(sender, property, MAIN_RESERVE) < (int64_t)nValue)
+    if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue)
     {
       return PKT_ERROR_METADEX -567;
     }
@@ -470,11 +470,14 @@ unsigned char action = 0;
 
       case CANCEL_AT_PRICE:
         rc = MetaDEx_CANCEL_AT_PRICE(sender, property, nNewValue, desired_property, desired_value);
+        break;
 
-      case CANCEL_ALL_FOR_CURRENCY_PAIR:
+      case CANCEL_ALL_FOR_PAIR:
+        rc = MetaDEx_CANCEL_ALL_FOR_PAIR(sender, property, desired_property);
         break;
 
       case CANCEL_EVERYTHING:
+        rc = MetaDEx_CANCEL_EVERYTHING(sender);
         break;
 
       default:
@@ -532,7 +535,7 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // grant the tokens
-    update_tally_map(sender, property, nValue, MAIN_RESERVE);
+    update_tally_map(sender, property, nValue, BALANCE);
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -578,7 +581,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, property, -nValue, MAIN_RESERVE)) {
+    if (false == update_tally_map(sender, property, -nValue, BALANCE)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }

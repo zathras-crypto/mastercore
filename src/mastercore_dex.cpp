@@ -86,6 +86,7 @@ enum MatchReturnType
   TRADED_MOREINSELLER,
   TRADED_MOREINBUYER,
   ADDED,
+  CANCELLED,
 };
 
 const string getTradeReturnType(MatchReturnType ret)
@@ -97,6 +98,7 @@ const string getTradeReturnType(MatchReturnType ret)
     case TRADED_MOREINSELLER: return string("TRADED_MOREINSELLER");
     case TRADED_MOREINBUYER: return string("TRADED_MOREINBUYER");
     case ADDED: return string("ADDED");
+    case CANCELLED: return string("CANCELLED");
     default: return string("* unknown *");
   }
 }
@@ -167,7 +169,6 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
   XDOUBLE sellers_price;
 
   // within the desired property map (given one property) iterate over the items looking at prices
-  md_Set::iterator iitt;
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
   { // check all prices
     sellers_price = (my_it->first);
@@ -242,9 +243,9 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
         // transfer the payment property from buyer to seller
         // TODO: do something when failing here............
         // ...
-        if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, MAIN_RESERVE))
+        if (update_tally_map(newo->getAddr(), newo->getProperty(), - paymentAmount, BALANCE))
         {
-          if (update_tally_map(p_older->getAddr(), p_older->getDesProperty(), paymentAmount, MAIN_RESERVE))
+          if (update_tally_map(p_older->getAddr(), p_older->getDesProperty(), paymentAmount, BALANCE))
           {
           }
         }
@@ -254,7 +255,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
         // ...
         if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
-          update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, MAIN_RESERVE);
+          update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, BALANCE);
         }
 
         NewReturn = TRADED;
@@ -351,7 +352,6 @@ bool found = false;
   md_Set *indexes;
 
   // within the desired property map (given one property) iterate over the items looking at prices
-  md_Set::iterator iitt;
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
   {
     price = (my_it->first);
@@ -388,17 +388,24 @@ bool found = false;
         replacement.nullTxid();
 
         NewReturn = ADDED;
-
-        if (msc_debug_metadex) fprintf(mp_fp, "==== ADDED !!! %s\n", replacement.ToString().c_str());
       }
 
       if (msc_debug_metadex) fprintf(mp_fp, "++ erased old: %s\n", iitt->ToString().c_str());
       // erase the old element
       indexes->erase(iitt);
 
-      // insert the updated one in place of the old
-      if ((0 < replacement.getAmount()) && (!bCancelAtPrice))
+      if (bCancelAtPrice)
       {
+        // move from reserve to main
+        update_tally_map(p_older->getAddr(), p_older->getProperty(), - p_older->getAmount(), SELLOFFER_RESERVE);
+        update_tally_map(p_older->getAddr(), p_older->getProperty(), p_older->getAmount(), BALANCE);
+
+        NewReturn = CANCELLED;
+      }
+      // insert the updated one in place of the old
+      else if (0 < replacement.getAmount())
+      {
+        if (msc_debug_metadex) fprintf(mp_fp, "==== ADDED !!! %s\n", replacement.ToString().c_str());
         fprintf(mp_fp, "++ inserting replacement: %s\n", replacement.ToString().c_str());
         indexes->insert(replacement);
       }
@@ -521,7 +528,7 @@ int rc = DEX_ERROR_SELLOFFER;
   if (msc_debug_dex)
    fprintf(mp_fp, "%s(%s|%s), nValue=%lu)\n", __FUNCTION__, seller_addr.c_str(), combo.c_str(), nValue);
 
-  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, prop, MAIN_RESERVE);
+  const uint64_t balanceReallyAvailable = getMPbalance(seller_addr, prop, BALANCE);
 
   // if offering more than available -- put everything up on sale
   if (nValue > balanceReallyAvailable)
@@ -538,7 +545,7 @@ int rc = DEX_ERROR_SELLOFFER;
     if (nAmended) *nAmended = nValue;
   }
 
-  if (update_tally_map(seller_addr, prop, - nValue, MAIN_RESERVE)) // subtract from what's available
+  if (update_tally_map(seller_addr, prop, - nValue, BALANCE)) // subtract from what's available
   {
     update_tally_map(seller_addr, prop, nValue, SELLOFFER_RESERVE); // put in reserve
 
@@ -565,7 +572,7 @@ const uint64_t amount = getMPbalance(seller_addr, prop, SELLOFFER_RESERVE);
 
   if (amount)
   {
-    update_tally_map(seller_addr, prop, amount, MAIN_RESERVE);   // give back to the seller from SellOffer-Reserve
+    update_tally_map(seller_addr, prop, amount, BALANCE);   // give back to the seller from SellOffer-Reserve
     update_tally_map(seller_addr, prop, - amount, SELLOFFER_RESERVE);
   }
 
@@ -662,14 +669,14 @@ int mastercore::DEx_acceptDestroy(const string &buyer, const string &seller, int
 int rc = DEX_ERROR_ACCEPT - 20;
 CMPOffer *p_offer = DEx_getOffer(seller, prop);
 CMPAccept *p_accept = DEx_getAccept(seller, prop, buyer);
-bool bReturnToMoney; // return to MAIN_RESERVE of the seller, otherwise return to SELLOFFER_RESERVE
+bool bReturnToMoney; // return to BALANCE of the seller, otherwise return to SELLOFFER_RESERVE
 const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
 
   if (!p_accept) return rc; // sanity check
 
   const uint64_t nActualAmount = p_accept->getAcceptAmountRemaining();
 
-  // if the offer is gone ACCEPT_RESERVE should go back to MAIN_RESERVE
+  // if the offer is gone ACCEPT_RESERVE should go back to BALANCE
   if (!p_offer)
   {
     bReturnToMoney = true;
@@ -695,7 +702,7 @@ const string accept_combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(seller, buyer);
   {
     if (update_tally_map(seller, prop, - nActualAmount, ACCEPT_RESERVE))
     {
-      update_tally_map(seller, prop, nActualAmount, MAIN_RESERVE);
+      update_tally_map(seller, prop, nActualAmount, BALANCE);
       rc = 0;
     }
   }
@@ -768,7 +775,7 @@ p_accept = DEx_getAccept(seller, prop, buyer);
 
   if (update_tally_map(seller, prop, - units_purchased, ACCEPT_RESERVE))
   {
-      update_tally_map(buyer, prop, units_purchased, MAIN_RESERVE);
+      update_tally_map(buyer, prop, units_purchased, BALANCE);
       rc = 0;
       bool bValid = true;
       p_txlistdb->recordPaymentTX(txid, bValid, blockNow, vout, prop, units_purchased, buyer, seller);
@@ -897,7 +904,7 @@ int rc = METADEX_ERROR -1;
       }
       else
       {
-        if (update_tally_map(sender_addr, prop, - new_mdex.getAmount(), MAIN_RESERVE)) // subtract from what's available
+        if (update_tally_map(sender_addr, prop, - new_mdex.getAmount(), BALANCE)) // subtract from what's available
         {
           update_tally_map(sender_addr, prop, new_mdex.getAmount(), SELLOFFER_RESERVE); // put in reserve
         }
@@ -925,9 +932,58 @@ int rc = METADEX_ERROR -1;
 int mastercore::MetaDEx_CANCEL_AT_PRICE(const string &sender_addr, unsigned int prop, uint64_t amount, unsigned int property_desired, uint64_t amount_desired)
 {
 int rc = METADEX_ERROR -20;
+CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 0, 0, CMPTransaction::CANCEL_AT_PRICE);
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
   if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  x_Add(&mdex, true); // re-using the function to CANCEL at exact price
+
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  return rc;
+}
+
+int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const string &sender_addr, unsigned int prop, unsigned int property_desired)
+{
+int rc = METADEX_ERROR -20;
+md_PricesMap *prices = get_Prices(prop);
+const CMPMetaDEx *p_older = NULL;
+
+  mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  md_Set *indexes;
+
+  // within the desired property map (given one property) iterate over the items
+  for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
+  {
+    indexes = &(my_it->second);
+
+    // at good price level and property iterate over offers looking at all parameters to find the match
+    md_Set::iterator iitt;
+    for (iitt = indexes->begin(); iitt != indexes->end(); ++iitt)
+    { // for iitt
+      p_older = &(*iitt);
+
+
+      // ...
+    }
+  }
+
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  return rc;
+}
+
+int mastercore::MetaDEx_CANCEL_EVERYTHING(const string &sender_addr)
+{
+int rc = METADEX_ERROR -20;
+
+  mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  // ...
 
   if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
 
