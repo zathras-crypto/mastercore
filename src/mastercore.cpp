@@ -114,6 +114,7 @@ int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
+int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
@@ -151,6 +152,7 @@ static const int txRestrictionsRules[][3] = {
 };
 
 CMPTxList *mastercore::p_txlistdb;
+CMPTradeList *mastercore::t_tradelistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -2291,6 +2293,7 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2387,6 +2390,10 @@ int mastercore_shutdown()
   if (p_txlistdb)
   {
     delete p_txlistdb; p_txlistdb = NULL;
+  }
+  if (t_tradelistdb)
+  {
+    delete t_tradelistdb; t_tradelistdb = NULL;
   }
 
   if (mp_fp)
@@ -3078,6 +3085,170 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+// MPTradeList here
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought)
+{
+  if (!tdb) return false;
+  totalBought = 0;
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string strkey = it->key().ToString();
+      size_t txidMatch = strkey.find(txidStr);
+      if(txidMatch!=std::string::npos)
+      {
+          // we have a matching trade involving this txid
+          // get the txid of the match
+          string matchTxid;
+          // make sure string is correct length
+          if (strkey.length() == 129)
+          {
+              if (txidMatch==0) { matchTxid = strkey.substr(65,64); } else { matchTxid = strkey.substr(0,64); }
+
+              string strvalue = it->value().ToString();
+              boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+              if (7 == vstr.size()) // ensure there are the expected amount of tokens
+              {
+                  string address;
+                  string address1 = vstr[0];
+                  string address2 = vstr[1];
+                  unsigned int prop1;
+                  unsigned int prop2;
+                  uint64_t uAmount1;
+                  uint64_t uAmount2;
+                  uint64_t nBought;
+                  string amountBought;
+                  string amountSold;
+                  string amount1;
+                  string amount2;
+                  prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
+                  prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+                  uAmount1 = boost::lexical_cast<uint64_t>(vstr[4]);
+                  uAmount2 = boost::lexical_cast<uint64_t>(vstr[5]);
+                  if(isPropertyDivisible(prop1))
+                     { amount1 = FormatDivisibleMP(uAmount1); }
+                  else
+                     { amount1 = FormatIndivisibleMP(uAmount1); }
+                  if(isPropertyDivisible(prop2))
+                     { amount2 = FormatDivisibleMP(uAmount2); }
+                  else
+                     { amount2 = FormatIndivisibleMP(uAmount2); }
+
+                  // correct orientation of trade
+                  if (prop1 == propertyId)
+                  {
+                      address = address2;
+                      amountBought = amount2;
+                      amountSold = amount1;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                  }
+                  else
+                  {
+                      address = address1;
+                      amountBought = amount1;
+                      amountSold = amount2;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                  }
+                  int blockNum = atoi(vstr[6]);
+                  Object trade;
+                  trade.push_back(Pair("txid", matchTxid));
+                  trade.push_back(Pair("address", address));
+                  trade.push_back(Pair("block", blockNum));
+                  trade.push_back(Pair("amountsold", amountSold));
+                  trade.push_back(Pair("amountbought", amountBought));
+                  tradeArray->push_back(trade);
+                  ++count;
+                  totalBought=totalBought + nBought;
+              }
+          }
+      }
+  }
+  delete it;
+  if (count) { return true; } else { return false; }
+}
+
+void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
+{
+  if (!tdb) return;
+  const string key = txid1.ToString() + "+" + txid2.ToString();
+  const string value = strprintf("%s:%s:%u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
+  Status status;
+  if (tdb)
+  {
+    status = tdb->Put(writeoptions, key, value);
+    ++tWritten;
+    if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+  }
+}
+
+// delete any trades after blockNum
+int CMPTradeList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+    // only care about the block number/height here
+    if (7 == vstr.size())
+    {
+      block = atoi(vstr[6]);
+
+      if (block >= blockNum)
+      {
+        ++n_found;
+        fprintf(mp_fp, "%s() DELETING FROM TRADEDB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        tdb->Delete(writeoptions, skey);
+      }
+    }
+  }
+
+  printf("%s(%d); tradedb n_found= %d\n", __FUNCTION__, blockNum, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
+void CMPTradeList::printStats()
+{
+  fprintf(mp_fp, "CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
+}
+
+void CMPTradeList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = tdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
 bool mastercore::isMPinBlockRange(int starting_block, int ending_block, bool bDeleteFound)
 {
@@ -3178,6 +3349,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     // reset states
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
+    t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 

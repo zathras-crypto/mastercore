@@ -131,6 +131,13 @@ int extra2 = 0, extra3 = 0;
     case 6:
       MetaDEx_debug_print();
       break;
+
+    case 7:
+      // display the whole CMPTradeList (leveldb)
+      t_tradelistdb->printAll();
+      t_tradelistdb->printStats();
+      break;
+
   }
 
   return GetHeight();
@@ -1522,6 +1529,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool bIsMine = false;
     bool isMPTx = false;
     uint64_t nFee = 0;
+    bool offerOpen = false;
     string MPTxType;
     unsigned int MPTxTypeInt;
     string selectedAddress;
@@ -1548,11 +1556,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     bool mdex = false;
     bool mdex_propertyId_Div = false;
     uint64_t mdex_propertyWanted = 0;
+    uint64_t mdex_amountWanted = 0;
     bool mdex_propertyWanted_Div = false;
-    string mdex_unitPrice;
-    string mdex_invUnitPrice;
-    uint64_t mdex_amt_orig_sale = 0;
-    uint64_t mdex_amt_des = 0;
     unsigned int mdex_action = 0;
     
     if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return MP_TX_UNCONFIRMED; }
@@ -1566,6 +1571,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
 
     mp_obj.SetNull();
     CMPOffer temp_offer;
+    CMPMetaDEx temp_metadexoffer;
 
     // replace initial MP detection with levelDB lookup instead of parse, this is much faster especially in calls like list/search
     if (p_txlistdb->exists(wtxid))
@@ -1647,44 +1653,22 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                     switch (MPTxTypeInt)
                     {
                         case MSC_TYPE_METADEX:
+                             offerOpen = false;
                              if (0 == mp_obj.step2_Value())
                              {
-                                mdex = true;
-
-                                for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-                                {
-                                  md_PricesMap & prices = my_it->second;
-                                  for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-                                  {
-                                    md_Set & indexes = (it->second);
-                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                                    {
-                                        CMPMetaDEx obj = *it;
-                                        CMPSPInfo::Entry sp;
-
-
-                                        if( obj.getHash().GetHex() == wtxid.GetHex() ) {
-                                          propertyId = mp_obj.getProperty();
-                                          amount = mp_obj.getAmount();
-                                          _my_sps->getSP(propertyId, sp);
-                                          mdex_propertyId_Div = sp.isDivisible();
-                                          mdex_propertyWanted = obj.getDesProperty();
-                                          _my_sps->getSP(mdex_propertyWanted, sp);
-                                          mdex_propertyWanted_Div = sp.isDivisible();
-
-                                          //uint64_t *price = obj.getPrice();
-                                          //uint64_t *invprice = obj.getInversePrice();
-
-                                          //mdex_unitPrice = strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str();
-                                          //mdex_invUnitPrice = strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str();
-                                          mdex_amt_orig_sale = obj.getAmount();
-                                          mdex_amt_des = obj.getAmountDesired();
-                                          mdex_action = obj.getAction();
-                                        }
-                                    }
-                                  }
+                                 mdex = true;
+                                 propertyId = mp_obj.getProperty();
+                                 amount = mp_obj.getAmount();
+                                 mdex_propertyId_Div = isPropertyDivisible(propertyId);
+                                 if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer))
+                                 {
+                                     mdex_propertyWanted = temp_metadexoffer.getDesProperty();
+                                     mdex_propertyWanted_Div = isPropertyDivisible(mdex_propertyWanted);
+                                     mdex_amountWanted = temp_metadexoffer.getAmountDesired();
+                                     mdex_action = temp_metadexoffer.getAction();
                                  }
                              }
+
                         break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
@@ -1826,19 +1810,22 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
         txobj->push_back(Pair("type", MPTxType));
-        txobj->push_back(Pair("propertyid", propertyId));
+        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
         {
             txobj->push_back(Pair("propertyname", propertyName));
         }
-        txobj->push_back(Pair("divisible", divisible));
-        if (divisible)
+        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
+        if (!MSC_TYPE_METADEX == MPTxTypeInt)
         {
-            txobj->push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
-        }
-        else
-        {
-            txobj->push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
+            if (divisible)
+            {
+                txobj->push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
+            }
+            else
+            {
+                txobj->push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
+            }
         }
         if (crowdPurchase)
         {
@@ -1865,18 +1852,25 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             if (3 == sell_subaction) txobj->push_back(Pair("subaction", "Cancel"));
             txobj->push_back(Pair("bitcoindesired", ValueFromAmount(sell_btcdesired)));
         }
-        if (mdex)
+        if (MSC_TYPE_METADEX == MPTxTypeInt)
         {
-            txobj->push_back(Pair("property_owned", propertyId));
-            txobj->push_back(Pair("property_owned_divisible", mdex_propertyId_Div));
-            txobj->push_back(Pair("property_desired", mdex_propertyWanted));
-            txobj->push_back(Pair("property_desired_divisible", mdex_propertyWanted_Div));
+            string amountOffered;
+            string amountDesired;
+            if (mdex_propertyId_Div) {amountOffered=FormatDivisibleMP(amount);} else {amountOffered=FormatIndivisibleMP(amount);}
+            if (mdex_propertyWanted_Div) {amountDesired=FormatDivisibleMP(mdex_amountWanted);} else {amountDesired=FormatIndivisibleMP(mdex_amountWanted);}
+
+            txobj->push_back(Pair("amountoffered", amountOffered));
+            txobj->push_back(Pair("propertyoffered", propertyId));
+            txobj->push_back(Pair("propertyofferedisdivisible", mdex_propertyId_Div));
+            txobj->push_back(Pair("amountdesired", amountDesired));
+            txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
+            txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
+            txobj->push_back(Pair("action", (uint64_t) mdex_action));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
-            txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
-            txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
-            txobj->push_back(Pair("action", (uint64_t) mdex_action));
+            //txobj->push_back(Pair("amount_original", FormatDivisibleMP(mdex_amt_orig_sale)));
+            //txobj->push_back(Pair("amount_desired", FormatDivisibleMP(mdex_amt_des)));
         }
         txobj->push_back(Pair("valid", valid));
     }
@@ -2050,3 +2044,105 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     return response;   // return response array for JSON serialization
 }
 
+Value gettrade_MP(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "gettrade_MP \"txid\"\n"
+            "\nGet detailed information and trade matches for a Master Protocol MetaDEx trade offer <txid>\n"
+            "\nArguments:\n"
+            "1. \"txid\"    (string, required) The transaction id\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id\n"
+            + HelpExampleCli("gettrade_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+            + HelpExampleRpc("gettrade_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+        );
+
+    uint256 hash;
+    hash.SetHex(params[0].get_str());
+    Object tradeobj;
+    Object txobj;
+
+    //get sender & propId
+    string senderAddress;
+    unsigned int propertyId = 0;
+    CTransaction wtx;
+    uint256 blockHash = 0;
+    if (!GetTransaction(hash, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
+    CMPTransaction mp_obj;
+    int parseRC = parseTransaction(true, wtx, 0, 0, &mp_obj);
+    if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sa$
+    {
+        if (0<=mp_obj.step1())
+        {
+            senderAddress = mp_obj.getSender();
+            if (0 == mp_obj.step2_Value())
+            {
+                propertyId = mp_obj.getProperty();
+            }
+        }
+    }
+    if (propertyId == 0) // something went wrong, couldn't decode property ID - bad packet?
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+    if (senderAddress.empty()) // something went wrong, couldn't decode transaction
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+
+    // make a request to new RPC populator function to populate a transaction object
+    int populateResult = populateRPCTransactionObject(hash, &txobj);
+
+    // check the response, throw any error codes if false
+    if (0>populateResult)
+    {
+        // TODO: consider throwing other error codes, check back with Bitcoin Core
+        switch (populateResult)
+        {
+            case MP_TX_NOT_FOUND:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+            case MP_TX_UNCONFIRMED:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
+            case MP_BLOCK_NOT_IN_CHAIN:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
+            case MP_CROWDSALE_WITHOUT_PROPERTY:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: \
+                                                      \"Crowdsale Purchase\" without valid property identifier");
+            case MP_INVALID_TX_IN_DB_FOUND:
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: Invalid transaction found");
+            case MP_TX_IS_NOT_MASTER_PROTOCOL:
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+        }
+    }
+
+    // everything seems ok, now add status and get an array of matches to add to the object
+    // status - is order cancelled/closed-filled/open/open-partialfilled?
+    bool orderOpen = false;
+    // is the sell offer still open - need more efficient way to do this
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+    {
+        if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+        {
+             md_PricesMap & prices = my_it->second;
+             for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+             {
+                  md_Set & indexes = (it->second);
+                  for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                  {
+                       CMPMetaDEx obj = *it;
+                       if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
+                  }
+             }
+        }
+    }
+    txobj.push_back(Pair("active", orderOpen));
+
+    // create array of matches
+    Array tradeArray;
+    uint64_t totalBought;
+    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
+
+    // add array to object
+    txobj.push_back(Pair("matches", tradeArray));
+
+    // return object
+    return txobj;
+}
