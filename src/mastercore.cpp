@@ -1665,11 +1665,9 @@ int input_mp_offers_string(const string &s)
   else
   {
     CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
-    btcDesired, uint256(txidStr), blocktimelimit);
+    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
 
-    new_mdex.setAction((unsigned char)minFee);
-
-    cpp_dec_float_50 neworder_price = (cpp_dec_float_50)amountOriginal / (cpp_dec_float_50)btcDesired;
+    XDOUBLE neworder_price = (XDOUBLE)amountOriginal / (XDOUBLE)btcDesired;
 
     if (0 >= neworder_price) return METADEX_ERROR -66;
 

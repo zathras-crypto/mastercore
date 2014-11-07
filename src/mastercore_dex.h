@@ -210,7 +210,6 @@ public:
   void nullTxid() { txid = 0; }
 
   unsigned char getAction() const { return subaction; }
-  void setAction(unsigned char a) { subaction = a; }
 
   int getBlock() const { return block; }
   unsigned int getIdx() const { return idx; } 
@@ -309,7 +308,7 @@ int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int
 int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
 int MetaDEx_CANCEL_EVERYTHING(const string &);
 md_PricesMap *get_Prices(unsigned int prop);
-md_Set *get_Indexes(md_PricesMap *p, cpp_dec_float_50 price);
+md_Set *get_Indexes(md_PricesMap *p, XDOUBLE price);
 
 void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }
