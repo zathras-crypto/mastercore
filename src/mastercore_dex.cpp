@@ -384,8 +384,8 @@ bool found = false;
         replacement.setAmount(newo->getAmount() + p_older->getAmount(), "ADDing");
         replacement.setAmountDesired(newo->getAmountDesired() + p_older->getAmountDesired(), "ADDing");
 
-        // destroy the txid as a marker...
-        replacement.nullTxid();
+        // copy the new TXID over
+        replacement.setHash(newo->getHash());
 
         NewReturn = ADDED;
       }

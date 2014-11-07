@@ -187,6 +187,8 @@ private:
 
 public:
   uint256 getHash() const { return txid; }
+  void setHash(uint256 hash) { txid = hash; }
+
   unsigned int getProperty() const { return property; }
 
   unsigned int getDesProperty() const { return desired_property; }
@@ -206,8 +208,6 @@ public:
     amount_desired = ad;
     fprintf(mp_fp, "setAmountDesired(%ld %s):%s\n", ad, label.c_str(), ToString().c_str());
   }
-
-  void nullTxid() { txid = 0; }
 
   unsigned char getAction() const { return subaction; }
 
