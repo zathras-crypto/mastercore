@@ -54,7 +54,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-#define MY_HACK
+// #define MY_HACK
 // #define DISABLE_LOG_FILE
 
 FILE *mp_fp = NULL;
@@ -113,6 +113,7 @@ int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
+int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
@@ -150,6 +151,7 @@ static const int txRestrictionsRules[][3] = {
 };
 
 CMPTxList *mastercore::p_txlistdb;
+CMPTradeList *mastercore::t_tradelistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -449,7 +451,7 @@ static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned i
 {
 CMPPending pending;
 
-  printf("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
@@ -500,7 +502,7 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
 
 int64_t getUserAvailableMPbalance(const string &Address, unsigned int property)
 {
-int64_t money = getMPbalance(Address, property, MAIN_RESERVE);
+int64_t money = getMPbalance(Address, property, BALANCE);
 int64_t pending = getMPbalance(Address, property, PENDING);
 
   if (0 > pending)
@@ -564,7 +566,7 @@ int64_t prev = 0, owners = 0;
       for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
       {
           string address = (my_it->first).c_str();
-          totalTokens += getMPbalance(address, propertyId, MAIN_RESERVE);
+          totalTokens += getMPbalance(address, propertyId, BALANCE);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
@@ -622,6 +624,8 @@ uint64_t before, after;
     {
       fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
        __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype, before, after);
+
+      mp_log("%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n", __FUNCTION__, who, which_property, which_property, amount, ttype, before, after);
     }
   }
 
@@ -834,7 +838,7 @@ const double available_reward=all_reward * part_available;
   // skip if a block's timestamp is older than that of a previous one!
   if (0>exodus_delta) return 0;
 
-  update_tally_map(exodus_address, OMNI_PROPERTY_MSC, exodus_delta, MAIN_RESERVE);
+  update_tally_map(exodus_address, OMNI_PROPERTY_MSC, exodus_delta, BALANCE);
   exodus_prev = devmsc;
 
   return devmsc;
@@ -870,14 +874,14 @@ int mastercore::set_wallet_totals()
     {
        for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
        {
-              //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, MAIN_RESERVE);
+              //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
               if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
        }
        for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
        {
-              //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, MAIN_RESERVE);
+              //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
        }
@@ -938,8 +942,8 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
-    update_tally_map(sender, OMNI_PROPERTY_MSC, msc_tot, MAIN_RESERVE);
-    update_tally_map(sender, OMNI_PROPERTY_TMSC, msc_tot, MAIN_RESERVE);
+    update_tally_map(sender, OMNI_PROPERTY_MSC, msc_tot, BALANCE);
+    update_tally_map(sender, OMNI_PROPERTY_TMSC, msc_tot, BALANCE);
 
     return 0;
   }
@@ -1609,7 +1613,7 @@ int input_msc_balances_string(const string &s)
       continue;
     }
 
-    if (balance) update_tally_map(strAddress, property, balance, MAIN_RESERVE);
+    if (balance) update_tally_map(strAddress, property, balance, BALANCE);
     if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
     if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
   }
@@ -1637,10 +1641,10 @@ int input_mp_offers_string(const string &s)
   offerBlock = atoi(vstr[i++]);
   amountOriginal = boost::lexical_cast<uint64_t>(vstr[i++]);
   prop = boost::lexical_cast<unsigned int>(vstr[i++]);
-  btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
+  btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]); // metadex: amount of desired property
   prop_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
-  minFee = boost::lexical_cast<uint64_t>(vstr[i++]);
-  blocktimelimit = atoi(vstr[i++]);
+  minFee = boost::lexical_cast<uint64_t>(vstr[i++]);  // metadex: subaction
+  blocktimelimit = atoi(vstr[i++]); // metadex: index of tx in block
   txidStr = vstr[i++];
 
   if (OMNI_PROPERTY_BTC == prop_desired)
@@ -1659,8 +1663,32 @@ int input_mp_offers_string(const string &s)
   }
   else
   {
-    // MetaDEx
-    // TODO ...
+    CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
+    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
+
+    XDOUBLE neworder_price = (XDOUBLE)amountOriginal / (XDOUBLE)btcDesired;
+
+    if (0 >= neworder_price) return METADEX_ERROR -66;
+
+    md_PricesMap temp_prices, *p_prices = get_Prices(prop);
+    md_Set temp_indexes, *p_indexes = NULL;
+
+    std::pair<md_Set::iterator,bool> ret;
+
+    if (p_prices) p_indexes = get_Indexes(p_prices, neworder_price);
+
+    if (!p_indexes) p_indexes = &temp_indexes;
+    {
+      ret = p_indexes->insert(new_mdex);
+
+      if (false == ret.second) return -1;
+    }
+
+    if (!p_prices) p_prices = &temp_prices;
+
+    (*p_prices)[neworder_price] = *p_indexes;
+
+    metadex[prop] = *p_prices;
   }
 
   return 0;
@@ -1797,6 +1825,13 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 
     case FILETYPE_OFFERS:
       my_offers.clear();
+
+      // FIXME
+      // memory leak ... gotta unallocate inner layers first....
+      // TODO
+      // ...
+      metadex.clear();
+
       inputLineFunc = input_mp_offers_string;
       break;
 
@@ -2008,7 +2043,7 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
     curAddr.init();
     unsigned int prop = 0;
     while (0 != (prop = curAddr.next())) {
-      uint64_t balance = (*iter).second.getMoney(prop, MAIN_RESERVE);
+      uint64_t balance = (*iter).second.getMoney(prop, BALANCE);
       uint64_t sellReserved = (*iter).second.getMoney(prop, SELLOFFER_RESERVE);
       uint64_t acceptReserved = (*iter).second.getMoney(prop, ACCEPT_RESERVE);
 
@@ -2057,10 +2092,19 @@ static int write_mp_offers(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_mp_metadex(ofstream &file, SHA256_CTX *shaCtx)
 {
-//  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-  // TODO
-  // ...
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+        CMPMetaDEx meta = *it;
+        meta.saveOffer(file, shaCtx);
+      }
+    }
+  }
 
   return 0;
 }
@@ -2288,6 +2332,7 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2337,29 +2382,29 @@ int mastercore_init()
 #if 0
     if (isNonMainNet()) nWaterlineBlock = 272790;
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 1 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 1 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 3 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 3 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 3 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 3 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483652 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483652 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483652 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483652 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483660 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483660 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483660 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483660 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, MAIN_RESERVE);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, MAIN_RESERVE);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, BALANCE);
 #endif
 #endif
   }
 
   // collect the real Exodus balances available at the snapshot time
-  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MAIN_RESERVE);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -2369,7 +2414,7 @@ int mastercore_init()
   if (mp_fp) fflush(mp_fp);
 
   // display Exodus balance
-  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MAIN_RESERVE);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   mp_log("Exodus balance: %lu\n", exodus_balance);
@@ -2384,6 +2429,10 @@ int mastercore_shutdown()
   if (p_txlistdb)
   {
     delete p_txlistdb; p_txlistdb = NULL;
+  }
+  if (t_tradelistdb)
+  {
+    delete t_tradelistdb; t_tradelistdb = NULL;
   }
 
   if (mp_fp)
@@ -2695,7 +2744,7 @@ vector< pair<CScript, int64_t> > vecSend;
         fakeKey[32] = random_byte;
 
         pubKey = CPubKey(fakeKey);
-        printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+        fprintf(mp_fp, "pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
 
         if (pubKey.IsFullyValid()) break;
 
@@ -2755,7 +2804,7 @@ vector< pair<CScript, int64_t> > vecSend;
     return 0;
   }
 
-  printf("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
 
   if (!wallet->CommitTransaction(wtxNew, reserveKey)) return MP_ERR_COMMIT_TX;
 
@@ -2767,7 +2816,7 @@ vector< pair<CScript, int64_t> > vecSend;
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
 uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount, unsigned int PropertyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
 {
-const int64_t iAvailable = getMPbalance(FromAddress, PropertyID, MAIN_RESERVE);
+const int64_t iAvailable = getMPbalance(FromAddress, PropertyID, BALANCE);
 const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, PropertyID);
 int rc = MP_INSUF_FUNDS_BPENDI;
 uint256 txid = 0;
@@ -3075,6 +3124,170 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+// MPTradeList here
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought)
+{
+  if (!tdb) return false;
+  totalBought = 0;
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string strkey = it->key().ToString();
+      size_t txidMatch = strkey.find(txidStr);
+      if(txidMatch!=std::string::npos)
+      {
+          // we have a matching trade involving this txid
+          // get the txid of the match
+          string matchTxid;
+          // make sure string is correct length
+          if (strkey.length() == 129)
+          {
+              if (txidMatch==0) { matchTxid = strkey.substr(65,64); } else { matchTxid = strkey.substr(0,64); }
+
+              string strvalue = it->value().ToString();
+              boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+              if (7 == vstr.size()) // ensure there are the expected amount of tokens
+              {
+                  string address;
+                  string address1 = vstr[0];
+                  string address2 = vstr[1];
+                  unsigned int prop1;
+                  unsigned int prop2;
+                  uint64_t uAmount1;
+                  uint64_t uAmount2;
+                  uint64_t nBought;
+                  string amountBought;
+                  string amountSold;
+                  string amount1;
+                  string amount2;
+                  prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
+                  prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+                  uAmount1 = boost::lexical_cast<uint64_t>(vstr[4]);
+                  uAmount2 = boost::lexical_cast<uint64_t>(vstr[5]);
+                  if(isPropertyDivisible(prop1))
+                     { amount1 = FormatDivisibleMP(uAmount1); }
+                  else
+                     { amount1 = FormatIndivisibleMP(uAmount1); }
+                  if(isPropertyDivisible(prop2))
+                     { amount2 = FormatDivisibleMP(uAmount2); }
+                  else
+                     { amount2 = FormatIndivisibleMP(uAmount2); }
+
+                  // correct orientation of trade
+                  if (prop1 == propertyId)
+                  {
+                      address = address2;
+                      amountBought = amount2;
+                      amountSold = amount1;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                  }
+                  else
+                  {
+                      address = address1;
+                      amountBought = amount1;
+                      amountSold = amount2;
+                      nBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                  }
+                  int blockNum = atoi(vstr[6]);
+                  Object trade;
+                  trade.push_back(Pair("txid", matchTxid));
+                  trade.push_back(Pair("address", address));
+                  trade.push_back(Pair("block", blockNum));
+                  trade.push_back(Pair("amountsold", amountSold));
+                  trade.push_back(Pair("amountbought", amountBought));
+                  tradeArray->push_back(trade);
+                  ++count;
+                  totalBought=totalBought + nBought;
+              }
+          }
+      }
+  }
+  delete it;
+  if (count) { return true; } else { return false; }
+}
+
+void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
+{
+  if (!tdb) return;
+  const string key = txid1.ToString() + "+" + txid2.ToString();
+  const string value = strprintf("%s:%s:%u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
+  Status status;
+  if (tdb)
+  {
+    status = tdb->Put(writeoptions, key, value);
+    ++tWritten;
+    if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+  }
+}
+
+// delete any trades after blockNum
+int CMPTradeList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+    // only care about the block number/height here
+    if (7 == vstr.size())
+    {
+      block = atoi(vstr[6]);
+
+      if (block >= blockNum)
+      {
+        ++n_found;
+        fprintf(mp_fp, "%s() DELETING FROM TRADEDB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        tdb->Delete(writeoptions, skey);
+      }
+    }
+  }
+
+  printf("%s(%d); tradedb n_found= %d\n", __FUNCTION__, blockNum, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
+void CMPTradeList::printStats()
+{
+  fprintf(mp_fp, "CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
+}
+
+void CMPTradeList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = tdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
 bool mastercore::isMPinBlockRange(int starting_block, int ending_block, bool bDeleteFound)
 {
@@ -3175,6 +3388,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     // reset states
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
+    t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
@@ -3236,7 +3450,7 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   if (msc_debug_exo)
     fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
-        devmsc, getMPbalance(exodus_address, OMNI_PROPERTY_MSC, MAIN_RESERVE));
+        devmsc, getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
@@ -3353,7 +3567,7 @@ int step_rc;
         newSP.creation_block = newSP.update_block = chainActive[block]->GetBlockHash();
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        update_tally_map(sender, id, nValue, MAIN_RESERVE);
+        update_tally_map(sender, id, nValue, BALANCE);
       }
       rc = 0;
       break;
@@ -3449,7 +3663,7 @@ int step_rc;
         sp.missedTokens = (int64_t) missedTokens;
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
-        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MAIN_RESERVE);
+        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, BALANCE);
         //End
 
         my_crowds.erase(it);
@@ -3579,12 +3793,12 @@ int invalid = 0;  // unused
       if (receiver.empty()) ++invalid;
 
       // insufficient funds check & return
-      if (!update_tally_map(sender, property, - nValue, MAIN_RESERVE))
+      if (!update_tally_map(sender, property, - nValue, BALANCE))
       {
         return (PKT_ERROR -111);
       }
 
-      update_tally_map(receiver, property, nValue, MAIN_RESERVE);
+      update_tally_map(receiver, property, nValue, BALANCE);
 
       // is there a crowdsale running from this recepient ?
       {
@@ -3654,8 +3868,8 @@ int invalid = 0;  // unused
             //fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
             //update sender/rec
-            update_tally_map(sender, crowd->getPropertyId(), tokens.first, MAIN_RESERVE);
-            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MAIN_RESERVE);
+            update_tally_map(sender, crowd->getPropertyId(), tokens.first, BALANCE);
+            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, BALANCE);
 
             // close crowdsale if we hit MAX_TOKENS
             if( close_crowdsale ) {
@@ -3687,7 +3901,7 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       // does the sender have enough of the property he's trying to "Send To Owners" ?
-      if (getMPbalance(sender, property, MAIN_RESERVE) < (int64_t)nValue)
+      if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue)
       {
         return (PKT_ERROR_STO -3);
       }
@@ -3708,7 +3922,7 @@ int rc = PKT_ERROR_STO -1000;
 
           int64_t tokens = 0;
 
-          tokens += getMPbalance(address, property, MAIN_RESERVE);
+          tokens += getMPbalance(address, property, BALANCE);
           tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
           tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
@@ -3744,7 +3958,7 @@ int rc = PKT_ERROR_STO -1000;
       fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
       // enough coins to pay the fee?
-      if (getMPbalance(sender, feeProperty, MAIN_RESERVE) < nXferFee)
+      if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
       {
         return (PKT_ERROR_STO -5);
       }
@@ -3752,14 +3966,14 @@ int rc = PKT_ERROR_STO -1000;
       // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
       if (feeProperty == property)
       {
-        if (getMPbalance(sender, feeProperty, MAIN_RESERVE) < (int64_t)(nValue + nXferFee))
+        if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
         {
           return (PKT_ERROR_STO -55);
         }
       }
 
       // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeProperty, - nXferFee, MAIN_RESERVE))
+      if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
       {
         // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
         return (PKT_ERROR_STO -500);
@@ -3799,12 +4013,12 @@ int rc = PKT_ERROR_STO -1000;
 //        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
         if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
 
-        if (!update_tally_map(sender, property, - will_really_receive, MAIN_RESERVE))
+        if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
         {
           return (PKT_ERROR_STO -1);
         }
 
-        update_tally_map(address, property, will_really_receive, MAIN_RESERVE);
+        update_tally_map(address, property, will_really_receive, BALANCE);
 
         if (sent_so_far >= nValue)
         {

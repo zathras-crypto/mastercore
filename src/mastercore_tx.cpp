@@ -391,7 +391,6 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
               rc = (PKT_ERROR -999);
               break;
           }
-
           break;
         }
 
@@ -415,8 +414,8 @@ int rc = DEX_ERROR_ACCEPT;
 
 int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
 {
-  int rc = PKT_ERROR_METADEX -100;
-  unsigned char action = 0;
+int rc = PKT_ERROR_METADEX -100;
+unsigned char action = 0;
 
     if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_METADEX -888);
 
@@ -439,61 +438,55 @@ int CMPTransaction::logicMath_MetaDEx(CMPMetaDEx *mdex_o)
       return PKT_RETURNED_OBJECT;
     }
 
-    nNewValue = getMPbalance(sender, property, MAIN_RESERVE);
-
-    // here we are copying nValue into nNewValue to be stored into our leveldb later: MP_txlist
-    if (nNewValue > nValue) nNewValue = nValue;
-
-    // do checks that are not applicable for the Cancel action
-    if (CANCEL != action)
+    // do we have enough?
+    if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue)
     {
-      if (!isTransactionTypeAllowed(block, desired_property, type, version)) return (PKT_ERROR_METADEX -889);
-
-      // ensure we are not trading same property for itself
-      if (property == desired_property) return (PKT_ERROR_METADEX -5);
-
-      // ensure no cross-over of currencies from Test Eco to normal
-      if (isTestEcosystemProperty(property) != isTestEcosystemProperty(desired_property)) return (PKT_ERROR_METADEX -4);
-
-      // ensure the desired property exists in our universe
-      if (!_my_sps->hasSP(desired_property)) return (PKT_ERROR_METADEX -30);
-
-      if (!nValue) return (PKT_ERROR_METADEX -11);
-      if (!desired_value) return (PKT_ERROR_METADEX -12);
+      return PKT_ERROR_METADEX -567;
     }
-
-    // TODO: use the nNewValue as the amount the seller/sender actually has to trade with
-    // ...
 
     switch (action)
     {
       case ADD:
+        if (!isTransactionTypeAllowed(block, desired_property, type, version)) return (PKT_ERROR_METADEX -889);
+
+        // ensure we are not trading same property for itself
+        if (property == desired_property) return (PKT_ERROR_METADEX -5);
+
+        // ensure no cross-over of currencies from Test Eco to normal
+        if (isTestEcosystemProperty(property) != isTestEcosystemProperty(desired_property)) return (PKT_ERROR_METADEX -4);
+
+        // ensure the desired property exists in our universe
+        if (!_my_sps->hasSP(desired_property)) return (PKT_ERROR_METADEX -30);
+
+        if (!nValue) return (PKT_ERROR_METADEX -11);
+        if (!desired_value) return (PKT_ERROR_METADEX -12);
+
         // Does the sender have any tokens?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
 
-        // An address cannot create a new offer while that address has an active sell offer with the same currencies in the same roles.
-//        if (p_metadex) return (PKT_ERROR_METADEX -10);  // FIXME TODO: remove later; temporarily disabled to test multiple trades from same address......
-
-        // rough logic now: match the trade vs existing offers -- if not fully satisfied -- add to the metadex map
-        // ...
-
-        // TODO: more stuff like the old offer MONEY into RESERVE; then add offer to map
-
-        rc = MetaDEx_Create(sender, property, nNewValue, block, desired_property, desired_value, txid, tx_idx);
-
-        // ...
-
+        rc = MetaDEx_ADD(sender, property, nNewValue, block, desired_property, desired_value, txid, tx_idx);
         break;
 
-      case SUBTRACT:
-        // FIXME: p_metadex no longer applicable here......... implement SUBTRACT per https://github.com/mastercoin-MSC/spec/issues/270
-//        if (!p_metadex) return (PKT_ERROR_METADEX -111);  // not found, nothing to cancel
-
-        rc = MetaDEx_Destroy(sender, property);
-
+      case CANCEL_AT_PRICE:
+        // ensure the 4 necessary parameters for this command are provided
+        // TODO
+        // ...
+        rc = MetaDEx_CANCEL_AT_PRICE(sender, property, nNewValue, desired_property, desired_value);
         break;
 
-      default: return (PKT_ERROR_METADEX -999);
+      case CANCEL_ALL_FOR_PAIR:
+        // ensure the 2 necessary parameters for this command are provided
+        // TODO
+        // ...
+        rc = MetaDEx_CANCEL_ALL_FOR_PAIR(sender, property, desired_property);
+        break;
+
+      case CANCEL_EVERYTHING:
+        rc = MetaDEx_CANCEL_EVERYTHING(sender);
+        break;
+
+      default:
+        return (PKT_ERROR_METADEX -999);
     }
 
     return rc;
@@ -547,7 +540,7 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // grant the tokens
-    update_tally_map(sender, property, nValue, MAIN_RESERVE);
+    update_tally_map(sender, property, nValue, BALANCE);
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -593,7 +586,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, property, -nValue, MAIN_RESERVE)) {
+    if (false == update_tally_map(sender, property, -nValue, BALANCE)) {
       fprintf(mp_fp, "\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }
@@ -679,7 +672,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_RATELIMITED_MARK: return ((char *)"Rate-Limiting");
     case MSC_TYPE_AUTOMATIC_DISPENSARY: return ((char *)"Automatic Dispensary");
     case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
-    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Tokens for another");
+    case MSC_TYPE_METADEX: return ((char *)"MetaDEx token trade");
     case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");

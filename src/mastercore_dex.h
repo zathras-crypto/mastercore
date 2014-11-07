@@ -8,7 +8,8 @@
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 
-#define DISPLAY_PRECISION_LEN 10
+#define DISPLAY_PRECISION_LEN  20
+#define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 using boost::multiprecision::cpp_dec_float_50;
@@ -186,6 +187,8 @@ private:
 
 public:
   uint256 getHash() const { return txid; }
+  void setHash(uint256 hash) { txid = hash; }
+
   unsigned int getProperty() const { return property; }
 
   unsigned int getDesProperty() const { return desired_property; }
@@ -194,10 +197,17 @@ public:
   uint64_t getAmount() const { return amount; }
   uint64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao) { amount = ao; fprintf(mp_fp, "setAmount(%ld):%s\n", ao, ToString().c_str()); }
-  void setAmountDesired(int64_t ad) { amount_desired = ad; fprintf(mp_fp, "setAmountDesired(%ld):%s\n", ad, ToString().c_str()); }
+  void setAmount(int64_t ao, const string &label = "")
+  {
+    amount = ao;
+    fprintf(mp_fp, "setAmount(%ld %s):%s\n", ao, label.c_str(), ToString().c_str());
+  }
 
-  void nullTxid() { txid = 0; }
+  void setAmountDesired(int64_t ad, const string &label = "")
+  {
+    amount_desired = ad;
+    fprintf(mp_fp, "setAmountDesired(%ld %s):%s\n", ad, label.c_str(), ToString().c_str());
+  }
 
   unsigned char getAction() const { return subaction; }
 
@@ -210,6 +220,12 @@ public:
     return pblockindex->GetBlockTime();  
   }
 
+  // needed only by the RPC functions
+  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount(0),desired_property(0),amount_desired(0),subaction(0)
+  {
+    addr.empty();
+  }
+
   CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
 
   void Set(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
@@ -220,11 +236,30 @@ public:
   {
   XDOUBLE effective_price = 0;
 
-    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' oranges:
+    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' of oranges:
     // example: I have 10 dollars, want 5 oranges; to me the price of 1 orange is thus: $10 / 5 or. = $2
     if (amount_desired) effective_price = (XDOUBLE) amount / (XDOUBLE) amount_desired; // division by 0 check
 
     return (effective_price);
+  }
+
+  void saveOffer(ofstream &file, SHA256_CTX *shaCtx) const {
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s")
+      % addr
+      % block
+      % amount
+      % property
+      % amount_desired
+      % desired_property
+      % (unsigned int) subaction
+      % idx
+      % txid.ToString()).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
   }
 };
 
@@ -250,7 +285,7 @@ public:
 // ---------------
 typedef std::set < CMPMetaDEx , MetaDEx_compare > md_Set; // set of objects sorted by block+idx
 
-// TODO: replace double with float512 or float1024 // FIXME hitting the limit on trading 1 Satoshi for 100 BTC !!!
+// replaced double with float512 or float1024 // hitting the limit on trading 1 Satoshi for 100 BTC !!!
 typedef std::map < XDOUBLE , md_Set > md_PricesMap;         // map of prices; there is a set of sorted objects for each price
 typedef std::map < unsigned int, md_PricesMap > md_PropertiesMap; // map of properties; there is a map of prices for each property
 
@@ -268,11 +303,14 @@ int DEx_acceptCreate(const string &buyer, const string &seller, int, uint64_t nV
 int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-int MetaDEx_Create(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
-int MetaDEx_Destroy(const string &sender_addr, unsigned int);
+int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
+int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
+int MetaDEx_CANCEL_EVERYTHING(const string &);
+md_PricesMap *get_Prices(unsigned int prop);
+md_Set *get_Indexes(md_PricesMap *p, XDOUBLE price);
 
-// void MetaDEx_debug_print();
-void MetaDEx_debug_print(FILE * fp = stdout);
+void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }
 
 #endif // #ifndef _MASTERCOIN_DEX
