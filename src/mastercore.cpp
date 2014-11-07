@@ -452,7 +452,7 @@ static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned i
 {
 CMPPending pending;
 
-  printf("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
@@ -2705,7 +2705,7 @@ vector< pair<CScript, int64_t> > vecSend;
         fakeKey[32] = random_byte;
 
         pubKey = CPubKey(fakeKey);
-        printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+        fprintf(mp_fp, "pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
 
         if (pubKey.IsFullyValid()) break;
 
@@ -2765,7 +2765,7 @@ vector< pair<CScript, int64_t> > vecSend;
     return 0;
   }
 
-  printf("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
+  fprintf(mp_fp, "%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
 
   if (!wallet->CommitTransaction(wtxNew, reserveKey)) return MP_ERR_COMMIT_TX;
 

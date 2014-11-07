@@ -468,10 +468,16 @@ unsigned char action = 0;
         break;
 
       case CANCEL_AT_PRICE:
+        // ensure the 4 necessary parameters for this command are provided
+        // TODO
+        // ...
         rc = MetaDEx_CANCEL_AT_PRICE(sender, property, nNewValue, desired_property, desired_value);
         break;
 
       case CANCEL_ALL_FOR_PAIR:
+        // ensure the 2 necessary parameters for this command are provided
+        // TODO
+        // ...
         rc = MetaDEx_CANCEL_ALL_FOR_PAIR(sender, property, desired_property);
         break;
 

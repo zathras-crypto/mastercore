@@ -1112,15 +1112,24 @@ Value trade_MP(const Array& params, bool fHelp) {
   int64_t Amount_Want = 0;
   Amount_Want = StrToInt64(strAmountWant, divisible_want);
 
+  // FIXME !!!
+  // disable all for testing of CANCELs
+/*
   if (0 >= Amount_Sale)
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
 
   if (0 >= Amount_Want)
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
 
+*/
   int64_t action = params[5].get_int64();
+
+  // FIXME !!!
+  // disable all for testing of CANCELs
+/*
   if ((action > 2) || (0 >= action))
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1 or 2 only)");
+*/
 
  //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
   int code = 0;

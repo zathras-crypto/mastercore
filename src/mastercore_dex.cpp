@@ -948,7 +948,7 @@ int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const string &sender_addr, unsigned 
 {
 int rc = METADEX_ERROR -20;
 md_PricesMap *prices = get_Prices(prop);
-const CMPMetaDEx *p_older;
+const CMPMetaDEx *p_mdex;
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
@@ -968,14 +968,15 @@ const CMPMetaDEx *p_older;
   {
     indexes = &(my_it->second);
 
-    // at good price level and property iterate over offers looking at all parameters to find the match
-    md_Set::iterator iitt;
-    for (iitt = indexes->begin(); iitt != indexes->end(); ++iitt)
+    for (md_Set::iterator iitt = indexes->begin(); iitt != indexes->end();)
     { // for iitt
-      p_older = &(*iitt);
+      p_mdex = &(*iitt);
 
+      if (msc_debug_metadex) fprintf(mp_fp, "%s(): %s\n", p_mdex->ToString().c_str());
+      ++iitt;
 
       // ...
+
     }
   }
 
