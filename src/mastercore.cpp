@@ -1826,7 +1826,13 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 
     case FILETYPE_OFFERS:
       my_offers.clear();
+
+      // FIXME
+      // memory leak ... gotta unallocate inner layers first....
+      // TODO
+      // ...
       metadex.clear();
+
       inputLineFunc = input_mp_offers_string;
       break;
 
