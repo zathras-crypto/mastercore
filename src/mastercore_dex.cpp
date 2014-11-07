@@ -317,8 +317,8 @@ const XDOUBLE desprice = (1/buyersprice); // inverse
 // find the best match on the market
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // INPUT: CancelAtPrice will CANCEL the order once the exact match is found
-// RETURN: 
-static MatchReturnType x_Add(CMPMetaDEx *newo, bool bCancelAtPrice = false)
+// RETURNS: 
+static MatchReturnType x_AddOrCancel(CMPMetaDEx *newo, bool bCancelAtPrice = false)
 {
 const CMPMetaDEx *p_older = NULL;
 md_PricesMap *prices = NULL;
@@ -377,7 +377,7 @@ bool found = false;
 
       CMPMetaDEx replacement = *p_older;
 
-      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND, Add: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
+      if (msc_debug_metadex) fprintf(mp_fp, "MATCH FOUND: %s = %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str(), p_older->ToString().c_str());
 
       {
         // ADD, bump the replacement's amounts
@@ -876,7 +876,7 @@ int rc = METADEX_ERROR -1;
     // if anything is left in the new order, INSERT
     if (0 < new_mdex.getAmount())
     {
-      x_Add(&new_mdex); // straight match to ADD
+      x_AddOrCancel(&new_mdex); // straight match to ADD
     }
 
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
@@ -935,11 +935,15 @@ int rc = METADEX_ERROR -20;
 CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 0, 0, CMPTransaction::CANCEL_AT_PRICE);
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+  if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
-  x_Add(&mdex, true); // re-using the function to CANCEL at exact price
+  // re-using the function to CANCEL at exact price
+  if (CANCELLED == x_AddOrCancel(&mdex, true))
+  {
+    rc = 0;
+  }
 
-  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+  if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
   return rc;
 }
@@ -948,11 +952,13 @@ int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const string &sender_addr, unsigned 
 {
 int rc = METADEX_ERROR -20;
 md_PricesMap *prices = get_Prices(prop);
-const CMPMetaDEx *p_mdex;
+const CMPMetaDEx *p_mdex = NULL;
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
-  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+  fprintf(mp_fp, "%s(%d,%d)\n", __FUNCTION__, prop, property_desired);
+
+  if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
   if (!prices)
   {
@@ -961,26 +967,36 @@ const CMPMetaDEx *p_mdex;
     return rc -1;
   }
 
-  md_Set *indexes;
-
   // within the desired property map (given one property) iterate over the items
   for (md_PricesMap::iterator my_it = prices->begin(); my_it != prices->end(); ++my_it)
   {
-    indexes = &(my_it->second);
+  md_Set *indexes = &(my_it->second);
 
     for (md_Set::iterator iitt = indexes->begin(); iitt != indexes->end();)
     { // for iitt
       p_mdex = &(*iitt);
 
-      if (msc_debug_metadex) fprintf(mp_fp, "%s(): %s\n", p_mdex->ToString().c_str());
-      ++iitt;
+      if (msc_debug_metadex3) fprintf(mp_fp, "%s(): %s\n", __FUNCTION__, p_mdex->ToString().c_str());
 
-      // ...
+      if ((p_mdex->getDesProperty() != property_desired) || (p_mdex->getAddr() != sender_addr))
+      {
+        ++iitt;
+        continue;
+      }
 
+      fprintf(mp_fp, "%s(): removing %s\n", __FUNCTION__, p_mdex->ToString().c_str());
+
+      // move from reserve to main
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmount(), SELLOFFER_RESERVE);
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmount(), BALANCE);
+
+      indexes->erase(iitt++);
     }
   }
 
-  if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+  if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
+
+  rc = 0;
 
   return rc;
 }

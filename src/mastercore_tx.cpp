@@ -672,7 +672,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_RATELIMITED_MARK: return ((char *)"Rate-Limiting");
     case MSC_TYPE_AUTOMATIC_DISPENSARY: return ((char *)"Automatic Dispensary");
     case MSC_TYPE_TRADE_OFFER: return ((char *)"DEx Sell Offer");
-    case MSC_TYPE_METADEX: return ((char *)"MetaDEx: Offer/Accept one Master Protocol Tokens for another");
+    case MSC_TYPE_METADEX: return ((char *)"MetaDEx token trade");
     case MSC_TYPE_ACCEPT_OFFER_BTC: return ((char *)"DEx Accept Offer");
     case MSC_TYPE_CREATE_PROPERTY_FIXED: return ((char *)"Create Property - Fixed");
     case MSC_TYPE_CREATE_PROPERTY_VARIABLE: return ((char *)"Create Property - Variable");
