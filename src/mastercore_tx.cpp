@@ -391,7 +391,6 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
               rc = (PKT_ERROR -999);
               break;
           }
-
           break;
         }
 

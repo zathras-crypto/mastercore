@@ -948,10 +948,18 @@ int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const string &sender_addr, unsigned 
 {
 int rc = METADEX_ERROR -20;
 md_PricesMap *prices = get_Prices(prop);
-const CMPMetaDEx *p_older = NULL;
+const CMPMetaDEx *p_older;
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
   if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
+
+  if (!prices)
+  {
+    mp_log("%s() NOTHING FOUND, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    fprintf(mp_fp, "%s() NOTHING FOUND, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    return rc -1;
+  }
 
   md_Set *indexes;
 
