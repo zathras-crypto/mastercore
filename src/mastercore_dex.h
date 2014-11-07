@@ -242,6 +242,25 @@ public:
 
     return (effective_price);
   }
+
+  void saveOffer(ofstream &file, SHA256_CTX *shaCtx) const {
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s")
+      % addr
+      % block
+      % amount
+      % property
+      % amount_desired
+      % desired_property
+      % (unsigned int) subaction
+      % idx
+      % txid.ToString()).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
+  }
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);
@@ -288,6 +307,8 @@ int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int bl
 int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
 int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
 int MetaDEx_CANCEL_EVERYTHING(const string &);
+md_PricesMap *get_Prices(unsigned int prop);
+md_Set *get_Indexes(md_PricesMap *p, XDOUBLE price);
 
 void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
 }
