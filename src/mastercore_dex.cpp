@@ -57,6 +57,7 @@ using namespace mastercore;
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 
+extern int disable_Combo;
 extern int msc_debug_dex, msc_debug_metadex, msc_debug_metadex2, msc_debug_metadex3;
 
 md_PropertiesMap mastercore::metadex;
@@ -874,7 +875,7 @@ int rc = METADEX_ERROR -1;
     if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
     // if anything is left in the new order, INSERT
-    if (0 < new_mdex.getAmount())
+    if ((0 < new_mdex.getAmount()) && (!disable_Combo))
     {
       x_AddOrCancel(&new_mdex); // straight match to ADD
     }
