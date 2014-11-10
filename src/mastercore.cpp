@@ -118,9 +118,11 @@ int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
-int msc_debug_metadex3= 0;
+int msc_debug_metadex3= 1;
 
-int disable_Combo = 0;
+const int disable_Combo = 1;
+const int disable_Trade = 0;
+
 static int disable_Divs = 0;
 static int disableLevelDB = 0;
 
@@ -617,7 +619,7 @@ uint64_t before, after;
   bRet = tally.updateMoney(which_property, amount, ttype);
 
   after = getMPbalance(who, which_property, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
+  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
 
   if (msc_debug_tally)
   {
@@ -3743,8 +3745,11 @@ int step_rc;
     case MSC_TYPE_METADEX:
 #ifdef  MY_HACK
 //      if (304500 > block) return -31337;
-      if (304930 > block) return -31337;
 //      if (305100 > block) return -31337;
+
+//      if (304930 > block) return -31337;
+//      if (307057 > block) return -31337;
+      if (307234 > block) return -31337;
 #endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
