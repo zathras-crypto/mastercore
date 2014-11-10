@@ -224,8 +224,8 @@ void MetaDExDialog::UpdateSellOffers()
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
             XDOUBLE price = (it->first);
-            double available = 0;
-            double total = 0;
+            int64_t available = 0;
+            int64_t total = 0;
             bool includesMe = false;
             md_Set & indexes = (it->second);
             // loop through each entry and sum up any sells for the right pair

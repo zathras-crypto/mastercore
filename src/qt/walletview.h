@@ -63,6 +63,7 @@ private:
     QWidget *balancesPage;
     QWidget *exchangePage;
     QWidget *smartPropertyPage;
+    QWidget *utilityPage;
 
     ReceiveCoinsDialog *receiveCoinsPage;
 //    SendCoinsDialog *sendCoinsPage;
@@ -73,7 +74,8 @@ private:
     MetaDExDialog *metaDExTab;
     TransactionView *transactionView;
     BalancesView *balancesView;
-
+    QWidget *mpTXTab;
+    QWidget *bitcoinTXTab;
     QProgressDialog *progressDialog;
 
 public slots:
@@ -91,7 +93,8 @@ public slots:
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
-
+    /** Switch to utility page */
+    void gotoUtilityPage();
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */

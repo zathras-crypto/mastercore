@@ -63,6 +63,12 @@ WalletView::WalletView(QWidget *parent):
     balancesPage->setLayout(bvbox);
 
     // transactions page
+    // bitcoin transactions in second tab, MP transactions in first
+    //masterprotocol
+    mpTXTab = new QWidget();
+
+    //bitcoin
+    bitcoinTXTab = new QWidget(this);
     QVBoxLayout *vbox = new QVBoxLayout();
     QHBoxLayout *hbox_buttons = new QHBoxLayout();
     transactionView = new TransactionView(this);
@@ -75,12 +81,20 @@ WalletView::WalletView(QWidget *parent):
     hbox_buttons->addStretch();
     hbox_buttons->addWidget(exportButton);
     vbox->addLayout(hbox_buttons);
-    transactionsPage->setLayout(vbox);
+    bitcoinTXTab->setLayout(vbox);
 
+    transactionsPage = new QWidget(this);
+    QVBoxLayout *txvbox = new QVBoxLayout();
+    QTabWidget *txTabHolder = new QTabWidget();
+    txTabHolder->addTab(mpTXTab,tr("Master Protocol"));
+    txTabHolder->addTab(bitcoinTXTab,tr("Bitcoin"));
+    txvbox->addWidget(txTabHolder);
+    transactionsPage->setLayout(txvbox);
+
+    // receive page
     receiveCoinsPage = new ReceiveCoinsDialog();
 
     // sending page
-    //sendCoinsPage = new SendCoinsDialog();
     sendCoinsPage = new QWidget(this);
     QVBoxLayout *svbox = new QVBoxLayout();
     sendCoinsTab = new SendCoinsDialog();
@@ -88,7 +102,6 @@ WalletView::WalletView(QWidget *parent):
     QTabWidget *tabHolder = new QTabWidget();
     tabHolder->addTab(sendMPTab,tr("Master Protocol"));
     tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
-//    tabHolder->addTab(new QWidget(),tr("Smart Properties"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
 
@@ -115,6 +128,9 @@ WalletView::WalletView(QWidget *parent):
     spvbox->addWidget(spTabHolder);
     smartPropertyPage->setLayout(spvbox);
 
+    // utility page
+    utilityPage = new QWidget(this);
+
     // add pages
     addWidget(overviewPage);
     addWidget(balancesPage);
@@ -123,6 +139,7 @@ WalletView::WalletView(QWidget *parent):
     addWidget(sendCoinsPage);
     addWidget(exchangePage);
     addWidget(smartPropertyPage);
+    addWidget(utilityPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -241,6 +258,11 @@ void WalletView::gotoReceiveCoinsPage()
 void WalletView::gotoExchangePage()
 {
     setCurrentWidget(exchangePage);
+}
+
+void WalletView::gotoUtilityPage()
+{
+    setCurrentWidget(utilityPage);
 }
 
 void WalletView::gotoSmartPropertyPage()
