@@ -120,8 +120,8 @@ int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
 int msc_debug_metadex3= 1;
 
-const int disable_Combo = 1;
-const int disable_Trade = 0;
+int disable_Combo = 1;
+int disable_Trade = 0;
 
 static int disable_Divs = 0;
 static int disableLevelDB = 0;
