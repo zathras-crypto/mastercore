@@ -178,9 +178,9 @@ private:
   uint256 txid;
   unsigned int idx; // index within the block
   unsigned int property;
-  uint64_t amount; // the amount for sale specified when the offer was placed
+  uint64_t amount_forsale; // the amount for sale specified when the offer was placed
   unsigned int desired_property;
-  uint64_t amount_desired;
+  int64_t amount_desired;
   unsigned char subaction;
 
   string    addr;
@@ -194,12 +194,12 @@ public:
   unsigned int getDesProperty() const { return desired_property; }
   const string & getAddr() const { return addr; }
 
-  uint64_t getAmount() const { return amount; }
-  uint64_t getAmountDesired() const { return amount_desired; }
+  uint64_t getAmount() const { return amount_forsale; }
+  int64_t getAmountDesired() const { return amount_desired; }
 
   void setAmount(int64_t ao, const string &label = "")
   {
-    amount = ao;
+    amount_forsale = ao;
     fprintf(mp_fp, "setAmount(%ld %s):%s\n", ao, label.c_str(), ToString().c_str());
   }
 
@@ -221,7 +221,7 @@ public:
   }
 
   // needed only by the RPC functions
-  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount(0),desired_property(0),amount_desired(0),subaction(0)
+  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount_forsale(0),desired_property(0),amount_desired(0),subaction(0)
   {
     addr.empty();
   }
@@ -232,13 +232,17 @@ public:
 
   std::string ToString() const;
 
-  XDOUBLE getEffectivePrice() const
+  XDOUBLE effectivePrice() const
   {
   XDOUBLE effective_price = 0;
 
+/*
     // I am the buyer; I have 'amount' dollars, I want 'amount_desired' of oranges:
     // example: I have 10 dollars, want 5 oranges; to me the price of 1 orange is thus: $10 / 5 or. = $2
     if (amount_desired) effective_price = (XDOUBLE) amount / (XDOUBLE) amount_desired; // division by 0 check
+*/
+    // I am the seller
+    if (amount_forsale) effective_price = (XDOUBLE) amount_desired / (XDOUBLE) amount_forsale; // division by 0 check
 
     return (effective_price);
   }
@@ -247,7 +251,7 @@ public:
     string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s")
       % addr
       % block
-      % amount
+      % amount_forsale
       % property
       % amount_desired
       % desired_property
@@ -303,7 +307,7 @@ int DEx_acceptCreate(const string &buyer, const string &seller, int, uint64_t nV
 int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForceErase = false);
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
-int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t amount, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
+int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
 int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
 int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
 int MetaDEx_CANCEL_EVERYTHING(const string &);
