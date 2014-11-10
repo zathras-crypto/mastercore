@@ -58,6 +58,8 @@ public slots:
     void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch to utility page */
+    void gotoToolboxPage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */

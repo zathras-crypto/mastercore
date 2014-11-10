@@ -63,7 +63,7 @@ private:
     QWidget *balancesPage;
     QWidget *exchangePage;
     QWidget *smartPropertyPage;
-    QWidget *utilityPage;
+    QWidget *toolboxPage;
 
     ReceiveCoinsDialog *receiveCoinsPage;
 //    SendCoinsDialog *sendCoinsPage;
@@ -94,7 +94,7 @@ public slots:
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
     /** Switch to utility page */
-    void gotoUtilityPage();
+    void gotoToolboxPage();
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */

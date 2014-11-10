@@ -128,8 +128,8 @@ WalletView::WalletView(QWidget *parent):
     spvbox->addWidget(spTabHolder);
     smartPropertyPage->setLayout(spvbox);
 
-    // utility page
-    utilityPage = new QWidget(this);
+    // toolbox page
+    toolboxPage = new QWidget(this);
 
     // add pages
     addWidget(overviewPage);
@@ -139,7 +139,7 @@ WalletView::WalletView(QWidget *parent):
     addWidget(sendCoinsPage);
     addWidget(exchangePage);
     addWidget(smartPropertyPage);
-    addWidget(utilityPage);
+    addWidget(toolboxPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -260,9 +260,9 @@ void WalletView::gotoExchangePage()
     setCurrentWidget(exchangePage);
 }
 
-void WalletView::gotoUtilityPage()
+void WalletView::gotoToolboxPage()
 {
-    setCurrentWidget(utilityPage);
+    setCurrentWidget(toolboxPage);
 }
 
 void WalletView::gotoSmartPropertyPage()

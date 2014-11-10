@@ -228,6 +228,7 @@ BITCOIN_QT_H = \
 
 RES_ICONS = \
   res/icons/mp_exchange.png \
+  res/icons/mp_toolbox.png \
   res/icons/mp_sp.png \
   res/icons/mp_balances.png \
   res/icons/mp_history.png \

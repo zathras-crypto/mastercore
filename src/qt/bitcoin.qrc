@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0"> 
     <qresource prefix="/icons">
         <file alias="balances">res/icons/mp_balances.png</file> 
+        <file alias="toolbox">res/icons/mp_toolbox.png</file>
         <file alias="exchange">res/icons/mp_exchange.png</file>
         <file alias="smartproperty">res/icons/mp_sp.png</file>
         <file alias="bitcoin">res/icons/bitcoin.png</file>
