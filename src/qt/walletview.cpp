@@ -111,9 +111,9 @@ WalletView::WalletView(QWidget *parent):
     metaDExTab = new MetaDExDialog();
     QTabWidget *exTabHolder = new QTabWidget();
     orderHistoryTab = new OrderHistoryDialog;
-    exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin"));
+    //exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin")); not yet implemented
     exTabHolder->addTab(metaDExTab,tr("Trade Mastercoin/Smart Properties"));
-    exTabHolder->addTab(orderHistoryTab,tr("Open Orders"));
+    exTabHolder->addTab(orderHistoryTab,tr("Order History"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
 
