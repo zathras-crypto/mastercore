@@ -121,14 +121,17 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                     // if tx21, get the details for the list
                     if(21 == atoi(vstr[2]))
                     {
-                        unsigned int propertyIdForSale;
-                        unsigned int propertyIdDesired;
-                        uint64_t amountForSale;
-                        uint64_t amountDesired;
+                        unsigned int propertyIdForSale = 0;
+                        unsigned int propertyIdDesired = 0;
+                        uint64_t amountForSale = 0;
+                        uint64_t amountDesired = 0;
                         string address;
                         bool divisibleForSale;
                         bool divisibleDesired;
                         bool valid;
+                        Array tradeArray;
+                        uint64_t totalBought = 0;
+                        uint64_t totalSold = 0;
 
                         CMPMetaDEx temp_metadexoffer;
                         CMPTransaction mp_obj;
@@ -158,6 +161,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                                         divisibleDesired = isPropertyDivisible(propertyIdDesired);
                                         amountDesired = temp_metadexoffer.getAmountDesired();
                                         //mdex_action = temp_metadexoffer.getAction();
+                                        t_tradelistdb->getMatchingTrades(hash, propertyIdForSale, &tradeArray, &totalSold, &totalBought);
                                     }
                                 }
                             }
@@ -167,30 +171,44 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         QListWidgetItem *qItem = new QListWidgetItem();
                         qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
                         string displayText = "Sell ";
+                        string displayIn = "+";
+                        string displayOut = "-";
+                        string displayInToken;
+                        string displayOutToken;
+
                         if(divisibleForSale) { displayText += FormatDivisibleMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
                         if(propertyIdForSale < 3)
                         {
-                            if(propertyIdForSale == 1) displayText += " MSC for ";
-                            if(propertyIdForSale == 2) displayText += " TMSC for ";
+                            if(propertyIdForSale == 1) { displayText += " MSC for "; displayInToken = " MSC"; }
+                            if(propertyIdForSale == 2) { displayText += " TMSC for "; displayInToken = " TMSC"; }
                         }
                         else
                         {
                             displayText += " SPT# for ";
+                            displayInToken = " SPT#";
                         }
                         if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
                         if(propertyIdDesired < 3)
                         {
-                            if(propertyIdDesired == 1) displayText += " MSC";
-                            if(propertyIdDesired == 2) displayText += " TMSC";
+                            if(propertyIdDesired == 1) { displayText += " MSC"; displayOutToken = " MSC"; }
+                            if(propertyIdDesired == 2) { displayText += " TMSC"; displayOutToken = " TMSC"; }
                         }
                         else
                         {
                             displayText += " SPT#";
+                            displayOutToken = " SPT#";
                         }
+                        if(divisibleDesired) { displayIn += FormatDivisibleMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
+                        if(divisibleForSale) { displayOut += FormatDivisibleMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
+                        if(totalBought == 0) displayIn = "0";
+                        if(totalSold == 0) displayOut = "0";
+                        displayIn += displayInToken;
+                        displayOut += displayOutToken;
                         qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
-                        qItem->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-                        qItem->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+                        qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
+                        qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
                         qItem->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+                        qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
                         ui->orderHistoryLW->addItem(qItem);
                     }
                 }

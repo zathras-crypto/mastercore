@@ -657,6 +657,7 @@ void MetaDExDialog::sendTrade(bool sell)
     string propDetails = "#" + spNum;
     string buyStr;
     string sellStr;
+    if (!sell) strMsgText += "Your buy will be inverted into a sell offer.\n\n";
     strMsgText += "Type: Trade Request\nFrom: " + fromAddress.ToString() + "\n\n";
     if (!sell) // clicked buy
     {

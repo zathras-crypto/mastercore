@@ -2143,7 +2143,8 @@ Value gettrade_MP(const Array& params, bool fHelp)
     // create array of matches
     Array tradeArray;
     uint64_t totalBought;
-    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
+    uint64_t totalSold;
+    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalSold, &totalBought);
 
     // add array to object
     txobj.push_back(Pair("matches", tradeArray));

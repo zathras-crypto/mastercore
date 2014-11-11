@@ -27,10 +27,11 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     QIcon ic = QIcon(":/icons/balances");
 // QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
     QString txid = index.data(Qt::DisplayRole).toString();
-    QString displayText = index.data(Qt::UserRole + 4).toString() + ":  " + index.data(Qt::UserRole + 1).toString();
-    QString amountBought = "+" + index.data(Qt::UserRole + 2).toString();
-    QString amountSold = "-" + index.data(Qt::UserRole + 3).toString();
+    QString displayText = index.data(Qt::UserRole + 1).toString();
+    QString amountBought = index.data(Qt::UserRole + 2).toString();
+    QString amountSold = index.data(Qt::UserRole + 3).toString();
     QString status = index.data(Qt::UserRole + 4).toString();
+    QString senderText = index.data(Qt::UserRole + 5).toString();
 
     // add the appropriate status icon
     int imageSpace = 10;
@@ -38,7 +39,7 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     {
         r = option.rect.adjusted(5, 10, -10, -10);
         ic.paint(painter, r, Qt::AlignVCenter|Qt::AlignLeft);
-        imageSpace = 55;
+        imageSpace = 65;
     }
 
     // setup pens
@@ -46,31 +47,44 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     QPen penRed(QColor("#CC0000"));
     QPen penGreen(QColor("#00AA00"));
 
-    // add the txid
+    QFont font = painter->font();
+    // add the displaytext
     painter->setPen(penBlack);
+    r = option.rect.adjusted(imageSpace, 0, -10, -50);
+    font.setBold(true);
+    painter->setFont(font);
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, displayText, &r);
+    // add the sender
+    font.setBold(false);
+    painter->setFont(font);
     r = option.rect.adjusted(imageSpace, 0, -10, -30);
-//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, senderText, &r);
+    // add the displaytext
+    font.setItalic(true);
+    painter->setFont(font);
+    r = option.rect.adjusted(imageSpace, 0, -10, -10);
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, txid, &r);
-    // add the displaytext/status
-    r = option.rect.adjusted(imageSpace, 30, -10, 0);
-//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, displayText, &r);
+    // add the status
+    r = option.rect.adjusted(imageSpace, 0, -10, -50);
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignRight, status, &r);
     // add the amount bought (green +)
-    painter->setPen(penGreen);
+    font.setItalic(false);
+    font.setBold(true);
+    painter->setFont(font);
+    if("0 " != amountBought.toStdString().substr(0,2)) painter->setPen(penGreen);
     r = option.rect.adjusted(imageSpace, 0, -10, -30);
-//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignRight, amountBought, &r);
     // add the amount sold (red -)
-    painter->setPen(penRed);
-    r = option.rect.adjusted(imageSpace, 30, -10, 0);
-//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignRight, amountSold, &r);
-
+    if("0 " != amountSold.toStdString().substr(0,2)) painter->setPen(penRed);
+    r = option.rect.adjusted(imageSpace, 0, -10, -10);
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignRight, amountSold, &r);
+    font.setBold(false);
+    painter->setFont(font);
 }
 
 QSize ListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const
 {
-    return QSize(200, 60); // very dumb value?
+    return QSize(200, 75); // very dumb value?
 }
 
 ListDelegate::~ListDelegate()
