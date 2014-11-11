@@ -24,7 +24,6 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     painter->setPen(fontPen);
 
     // prepare the data for the entry
-    QIcon ic = QIcon(":/icons/balances");
 // QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
 //    string shortTXID = QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,12));
     QString txidstatus = index.data(Qt::UserRole + 4).toString() + "   (" + QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,8)) + "...)";
@@ -37,6 +36,10 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
 
     // add the appropriate status icon
     int imageSpace = 10;
+    QIcon ic = QIcon(":/icons/meta_cancelled");
+    if(status == "Closed / Filled") ic = QIcon(":/icons/meta_filled");
+    if(status == "Open") ic = QIcon(":/icons/meta_open");
+    if(status == "Open / Partially Filled") ic = QIcon(":/icons/meta_partial");
     if (!ic.isNull())
     {
         r = option.rect.adjusted(5, 10, -10, -10);

@@ -66,6 +66,7 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui(new Ui::MetaDExDialog),
     model(0)
 {
+printf("hereme\n");
     ui->setupUi(this);
     this->model = model;
 

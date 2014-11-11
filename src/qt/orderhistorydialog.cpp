@@ -68,9 +68,9 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui(new Ui::orderHistoryDialog),
     model(0)
 {
+printf("here\n");
     ui->setupUi(this);
     this->model = model;
-
     ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
 
     CWallet *wallet = pwalletMain;
@@ -193,6 +193,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         bool filled = false;
                         if(totalSold>0) partialFilled = true;
                         if(totalSold>=amountForSale) filled = true;
+                        statusText = "Unknown (error?)";
                         if((!orderOpen) && (filled)) statusText = "Closed / Filled";
                         if((orderOpen) && (!partialFilled)) statusText = "Open";
                         if((orderOpen) && (partialFilled)) statusText = "Open / Partially Filled";
@@ -209,26 +210,26 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         if(divisibleForSale) { displayText += FormatDivisibleMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
                         if(propertyIdForSale < 3)
                         {
-                            if(propertyIdForSale == 1) { displayText += " MSC for "; displayInToken = " MSC"; }
-                            if(propertyIdForSale == 2) { displayText += " TMSC for "; displayInToken = " TMSC"; }
+                            if(propertyIdForSale == 1) { displayText += " MSC for "; displayOutToken = " MSC"; }
+                            if(propertyIdForSale == 2) { displayText += " TMSC for "; displayOutToken = " TMSC"; }
                         }
                         else
                         {
                             string s = to_string(propertyIdForSale);
                             displayText += " SPT#" + s + " for ";
-                            displayInToken = " SPT#" + s;
+                            displayOutToken = " SPT#" + s;
                         }
                         if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
                         if(propertyIdDesired < 3)
                         {
-                            if(propertyIdDesired == 1) { displayText += " MSC"; displayOutToken = " MSC"; }
-                            if(propertyIdDesired == 2) { displayText += " TMSC"; displayOutToken = " TMSC"; }
+                            if(propertyIdDesired == 1) { displayText += " MSC"; displayInToken = " MSC"; }
+                            if(propertyIdDesired == 2) { displayText += " TMSC"; displayInToken = " TMSC"; }
                         }
                         else
                         {
                             string s = to_string(propertyIdDesired);
                             displayText += " SPT#" + s;
-                            displayOutToken = " SPT#" + s;
+                            displayInToken = " SPT#" + s;
                         }
                         if(divisibleDesired) { displayIn += FormatDivisibleMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
                         if(divisibleForSale) { displayOut += FormatDivisibleMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
