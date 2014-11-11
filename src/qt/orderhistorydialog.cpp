@@ -72,13 +72,71 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     this->model = model;
 
     ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
+
     QListWidgetItem *item = new QListWidgetItem();
-    item->setData(Qt::DisplayRole, "txid");
-    item->setData(Qt::UserRole + 1, "displaytext");
-    item->setData(Qt::UserRole + 2, "amountbought");
-    item->setData(Qt::UserRole + 3, "amountsold");
-    item->setData(Qt::UserRole + 4, "status");
+    item->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item->setData(Qt::UserRole + 4, "Awaiting Confirmation");
     ui->orderHistoryLW->addItem(item);
+
+    QListWidgetItem *item2 = new QListWidgetItem();
+    item2->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item2->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item2->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item2->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item2->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item2);
+
+    QListWidgetItem *item3 = new QListWidgetItem();
+    item3->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item3->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item3->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item3->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item3->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item3);
+
+    QListWidgetItem *item4 = new QListWidgetItem();
+    item4->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item4->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item4->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item4->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item4->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item4);
+
+    QListWidgetItem *item5 = new QListWidgetItem();
+    item5->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item5->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item5->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item5->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item5->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item5);
+
+    QListWidgetItem *item6 = new QListWidgetItem();
+    item6->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item6->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item6->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item6->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item6->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item6);
+
+    QListWidgetItem *item7 = new QListWidgetItem();
+    item7->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item7->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item7->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item7->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item7->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item7);
+
+    QListWidgetItem *item8 = new QListWidgetItem();
+    item8->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
+    item8->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
+    item8->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+    item8->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+    item8->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+    ui->orderHistoryLW->addItem(item8);
+
 
 }
 
