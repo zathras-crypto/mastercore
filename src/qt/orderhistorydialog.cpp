@@ -61,6 +61,8 @@ using namespace leveldb;
 #include <QScrollBar>
 #include <QTextDocument>
 
+#include "orderlistdelegate.h"
+
 OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::orderHistoryDialog),
@@ -68,6 +70,16 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 {
     ui->setupUi(this);
     this->model = model;
+
+    ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
+    QListWidgetItem *item = new QListWidgetItem();
+    item->setData(Qt::DisplayRole, "txid");
+    item->setData(Qt::UserRole + 1, "displaytext");
+    item->setData(Qt::UserRole + 2, "amountbought");
+    item->setData(Qt::UserRole + 3, "amountsold");
+    item->setData(Qt::UserRole + 4, "status");
+    ui->orderHistoryLW->addItem(item);
+
 }
 
 void OrderHistoryDialog::setModel(WalletModel *model)

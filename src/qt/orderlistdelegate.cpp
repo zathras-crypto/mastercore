@@ -53,35 +53,47 @@
 			painter->setPen(fontPen);
 		}
 		
-		//GET TITLE, DESCRIPTION AND ICON
-		QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
-		QString title = index.data(Qt::DisplayRole).toString();
-		QString description = index.data(Qt::UserRole + 1).toString();
 		
-		int imageSpace = 10;
-		if (!ic.isNull()) {
-			//ICON
-			r = option.rect.adjusted(5, 10, -10, -10);
-			ic.paint(painter, r, Qt::AlignVCenter|Qt::AlignLeft);
-			imageSpace = 55;
-		}
+    // prepare the data for the entry
+    QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
+    QString txid = index.data(Qt::DisplayRole).toString();
+    QString displayText = index.data(Qt::UserRole + 1).toString();
+    QString amountBought = index.data(Qt::UserRole + 2).toString();
+    QString amountSold = index.data(Qt::UserRole + 3).toString();
+    QString status = index.data(Qt::UserRole + 4).toString();
 
-		//TITLE
-		r = option.rect.adjusted(imageSpace, 0, -10, -30);
-		painter->setFont( QFont( "Lucida Grande", 6, QFont::Normal ) );
-		painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, title, &r);
-		
-		//DESCRIPTION
-		r = option.rect.adjusted(imageSpace, 30, -10, 0);
-		painter->setFont( QFont( "Lucida Grande", 5, QFont::Normal ) );
-		painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, description, &r);
-	}
+    // add the appropriate status icon
+    int imageSpace = 10;
+    if (!ic.isNull())
+    {
+        r = option.rect.adjusted(5, 10, -10, -10);
+        ic.paint(painter, r, Qt::AlignVCenter|Qt::AlignLeft);
+        imageSpace = 55;
+    }
 
-	QSize ListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const{
-		return QSize(200, 60); // very dumb value
-	}
-	
-	ListDelegate::~ListDelegate()
-	{
+    // add the txid
+    r = option.rect.adjusted(imageSpace, 0, -10, -30);
+    painter->setFont( QFont( "Lucida Grande", 10, QFont::Bold ) );
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, txid, &r);
+    // add the displaytext
+    r = option.rect.adjusted(imageSpace, 30, -10, 0);
+    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, displayText, &r);
+    // add the amount bought (green +)
+    r = option.rect.adjusted(imageSpace, 30, -60, 0);
+    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, amountBought, &r);
+    // add the amount sold (red -)
+    r = option.rect.adjusted(imageSpace, 30, -90, 0);
+    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, amountSold, &r);
+}
 
-	}
+QSize ListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const
+{
+    return QSize(200, 60); // very dumb value?
+}
+
+ListDelegate::~ListDelegate()
+{
+}
