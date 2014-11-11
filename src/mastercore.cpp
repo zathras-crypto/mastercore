@@ -3229,7 +3229,7 @@ void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string 
   {
     status = tdb->Put(writeoptions, key, value);
     ++tWritten;
-    if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    if (msc_debug_tradedb) fprintf(mp_fp, "%s(): %s\n", __FUNCTION__, status.ToString().c_str());
   }
 }
 

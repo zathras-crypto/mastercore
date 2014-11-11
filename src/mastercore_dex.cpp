@@ -947,7 +947,12 @@ int mastercore::MetaDEx_CANCEL_AT_PRICE(const string &sender_addr, unsigned int 
 int rc = METADEX_ERROR -20;
 CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 0, 0, CMPTransaction::CANCEL_AT_PRICE);
 
+  fprintf(mp_fp, "%s() - DISABLED RIGHT NOW, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+/*
+  TODO
+  FIXME
   if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
 
   // re-using the function to CANCEL at exact price
@@ -957,6 +962,7 @@ CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 
   }
 
   if (msc_debug_metadex3) MetaDEx_debug_print(mp_fp);
+*/
 
   return rc;
 }
