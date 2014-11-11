@@ -121,6 +121,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                     // if tx21, get the details for the list
                     if(21 == atoi(vstr[2]))
                     {
+                        string statusText;
                         unsigned int propertyIdForSale = 0;
                         unsigned int propertyIdDesired = 0;
                         uint64_t amountForSale = 0;
@@ -132,6 +133,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         Array tradeArray;
                         uint64_t totalBought = 0;
                         uint64_t totalSold = 0;
+                        bool orderOpen = false;
 
                         CMPMetaDEx temp_metadexoffer;
                         CMPTransaction mp_obj;
@@ -162,10 +164,38 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                                         amountDesired = temp_metadexoffer.getAmountDesired();
                                         //mdex_action = temp_metadexoffer.getAction();
                                         t_tradelistdb->getMatchingTrades(hash, propertyIdForSale, &tradeArray, &totalSold, &totalBought);
+
+                                        // status - is order cancelled/closed-filled/open/open-partialfilled?
+                                        // is the sell offer still open - need more efficient way to do this
+                                        for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+                                        {
+                                            if (my_it->first == propertyIdForSale) //at minimum only go deeper if it's the right property id
+                                            {
+                                                md_PricesMap & prices = my_it->second;
+                                                for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+                                                {
+                                                    md_Set & indexes = (it->second);
+                                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                                                    {
+                                                        CMPMetaDEx obj = *it;
+                                                        if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        // work out status
+                        bool partialFilled = false;
+                        bool filled = false;
+                        if(totalSold>0) partialFilled = true;
+                        if(totalSold>=amountForSale) filled = true;
+                        if((!orderOpen) && (filled)) statusText = "Closed / Filled";
+                        if((orderOpen) && (!partialFilled)) statusText = "Open";
+                        if((orderOpen) && (partialFilled)) statusText = "Open / Partially Filled";
 
                         // add to list
                         QListWidgetItem *qItem = new QListWidgetItem();
@@ -184,8 +214,9 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         }
                         else
                         {
-                            displayText += " SPT# for ";
-                            displayInToken = " SPT#";
+                            string s = to_string(propertyIdForSale);
+                            displayText += " SPT#" + s + " for ";
+                            displayInToken = " SPT#" + s;
                         }
                         if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
                         if(propertyIdDesired < 3)
@@ -195,8 +226,9 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         }
                         else
                         {
-                            displayText += " SPT#";
-                            displayOutToken = " SPT#";
+                            string s = to_string(propertyIdDesired);
+                            displayText += " SPT#" + s;
+                            displayOutToken = " SPT#" + s;
                         }
                         if(divisibleDesired) { displayIn += FormatDivisibleMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
                         if(divisibleForSale) { displayOut += FormatDivisibleMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
@@ -207,7 +239,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
                         qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
                         qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
-                        qItem->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+                        qItem->setData(Qt::UserRole + 4, QString::fromStdString(statusText));
                         qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
                         ui->orderHistoryLW->addItem(qItem);
                     }
