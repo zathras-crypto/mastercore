@@ -7,7 +7,7 @@ ListDelegate::ListDelegate(QObject *parent)
 
 void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
 {
-    QRect r = option.rect;
+/*    QRect r = option.rect;
     QPen linePen(QColor::fromRgb(211,211,211), 1, Qt::SolidLine);
     QPen fontPen(QColor::fromRgb(51,51,51), 1, Qt::SolidLine);
     painter->setPen(linePen);
@@ -74,6 +74,7 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignRight, amountSold, &r);
     font.setBold(false);
     painter->setFont(font);
+*/
 }
 
 QSize ListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const

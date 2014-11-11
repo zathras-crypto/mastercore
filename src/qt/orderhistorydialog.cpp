@@ -68,7 +68,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui(new Ui::orderHistoryDialog),
     model(0)
 {
-printf("here\n");
+/*printf("here\n");
     ui->setupUi(this);
     this->model = model;
     ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
@@ -265,7 +265,7 @@ printf("here\n");
 
 //    std::reverse(response.begin(), response.end()); // return oldest to newest?
  //   return response;   // return response array for JSON serialization
-
+*/
 }
 
 void OrderHistoryDialog::setModel(WalletModel *model)
