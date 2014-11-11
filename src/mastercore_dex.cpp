@@ -293,15 +293,8 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         if (msc_debug_metadex) fprintf(mp_fp, "==== TRADED !!! %u=%s\n", NewReturn, getTradeReturnType(NewReturn).c_str());
 
-
-      // FIXME  
-      // TODO
-/*
-        // record the trade in MPTradeList
-        t_tradelistdb->recordTrade(p_older->getHash(), newo->getHash(), p_older->getAddr(), newo->getAddr(), p_older->getProperty(), newo->getProperty(), buyer_amountGot, paymentAmount, newo->getBlock());
-*/
-
-
+        t_tradelistdb->recordTrade(p_older->getHash(), newo->getHash(),
+         p_older->getAddr(), newo->getAddr(), p_older->getProperty(), newo->getProperty(), buyer_amountGot, seller_amountGot, newo->getBlock());
 
       if (msc_debug_metadex) fprintf(mp_fp, "++ erased old: %s\n", iitt->ToString().c_str());
       // erase the old seller element
@@ -351,6 +344,8 @@ bool found = false;
     mp_log( "%s(%s: prop=%u, desprop=%u);newo: %s\n",
      __FUNCTION__, buyer_addr, prop, desprop, newo->ToString());
   }
+
+  assert(bCancelAtPrice);
 
   prices = get_Prices(prop);
 
@@ -1019,14 +1014,57 @@ const CMPMetaDEx *p_mdex = NULL;
   return rc;
 }
 
+// scan the orderbook and remove everything for an address
 int mastercore::MetaDEx_CANCEL_EVERYTHING(const string &sender_addr)
 {
 int rc = METADEX_ERROR -20;
+FILE *fp = mp_fp;
 
   mp_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+
+  fprintf(mp_fp, "%s()\n", __FUNCTION__);
+
   if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
 
-  // ...
+  fprintf(fp, "<<<<<<\n");
+
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+    unsigned int prop = my_it->first;
+
+    fprintf(fp, " ## property: %u\n", prop);
+    md_PricesMap & prices = my_it->second;
+
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      XDOUBLE price = (it->first);
+      md_Set & indexes = (it->second);
+
+      fprintf(fp, "  # Price Level: %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str());
+
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end();)
+      {
+        fprintf(fp, "%s= %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str() , it->ToString().c_str());
+
+        if ((it->getAddr() != sender_addr))
+        {
+          ++it;
+          continue;
+        }
+
+        rc = 0;
+
+        fprintf(mp_fp, "%s(): removing %s\n", __FUNCTION__, it->ToString().c_str());
+
+        // move from reserve to balance
+        update_tally_map(it->getAddr(), it->getProperty(), - it->getAmount(), SELLOFFER_RESERVE);
+        update_tally_map(it->getAddr(), it->getProperty(), it->getAmount(), BALANCE);
+
+        indexes.erase(it++);
+      }
+    }
+  }
+  fprintf(fp, ">>>>>>\n");
 
   if (msc_debug_metadex2) MetaDEx_debug_print(mp_fp);
 

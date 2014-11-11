@@ -118,7 +118,7 @@ int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
-int msc_debug_metadex3= 1;
+int msc_debug_metadex3= 0;
 
 int disable_Combo = 1;
 int disable_Trade = 0;
