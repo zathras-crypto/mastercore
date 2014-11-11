@@ -21,7 +21,7 @@
 #include "transactionview.h"
 #include "balancesview.h"
 #include "walletmodel.h"
-
+#include "orderhistorydialog.h"
 #include "ui_interface.h"
 
 #include <QAction>
@@ -110,9 +110,10 @@ WalletView::WalletView(QWidget *parent):
     QVBoxLayout *exvbox = new QVBoxLayout();
     metaDExTab = new MetaDExDialog();
     QTabWidget *exTabHolder = new QTabWidget();
+    orderHistoryTab = new OrderHistoryDialog;
     exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin"));
     exTabHolder->addTab(metaDExTab,tr("Trade Mastercoin/Smart Properties"));
-    exTabHolder->addTab(new QWidget(),tr("Open Orders"));
+    exTabHolder->addTab(orderHistoryTab,tr("Open Orders"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
 
