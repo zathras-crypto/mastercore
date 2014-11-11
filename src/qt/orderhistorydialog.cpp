@@ -73,70 +73,147 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 
     ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
 
-    QListWidgetItem *item = new QListWidgetItem();
-    item->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item);
+    CWallet *wallet = pwalletMain;
+    string sAddress = "";
+    string addressParam = "";
+    bool addressFilter;
 
-    QListWidgetItem *item2 = new QListWidgetItem();
-    item2->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item2->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item2->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item2->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item2->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item2);
+    addressFilter = false;
+    int64_t nCount = 10;
+    int64_t nFrom = 0;
+    int64_t nStartBlock = 0;
+    int64_t nEndBlock = 999999;
 
-    QListWidgetItem *item3 = new QListWidgetItem();
-    item3->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item3->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item3->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item3->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item3->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item3);
+    Array response; //prep an array to hold our output
 
-    QListWidgetItem *item4 = new QListWidgetItem();
-    item4->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item4->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item4->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item4->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item4->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item4);
+    // rewrite to use original listtransactions methodology from core
+    LOCK(wallet->cs_wallet);
+    std::list<CAccountingEntry> acentries;
+    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
-    QListWidgetItem *item5 = new QListWidgetItem();
-    item5->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item5->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item5->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item5->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item5->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item5);
+    // iterate backwards 
+    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    {
+        CWalletTx *const pwtx = (*it).second.first;
+        if (pwtx != 0)
+        {
+            uint256 hash = pwtx->GetHash();
+            CTransaction wtx;
+            uint256 blockHash = 0;
+            if (!GetTransaction(hash, wtx, blockHash, true)) continue;
+            // get the height of the transaction and check it's within the chosen parameters
+            blockHash = pwtx->hashBlock;
+            if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) continue;
+            CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
+            if (NULL == pBlockIndex) continue;
+            int blockHeight = pBlockIndex->nHeight;
+            if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue; // ignore it if not within our range
+            // check if the transaction exists in txlist, and if so is it correct type (21)
+            if (p_txlistdb->exists(hash))
+            {
+                // get type from levelDB
+                string strValue;
+                if (!p_txlistdb->getTX(hash, strValue)) continue;
+                std::vector<std::string> vstr;
+                boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+                if (4 <= vstr.size())
+                {
+                    // if tx21, get the details for the list
+                    if(21 == atoi(vstr[2]))
+                    {
+                        unsigned int propertyIdForSale;
+                        unsigned int propertyIdDesired;
+                        uint64_t amountForSale;
+                        uint64_t amountDesired;
+                        string address;
+                        bool divisibleForSale;
+                        bool divisibleDesired;
+                        bool valid;
 
-    QListWidgetItem *item6 = new QListWidgetItem();
-    item6->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item6->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item6->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item6->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item6->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item6);
+                        CMPMetaDEx temp_metadexoffer;
+                        CMPTransaction mp_obj;
+                        int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+                        if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                        {
+                            if (0<=mp_obj.step1())
+                            {
+                                //MPTxType = mp_obj.getTypeString();
+                                //MPTxTypeInt = mp_obj.getType();
+                                address = mp_obj.getSender();
+                                //if (!filterAddress.empty()) if ((senderAddress != filterAddress) && (refAddress != filterAddress)) return -1; // return negative rc if filtering & no match
 
-    QListWidgetItem *item7 = new QListWidgetItem();
-    item7->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item7->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item7->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item7->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item7->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item7);
+                                int tmpblock=0;
+                                uint32_t tmptype=0;
+                                uint64_t amountNew=0;
+                                valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
 
-    QListWidgetItem *item8 = new QListWidgetItem();
-    item8->setData(Qt::DisplayRole, "6525ca23bb51022086d06d80d91243548d2d1ff546369fcfb187a18fd006df59");
-    item8->setData(Qt::UserRole + 1, "Sell 10.12345678 MSC for 12.4566774 SPT #3");
-    item8->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
-    item8->setData(Qt::UserRole + 3, "1234.12345678 MSC");
-    item8->setData(Qt::UserRole + 4, "Awaiting Confirmation");
-    ui->orderHistoryLW->addItem(item8);
+                                if (0 == mp_obj.step2_Value())
+                                {
+                                    propertyIdForSale = mp_obj.getProperty();
+                                    amountForSale = mp_obj.getAmount();
+                                    divisibleForSale = isPropertyDivisible(propertyIdForSale);
+                                    if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer))
+                                    {
+                                        propertyIdDesired = temp_metadexoffer.getDesProperty();
+                                        divisibleDesired = isPropertyDivisible(propertyIdDesired);
+                                        amountDesired = temp_metadexoffer.getAmountDesired();
+                                        //mdex_action = temp_metadexoffer.getAction();
+                                    }
+                                }
+                            }
+                        }
 
+                        // add to list
+                        QListWidgetItem *qItem = new QListWidgetItem();
+                        qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
+                        string displayText = "Sell ";
+                        if(divisibleForSale) { displayText += FormatDivisibleMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
+                        if(propertyIdForSale < 3)
+                        {
+                            if(propertyIdForSale == 1) displayText += " MSC for ";
+                            if(propertyIdForSale == 2) displayText += " TMSC for ";
+                        }
+                        else
+                        {
+                            displayText += " SPT# for ";
+                        }
+                        if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
+                        if(propertyIdDesired < 3)
+                        {
+                            if(propertyIdDesired == 1) displayText += " MSC";
+                            if(propertyIdDesired == 2) displayText += " TMSC";
+                        }
+                        else
+                        {
+                            displayText += " SPT#";
+                        }
+                        qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
+                        qItem->setData(Qt::UserRole + 2, "99999.12345678 SPT #3");
+                        qItem->setData(Qt::UserRole + 3, "1234.12345678 MSC");
+                        qItem->setData(Qt::UserRole + 4, "Awaiting Confirmation");
+                        ui->orderHistoryLW->addItem(qItem);
+                    }
+                }
+            }
+            // don't burn time doing more work than we need to
+//            if ((int)response.size() >= (nCount+nFrom)) break;
+        }
+    }
+    // sort array here and cut on nFrom and nCount
+//    if (nFrom > (int)response.size())
+//        nFrom = response.size();
+//    if ((nFrom + nCount) > (int)response.size())
+//        nCount = response.size() - nFrom;
+//    Array::iterator first = response.begin();
+//    std::advance(first, nFrom);
+//    Array::iterator last = response.begin();
+//    std::advance(last, nFrom+nCount);
+
+//    if (last != response.end()) response.erase(last, response.end());
+//    if (first != response.begin()) response.erase(response.begin(), first);
+
+//    std::reverse(response.begin(), response.end()); // return oldest to newest?
+ //   return response;   // return response array for JSON serialization
 
 }
 

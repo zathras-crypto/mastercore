@@ -24,7 +24,8 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     painter->setPen(fontPen);
 
     // prepare the data for the entry
-    QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
+    QIcon ic = QIcon(":/icons/balances");
+// QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
     QString txid = index.data(Qt::DisplayRole).toString();
     QString displayText = index.data(Qt::UserRole + 4).toString() + ":  " + index.data(Qt::UserRole + 1).toString();
     QString amountBought = "+" + index.data(Qt::UserRole + 2).toString();
@@ -48,21 +49,21 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     // add the txid
     painter->setPen(penBlack);
     r = option.rect.adjusted(imageSpace, 0, -10, -30);
-    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
+//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, txid, &r);
     // add the displaytext/status
     r = option.rect.adjusted(imageSpace, 30, -10, 0);
-    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
+//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Normal ) );
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, displayText, &r);
     // add the amount bought (green +)
     painter->setPen(penGreen);
     r = option.rect.adjusted(imageSpace, 0, -10, -30);
-    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
+//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignRight, amountBought, &r);
     // add the amount sold (red -)
     painter->setPen(penRed);
     r = option.rect.adjusted(imageSpace, 30, -10, 0);
-    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
+//    painter->setFont( QFont( "Lucida Grande", 8, QFont::Bold ) );
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignRight, amountSold, &r);
 
 }
