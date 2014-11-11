@@ -1,5 +1,11 @@
 <!DOCTYPE RCC><RCC version="1.0"> 
     <qresource prefix="/icons">
+        <file alias="meta_cancelled">res/icons/mp_meta_cancelled.png</file>
+        <file alias="meta_filled">res/icons/mp_meta_filled.png</file>
+        <file alias="meta_open">res/icons/mp_meta_open.png</file>
+        <file alias="meta_partialclosed">res/icons/mp_meta_partialclosed.png</file>
+        <file alias="meta_partial">res/icons/mp_meta_partial.png</file>      
+        <file alias="meta_pending">res/icons/mp_meta_pending.png</file>
         <file alias="balances">res/icons/mp_balances.png</file> 
         <file alias="toolbox">res/icons/mp_toolbox.png</file>
         <file alias="exchange">res/icons/mp_exchange.png</file>

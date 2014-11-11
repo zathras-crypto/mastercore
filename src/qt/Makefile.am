@@ -240,6 +240,12 @@ RES_ICONS = \
   res/icons/mp_home.png \
   res/icons/mp_receive.png \
   res/icons/mp_send.png \
+  res/icons/mp_meta_cancelled.png \
+  res/icons/mp_meta_filled.png \
+  res/icons/mp_meta_open.png \
+  res/icons/mp_meta_partialclosed.png \
+  res/icons/mp_meta_partial.png \
+  res/icons/mp_meta_pending.png \
   res/icons/add.png \
   res/icons/address-book.png \
   res/icons/bitcoin.ico \
