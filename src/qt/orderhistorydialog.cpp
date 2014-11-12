@@ -100,6 +100,8 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
             CTransaction wtx;
             uint256 blockHash = 0;
             if (!GetTransaction(hash, wtx, blockHash, true)) continue;
+            // get the time of the tx
+            int64_t nTime = pwtx->GetTxTime();
             // get the height of the transaction and check it's within the chosen parameters
             blockHash = pwtx->hashBlock;
             if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) continue;
@@ -238,12 +240,15 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         if(totalSold == 0) displayOut = "0";
                         displayIn += displayInToken;
                         displayOut += displayOutToken;
-printf("displayIn %s    displayOut %s\n",displayIn.c_str(),displayOut.c_str());
+                        QDateTime txTime;
+                        txTime.setTime_t(nTime);
+                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
                         qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
                         qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
                         qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
                         qItem->setData(Qt::UserRole + 4, QString::fromStdString(statusText));
                         qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
+                        qItem->setData(Qt::UserRole + 6, txTimeStr);
                         ui->orderHistoryLW->addItem(qItem);
                     }
                 }
