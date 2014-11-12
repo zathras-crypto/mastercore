@@ -120,7 +120,6 @@ int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
 int msc_debug_metadex3= 0;
 
-int disable_Combo = 1;
 int disable_Trade = 0;
 
 static int disable_Divs = 0;
@@ -3751,7 +3750,9 @@ int step_rc;
 //      if (307057 > block) return -31337;
 
 //      if (307234 > block) return -31337;
-      if (307607 > block) return -31337;
+//      if (307607 > block) return -31337;
+
+      if (307057 > block) return -31337;
 #endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
