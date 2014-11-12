@@ -3749,7 +3749,9 @@ int step_rc;
 
 //      if (304930 > block) return -31337;
 //      if (307057 > block) return -31337;
-      if (307234 > block) return -31337;
+
+//      if (307234 > block) return -31337;
+      if (307607 > block) return -31337;
 #endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
