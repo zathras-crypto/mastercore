@@ -197,16 +197,16 @@ public:
   uint64_t getAmount() const { return amount_forsale; }
   int64_t getAmountDesired() const { return amount_desired; }
 
-  void setAmount(int64_t ao, const string &label = "")
+  void setAmountForSale(int64_t ao, const string &label = "")
   {
     amount_forsale = ao;
-    fprintf(mp_fp, "setAmount(%ld %s):%s\n", ao, label.c_str(), ToString().c_str());
+    fprintf(mp_fp, "%s(%ld %s):%s\n", __FUNCTION__, ao, label.c_str(), ToString().c_str());
   }
 
   void setAmountDesired(int64_t ad, const string &label = "")
   {
     amount_desired = ad;
-    fprintf(mp_fp, "setAmountDesired(%ld %s):%s\n", ad, label.c_str(), ToString().c_str());
+    fprintf(mp_fp, "%s(%ld %s):%s\n", __FUNCTION__, ad, label.c_str(), ToString().c_str());
   }
 
   unsigned char getAction() const { return subaction; }
