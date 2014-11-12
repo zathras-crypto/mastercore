@@ -294,7 +294,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
         if (msc_debug_metadex) fprintf(mp_fp, "==== TRADED !!! %u=%s\n", NewReturn, getTradeReturnType(NewReturn).c_str());
 
         // record the trade in MPTradeList
-        t_tradelistdb->recordTrade(p_older->getHash(), newo->getHash(), p_older->getAddr(), newo->getAddr(), p_older->getProperty(), newo->getProperty(), seller_amountGot, buyer_amountGot, newo->getBlock());
+        t_tradelistdb->recordTrade(p_older->getHash(), newo->getHash(), p_older->getAddr(), newo->getAddr(), p_older->getDesProperty(), newo->getDesProperty(), seller_amountGot, buyer_amountGot, newo->getBlock());
 
       if (msc_debug_metadex) fprintf(mp_fp, "++ erased old: %s\n", iitt->ToString().c_str());
       // erase the old seller element

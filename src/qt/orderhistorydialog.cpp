@@ -68,7 +68,6 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui(new Ui::orderHistoryDialog),
     model(0)
 {
-/*printf("here\n");
     ui->setupUi(this);
     this->model = model;
     ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
@@ -193,10 +192,12 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         bool filled = false;
                         if(totalSold>0) partialFilled = true;
                         if(totalSold>=amountForSale) filled = true;
-                        statusText = "Unknown (error?)";
-                        if((!orderOpen) && (filled)) statusText = "Closed / Filled";
-                        if((orderOpen) && (!partialFilled)) statusText = "Open";
-                        if((orderOpen) && (partialFilled)) statusText = "Open / Partially Filled";
+                        statusText = "UNKNOWN";
+                        if((!orderOpen) && (!partialFilled)) statusText = "CANCELLED";
+                        if((!orderOpen) && (partialFilled)) statusText = "PART CANCEL";
+                        if((!orderOpen) && (filled)) statusText = "FILLED";
+                        if((orderOpen) && (!partialFilled)) statusText = "OPEN";
+                        if((orderOpen) && (partialFilled)) statusText = "PART FILLED";
 
                         // add to list
                         QListWidgetItem *qItem = new QListWidgetItem();
@@ -237,6 +238,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         if(totalSold == 0) displayOut = "0";
                         displayIn += displayInToken;
                         displayOut += displayOutToken;
+printf("displayIn %s    displayOut %s\n",displayIn.c_str(),displayOut.c_str());
                         qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
                         qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
                         qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
@@ -265,7 +267,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 
 //    std::reverse(response.begin(), response.end()); // return oldest to newest?
  //   return response;   // return response array for JSON serialization
-*/
+
 }
 
 void OrderHistoryDialog::setModel(WalletModel *model)
