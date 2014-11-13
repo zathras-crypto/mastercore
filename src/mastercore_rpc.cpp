@@ -1081,29 +1081,6 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
   return tmpPropId;
 }
 
-void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c_want_div, string eco) {
-
-  metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
-  metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
-  metadex_obj->push_back(Pair("ecosystem", eco ));
-  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
-  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
-  metadex_obj->push_back(Pair("property_owned_divisible", c_own_div));
-  metadex_obj->push_back(Pair("property_desired_divisible", c_want_div));
-
-  //uint64_t *price = obj.getPrice();
-  //uint64_t *invprice = obj.getInversePrice();
-
-  //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-  //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-  //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmountForSale())));
-  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
-  metadex_obj->push_back(Pair("action", (int) obj.getAction()));
-  metadex_obj->push_back(Pair("block", obj.getBlock()));
-  metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
-}
-
 Value trade_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() < 6)
