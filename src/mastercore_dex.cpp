@@ -927,6 +927,10 @@ const CMPMetaDEx *p_mdex = NULL;
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmount(), SELLOFFER_RESERVE);
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmount(), BALANCE);
 
+      // record the cancellation
+      bool bValid = true;
+      p_txlistdb->recordMetaDExCancelTX(txid, p_mdex->getHash(), bValid, block, p_mdex->getProperty(), p_mdex->getAmount());
+
       indexes->erase(iitt++);
     }
   }
@@ -980,6 +984,10 @@ FILE *fp = mp_fp;
         // move from reserve to balance
         update_tally_map(it->getAddr(), it->getProperty(), - it->getAmount(), SELLOFFER_RESERVE);
         update_tally_map(it->getAddr(), it->getProperty(), it->getAmount(), BALANCE);
+
+        // record the cancellation
+        bool bValid = true;
+        p_txlistdb->recordMetaDExCancelTX(txid, it->getHash(), bValid, block, it->getProperty(), it->getAmount());
 
         indexes.erase(it++);
       }
