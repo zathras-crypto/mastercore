@@ -1075,16 +1075,34 @@ void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
         const CMPMetaDEx& obj = *it;
 
         _my_sps->getSP(obj.getProperty(), sp);
-        bool c_own_div = sp.isDivisible();
+        bool fDivisibilityProperty = sp.isDivisible();
 
         _my_sps->getSP(obj.getDesProperty(), sp);
-        bool c_want_div = sp.isDivisible();
-
-        std::string eco = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
+        bool fDivisibilityDesProperty = sp.isDivisible();
         
+        // TODO: proper handling of ADD transactions
+        std::string strZeroHash; strZeroHash.resize(64, '0');        
+        std::string strTransactionHash = obj.getHash().GetHex();
+        if (strTransactionHash == strZeroHash) strTransactionHash = "ADD transaction";
+
+        std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
+        std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
+        std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
+  
         // add data to obj
         Object metadex_obj;
-        add_mdex_fields(&metadex_obj, obj, c_own_div, c_want_div, eco);
+        metadex_obj.push_back(Pair("address", obj.getAddr()));
+        metadex_obj.push_back(Pair("txid", strTransactionHash)); 
+        metadex_obj.push_back(Pair("ecosystem", strEcosystem));
+        metadex_obj.push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
+        metadex_obj.push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
+        metadex_obj.push_back(Pair("property_owned_divisible", fDivisibilityProperty));
+        metadex_obj.push_back(Pair("property_desired_divisible", fDivisibilityDesProperty));
+        metadex_obj.push_back(Pair("amount_original", strAmountOriginal));
+        metadex_obj.push_back(Pair("amount_desired", strAmountDesired));
+        metadex_obj.push_back(Pair("action", (int) obj.getAction()));
+        metadex_obj.push_back(Pair("block", obj.getBlock()));
+        metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
 
         // add it to response
         response.push_back(metadex_obj);
