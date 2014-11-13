@@ -40,6 +40,48 @@ using namespace mastercore;
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
 
+void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
+{
+    CMPSPInfo::Entry spProperty;
+    CMPSPInfo::Entry spDesProperty;
+
+    _my_sps->getSP(obj.getProperty(), spProperty);
+    _my_sps->getSP(obj.getDesProperty(), spDesProperty);
+
+    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
+    std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
+    std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
+
+    // add data to JSON object
+    metadex_obj.push_back(Pair("address", obj.getAddr()));
+    metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
+    metadex_obj.push_back(Pair("ecosystem", strEcosystem));
+    metadex_obj.push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
+    metadex_obj.push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
+    metadex_obj.push_back(Pair("property_owned_divisible", spProperty.isDivisible()));
+    metadex_obj.push_back(Pair("property_desired_divisible", spDesProperty.isDivisible()));
+    metadex_obj.push_back(Pair("amount_original", strAmountOriginal));
+    metadex_obj.push_back(Pair("amount_desired", strAmountDesired));
+    metadex_obj.push_back(Pair("action", (int) obj.getAction()));
+    metadex_obj.push_back(Pair("block", obj.getBlock()));
+    metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
+}
+
+void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
+{    
+    MetaDEx_compare compareByHeight;
+    
+    // sorts metadex objects based on block height and position in block
+    std::sort (vMetaDexObjs.begin(), vMetaDexObjs.end(), compareByHeight);
+
+    for (std::vector<CMPMetaDEx>::const_iterator it = vMetaDexObjs.begin(); it != vMetaDexObjs.end(); ++it) {
+        Object metadex_obj;
+        MetaDexObjectToJSON(*it, metadex_obj);
+        
+        response.push_back(metadex_obj);
+    }
+}
+
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
 {
@@ -1060,53 +1102,6 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   metadex_obj->push_back(Pair("action", (int) obj.getAction()));
   metadex_obj->push_back(Pair("block", obj.getBlock()));
   metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
-}
-
-
-void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
-{
-    CMPSPInfo::Entry sp;
-    MetaDEx_compare compareByHeight;
-    
-    // sorts metadex objects based on block height and position in block
-    std::sort (vMetaDexObjs.begin(), vMetaDexObjs.end(), compareByHeight);
-
-    for (std::vector<CMPMetaDEx>::const_iterator it = vMetaDexObjs.begin(); it != vMetaDexObjs.end(); ++it) {
-        const CMPMetaDEx& obj = *it;
-
-        _my_sps->getSP(obj.getProperty(), sp);
-        bool fDivisibilityProperty = sp.isDivisible();
-
-        _my_sps->getSP(obj.getDesProperty(), sp);
-        bool fDivisibilityDesProperty = sp.isDivisible();
-        
-        // TODO: proper handling of ADD transactions
-        std::string strZeroHash; strZeroHash.resize(64, '0');        
-        std::string strTransactionHash = obj.getHash().GetHex();
-        if (strTransactionHash == strZeroHash) strTransactionHash = "ADD transaction";
-
-        std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
-        std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
-        std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
-  
-        // add data to obj
-        Object metadex_obj;
-        metadex_obj.push_back(Pair("address", obj.getAddr()));
-        metadex_obj.push_back(Pair("txid", strTransactionHash)); 
-        metadex_obj.push_back(Pair("ecosystem", strEcosystem));
-        metadex_obj.push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
-        metadex_obj.push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
-        metadex_obj.push_back(Pair("property_owned_divisible", fDivisibilityProperty));
-        metadex_obj.push_back(Pair("property_desired_divisible", fDivisibilityDesProperty));
-        metadex_obj.push_back(Pair("amount_original", strAmountOriginal));
-        metadex_obj.push_back(Pair("amount_desired", strAmountDesired));
-        metadex_obj.push_back(Pair("action", (int) obj.getAction()));
-        metadex_obj.push_back(Pair("block", obj.getBlock()));
-        metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
-
-        // add it to response
-        response.push_back(metadex_obj);
-    }
 }
 
 Value trade_MP(const Array& params, bool fHelp) {
