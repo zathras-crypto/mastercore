@@ -26,8 +26,8 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     // prepare the data for the entry
 // QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
 //    string shortTXID = QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,12));
-    QString txidsender = "ADD: " + QString::fromStdString(index.data(Qt::UserRole + 5).toString().toStdString().substr(0,16)) + "...";
-    txidsender += "   TX: " + QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,16)) + "...)";
+    QString txidsender = "ADD: " + QString::fromStdString(index.data(Qt::UserRole + 5).toString().toStdString().substr(0,18)) + "...";
+    txidsender += "   TX: " + QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,18)) + "...";
 //    txidstatus += "....\tSTATUS: " + index.data(Qt::UserRole + 4).toString();
     QString displayText = index.data(Qt::UserRole + 1).toString();
     QString amountBought = index.data(Qt::UserRole + 2).toString();
@@ -65,6 +65,7 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     r = option.rect.adjusted(imageSpace-19, 0, -10, -25);
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, status, &r);
     // add the datetime
+    painter->setPen(penGrey);
     font.setItalic(true);
     painter->setFont(font);
     r = option.rect.adjusted(imageSpace-19, 25, -10, 0);
