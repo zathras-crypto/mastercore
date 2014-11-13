@@ -7,7 +7,7 @@
 #define STR_SELLOFFER_ADDR_PROP_COMBO(x) ( x + "-" + strprintf("%d", prop))
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
-
+#define STR_REF_SUBKEY_TXID_REF_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", refNumber))
 #define DISPLAY_PRECISION_LEN  20
 #define INTERNAL_PRECISION_LEN 50
 

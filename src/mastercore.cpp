@@ -2966,6 +2966,64 @@ bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, strin
     return false;
 }
 
+void CMPTxList::recordMetaDExCancelTX(const uint256 &txid, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue)
+{
+  if (!pdb) return;
+
+       // Prep - setup vars
+       unsigned int type = 99992104;
+       unsigned int refNumber = 1;
+       uint64_t existingAffectedTXCount = 0;
+
+       // Step 1 - Check TXList to see if this cancel TXID exists
+       bool cancelEntryExists = p_txlistdb->exists(txid);
+
+       // Step 2a - If doesn't exist leave number of affected txs & ref set to 1
+       // Step 2b - If does exist add +1 to existing ref and set this ref as new number of affected
+       if (cancelEntryExists)
+       {
+           //retrieve old affected tx count
+           std::vector<std::string> vstr;
+           string strValue;
+           Status status = pdb->Get(readoptions, txid.ToString(), &strValue);
+           if (status.ok())
+           {
+               // parse the string returned
+               boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+
+               // obtain the existing affected tx count
+               if (4 <= vstr.size())
+               {
+                   existingAffectedTXCount = atoi(vstr[3]);
+                   refNumber = existingAffectedTXCount + 1;
+               }
+           }
+       }
+
+       // Step 3 - Create new/update master record for cancel tx in TXList
+       const string key = txid.ToString();
+       const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, refNumber);
+       Status status;
+       fprintf(mp_fp, "METADEXCANCELDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of affected transactions= %d)\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, refNumber);
+       if (pdb)
+       {
+           status = pdb->Put(writeoptions, key, value);
+           fprintf(mp_fp, "METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+       }
+
+       // Step 4 - Write sub-record with cancel details
+       const string txidStr = txid.ToString();
+       const string subKey = STR_REF_SUBKEY_TXID_REF_COMBO(txidStr);
+       const string subValue = strprintf("%s:%d:%lu", txidStr, propertyId, nValue);
+       Status subStatus;
+       fprintf(mp_fp, "METADEXCANCELDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       if (pdb)
+       {
+           subStatus = pdb->Put(writeoptions, subKey, subValue);
+           fprintf(mp_fp, "METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+       }
+}
+
 void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller)
 {
   if (!pdb) return;
