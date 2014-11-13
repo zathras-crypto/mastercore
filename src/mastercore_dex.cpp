@@ -824,7 +824,7 @@ int rc = METADEX_ERROR -1;
   return rc;
 }
 
-int mastercore::MetaDEx_CANCEL_AT_PRICE(const string &sender_addr, unsigned int prop, uint64_t amount, unsigned int property_desired, uint64_t amount_desired)
+int mastercore::MetaDEx_CANCEL_AT_PRICE(const uint256 txid, const string &sender_addr, unsigned int prop, uint64_t amount, unsigned int property_desired, uint64_t amount_desired)
 {
 int rc = METADEX_ERROR -20;
 CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 0, 0, CMPTransaction::CANCEL_AT_PRICE);
@@ -880,7 +880,7 @@ const CMPMetaDEx *p_mdex = NULL;
   return rc;
 }
 
-int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const string &sender_addr, unsigned int prop, unsigned int property_desired)
+int mastercore::MetaDEx_CANCEL_ALL_FOR_PAIR(const uint256 txid, const string &sender_addr, unsigned int prop, unsigned int property_desired)
 {
 int rc = METADEX_ERROR -30;
 md_PricesMap *prices = get_Prices(prop);
@@ -933,7 +933,7 @@ const CMPMetaDEx *p_mdex = NULL;
 }
 
 // scan the orderbook and remove everything for an address
-int mastercore::MetaDEx_CANCEL_EVERYTHING(const string &sender_addr)
+int mastercore::MetaDEx_CANCEL_EVERYTHING(const uint256 txid, const string &sender_addr)
 {
 int rc = METADEX_ERROR -40;
 FILE *fp = mp_fp;
