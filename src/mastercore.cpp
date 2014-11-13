@@ -549,6 +549,27 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
+bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyId)
+{
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+      if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+      {
+           md_PricesMap & prices = my_it->second;
+           for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+           {
+                md_Set & indexes = (it->second);
+                for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                {
+                     CMPMetaDEx obj = *it;
+                     if( obj.getHash().GetHex() == txid.GetHex() ) return true;
+                }
+           }
+      }
+  }
+  return false;
+}
+
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners_total
 int64_t mastercore::getTotalTokens(unsigned int propertyId, int64_t *n_owners_total)

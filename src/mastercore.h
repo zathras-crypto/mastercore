@@ -468,6 +468,7 @@ bool isTestEcosystemProperty(unsigned int property);
 
 CMPTally *getTally(const string & address);
 
+bool isMetaDExOfferActive(const uint256 txid, unsigned int propertyId);
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL);
 int set_wallet_totals();
 

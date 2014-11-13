@@ -2125,24 +2125,8 @@ Value gettrade_MP(const Array& params, bool fHelp)
 
     // everything seems ok, now add status and get an array of matches to add to the object
     // status - is order cancelled/closed-filled/open/open-partialfilled?
-    bool orderOpen = false;
     // is the sell offer still open - need more efficient way to do this
-    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-    {
-        if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
-        {
-             md_PricesMap & prices = my_it->second;
-             for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-             {
-                  md_Set & indexes = (it->second);
-                  for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                  {
-                       CMPMetaDEx obj = *it;
-                       if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
-                  }
-             }
-        }
-    }
+    bool orderOpen = isMetaDExOfferActive(hash, propertyId);
     txobj.push_back(Pair("active", orderOpen));
 
     // create array of matches
