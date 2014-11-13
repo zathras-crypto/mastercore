@@ -1566,7 +1566,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     uint64_t mdex_amountWanted = 0;
     bool mdex_propertyWanted_Div = false;
     unsigned int mdex_action = 0;
-    
+    string mdex_actionStr;
+
     if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return MP_TX_UNCONFIRMED; }
 
     CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
@@ -1671,6 +1672,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                      mdex_propertyWanted_Div = isPropertyDivisible(mdex_propertyWanted);
                                      mdex_amountWanted = temp_metadexoffer.getAmountDesired();
                                      mdex_action = temp_metadexoffer.getAction();
+                                     if(1 == mdex_action) mdex_actionStr = "new sell";
+                                     if(2 == mdex_action) mdex_actionStr = "cancel price";
+                                     if(3 == mdex_action) mdex_actionStr = "cancel pair";
+                                     if(4 == mdex_action) mdex_actionStr = "cancel all";
                                  }
                              }
 
@@ -1870,7 +1875,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             txobj->push_back(Pair("amountdesired", amountDesired));
             txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
             txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
-            txobj->push_back(Pair("action", (uint64_t) mdex_action));
+            txobj->push_back(Pair("action", mdex_actionStr));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
