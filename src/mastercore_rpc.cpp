@@ -1820,13 +1820,13 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
         txobj->push_back(Pair("type", MPTxType));
-        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
+        if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
         {
             txobj->push_back(Pair("propertyname", propertyName));
         }
-        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
-        if (!MSC_TYPE_METADEX == MPTxTypeInt)
+        if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
+        if (MSC_TYPE_METADEX != MPTxTypeInt)
         {
             if (divisible)
             {
