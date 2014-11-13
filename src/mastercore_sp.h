@@ -104,7 +104,7 @@ public:
       std::string values_long = "";
       std::string values = "";
 
-      //fprintf(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
+      //file_log(mp_fp,"\ncrowdsale started to save, size of db %ld", database.size());
 
       //Iterate through fundraiser data, serializing it with txid:val:val:val:val;
       bool crowdsale = !fixed && !manual;
@@ -122,7 +122,7 @@ public:
          values += ";";
          values_long += values;
       }
-      //fprintf(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
+      //file_log(mp_fp,"\ncrowdsale saved %s", values_long.c_str());
 
       spInfo.push_back(Pair("historicalData", values_long));
       spInfo.push_back(Pair("txid", (boost::format("%s") % txid.ToString()).str()));
@@ -162,14 +162,14 @@ public:
       //reconstruct database
       std::string longstr = json[idx++].value_.get_str();
       
-      //fprintf(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
+      //file_log(mp_fp,"\nDESERIALIZE GO ----> %s" ,longstr.c_str() );
       
       std::vector<std::string> strngs_vec;
       
       //split serialized form up
       boost::split(strngs_vec, longstr, boost::is_any_of(";"));
 
-      //fprintf(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
+      //file_log(mp_fp,"\nDATABASE PRE-DESERIALIZE SUCCESS, %ld, %s" ,strngs_vec.size(), strngs_vec[0].c_str());
       
       //Go through and deserialize the database
       bool crowdsale = !fixed && !manual;
@@ -184,7 +184,7 @@ public:
         std::vector<uint64_t> txDataVec;
 
         if ( crowdsale && str_split_vec.size() == 5) {
-          //fprintf(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
+          //file_log(mp_fp,"\n Deserialized values: %s, %s %s %s %s", str_split_vec.at(0).c_str(), str_split_vec.at(1).c_str(), str_split_vec.at(2).c_str(), str_split_vec.at(3).c_str(), str_split_vec.at(4).c_str());
           txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(1) ));
           txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(2) ));
           txDataVec.push_back(boost::lexical_cast<uint64_t>( str_split_vec.at(3) ));
@@ -196,7 +196,7 @@ public:
 
         historicalData.insert(std::make_pair( str_split_vec.at(0), txDataVec ) ) ;
       }
-      //fprintf(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
+      //file_log(mp_fp,"\nDATABASE DESERIALIZE SUCCESS %lu", database.size());
       txid = uint256(json[idx++].value_.get_str());
       creation_block = uint256(json[idx++].value_.get_str());
       update_block = uint256(json[idx++].value_.get_str());

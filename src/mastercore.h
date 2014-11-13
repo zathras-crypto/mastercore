@@ -141,9 +141,24 @@ int mp_LogPrintStr(const std::string &str);
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_log(TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format("%s", TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
     static inline int mp_log(const char* format, TINYFORMAT_VARARGS(n))  \
     {                                                                         \
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int file_log(FILE *fp, const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int file_log(FILE *fp, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format("%s", TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     /*   Log error and return false */                                        \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
@@ -155,7 +170,6 @@ int mp_LogPrintStr(const std::string &str);
 
 TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
 //--- CUT HERE ---
-
 
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
