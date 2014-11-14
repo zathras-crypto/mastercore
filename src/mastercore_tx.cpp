@@ -357,7 +357,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
           {
             if ((CANCEL != subaction) && (UPDATE != subaction))
             {
-              file_log("%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              file_log("%s() INVALID SELL OFFER -- ONE ALREADY EXISTS\n", __FUNCTION__);
               rc = PKT_ERROR_TRADEOFFER -11;
               break;
             }

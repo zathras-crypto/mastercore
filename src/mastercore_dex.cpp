@@ -790,7 +790,6 @@ int rc = METADEX_ERROR -1;
 
       if (false == ret.second)
       {
-        printf("%s() ERROR: ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
         file_log("%s() ERROR: ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
       }
       else
@@ -827,13 +826,13 @@ CMPMetaDEx mdex(sender_addr, 0, prop, amount, property_desired, amount_desired, 
 md_PricesMap *prices = get_Prices(prop);
 const CMPMetaDEx *p_mdex = NULL;
 
-  file_log("%s():%s\n", __FUNCTION__, mdex.ToString());
+  if (msc_debug_metadex) file_log("%s():%s\n", __FUNCTION__, mdex.ToString());
 
   if (msc_debug_metadex2) MetaDEx_debug_print();
 
   if (!prices)
   {
-    file_log("%s() NOTHING FOUND, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    file_log("%s() NOTHING FOUND for %s\n", __FUNCTION__, mdex.ToString());
     return rc -1;
   }
 
@@ -886,7 +885,7 @@ const CMPMetaDEx *p_mdex = NULL;
 
   if (!prices)
   {
-    file_log("%s() NOTHING FOUND, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+    file_log("%s() NOTHING FOUND\n", __FUNCTION__);
     return rc -1;
   }
 

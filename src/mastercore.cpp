@@ -424,7 +424,7 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 
     int64_t src_amount = getMPbalance(p_pending->src, p_pending->prop, PENDING);
 
-    file_log("%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
+    if (msc_debug_verbose3) file_log("%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
 
     if (src_amount)
     {
@@ -448,7 +448,7 @@ static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned i
 {
 CMPPending pending;
 
-  file_log("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
@@ -3612,8 +3612,7 @@ int step_rc;
         memcpy(&property, &pkt[4], 4);
         swapByteOrder32(property);
 
-        if (msc_debug_sp) file_log("%s() trying to ERASE CROWDSALE for propid= %u=%X, line %d, file: %s\n",
-         __FUNCTION__, property, property, __LINE__, __FILE__);
+        if (msc_debug_sp) file_log("%s() trying to ERASE CROWDSALE for propid= %u=%X\n", __FUNCTION__, property, property);
 
         // ensure we are closing the crowdsale which we opened by checking the property
         if ((it->second).getPropertyId() != property)
