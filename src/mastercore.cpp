@@ -2922,6 +2922,32 @@ const unsigned int prop = PropertyID;
   return txid;
 }
 
+uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
+{
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  uint256 cancelTxid;
+  Iterator* it = pdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string svalueStr = svalue.ToString().c_str();
+      boost::split(vstr, svalueStr, boost::is_any_of(":"), token_compress_on);
+      // obtain the existing affected tx count
+      if (4 <= vstr.size())
+      {
+          if (vstr[0] == txidStr) { delete it; cancelTxid.SetHex(skey.ToString().c_str()); return cancelTxid; }
+      }
+  }
+
+  delete it;
+  return 0;
+}
+
+
 int CMPTxList::getNumberOfPurchases(const uint256 txid)
 {
     if (!pdb) return 0;

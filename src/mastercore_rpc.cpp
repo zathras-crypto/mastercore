@@ -2073,6 +2073,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
     hash.SetHex(params[0].get_str());
     Object tradeobj;
     Object txobj;
+    CMPMetaDEx temp_metadexoffer;
 
     //get sender & propId
     string senderAddress;
@@ -2124,13 +2125,23 @@ Value gettrade_MP(const Array& params, bool fHelp)
     }
 
     // get the amount for sale in this sell offer to see if filled
-    uint64_t amountForSale;
+    uint64_t amountForSale = mp_obj.getAmount();
 
     // create array of matches
     Array tradeArray;
     uint64_t totalBought = 0;
     uint64_t totalSold = 0;
     t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalSold, &totalBought);
+
+    // get action byte
+    int actionByte = 0;
+    if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer)) { actionByte = (int)temp_metadexoffer.getAction(); }
+/*
+                                     if(1 == mdex_action) mdex_actionStr = "new sell";
+                                     if(2 == mdex_action) mdex_actionStr = "cancel price";
+                                     if(3 == mdex_action) mdex_actionStr = "cancel pair";
+                                     if(4 == mdex_action) mdex_actionStr = "cancel all";
+ */
 
     // everything seems ok, now add status and get an array of matches to add to the object
     // work out status
@@ -2146,9 +2157,17 @@ Value gettrade_MP(const Array& params, bool fHelp)
     if((!orderOpen) && (filled)) statusText = "filled"; // filled offers are closed
     if((orderOpen) && (!partialFilled)) statusText = "open"; // offer exists but no matches yet
     if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
+    if(actionByte != 1) statusText = "cancelled";
     txobj.push_back(Pair("status", statusText));
 
-    // add cancels array to object only if cancel
+    // if cancelled, show cancellation txid
+    if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", "1234")); }
+
+    // add cancels array to object and set status as cancelled only if cancel type
+    if(actionByte != 1)
+    {
+        txobj.push_back(Pair("cancelarray", "array"));
+    }
 
     // add matches array to object
     txobj.push_back(Pair("matches", tradeArray));
