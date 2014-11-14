@@ -2820,10 +2820,11 @@ const unsigned int prop = PropertyID;
     return 0;
   }
 
-  bool bCancel_AllOrPair = 0;
+  bool bCancel_AllOrPair = false;
   //If doing a METADEX CANCEL 3 or 4, use following flag to bypass funds checks
-  if( TransactionType == MSC_TYPE_METADEX && (additional == 3 || additional == 4) ) {
-    bCancel_AllOrPair = 1;
+  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
+  {
+    bCancel_AllOrPair = true;
   } 
 
   // make sure this address has enough MP property available!

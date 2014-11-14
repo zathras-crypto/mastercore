@@ -1114,16 +1114,16 @@ Value trade_MP(const Array& params, bool fHelp) {
 
   int64_t action = params[5].get_int64();
 
-  if ((action > 4) || (0 >= action))
+  if ((action > CMPTransaction::CANCEL_EVERYTHING) || (0 >= action))
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1,2,3,4 only)");
 
-  if (0 >= Amount_Sale && ( action <= 2 ) )
+  if (0 >= Amount_Sale && ( action <= CMPTransaction::CANCEL_AT_PRICE ) )
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
 
-  if (0 >= Amount_Want && ( action <= 2 ) )
+  if (0 >= Amount_Want && ( action <= CMPTransaction::CANCEL_AT_PRICE ) )
     throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
 
-  if (action >= 3 ) {
+  if (action >= CMPTransaction::CANCEL_ALL_FOR_PAIR ) {
      Amount_Want = 0;
      Amount_Sale = 0;
   }
