@@ -2136,12 +2136,6 @@ Value gettrade_MP(const Array& params, bool fHelp)
     // get action byte
     int actionByte = 0;
     if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer)) { actionByte = (int)temp_metadexoffer.getAction(); }
-/*
-                                     if(1 == mdex_action) mdex_actionStr = "new sell";
-                                     if(2 == mdex_action) mdex_actionStr = "cancel price";
-                                     if(3 == mdex_action) mdex_actionStr = "cancel pair";
-                                     if(4 == mdex_action) mdex_actionStr = "cancel all";
- */
 
     // everything seems ok, now add status and get an array of matches to add to the object
     // work out status
@@ -2157,11 +2151,10 @@ Value gettrade_MP(const Array& params, bool fHelp)
     if((!orderOpen) && (filled)) statusText = "filled"; // filled offers are closed
     if((orderOpen) && (!partialFilled)) statusText = "open"; // offer exists but no matches yet
     if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
-    if(actionByte != 1) statusText = "cancelled";
-    txobj.push_back(Pair("status", statusText));
+    if(actionByte==1) txobj.push_back(Pair("status", statusText)); // no status for cancel txs
 
     // if cancelled, show cancellation txid
-    if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", "1234")); }
+    if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", p_txlistdb->findMetaDExCancel(hash).GetHex())); }
 
     // add cancels array to object and set status as cancelled only if cancel type
     if(actionByte != 1)
@@ -2170,7 +2163,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
     }
 
     // add matches array to object
-    txobj.push_back(Pair("matches", tradeArray));
+    if(actionByte==1) txobj.push_back(Pair("matches", tradeArray)); // only action 1 offers can have matches
 
     // return object
     return txobj;

@@ -2937,7 +2937,7 @@ uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
       string svalueStr = svalue.ToString().c_str();
       boost::split(vstr, svalueStr, boost::is_any_of(":"), token_compress_on);
       // obtain the existing affected tx count
-      if (4 <= vstr.size())
+      if (3 <= vstr.size())
       {
           if (vstr[0] == txidStr) { delete it; cancelTxid.SetHex(skey.ToString().c_str()); return cancelTxid; }
       }
