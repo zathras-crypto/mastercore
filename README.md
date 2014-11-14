@@ -69,6 +69,7 @@ Then, run
 ./configure
 make
 ```
+(Please note what building with --without-wallet is not supported).
 Once complete
 
 ```
