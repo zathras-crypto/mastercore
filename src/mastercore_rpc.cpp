@@ -1075,7 +1075,7 @@ Value trade_MP(const Array& params, bool fHelp) {
             "3. property_id1      (int, required) property owned to put up on sale\n"
             "4. amount            (string, required) amount wanted/willing to purchase\n"
             "5. property_id2      (int, required) property wanted/willing to purchase\n"
-            "6. action            (int, required) decision to either start a new (1), update(2), or cancel(3) an offer\n"
+            "6. action            (int, required) decision to either start a new (1), cancel_price(2), cancel_pair(3), or cancel_all(4) for an offer\n"
             "7. RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
         );
 
@@ -1112,24 +1112,21 @@ Value trade_MP(const Array& params, bool fHelp) {
   int64_t Amount_Want = 0;
   Amount_Want = StrToInt64(strAmountWant, divisible_want);
 
-  // FIXME !!!
-  // disable all for testing of CANCELs
-/*
-  if (0 >= Amount_Sale)
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
-
-  if (0 >= Amount_Want)
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
-
-*/
   int64_t action = params[5].get_int64();
 
-  // FIXME !!!
-  // disable all for testing of CANCELs
-/*
-  if ((action > 2) || (0 >= action))
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1 or 2 only)");
-*/
+  if ((action > 4) || (0 >= action))
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1,2,3,4 only)");
+
+  if (0 >= Amount_Sale && ( action <= 2 ) )
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
+
+  if (0 >= Amount_Want && ( action <= 2 ) )
+    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
+
+  if (action >= 3 ) {
+     Amount_Want = 0;
+     Amount_Sale = 0;
+  }
 
  //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
   int code = 0;
