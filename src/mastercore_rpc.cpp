@@ -2123,18 +2123,34 @@ Value gettrade_MP(const Array& params, bool fHelp)
         }
     }
 
-    // everything seems ok, now add status and get an array of matches to add to the object
-    // status - is order cancelled/closed-filled/open/open-partialfilled?
-    // is the sell offer still open - need more efficient way to do this
-    bool orderOpen = isMetaDExOfferActive(hash, propertyId);
-    txobj.push_back(Pair("active", orderOpen));
+    // get the amount for sale in this sell offer to see if filled
+    uint64_t amountForSale;
 
     // create array of matches
     Array tradeArray;
     uint64_t totalBought;
+    uint64_t totalSold;
     t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
 
-    // add array to object
+    // everything seems ok, now add status and get an array of matches to add to the object
+    // work out status
+    bool orderOpen = isMetaDExOfferActive(hash, propertyId);
+    bool partialFilled = false;
+    bool filled = false;
+    string statusText;
+    if(totalSold>0) partialFilled = true;
+    if(totalSold>=amountForSale) filled = true;
+    statusText = "unknown";
+    if((!orderOpen) && (!partialFilled)) statusText = "cancelled"; // offers that are closed but not filled must have been cancelled
+    if((!orderOpen) && (partialFilled)) statusText = "cancelled part filled"; // offers that are closed but not filled must have been cancelled
+    if((!orderOpen) && (filled)) statusText = "filled"; // filled offers are closed
+    if((orderOpen) && (!partialFilled)) statusText = "open"; // offer exists but no matches yet
+    if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
+    txobj.push_back(Pair("status", statusText));
+
+    // add cancels array to object only if cancel
+
+    // add matches array to object
     txobj.push_back(Pair("matches", tradeArray));
 
     // return object
