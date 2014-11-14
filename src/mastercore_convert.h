@@ -16,7 +16,7 @@ uint64_t rounduint64(long double);
 
 /**
  * Swaps byte order on little-endian systems and does nothing 
- * otherwise.
+ * otherwise. swapByteOrder cycles on LE systems.
  */
 void swapByteOrder16(uint16_t&);
 void swapByteOrder32(uint32_t&);
@@ -28,7 +28,7 @@ void swapByteOrder64(uint64_t&);
 #define PUSH_BACK_BYTES(vector, value)\
     vector.insert(vector.end(), reinterpret_cast<unsigned char *>(&(value)),\
     reinterpret_cast<unsigned char *>(&(value)) + sizeof((value)));
- 
+
 /**
  * Pushes bytes to the end of a vector based on a pointer.
  */
