@@ -2958,7 +2958,7 @@ int CMPTxList::getNumberOfMetaDExCancels(const uint256 txid)
     {
         // parse the string returned
         boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
-        // obtain the number of purchases
+        // obtain the number of cancels
         if (4 <= vstr.size())
         {
             numberOfCancels = atoi(vstr[3]);
