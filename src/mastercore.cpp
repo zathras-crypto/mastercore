@@ -3088,6 +3088,10 @@ void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned 
 {
   if (!pdb) return;
 
+  // overwrite detection, we should never be overwriting a tx, as that means we have redone something a second time
+  // reorgs delete all txs from levelDB above reorg_chain_height
+  if (p_txlistdb->exists(txid)) fprintf(mp_fp, "LEVELDB TX OVERWRITE DETECTION - %s\n", txid.ToString().c_str());
+
 const string key = txid.ToString();
 const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, nValue);
 Status status;
