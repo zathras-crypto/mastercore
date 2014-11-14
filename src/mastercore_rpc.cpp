@@ -2153,17 +2153,50 @@ Value gettrade_MP(const Array& params, bool fHelp)
     if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
     if(actionByte==1) txobj.push_back(Pair("status", statusText)); // no status for cancel txs
 
-    // if cancelled, show cancellation txid
-    if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", p_txlistdb->findMetaDExCancel(hash).GetHex())); }
-
     // add cancels array to object and set status as cancelled only if cancel type
     if(actionByte != 1)
     {
-        txobj.push_back(Pair("cancelarray", "array"));
+        Array cancelArray;
+        int numberOfCancels = p_txlistdb->getNumberOfMetaDExCancels(hash);
+        if (0<numberOfCancels)
+        {
+            for(int refNumber = 1; refNumber <= numberOfCancels; refNumber++)
+            {
+                Object cancelTx;
+                string strValue = p_txlistdb->getKeyValue(hash.ToString() + "-C" + to_string(refNumber));
+                if (!strValue.empty())
+                {
+                    std::vector<std::string> vstr;
+                    boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+                    if (3 <= vstr.size())
+                    {
+                        uint64_t propId = atoi(vstr[1]);
+                        bool propDivisible = isPropertyDivisible(propId);
+                        uint64_t amountUnreserved = boost::lexical_cast<uint64_t>(vstr[2]);
+                        cancelTx.push_back(Pair("txid", vstr[0]));
+                        cancelTx.push_back(Pair("propertyid", propId));
+                        if(propDivisible)
+                        {
+                            cancelTx.push_back(Pair("amountunreserved", FormatDivisibleMP(amountUnreserved)));
+                        }
+                        else
+                        {
+                            cancelTx.push_back(Pair("amountunreserved", FormatIndivisibleMP(amountUnreserved)));
+                        }
+                    cancelArray.push_back(cancelTx);
+                    }
+                }
+            }
+        }
+        txobj.push_back(Pair("cancelledtransactions", cancelArray));
     }
-
-    // add matches array to object
-    if(actionByte==1) txobj.push_back(Pair("matches", tradeArray)); // only action 1 offers can have matches
+    else
+    {
+        // if cancelled, show cancellation txid
+        if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", p_txlistdb->findMetaDExCancel(hash).GetHex())); }
+        // add matches array to object
+        txobj.push_back(Pair("matches", tradeArray)); // only action 1 offers can have matches
+    }
 
     // return object
     return txobj;

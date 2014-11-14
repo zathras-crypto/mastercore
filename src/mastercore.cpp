@@ -2987,6 +2987,14 @@ int CMPTxList::getNumberOfPurchases(const uint256 txid)
     return numberOfPurchases;
 }
 
+string CMPTxList::getKeyValue(string key)
+{
+    if (!pdb) return "";
+    string strValue;
+    Status status = pdb->Get(readoptions, key, &strValue);
+    if (status.ok()) { return strValue; } else { return ""; }
+}
+
 bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue)
 {
     if (!pdb) return 0;
