@@ -151,12 +151,12 @@ int mp_LogPrintStr(const std::string &str);
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline int file_log(FILE *fp, const char* format, TINYFORMAT_VARARGS(n))  \
+    static inline int file_log(const char* format, TINYFORMAT_VARARGS(n))  \
     {                                                                         \
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline int file_log(FILE *fp, TINYFORMAT_VARARGS(n))  \
+    static inline int file_log(TINYFORMAT_VARARGS(n))  \
     {                                                                         \
         return mp_LogPrintStr(tfm::format("%s", TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
@@ -178,8 +178,6 @@ uint256 send_MP(const string &FromAddress, const string &ToAddress, const string
 int64_t feeCheck(const string &address);
 
 const std::string ExodusAddress();
-
-extern FILE *mp_fp;
 
 extern int msc_debug_dex;
 

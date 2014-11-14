@@ -56,7 +56,7 @@ int CMPTransaction::step1()
 {
   if (PACKET_SIZE_CLASS_A > pkt_size)  // class A could be 19 bytes
   {
-    file_log(mp_fp, "%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
+    file_log("%s() ERROR PACKET TOO SMALL; size = %d, line %d, file: %s\n", __FUNCTION__, pkt_size, __LINE__, __FILE__);
     return -(PKT_ERROR -1);
   }
 
@@ -71,8 +71,8 @@ int CMPTransaction::step1()
 
   swapByteOrder32(type);
 
-  file_log(mp_fp, "version: %d, Class %s\n", version, !multi ? "A":"B");
-  file_log(mp_fp, "\t            type: %u (%s)\n", type, c_strMasterProtocolTXType(type));
+  file_log("version: %d, Class %s\n", version, !multi ? "A":"B");
+  file_log("\t            type: %u (%s)\n", type, c_strMasterProtocolTXType(type));
 
   return (type);
 }
@@ -89,8 +89,8 @@ int CMPTransaction::step2_Value()
   memcpy(&property, &pkt[4], 4);
   swapByteOrder32(property);
 
-  file_log(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property));
-  file_log(mp_fp, "\t           value: %s\n", FormatMP(property, nValue));
+  file_log("\t        property: %u (%s)\n", property, strMPProperty(property));
+  file_log("\t           value: %s\n", FormatMP(property, nValue));
 
   if (MAX_INT_8_BYTES < nValue)
   {
@@ -106,7 +106,7 @@ bool CMPTransaction::isOverrun(const char *p, unsigned int line)
 int now = (char *)p - (char *)&pkt;
 bool bRet = (now > pkt_size);
 
-    if (bRet) file_log(mp_fp, "%s(%sline=%u):now= %u, pkt_size= %u\n", __FUNCTION__, bRet ? "OVERRUN !!! ":"", line, now, pkt_size);
+    if (bRet) file_log("%s(%sline=%u):now= %u, pkt_size= %u\n", __FUNCTION__, bRet ? "OVERRUN !!! ":"", line, now, pkt_size);
 
     return bRet;
 }
@@ -124,7 +124,7 @@ unsigned int prop_id;
   error_code = 0;
 
   memcpy(&ecosystem, &pkt[4], 1);
-  file_log(mp_fp, "\t       Ecosystem: %u\n", ecosystem);
+  file_log("\t       Ecosystem: %u\n", ecosystem);
 
   // valid values are 1 & 2
   if ((OMNI_PROPERTY_MSC != ecosystem) && (OMNI_PROPERTY_TMSC != ecosystem))
@@ -141,9 +141,9 @@ unsigned int prop_id;
   memcpy(&prev_prop_id, &pkt[7], 4);
   swapByteOrder32(prev_prop_id);
 
-  file_log(mp_fp, "\t     Property ID: %u (%s)\n", prop_id, strMPProperty(prop_id));
-  file_log(mp_fp, "\t   Property type: %u (%s)\n", prop_type, c_strPropertyType(prop_type));
-  file_log(mp_fp, "\tPrev Property ID: %u\n", prev_prop_id);
+  file_log("\t     Property ID: %u (%s)\n", prop_id, strMPProperty(prop_id));
+  file_log("\t   Property type: %u (%s)\n", prop_type, c_strPropertyType(prop_type));
+  file_log("\tPrev Property ID: %u\n", prev_prop_id);
 
   // only 1 & 2 are valid right now
   if ((MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type) && (MSC_PROPERTY_TYPE_DIVISIBLE != prop_type))
@@ -166,11 +166,11 @@ unsigned int prop_id;
   memcpy(url, spstr[i].c_str(), std::min(spstr[i].length(),sizeof(url)-1)); i++;
   memcpy(data, spstr[i].c_str(), std::min(spstr[i].length(),sizeof(data)-1)); i++;
 
-  file_log(mp_fp, "\t        Category: %s\n", category);
-  file_log(mp_fp, "\t     Subcategory: %s\n", subcategory);
-  file_log(mp_fp, "\t            Name: %s\n", name);
-  file_log(mp_fp, "\t             URL: %s\n", url);
-  file_log(mp_fp, "\t            Data: %s\n", data);
+  file_log("\t        Category: %s\n", category);
+  file_log("\t     Subcategory: %s\n", subcategory);
+  file_log("\t            Name: %s\n", name);
+  file_log("\t             URL: %s\n", url);
+  file_log("\t            Data: %s\n", data);
 
   if (!isTransactionTypeAllowed(block, prop_id, type, version))
   {
@@ -209,13 +209,13 @@ int CMPTransaction::step3_sp_fixed(const char *p)
 
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
-    file_log(mp_fp, "\t           value: %lu\n", nValue);
+    file_log("\t           value: %lu\n", nValue);
     if (0 == nValue) return (PKT_ERROR_SP -101);
   }
   else
   if (MSC_PROPERTY_TYPE_DIVISIBLE == prop_type)
   {
-    file_log(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+    file_log("\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
     if (0 == nValue) return (PKT_ERROR_SP -102);
   }
 
@@ -237,7 +237,7 @@ int CMPTransaction::step3_sp_variable(const char *p)
   swapByteOrder32(property);
   p += 4;
 
-  file_log(mp_fp, "\t        property: %u (%s)\n", property, strMPProperty(property));
+  file_log("\t        property: %u (%s)\n", property, strMPProperty(property));
 
   memcpy(&nValue, p, 8);
   swapByteOrder64(nValue);
@@ -248,13 +248,13 @@ int CMPTransaction::step3_sp_variable(const char *p)
 
   if (MSC_PROPERTY_TYPE_INDIVISIBLE == prop_type)
   {
-    file_log(mp_fp, "\t           value: %lu\n", nValue);
+    file_log("\t           value: %lu\n", nValue);
     if (0 == nValue) return (PKT_ERROR_SP -201);
   }
   else
   if (MSC_PROPERTY_TYPE_DIVISIBLE == prop_type)
   {
-    file_log(mp_fp, "\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
+    file_log("\t           value: %lu.%08lu\n", nValue/COIN, nValue%COIN);
     if (0 == nValue) return (PKT_ERROR_SP -202);
   }
 
@@ -266,7 +266,7 @@ int CMPTransaction::step3_sp_variable(const char *p)
   memcpy(&deadline, p, 8);
   swapByteOrder64(deadline);
   p += 8;
-  file_log(mp_fp, "\t        Deadline: %s (%lX)\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline), deadline);
+  file_log("\t        Deadline: %s (%lX)\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", deadline), deadline);
 
   if (!deadline) return (PKT_ERROR_SP -203);  // deadline cannot be 0
 
@@ -274,10 +274,10 @@ int CMPTransaction::step3_sp_variable(const char *p)
   if (deadline < (uint64_t)blockTime) return (PKT_ERROR_SP -204);
 
   memcpy(&early_bird, p++, 1);
-  file_log(mp_fp, "\tEarly Bird Bonus: %u\n", early_bird);
+  file_log("\tEarly Bird Bonus: %u\n", early_bird);
 
   memcpy(&percentage, p++, 1);
-  file_log(mp_fp, "\t      Percentage: %u\n", percentage);
+  file_log("\t      Percentage: %u\n", percentage);
 
   if (isOverrun(p, __LINE__)) return (PKT_ERROR_SP -765);
 
@@ -299,7 +299,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
 
       if ((OMNI_PROPERTY_TMSC != property) && (OMNI_PROPERTY_MSC != property))
       {
-        file_log(mp_fp, "No smart properties allowed on the DeX...\n");
+        file_log("No smart properties allowed on the DeX...\n");
         return PKT_ERROR_TRADEOFFER -72;
       }
 
@@ -314,10 +314,10 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
       swapByteOrder64(amount_desired);
       swapByteOrder64(min_fee);
 
-    file_log(mp_fp, "\t  amount desired: %lu.%08lu\n", amount_desired / COIN, amount_desired % COIN);
-    file_log(mp_fp, "\tblock time limit: %u\n", blocktimelimit);
-    file_log(mp_fp, "\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
-    file_log(mp_fp, "\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
+    file_log("\t  amount desired: %lu.%08lu\n", amount_desired / COIN, amount_desired % COIN);
+    file_log("\tblock time limit: %u\n", blocktimelimit);
+    file_log("\t         min fee: %lu.%08lu\n", min_fee / COIN, min_fee % COIN);
+    file_log("\t      sub-action: %u (%s)\n", subaction, subaction < sizeof(subaction_name)/sizeof(subaction_name[0]) ? subaction_name[subaction] : "");
 
       if (obj_o)
       {
@@ -357,7 +357,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
           {
             if ((CANCEL != subaction) && (UPDATE != subaction))
             {
-              file_log(mp_fp, "%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              file_log("%s() INVALID SELL OFFER -- ONE ALREADY EXISTS, line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
               rc = PKT_ERROR_TRADEOFFER -11;
               break;
             }
@@ -367,7 +367,7 @@ static const char * const subaction_name[] = { "empty", "new", "update", "cancel
             // Offer does not exist
             if ((NEW != subaction))
             {
-              file_log(mp_fp, "%s() INVALID SELL OFFER -- UPDATE OR CANCEL ACTION WHEN NONE IS POSSIBLE\n", __FUNCTION__);
+              file_log("%s() INVALID SELL OFFER -- UPDATE OR CANCEL ACTION WHEN NONE IS POSSIBLE\n", __FUNCTION__);
               rc = PKT_ERROR_TRADEOFFER -12;
               break;
             }
@@ -425,12 +425,12 @@ unsigned char action = 0;
     memcpy(&desired_value, &pkt[20], 8);
     swapByteOrder64(desired_value);
 
-    file_log(mp_fp, "\tdesired property: %u (%s)\n", desired_property, strMPProperty(desired_property));
-    file_log(mp_fp, "\t   desired value: %s\n", FormatMP(desired_property, desired_value));
+    file_log("\tdesired property: %u (%s)\n", desired_property, strMPProperty(desired_property));
+    file_log("\t   desired value: %s\n", FormatMP(desired_property, desired_value));
 
     memcpy(&action, &pkt[28], 1);
 
-    file_log(mp_fp, "\t          action: %u\n", action);
+    file_log("\t          action: %u\n", action);
 
     if (mdex_o)
     {
@@ -497,18 +497,18 @@ int CMPTransaction::logicMath_GrantTokens()
     int rc = PKT_ERROR_TOKENS - 1000;
 
     if (!isTransactionTypeAllowed(block, property, type, version)) {
-      file_log(mp_fp, "\tRejecting Grant: Transaction type not yet allowed\n");
+      file_log("\tRejecting Grant: Transaction type not yet allowed\n");
       return (PKT_ERROR_TOKENS - 22);
     }
 
     if (sender.empty()) {
-      file_log(mp_fp, "\tRejecting Grant: Sender is empty\n");
+      file_log("\tRejecting Grant: Sender is empty\n");
       return (PKT_ERROR_TOKENS - 23);
     }
 
     // manual issuance check
     if (false == _my_sps->hasSP(property)) {
-      file_log(mp_fp, "\tRejecting Grant: SP id:%u does not exist\n", property);
+      file_log("\tRejecting Grant: SP id:%u does not exist\n", property);
       return (PKT_ERROR_TOKENS - 24);
     }
 
@@ -516,14 +516,14 @@ int CMPTransaction::logicMath_GrantTokens()
     _my_sps->getSP(property, sp);
 
     if (false == sp.manual) {
-      file_log(mp_fp, "\tRejecting Grant: SP id:%u was not issued with a TX 54\n", property);
+      file_log("\tRejecting Grant: SP id:%u was not issued with a TX 54\n", property);
       return (PKT_ERROR_TOKENS - 25);
     }
 
 
     // issuer check
     if (false == boost::iequals(sender, sp.issuer)) {
-      file_log(mp_fp, "\tRejecting Grant: %s is not the issuer of SP id: %u\n", sender, property);
+      file_log("\tRejecting Grant: %s is not the issuer of SP id: %u\n", sender, property);
       return (PKT_ERROR_TOKENS - 26);
     }
 
@@ -535,7 +535,7 @@ int CMPTransaction::logicMath_GrantTokens()
       } else {
         snprintf(prettyTokens, 256, "%lu", nValue);
       }
-      file_log(mp_fp, "\tRejecting Grant: granting %s tokens on SP id:%u would overflow the maximum limit for tokens in a smart property\n", prettyTokens, property);
+      file_log("\tRejecting Grant: granting %s tokens on SP id:%u would overflow the maximum limit for tokens in a smart property\n", prettyTokens, property);
       return (PKT_ERROR_TOKENS - 27);
     }
 
@@ -562,18 +562,18 @@ int CMPTransaction::logicMath_RevokeTokens()
     int rc = PKT_ERROR_TOKENS - 1000;
 
     if (!isTransactionTypeAllowed(block, property, type, version)) {
-      file_log(mp_fp, "\tRejecting Revoke: Transaction type not yet allowed\n");
+      file_log("\tRejecting Revoke: Transaction type not yet allowed\n");
       return (PKT_ERROR_TOKENS - 22);
     }
 
     if (sender.empty()) {
-      file_log(mp_fp, "\tRejecting Revoke: Sender is empty\n");
+      file_log("\tRejecting Revoke: Sender is empty\n");
       return (PKT_ERROR_TOKENS - 23);
     }
 
     // manual issuance check
     if (false == _my_sps->hasSP(property)) {
-      file_log(mp_fp, "\tRejecting Revoke: SP id:%d does not exist\n", property);
+      file_log("\tRejecting Revoke: SP id:%d does not exist\n", property);
       return (PKT_ERROR_TOKENS - 24);
     }
 
@@ -581,13 +581,13 @@ int CMPTransaction::logicMath_RevokeTokens()
     _my_sps->getSP(property, sp);
 
     if (false == sp.manual) {
-      file_log(mp_fp, "\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", property);
+      file_log("\tRejecting Revoke: SP id:%d was not issued with a TX 54\n", property);
       return (PKT_ERROR_TOKENS - 25);
     }
 
     // insufficient funds check and revoke
     if (false == update_tally_map(sender, property, -nValue, BALANCE)) {
-      file_log(mp_fp, "\tRejecting Revoke: insufficient funds\n");
+      file_log("\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }
 
@@ -609,22 +609,22 @@ int CMPTransaction::logicMath_ChangeIssuer()
   int rc = PKT_ERROR_TOKENS - 1000;
 
   if (!isTransactionTypeAllowed(block, property, type, version)) {
-    file_log(mp_fp, "\tRejecting Change of Issuer: Transaction type not yet allowed\n");
+    file_log("\tRejecting Change of Issuer: Transaction type not yet allowed\n");
     return (PKT_ERROR_TOKENS - 22);
   }
 
   if (sender.empty()) {
-    file_log(mp_fp, "\tRejecting Change of Issuer: Sender is empty\n");
+    file_log("\tRejecting Change of Issuer: Sender is empty\n");
     return (PKT_ERROR_TOKENS - 23);
   }
 
   if (receiver.empty()) {
-    file_log(mp_fp, "\tRejecting Change of Issuer: Receiver is empty\n");
+    file_log("\tRejecting Change of Issuer: Receiver is empty\n");
     return (PKT_ERROR_TOKENS - 23);
   }
 
   if (false == _my_sps->hasSP(property)) {
-    file_log(mp_fp, "\tRejecting Change of Issuer: SP id:%d does not exist\n", property);
+    file_log("\tRejecting Change of Issuer: SP id:%d does not exist\n", property);
     return (PKT_ERROR_TOKENS - 24);
   }
 
@@ -633,7 +633,7 @@ int CMPTransaction::logicMath_ChangeIssuer()
 
   // issuer check
   if (false == boost::iequals(sender, sp.issuer)) {
-    file_log(mp_fp, "\tRejecting Change of Issuer: %s is not the issuer of SP id:%d\n", sender, property);
+    file_log("\tRejecting Change of Issuer: %s is not the issuer of SP id:%d\n", sender, property);
     return (PKT_ERROR_TOKENS - 26);
   }
 

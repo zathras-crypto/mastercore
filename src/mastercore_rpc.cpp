@@ -747,7 +747,7 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         database = sp.historicalData;
     }
 
-    file_log(mp_fp,"\nSIZE OF DB %lu\n", sp.historicalData.size() );
+    file_log("SIZE OF DB %lu\n", sp.historicalData.size() );
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
