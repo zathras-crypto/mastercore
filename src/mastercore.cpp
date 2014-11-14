@@ -2947,6 +2947,25 @@ uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
   return 0;
 }
 
+int CMPTxList::getNumberOfMetaDExCancels(const uint256 txid)
+{
+    if (!pdb) return 0;
+    int numberOfCancels = 0;
+    std::vector<std::string> vstr;
+    string strValue;
+    Status status = pdb->Get(readoptions, txid.ToString() + "-C", &strValue);
+    if (status.ok())
+    {
+        // parse the string returned
+        boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+        // obtain the number of purchases
+        if (4 <= vstr.size())
+        {
+            numberOfCancels = atoi(vstr[3]);
+        }
+    }
+    return numberOfCancels;
+}
 
 int CMPTxList::getNumberOfPurchases(const uint256 txid)
 {
