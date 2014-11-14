@@ -3204,10 +3204,9 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought)
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought)
 {
   if (!tdb) return false;
-  totalBought = 0;
   leveldb::Slice skey, svalue;
   unsigned int count = 0;
   std::vector<std::string> vstr;
@@ -3241,6 +3240,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   uint64_t uAmount1;
                   uint64_t uAmount2;
                   uint64_t nBought;
+                  uint64_t nSold;
                   string amountBought;
                   string amountSold;
                   string amount1;
@@ -3264,14 +3264,16 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                       address = address2;
                       amountBought = amount2;
                       amountSold = amount1;
-                      nBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                      nBought = uAmount2;
+                      nSold = uAmount1;
                   }
                   else
                   {
                       address = address1;
                       amountBought = amount1;
                       amountSold = amount2;
-                      nBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                      nBought = uAmount1;
+                      nSold = uAmount2;
                   }
                   int blockNum = atoi(vstr[6]);
                   Object trade;
@@ -3282,7 +3284,8 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   trade.push_back(Pair("amountbought", amountBought));
                   tradeArray->push_back(trade);
                   ++count;
-                  totalBought=totalBought + nBought;
+                  *totalBought += nBought;
+                  *totalSold += nSold;
               }
           }
       }

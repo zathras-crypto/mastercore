@@ -329,7 +329,7 @@ public:
     bool exists(const uint256 &txid);
     void printStats();
     void printAll();
-    bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought);
+    bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought);
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */

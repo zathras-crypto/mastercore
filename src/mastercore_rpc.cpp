@@ -2128,9 +2128,9 @@ Value gettrade_MP(const Array& params, bool fHelp)
 
     // create array of matches
     Array tradeArray;
-    uint64_t totalBought;
-    uint64_t totalSold;
-    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
+    uint64_t totalBought = 0;
+    uint64_t totalSold = 0;
+    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalSold, &totalBought);
 
     // everything seems ok, now add status and get an array of matches to add to the object
     // work out status
