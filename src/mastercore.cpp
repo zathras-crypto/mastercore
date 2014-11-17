@@ -54,7 +54,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
+#define MY_HACK
 // #define DISABLE_LOG_FILE
 
 using boost::multiprecision::int128_t;

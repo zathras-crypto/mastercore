@@ -226,6 +226,9 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
          buyer_amountGot, seller_amountGot, seller_amountLeft, buyer_amountStillForSale);
 
         XDOUBLE amount_left = (XDOUBLE) seller_amountLeft * sellers_price;
+
+        amount_left += (XDOUBLE) 0.5; // ROUND UP
+
         std::string str_amount_left = amount_left.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
 
@@ -256,13 +259,13 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
         NewReturn = TRADED;
 
         XDOUBLE will_pay = (XDOUBLE) buyer_amountStillForSale * newo->effectivePrice();
+
+        will_pay += (XDOUBLE) 0.5;  // ROUND UP
+
         std::string str_will_pay = will_pay.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_will_pay_int_part = str_will_pay.substr(0, str_will_pay.find_first_of("."));
 
-//        newo->setAmountForSale(boost::lexical_cast<int64_t>( str_wanted_int_part ), "buyer");
-        newo->setAmountForSale(buyer_amountStillForSale);
-//        newo->setAmountDesired(buyer_amountStillWanted, "buyer");
-//        newo->setAmountDesired(will_pay_int_part, "buyer");
+        newo->setAmountForSale(buyer_amountStillForSale, "buyer");
         newo->setAmountDesired(boost::lexical_cast<int64_t>( str_will_pay_int_part ), "buyer");
 
         if (0 < buyer_amountStillForSale)
