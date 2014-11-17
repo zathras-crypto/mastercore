@@ -1055,7 +1055,7 @@ void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c
   //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
   //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
   //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmount())));
+  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmountForSale())));
   metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
   metadex_obj->push_back(Pair("action", (int) obj.getAction()));
   metadex_obj->push_back(Pair("block", obj.getBlock()));

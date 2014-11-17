@@ -8,11 +8,13 @@
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 #define STR_REF_SUBKEY_TXID_REF_COMBO(txidStr) ( txidStr + strprintf("%d", refNumber))
+
 #define DISPLAY_PRECISION_LEN  20
 #define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
-using boost::multiprecision::cpp_dec_float_50;
+using boost::multiprecision::cpp_dec_float_100;
+
 // a single outstanding offer -- from one seller of one property, internally may have many accepts
 class CMPOffer
 {
@@ -167,7 +169,7 @@ public:
 
 };  // end of CMPAccept class
 
-typedef cpp_dec_float_50 XDOUBLE;
+typedef cpp_dec_float_100 XDOUBLE;
 // typedef double XDOUBLE;
 
 // a metadex trade
@@ -194,7 +196,7 @@ public:
   unsigned int getDesProperty() const { return desired_property; }
   const string & getAddr() const { return addr; }
 
-  uint64_t getAmount() const { return amount_forsale; }
+  uint64_t getAmountForSale() const { return amount_forsale; }
   int64_t getAmountDesired() const { return amount_desired; }
 
   void setAmountForSale(int64_t ao, const string &label = "")
