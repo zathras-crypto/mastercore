@@ -3038,11 +3038,11 @@ void CMPTxList::recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &
        // Step 3 - Create new/update master record for cancel tx in TXList
        const string key = txidMasterStr;
        const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, refNumber);
-       fprintf(mp_fp, "METADEXCANCELDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of affected transactions= %d)\n", __FUNCTION__, txidMaster.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, refNumber);
+       file_log("METADEXCANCELDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of affected transactions= %d)\n", __FUNCTION__, txidMaster.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, refNumber);
        if (pdb)
        {
            status = pdb->Put(writeoptions, key, value);
-           fprintf(mp_fp, "METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
        }
 
        // Step 4 - Write sub-record with cancel details
@@ -3050,11 +3050,11 @@ void CMPTxList::recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &
        const string subKey = STR_REF_SUBKEY_TXID_REF_COMBO(txidStr);
        const string subValue = strprintf("%s:%d:%lu", txidSub.ToString(), propertyId, nValue);
        Status subStatus;
-       fprintf(mp_fp, "METADEXCANCELDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       file_log("METADEXCANCELDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
        if (pdb)
        {
            subStatus = pdb->Put(writeoptions, subKey, subValue);
-           fprintf(mp_fp, "METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
        }
 }
 
@@ -3124,7 +3124,7 @@ void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned 
 
   // overwrite detection, we should never be overwriting a tx, as that means we have redone something a second time
   // reorgs delete all txs from levelDB above reorg_chain_height
-  if (p_txlistdb->exists(txid)) fprintf(mp_fp, "LEVELDB TX OVERWRITE DETECTION - %s\n", txid.ToString().c_str());
+  if (p_txlistdb->exists(txid)) file_log("LEVELDB TX OVERWRITE DETECTION - %s\n", txid.ToString().c_str());
 
 const string key = txid.ToString();
 const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, nValue);
