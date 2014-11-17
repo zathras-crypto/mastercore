@@ -1163,7 +1163,7 @@ uint64_t txFee = 0;
 
 //            file_log("%s() amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
 
-            if (0 < BTC_amount) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
+            if (0 < BTC_amount && !bRPConly) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
 
             // go through the outputs
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
