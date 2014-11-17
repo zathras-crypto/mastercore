@@ -1563,7 +1563,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
     uint64_t mdex_amountWanted = 0;
     bool mdex_propertyWanted_Div = false;
     unsigned int mdex_action = 0;
-    
+    string mdex_actionStr;
+
     if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) { return MP_TX_UNCONFIRMED; }
 
     CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
@@ -1668,6 +1669,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
                                      mdex_propertyWanted_Div = isPropertyDivisible(mdex_propertyWanted);
                                      mdex_amountWanted = temp_metadexoffer.getAmountDesired();
                                      mdex_action = temp_metadexoffer.getAction();
+                                     if(1 == mdex_action) mdex_actionStr = "new sell";
+                                     if(2 == mdex_action) mdex_actionStr = "cancel price";
+                                     if(3 == mdex_action) mdex_actionStr = "cancel pair";
+                                     if(4 == mdex_action) mdex_actionStr = "cancel all";
                                  }
                              }
 
@@ -1812,13 +1817,13 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
         txobj->push_back(Pair("type", MPTxType));
-        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
+        if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
         {
             txobj->push_back(Pair("propertyname", propertyName));
         }
-        if (!MSC_TYPE_METADEX == MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
-        if (!MSC_TYPE_METADEX == MPTxTypeInt)
+        if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
+        if (MSC_TYPE_METADEX != MPTxTypeInt)
         {
             if (divisible)
             {
@@ -1867,7 +1872,7 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             txobj->push_back(Pair("amountdesired", amountDesired));
             txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
             txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
-            txobj->push_back(Pair("action", (uint64_t) mdex_action));
+            txobj->push_back(Pair("action", mdex_actionStr));
             //txobj->push_back(Pair("unit_price", mdex_unitPrice ) );
             //txobj->push_back(Pair("inverse_unit_price", mdex_invUnitPrice ) );
             //active?
@@ -2065,6 +2070,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
     hash.SetHex(params[0].get_str());
     Object tradeobj;
     Object txobj;
+    CMPMetaDEx temp_metadexoffer;
 
     //get sender & propId
     string senderAddress;
@@ -2115,35 +2121,79 @@ Value gettrade_MP(const Array& params, bool fHelp)
         }
     }
 
-    // everything seems ok, now add status and get an array of matches to add to the object
-    // status - is order cancelled/closed-filled/open/open-partialfilled?
-    bool orderOpen = false;
-    // is the sell offer still open - need more efficient way to do this
-    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-    {
-        if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
-        {
-             md_PricesMap & prices = my_it->second;
-             for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-             {
-                  md_Set & indexes = (it->second);
-                  for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                  {
-                       CMPMetaDEx obj = *it;
-                       if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
-                  }
-             }
-        }
-    }
-    txobj.push_back(Pair("active", orderOpen));
+    // get the amount for sale in this sell offer to see if filled
+    uint64_t amountForSale = mp_obj.getAmount();
 
     // create array of matches
     Array tradeArray;
-    uint64_t totalBought;
-    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalBought);
+    uint64_t totalBought = 0;
+    uint64_t totalSold = 0;
+    t_tradelistdb->getMatchingTrades(hash, propertyId, &tradeArray, &totalSold, &totalBought);
 
-    // add array to object
-    txobj.push_back(Pair("matches", tradeArray));
+    // get action byte
+    int actionByte = 0;
+    if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer)) { actionByte = (int)temp_metadexoffer.getAction(); }
+
+    // everything seems ok, now add status and get an array of matches to add to the object
+    // work out status
+    bool orderOpen = isMetaDExOfferActive(hash, propertyId);
+    bool partialFilled = false;
+    bool filled = false;
+    string statusText;
+    if(totalSold>0) partialFilled = true;
+    if(totalSold>=amountForSale) filled = true;
+    statusText = "unknown";
+    if((!orderOpen) && (!partialFilled)) statusText = "cancelled"; // offers that are closed but not filled must have been cancelled
+    if((!orderOpen) && (partialFilled)) statusText = "cancelled part filled"; // offers that are closed but not filled must have been cancelled
+    if((!orderOpen) && (filled)) statusText = "filled"; // filled offers are closed
+    if((orderOpen) && (!partialFilled)) statusText = "open"; // offer exists but no matches yet
+    if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
+    if(actionByte==1) txobj.push_back(Pair("status", statusText)); // no status for cancel txs
+
+    // add cancels array to object and set status as cancelled only if cancel type
+    if(actionByte != 1)
+    {
+        Array cancelArray;
+        int numberOfCancels = p_txlistdb->getNumberOfMetaDExCancels(hash);
+        if (0<numberOfCancels)
+        {
+            for(int refNumber = 1; refNumber <= numberOfCancels; refNumber++)
+            {
+                Object cancelTx;
+                string strValue = p_txlistdb->getKeyValue(hash.ToString() + "-C" + to_string(refNumber));
+                if (!strValue.empty())
+                {
+                    std::vector<std::string> vstr;
+                    boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+                    if (3 <= vstr.size())
+                    {
+                        uint64_t propId = atoi(vstr[1]);
+                        bool propDivisible = isPropertyDivisible(propId);
+                        uint64_t amountUnreserved = boost::lexical_cast<uint64_t>(vstr[2]);
+                        cancelTx.push_back(Pair("txid", vstr[0]));
+                        cancelTx.push_back(Pair("propertyid", propId));
+                        if(propDivisible)
+                        {
+                            cancelTx.push_back(Pair("amountunreserved", FormatDivisibleMP(amountUnreserved)));
+                        }
+                        else
+                        {
+                            cancelTx.push_back(Pair("amountunreserved", FormatIndivisibleMP(amountUnreserved)));
+                        }
+                    cancelArray.push_back(cancelTx);
+                    }
+                }
+            }
+        }
+        txobj.push_back(Pair("cancelledtransactions", cancelArray));
+    }
+    else
+    {
+        // if cancelled, show cancellation txid
+        if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", p_txlistdb->findMetaDExCancel(hash).GetHex())); }
+        // add matches array to object
+        txobj.push_back(Pair("matches", tradeArray)); // only action 1 offers can have matches
+    }
 
     // return object
     return txobj;

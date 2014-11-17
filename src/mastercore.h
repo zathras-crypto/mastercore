@@ -341,7 +341,7 @@ public:
     bool exists(const uint256 &txid);
     void printStats();
     void printAll();
-    bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought);
+    bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought);
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
@@ -394,8 +394,12 @@ public:
 
     void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
     void recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller);
+    void recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &txidSub, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue);
 
+    string getKeyValue(string key);
+    uint256 findMetaDExCancel(const uint256 txid);
     int getNumberOfPurchases(const uint256 txid);
+    int getNumberOfMetaDExCancels(const uint256 txid);
     bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
 
     bool exists(const uint256 &txid);
@@ -480,6 +484,7 @@ bool isTestEcosystemProperty(unsigned int property);
 
 CMPTally *getTally(const string & address);
 
+bool isMetaDExOfferActive(const uint256 txid, unsigned int propertyId);
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL);
 int set_wallet_totals();
 

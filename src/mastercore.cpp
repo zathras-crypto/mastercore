@@ -544,6 +544,27 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
+bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyId)
+{
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+      if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+      {
+           md_PricesMap & prices = my_it->second;
+           for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+           {
+                md_Set & indexes = (it->second);
+                for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                {
+                     CMPMetaDEx obj = *it;
+                     if( obj.getHash().GetHex() == txid.GetHex() ) return true;
+                }
+           }
+      }
+  }
+  return false;
+}
+
 // get total tokens for a property
 // optionally counters the number of addresses who own that property: n_owners_total
 int64_t mastercore::getTotalTokens(unsigned int propertyId, int64_t *n_owners_total)
@@ -2888,6 +2909,51 @@ const unsigned int prop = PropertyID;
   return txid;
 }
 
+uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
+{
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  uint256 cancelTxid;
+  Iterator* it = pdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string svalueStr = svalue.ToString().c_str();
+      boost::split(vstr, svalueStr, boost::is_any_of(":"), token_compress_on);
+      // obtain the existing affected tx count
+      if (3 <= vstr.size())
+      {
+          if (vstr[0] == txidStr) { delete it; cancelTxid.SetHex(skey.ToString().c_str()); return cancelTxid; }
+      }
+  }
+
+  delete it;
+  return 0;
+}
+
+int CMPTxList::getNumberOfMetaDExCancels(const uint256 txid)
+{
+    if (!pdb) return 0;
+    int numberOfCancels = 0;
+    std::vector<std::string> vstr;
+    string strValue;
+    Status status = pdb->Get(readoptions, txid.ToString() + "-C", &strValue);
+    if (status.ok())
+    {
+        // parse the string returned
+        boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+        // obtain the number of cancels
+        if (4 <= vstr.size())
+        {
+            numberOfCancels = atoi(vstr[3]);
+        }
+    }
+    return numberOfCancels;
+}
+
 int CMPTxList::getNumberOfPurchases(const uint256 txid)
 {
     if (!pdb) return 0;
@@ -2906,6 +2972,14 @@ int CMPTxList::getNumberOfPurchases(const uint256 txid)
         }
     }
     return numberOfPurchases;
+}
+
+string CMPTxList::getKeyValue(string key)
+{
+    if (!pdb) return "";
+    string strValue;
+    Status status = pdb->Get(readoptions, key, &strValue);
+    if (status.ok()) { return strValue; } else { return ""; }
 }
 
 bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue)
@@ -2930,6 +3004,58 @@ bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, strin
         }
     }
     return false;
+}
+
+void CMPTxList::recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &txidSub, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue)
+{
+  if (!pdb) return;
+
+       // Prep - setup vars
+       unsigned int type = 99992104;
+       unsigned int refNumber = 1;
+       uint64_t existingAffectedTXCount = 0;
+       string txidMasterStr = txidMaster.ToString() + "-C";
+
+       // Step 1 - Check TXList to see if this cancel TXID exists
+       // Step 2a - If doesn't exist leave number of affected txs & ref set to 1
+       // Step 2b - If does exist add +1 to existing ref and set this ref as new number of affected
+       std::vector<std::string> vstr;
+       string strValue;
+       Status status = pdb->Get(readoptions, txidMasterStr, &strValue);
+       if (status.ok())
+       {
+           // parse the string returned
+           boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+
+           // obtain the existing affected tx count
+           if (4 <= vstr.size())
+           {
+               existingAffectedTXCount = atoi(vstr[3]);
+               refNumber = existingAffectedTXCount + 1;
+           }
+       }
+
+       // Step 3 - Create new/update master record for cancel tx in TXList
+       const string key = txidMasterStr;
+       const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, refNumber);
+       file_log("METADEXCANCELDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of affected transactions= %d)\n", __FUNCTION__, txidMaster.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, refNumber);
+       if (pdb)
+       {
+           status = pdb->Put(writeoptions, key, value);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+       }
+
+       // Step 4 - Write sub-record with cancel details
+       const string txidStr = txidMaster.ToString() + "-C";
+       const string subKey = STR_REF_SUBKEY_TXID_REF_COMBO(txidStr);
+       const string subValue = strprintf("%s:%d:%lu", txidSub.ToString(), propertyId, nValue);
+       Status subStatus;
+       file_log("METADEXCANCELDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       if (pdb)
+       {
+           subStatus = pdb->Put(writeoptions, subKey, subValue);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+       }
 }
 
 void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller)
@@ -2995,6 +3121,10 @@ void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, un
 void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue)
 {
   if (!pdb) return;
+
+  // overwrite detection, we should never be overwriting a tx, as that means we have redone something a second time
+  // reorgs delete all txs from levelDB above reorg_chain_height
+  if (p_txlistdb->exists(txid)) file_log("LEVELDB TX OVERWRITE DETECTION - %s\n", txid.ToString().c_str());
 
 const string key = txid.ToString();
 const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, nValue);
@@ -3114,10 +3244,9 @@ unsigned int n_found = 0;
 }
 
 // MPTradeList here
-bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalBought)
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought)
 {
   if (!tdb) return false;
-  totalBought = 0;
   leveldb::Slice skey, svalue;
   unsigned int count = 0;
   std::vector<std::string> vstr;
@@ -3151,6 +3280,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   uint64_t uAmount1;
                   uint64_t uAmount2;
                   uint64_t nBought;
+                  uint64_t nSold;
                   string amountBought;
                   string amountSold;
                   string amount1;
@@ -3174,14 +3304,16 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                       address = address2;
                       amountBought = amount2;
                       amountSold = amount1;
-                      nBought = boost::lexical_cast<uint64_t>(vstr[5]);
+                      nBought = uAmount2;
+                      nSold = uAmount1;
                   }
                   else
                   {
                       address = address1;
                       amountBought = amount1;
                       amountSold = amount2;
-                      nBought = boost::lexical_cast<uint64_t>(vstr[4]);
+                      nBought = uAmount1;
+                      nSold = uAmount2;
                   }
                   int blockNum = atoi(vstr[6]);
                   Object trade;
@@ -3192,7 +3324,8 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   trade.push_back(Pair("amountbought", amountBought));
                   tradeArray->push_back(trade);
                   ++count;
-                  totalBought=totalBought + nBought;
+                  *totalBought += nBought;
+                  *totalSold += nSold;
               }
           }
       }
