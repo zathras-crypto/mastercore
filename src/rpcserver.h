@@ -203,6 +203,7 @@ extern json_spirit::Value getallbalancesforaddress_MP(const json_spirit::Array& 
 extern json_spirit::Value getactivedexsells_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value gettransaction_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value trade_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
+extern json_spirit::Value gettrade_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getorderbook_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value gettradessince_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value getopenorders_MP(const json_spirit::Array& params, bool fHelp);

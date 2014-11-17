@@ -51,13 +51,13 @@
 
 #include <openssl/sha.h>
 
+// #include "tinyformat.h"
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
 #define MY_HACK
 // #define DISABLE_LOG_FILE
-
-FILE *mp_fp = NULL;
 
 using boost::multiprecision::int128_t;
 using boost::multiprecision::cpp_int;
@@ -109,19 +109,20 @@ int msc_debug_vin   = 0;
 int msc_debug_script= 0;
 int msc_debug_dex   = 1;
 int msc_debug_send  = 1;
-int msc_debug_coins = 0;
+int msc_debug_tokens= 0;
 int msc_debug_spec  = 1;
 int msc_debug_exo   = 0;
 int msc_debug_tally = 1;
 int msc_debug_sp    = 1;
 int msc_debug_sto   = 1;
 int msc_debug_txdb  = 0;
+int msc_debug_tradedb = 1;
 int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
+int msc_debug_metadex3= 0;  // enable this to see the orderbook before & after each TX
 
 static int disable_Divs = 0;
-
 static int disableLevelDB = 0;
 
 static int mastercoreInitialized = 0;
@@ -152,6 +153,7 @@ static const int txRestrictionsRules[][3] = {
 };
 
 CMPTxList *mastercore::p_txlistdb;
+CMPTradeList *mastercore::t_tradelistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -169,6 +171,73 @@ uint32_t mastercore::GetLatestBlockTime()
         return (int)(chainActive.Tip()->GetBlockTime());
     else
         return (int)(Params().GenesisBlock().nTime); // Genesis block's time of current network
+}
+
+//--- CUT HERE --- mostly copied from util.h & util.cpp
+// LogPrintf() has been broken a couple of times now
+// by well-meaning people adding mutexes in the most straightforward way.
+// It breaks because it may be called by global destructors during shutdown.
+// Since the order of destruction of static/global objects is undefined,
+// defining a mutex as a global object doesn't work (the mutex gets
+// destroyed, and then some later destructor calls OutputDebugStringF,
+// maybe indirectly, and you get a core dump at shutdown trying to lock
+// the mutex).
+static boost::once_flag mp_debugPrintInitFlag = BOOST_ONCE_INIT;
+// We use boost::call_once() to make sure these are initialized in
+// in a thread-safe manner the first time it is called:
+static FILE* fileout = NULL;
+static boost::mutex* mutexDebugLog = NULL;
+
+static void mp_DebugPrintInit()
+{
+    assert(fileout == NULL);
+    assert(mutexDebugLog == NULL);
+
+    boost::filesystem::path pathDebug = GetDataDir() / LOG_FILENAME ;
+    fileout = fopen(pathDebug.string().c_str(), "a");
+    if (fileout) setbuf(fileout, NULL); // unbuffered
+
+    mutexDebugLog = new boost::mutex();
+}
+
+int mp_LogPrintStr(const std::string &str)
+{
+    int ret = 0; // Returns total number of characters written
+    if (fPrintToConsole)
+    {
+        // print to console
+        ret = fwrite(str.data(), 1, str.size(), stdout);
+    }
+    else if (fPrintToDebugLog)
+    {
+        static bool fStartedNewLine = true;
+        boost::call_once(&mp_DebugPrintInit, mp_debugPrintInitFlag);
+
+        if (fileout == NULL)
+            return ret;
+
+        boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
+
+        // reopen the log file, if requested
+        if (fReopenDebugLog) {
+            fReopenDebugLog = false;
+            boost::filesystem::path pathDebug = GetDataDir() / LOG_FILENAME ;
+            if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
+                setbuf(fileout, NULL); // unbuffered
+        }
+
+        // Debug print useful for profiling
+        if (fLogTimestamps && fStartedNewLine)
+            ret += fprintf(fileout, "%s ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+        if (!str.empty() && str[str.size()-1] == '\n')
+            fStartedNewLine = true;
+        else
+            fStartedNewLine = false;
+
+        ret = fwrite(str.data(), 1, str.size(), fileout);
+    }
+
+    return ret;
 }
 
 // indicate whether persistence is enabled at this point, or not
@@ -227,7 +296,7 @@ static void shrinkDebugFile()
 #endif
 }
 
-string mastercore::strMPCurrency(unsigned int i)
+string mastercore::strMPProperty(unsigned int i)
 {
 string str = "*unknown*";
 
@@ -239,9 +308,9 @@ string str = "*unknown*";
   else
   switch (i)
   {
-    case MASTERCOIN_CURRENCY_BTC: str = "BTC"; break;
-    case MASTERCOIN_CURRENCY_MSC: str = "MSC"; break;
-    case MASTERCOIN_CURRENCY_TMSC: str = "TMSC"; break;
+    case OMNI_PROPERTY_BTC: str = "BTC"; break;
+    case OMNI_PROPERTY_MSC: str = "MSC"; break;
+    case OMNI_PROPERTY_TMSC: str = "TMSC"; break;
     default: str = strprintf("SP token: %d", i);
   }
 
@@ -346,7 +415,7 @@ static PendingMap my_pending;
 
 static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 {
-  if (msc_debug_verbose3) fprintf(mp_fp, "%s(%s)\n", __FUNCTION__, txid.GetHex().c_str());
+  if (msc_debug_verbose3) file_log("%s(%s)\n", __FUNCTION__, txid.GetHex().c_str());
 
   PendingMap::iterator it = my_pending.find(txid);
 
@@ -357,13 +426,13 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 
     p_pending->print(txid);
 
-    int64_t src_amount = getMPbalance(p_pending->src, p_pending->curr, PENDING);
+    int64_t src_amount = getMPbalance(p_pending->src, p_pending->prop, PENDING);
 
-    fprintf(mp_fp, "%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
+    if (msc_debug_verbose3) file_log("%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
 
     if (src_amount)
     {
-      update_tally_map(p_pending->src, p_pending->curr, p_pending->amount, PENDING);
+      update_tally_map(p_pending->src, p_pending->prop, p_pending->amount, PENDING);
     }
 
     if (bErase)
@@ -383,14 +452,14 @@ static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned i
 {
 CMPPending pending;
 
-  printf("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
   {
     pending.src = FromAddress;
     pending.amount = Amount;
-    pending.curr = propId;
+    pending.prop = propId;
 
     pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
@@ -399,7 +468,7 @@ CMPPending pending;
   return 0;
 }
 
-// this is the master list of all amounts for all addresses for all currencies, map is sorted by Bitcoin address
+// this is the master list of all amounts for all addresses for all properties, map is sorted by Bitcoin address
 std::map<string, CMPTally> mastercore::mp_tally_map;
 
 CMPTally *mastercore::getTally(const string & address)
@@ -414,7 +483,7 @@ CMPTally *mastercore::getTally(const string & address)
 }
 
 // look at balance for an address
-int64_t getMPbalance(const string &Address, unsigned int currency, TallyType ttype)
+int64_t getMPbalance(const string &Address, unsigned int property, TallyType ttype)
 {
 uint64_t balance = 0;
 
@@ -426,16 +495,16 @@ const map<string, CMPTally>::iterator my_it = mp_tally_map.find(Address);
 
   if (my_it != mp_tally_map.end())
   {
-    balance = (my_it->second).getMoney(currency, ttype);
+    balance = (my_it->second).getMoney(property, ttype);
   }
 
   return balance;
 }
 
-int64_t getUserAvailableMPbalance(const string &Address, unsigned int currency)
+int64_t getUserAvailableMPbalance(const string &Address, unsigned int property)
 {
-int64_t money = getMPbalance(Address, currency, MONEY);
-int64_t pending = getMPbalance(Address, currency, PENDING);
+int64_t money = getMPbalance(Address, property, BALANCE);
+int64_t pending = getMPbalance(Address, property, PENDING);
 
   if (0 > pending)
   {
@@ -474,8 +543,29 @@ bool isMultiplicationOK(const uint64_t a, const uint64_t b)
 
 bool mastercore::isTestEcosystemProperty(unsigned int property)
 {
-  if ((MASTERCOIN_CURRENCY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
+  if ((OMNI_PROPERTY_TMSC == property) || (TEST_ECO_PROPERTY_1 <= property)) return true;
 
+  return false;
+}
+
+bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyId)
+{
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+      if (my_it->first == propertyId) //at bear minimum only go deeper if it's the right property id
+      {
+           md_PricesMap & prices = my_it->second;
+           for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+           {
+                md_Set & indexes = (it->second);
+                for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+                {
+                     CMPMetaDEx obj = *it;
+                     if( obj.getHash().GetHex() == txid.GetHex() ) return true;
+                }
+           }
+      }
+  }
   return false;
 }
 
@@ -506,19 +596,19 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
         }
         else
         {
-             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 4 tokens\n");
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 4 tokens\n");
              return false;
         }
         if ((expiryBlock == 0) || (expiryTime == 0))
         {
-             fprintf(mp_fp, "DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are zero.\n");
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are zero.\n");
              return false;
  
         }
         if ((curBlock > expiryBlock) || (curTime > expiryTime) || (MASTERCORE_VERSION > expiryVersion))
         {
              //the alert has expired, clear the global alert string
-             fprintf(mp_fp, "DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+             file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
              global_alert_message = "";
              return true;
         }
@@ -546,7 +636,7 @@ int64_t prev = 0, owners = 0;
       for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
       {
           string address = (my_it->first).c_str();
-          totalTokens += getMPbalance(address, propertyId, MONEY);
+          totalTokens += getMPbalance(address, propertyId, BALANCE);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
@@ -569,20 +659,20 @@ int64_t prev = 0, owners = 0;
 }
 
 // return true if everything is ok
-bool mastercore::update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype)
+bool mastercore::update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype)
 {
 bool bRet = false;
 uint64_t before, after;
 
   if (0 == amount)
   {
-    fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) 0 FUNDS !\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
+    file_log("%s(%s, %u=0x%X, %+ld, ttype= %d) 0 FUNDS !\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
     return false;
   }
 
   LOCK(cs_tally);
 
-  before = getMPbalance(who, which_currency, ttype);
+  before = getMPbalance(who, which_property, ttype);
 
   map<string, CMPTally>::iterator my_it = mp_tally_map.find(who);
   if (my_it == mp_tally_map.end())
@@ -593,17 +683,17 @@ uint64_t before, after;
 
   CMPTally &tally = my_it->second;
 
-  bRet = tally.updateMoney(which_currency, amount, ttype);
+  bRet = tally.updateMoney(which_property, amount, ttype);
 
-  after = getMPbalance(who, which_currency, ttype);
-  if (!bRet) fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype= %d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype);
+  after = getMPbalance(who, which_property, ttype);
+  if (!bRet) file_log("%s(%s, %u=0x%X, %+ld, ttype=%d) INSUFFICIENT FUNDS\n", __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype);
 
   if (msc_debug_tally)
   {
     if ((exodus_address != who) || (exodus_address == who && msc_debug_exo))
     {
-      fprintf(mp_fp, "%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
-       __FUNCTION__, who.c_str(), which_currency, which_currency, amount, ttype, before, after);
+      file_log("%s(%s, %u=0x%X, %+ld, ttype=%d); before=%lu, after=%lu\n",
+       __FUNCTION__, who.c_str(), which_property, which_property, amount, ttype, before, after);
     }
   }
 
@@ -741,7 +831,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // certain transaction types are not live on the network until some specific block height
 // certain transactions will be unknown to the client, i.e. "black holes" based on their version
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
-bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txCurrency, unsigned int txType, unsigned short version)
+bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version)
 {
 bool bAllowed = false;
 bool bBlackHole = false;
@@ -749,11 +839,11 @@ unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
-  // BTC as currency/property is never allowed
-  if (MASTERCOIN_CURRENCY_BTC == txCurrency) return false;
+  // BTC as property is never allowed
+  if (OMNI_PROPERTY_BTC == txProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
-  if ((isNonMainNet()) || isTestEcosystemProperty(txCurrency))
+  if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
   {
     bAllowed = true;
   }
@@ -768,7 +858,7 @@ unsigned short version_TopAllowed;
 
     if (version_TopAllowed < version)
     {
-      fprintf(mp_fp, "Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txCurrency, txType, version);
+      file_log("Black Hole identified !!! %d, %u, %u, %u\n", txBlock, txProperty, txType, version);
 
       bBlackHole = true;
 
@@ -811,12 +901,12 @@ const double available_reward=all_reward * part_available;
   devmsc = rounduint64(available_reward);
   exodus_delta = devmsc - exodus_prev;
 
-  if (msc_debug_exo) fprintf(mp_fp, "devmsc=%lu, exodus_prev=%lu, exodus_delta=%ld\n", devmsc, exodus_prev, exodus_delta);
+  if (msc_debug_exo) file_log("devmsc=%lu, exodus_prev=%lu, exodus_delta=%ld\n", devmsc, exodus_prev, exodus_delta);
 
   // skip if a block's timestamp is older than that of a previous one!
   if (0>exodus_delta) return 0;
 
-  update_tally_map(exodus_address, MASTERCOIN_CURRENCY_MSC, exodus_delta, MONEY);
+  update_tally_map(exodus_address, OMNI_PROPERTY_MSC, exodus_delta, BALANCE);
   exodus_prev = devmsc;
 
   return devmsc;
@@ -852,14 +942,14 @@ int mastercore::set_wallet_totals()
     {
        for (propertyId = 1; propertyId<nextSPID; propertyId++) //main eco
        {
-              //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, MONEY);
+              //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
               if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
        }
        for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
        {
-              //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, MONEY);
+              //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
        }
@@ -887,7 +977,7 @@ vector<unsigned char> vec_chars;
       ObfsHashes[j] = HexStr(vec_chars);
       boost::to_upper(ObfsHashes[j]); // uppercase per spec
 
-      if (msc_debug_verbose2) if (5>j) fprintf(mp_fp, "%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
+      if (msc_debug_verbose2) if (5>j) file_log("%d: sha256 hex: %s\n", j, ObfsHashes[j].c_str());
       strcpy((char *)sha_input, ObfsHashes[j].c_str());
   }
 }
@@ -918,10 +1008,10 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
     }
 
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
-    if (msc_debug_exo) fprintf(mp_fp, "Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
+    if (msc_debug_exo) file_log("Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
  
-    update_tally_map(sender, MASTERCOIN_CURRENCY_MSC, msc_tot, MONEY);
-    update_tally_map(sender, MASTERCOIN_CURRENCY_TMSC, msc_tot, MONEY);
+    update_tally_map(sender, OMNI_PROPERTY_MSC, msc_tot, BALANCE);
+    update_tally_map(sender, OMNI_PROPERTY_TMSC, msc_tot, BALANCE);
 
     return 0;
   }
@@ -1004,8 +1094,8 @@ uint64_t txFee = 0;
               return -1;
             }
 
-            fprintf(mp_fp, "____________________________________________________________________________________________________________________________________\n");
-            fprintf(mp_fp, "%s(block=%d, %s idx= %d); txid: %s\n", __FUNCTION__, nBlock, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nTime).c_str(),
+            file_log("____________________________________________________________________________________________________________________________________\n");
+            file_log("%s(block=%d, %s idx= %d); txid: %s\n", __FUNCTION__, nBlock, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nTime).c_str(),
              idx, wtx.GetHash().GetHex().c_str());
 
             // now save output addresses & scripts for later use
@@ -1026,7 +1116,7 @@ uint64_t txFee = 0;
 
                 if ((exodus_address != strAddress) && (validType))
                 {
-                  if (msc_debug_parser_data) fprintf(mp_fp, "saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
+                  if (msc_debug_parser_data) file_log("saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
 
                   // saving for Class A processing or reference
                   wtx.vout[i].scriptPubKey.mscore_parse(script_data);
@@ -1050,9 +1140,9 @@ uint64_t txFee = 0;
 
             if (msc_debug_parser_data)
             {
-              fprintf(mp_fp, "address_data.size=%lu\n", address_data.size());
-              fprintf(mp_fp, "script_data.size=%lu\n", script_data.size());
-              fprintf(mp_fp, "value_data.size=%lu\n", value_data.size());
+              file_log("address_data.size=%lu\n", address_data.size());
+              file_log("script_data.size=%lu\n", script_data.size());
+              file_log("value_data.size=%lu\n", value_data.size());
             }
 
             int inputs_errors = 0;  // several types of erroroneous MP TX inputs
@@ -1063,7 +1153,7 @@ uint64_t txFee = 0;
             {
             CTxDestination address;
 
-            if (msc_debug_vin) fprintf(mp_fp, "vin=%d:%s\n", i, wtx.vin[i].scriptSig.ToString().c_str());
+            if (msc_debug_vin) file_log("vin=%d:%s\n", i, wtx.vin[i].scriptSig.ToString().c_str());
 
             CTransaction txPrev;
             uint256 hashBlock;
@@ -1097,7 +1187,7 @@ uint64_t txFee = 0;
               }
               else ++inputs_errors;
 
-              if (msc_debug_vin) fprintf(mp_fp, "vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
+              if (msc_debug_vin) file_log("vin=%d:%s\n", i, wtx.vin[i].ToString().c_str());
             } // end of inputs for loop
 
             txFee = inAll - outAll; // this is the fee paid to miners for this TX
@@ -1116,19 +1206,19 @@ uint64_t txFee = 0;
                 if (nTemp > nMax)
                 {
                   strSender = my_it->first;
-                  if (msc_debug_exo) fprintf(mp_fp, "looking for The Sender: %s , nMax=%lu, nTemp=%lu\n", strSender.c_str(), nMax, nTemp);
+                  if (msc_debug_exo) file_log("looking for The Sender: %s , nMax=%lu, nTemp=%lu\n", strSender.c_str(), nMax, nTemp);
                   nMax = nTemp;
                 }
             }
 
             if (!strSender.empty())
             {
-              if (msc_debug_verbose) fprintf(mp_fp, "The Sender: %s : His Input Sum of Values= %lu.%08lu ; fee= %lu.%08lu\n",
+              if (msc_debug_verbose) file_log("The Sender: %s : His Input Sum of Values= %lu.%08lu ; fee= %lu.%08lu\n",
                strSender.c_str(), nMax / COIN, nMax % COIN, txFee/COIN, txFee%COIN);
             }
             else
             {
-              fprintf(mp_fp, "The sender is still EMPTY !!! txid: %s\n", wtx.GetHash().GetHex().c_str());
+              file_log("The sender is still EMPTY !!! txid: %s\n", wtx.GetHash().GetHex().c_str());
               return -5;
             }
             
@@ -1144,9 +1234,9 @@ uint64_t txFee = 0;
               if (MONEYMAN_REGTEST_BLOCK <= nBlock) BTC_amount = TestNetMoneyValues[0];
             }
 
-//            fprintf(mp_fp, "%s() amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
+//            file_log("%s() amount = %ld , nBlock = %d, line %d, file: %s\n", __FUNCTION__, BTC_amount, nBlock, __LINE__, __FILE__);
 
-            if (0 < BTC_amount) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
+            if (0 < BTC_amount && !bRPConly) (void) TXExodusFundraiser(wtx, strSender, BTC_amount, nBlock, nTime);
 
             // go through the outputs
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -1166,11 +1256,11 @@ uint64_t txFee = 0;
         int nRequired;
 
         // CScript is a std::vector
-        if (msc_debug_script) fprintf(mp_fp, "scriptPubKey: %s\n", wtx.vout[i].scriptPubKey.mscore_getHex().c_str());
+        if (msc_debug_script) file_log("scriptPubKey: %s\n", wtx.vout[i].scriptPubKey.mscore_getHex().c_str());
 
         if (ExtractDestinations(wtx.vout[i].scriptPubKey, type, vDest, nRequired))
         {
-          if (msc_debug_script) fprintf(mp_fp, " >> multisig: ");
+          if (msc_debug_script) file_log(" >> multisig: ");
             BOOST_FOREACH(const CTxDestination &dest, vDest)
             {
             CBitcoinAddress address = CBitcoinAddress(dest);
@@ -1182,11 +1272,11 @@ uint64_t txFee = 0;
             }
 
               // base_uint is a superclass of dest, size(), GetHex() is the same as ToString()
-//              fprintf(mp_fp, "%s size=%d (%s); ", address.ToString().c_str(), keyID.size(), keyID.GetHex().c_str());
-              if (msc_debug_script) fprintf(mp_fp, "%s ; ", address.ToString().c_str());
+//              file_log("%s size=%d (%s); ", address.ToString().c_str(), keyID.size(), keyID.GetHex().c_str());
+              if (msc_debug_script) file_log("%s ; ", address.ToString().c_str());
 
             }
-          if (msc_debug_script) fprintf(mp_fp, "\n");
+          if (msc_debug_script) file_log("\n");
 
           wtx.vout[i].scriptPubKey.mscore_parse(multisig_script_data, false);
         }
@@ -1227,13 +1317,13 @@ uint64_t txFee = 0;
                           strDataAddress = address_data[k]; // record data address
                           dataAddressSeq = seq; // record data address seq num for reference matching
                           dataAddressValue = value_data[k]; // record data address amount for reference matching
-                          if (msc_debug_parser_data) fprintf(mp_fp, "Data Address located - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                          if (msc_debug_parser_data) file_log("Data Address located - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                       }
                       else
                       {
                           // invalidate - Class A cannot be more than one data packet - possible collision, treat as default (BTC payment)
                           strDataAddress = ""; //empty strScriptData to block further parsing
-                          if (msc_debug_parser_data) fprintf(mp_fp, "Multiple Data Addresses found (collision?) Class A invalidated, defaulting to BTC payment\n");
+                          if (msc_debug_parser_data) file_log("Multiple Data Addresses found (collision?) Class A invalidated, defaulting to BTC payment\n");
                           break;
                       }
                   }
@@ -1256,13 +1346,13 @@ uint64_t txFee = 0;
                           if (strRefAddress.empty()) // confirm we have not already located a reference address
                           {
                               strRefAddress = address_data[k]; // set ref address
-                              if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address located via seqnum - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                              if (msc_debug_parser_data) file_log("Reference Address located via seqnum - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                           }
                           else
                           {
                               // can't trust sequence numbers to provide reference address, there is a collision with >1 address with expected seqnum
                               strRefAddress = ""; // blank ref address
-                              if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address sequence number collision, will fall back to evaluating matching output amounts\n");
+                              if (msc_debug_parser_data) file_log("Reference Address sequence number collision, will fall back to evaluating matching output amounts\n");
                               break;
                           }
                       }
@@ -1285,12 +1375,12 @@ uint64_t txFee = 0;
                                        if (strRefAddress.empty())
                                        {
                                            strRefAddress = address_data[k];
-                                           if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address located via matching amounts - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
+                                           if (msc_debug_parser_data) file_log("Reference Address located via matching amounts - data[%d]:%s: %s (%lu.%08lu)\n", k, script_data[k].c_str(), address_data[k].c_str(), value_data[k] / COIN, value_data[k] % COIN);
                                        }
                                        else
                                        {
                                            strRefAddress = "";
-                                           if (msc_debug_parser_data) fprintf(mp_fp, "Reference Address collision, multiple potential candidates. Class A invalidated, defaulting to BTC payment\n");
+                                           if (msc_debug_parser_data) file_log("Reference Address collision, multiple potential candidates. Class A invalidated, defaulting to BTC payment\n");
                                            break;
                                        }
                                   }
@@ -1311,9 +1401,9 @@ uint64_t txFee = 0;
               if (strDataAddress.empty()) // an empty Data Address here means it is not Class A valid and should be defaulted to a BTC payment
               {
               // this must be the BTC payment - validate (?)
-//              if (msc_debug_verbose) fprintf(mp_fp, "\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
-              fprintf(mp_fp, "!! sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
-              fprintf(mp_fp, "!! this may be the BTC payment for an offer !!\nn");
+//              if (msc_debug_verbose) file_log("\n================BLOCK: %d======\ntxid: %s\n", nBlock, wtx.GetHash().GetHex().c_str());
+              file_log("!! sender: %s , receiver: %s\n", strSender.c_str(), strReference.c_str());
+              file_log("!! this may be the BTC payment for an offer !!\n");
 
               // TODO collect all payments made to non-itself & non-exodus and their amounts -- these may be purchases!!!
 
@@ -1329,9 +1419,9 @@ uint64_t txFee = 0;
                   const string strAddress = CBitcoinAddress(dest).ToString();
 
                     if (exodus_address == strAddress) continue;
-                    fprintf(mp_fp, "payment #%d %s %11.8lf\n", count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
+                    file_log("payment #%d %s %11.8lf\n", count, strAddress.c_str(), (double)wtx.vout[i].nValue/(double)COIN);
 
-                    // check everything & pay BTC for the currency we are buying here...
+                    // check everything & pay BTC for the property we are buying here...
                     if (bRPConly) count = 55555;  // no real way to validate a payment during simple RPC call
                     else if (0 == DEx_payment(wtx.GetHash(), i, strAddress, strSender, wtx.vout[i].nValue, nBlock)) ++count;
                   }
@@ -1342,7 +1432,7 @@ uint64_t txFee = 0;
             else
             {
             // valid Class A packet almost ready
-              if (msc_debug_parser_data) fprintf(mp_fp, "valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
+              if (msc_debug_parser_data) file_log("valid Class A:from=%s:to=%s:data=%s\n", strSender.c_str(), strReference.c_str(), strScriptData.c_str());
               packet_size = PACKET_SIZE_CLASS_A;
               memcpy(single_pkt, &ParseHex(strScriptData)[0], packet_size);
             }
@@ -1352,7 +1442,7 @@ uint64_t txFee = 0;
             unsigned int k = 0;
             // gotta find the Reference - Z rewrite - scrappy & inefficient, can be optimized
 
-            if (msc_debug_parser_data) fprintf(mp_fp, "Beginning reference identification\n");
+            if (msc_debug_parser_data) file_log("Beginning reference identification\n");
 
             bool referenceFound = false; // bool to hold whether we've found the reference yet
             bool changeRemoved = false; // bool to hold whether we've ignored the first output to sender as change
@@ -1362,7 +1452,7 @@ uint64_t txFee = 0;
             BOOST_FOREACH(const string &addr, address_data)
             {
                 // keep Michael's original debug info & k int as used elsewhere
-                if (msc_debug_parser_data) fprintf(mp_fp, "ref? data[%d]:%s: %s (%lu.%08lu)\n",
+                if (msc_debug_parser_data) file_log("ref? data[%d]:%s: %s (%lu.%08lu)\n",
                  k, script_data[k].c_str(), addr.c_str(), value_data[k] / COIN, value_data[k] % COIN);
                 ++k;
 
@@ -1373,13 +1463,13 @@ uint64_t txFee = 0;
                         {
                                 strReference = addr;
                                 referenceFound = true;
-                                if (msc_debug_parser_data) fprintf(mp_fp, "Single reference potentially id'd as follows: %s \n", strReference.c_str());
+                                if (msc_debug_parser_data) file_log("Single reference potentially id'd as follows: %s \n", strReference.c_str());
                         }
                         else //as soon as potentialReferenceOutputs > 1 we need to go fishing
                         {
                                 strReference = ""; // avoid leaving strReference populated for sanity
                                 referenceFound = false;
-                                if (msc_debug_parser_data) fprintf(mp_fp, "More than one potential reference candidate, blanking strReference, need to go fishing\n");
+                                if (msc_debug_parser_data) file_log("More than one potential reference candidate, blanking strReference, need to go fishing\n");
                         }
                 }
             }
@@ -1387,7 +1477,7 @@ uint64_t txFee = 0;
             // do we have a reference now? or do we need to dig deeper
             if (!referenceFound) // multiple possible reference addresses
             {
-                if (msc_debug_parser_data) fprintf(mp_fp, "Reference has not been found yet, going fishing\n");
+                if (msc_debug_parser_data) file_log("Reference has not been found yet, going fishing\n");
 
                 BOOST_FOREACH(const string &addr, address_data)
                 {
@@ -1398,33 +1488,33 @@ uint64_t txFee = 0;
                                 {
                                         // per spec ignore first output to sender as change if multiple possible ref addresses
                                         changeRemoved = true;
-                                        if (msc_debug_parser_data) fprintf(mp_fp, "Removed change\n");
+                                        if (msc_debug_parser_data) file_log("Removed change\n");
                                 }
                                 else
                                 {
                                         // this may be set several times, but last time will be highest vout
                                         strReference = addr;
-                                        if (msc_debug_parser_data) fprintf(mp_fp, "Resetting strReference as follows: %s \n ", strReference.c_str());
+                                        if (msc_debug_parser_data) file_log("Resetting strReference as follows: %s \n ", strReference.c_str());
                                 }
                         }
                 }
             }
 
-          if (msc_debug_parser_data) fprintf(mp_fp, "Ending reference identification\n");
-          if (msc_debug_parser_data) fprintf(mp_fp, "Final decision on reference identification is: %s\n", strReference.c_str());
+          if (msc_debug_parser_data) file_log("Ending reference identification\n");
+          if (msc_debug_parser_data) file_log("Final decision on reference identification is: %s\n", strReference.c_str());
 
-          if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           // multisig , Class B; get the data packets that are found here
           for (unsigned int k = 0; k<multisig_script_data.size();k++)
           {
-            if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+            if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             CPubKey key(ParseHex(multisig_script_data[k]));
             CKeyID keyID = key.GetID();
             string strAddress = CBitcoinAddress(keyID).ToString();
             char *c_addr_type = (char *)"";
             string strPacket;
 
-            if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+            if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
             {
               // this is a data packet, must deobfuscate now
               vector<unsigned char>hash = ParseHex(strObfuscatedHashes[mdata_count+1]);      
@@ -1441,18 +1531,18 @@ uint64_t txFee = 0;
 
                 if (MAX_PACKETS <= mdata_count)
                 {
-                  fprintf(mp_fp, "increase MAX_PACKETS ! mdata_count= %d\n", mdata_count);
+                  file_log("increase MAX_PACKETS ! mdata_count= %d\n", mdata_count);
                   return -222;
                 }
             }
 
-          if (msc_debug_parser_data) fprintf(mp_fp, "multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
+          if (msc_debug_parser_data) file_log("multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
 
             if (!strPacket.empty())
             {
-              if (msc_debug_parser) fprintf(mp_fp, "packet #%d: %s\n", mdata_count, strPacket.c_str());
+              if (msc_debug_parser) file_log("packet #%d: %s\n", mdata_count, strPacket.c_str());
             }
-          if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
 
           packet_size = mdata_count * (PACKET_SIZE - 1);
@@ -1462,26 +1552,26 @@ uint64_t txFee = 0;
             return -111;
           }
 
-          if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           } // end of if (fMultisig)
-          if (msc_debug_parser) fprintf(mp_fp, "%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
 
             // now decode mastercoin packets
             for (int m=0;m<mdata_count;m++)
             {
-              if (msc_debug_parser) fprintf(mp_fp, "m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
+              if (msc_debug_parser) file_log("m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
 
               // check to ensure the sequence numbers are sequential and begin with 01 !
               if (1+m != packets[m][0])
               {
-                if (msc_debug_spec) fprintf(mp_fp, "Error: non-sequential seqnum ! expected=%d, got=%d\n", 1+m, packets[m][0]);
+                if (msc_debug_spec) file_log("Error: non-sequential seqnum ! expected=%d, got=%d\n", 1+m, packets[m][0]);
               }
 
               // now ignoring sequence numbers for Class B packets
               memcpy(m*(PACKET_SIZE-1)+single_pkt, 1+packets[m], PACKET_SIZE-1);
             }
 
-  if (msc_debug_verbose) fprintf(mp_fp, "single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
+  if (msc_debug_verbose) file_log("single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
 
   mp_tx->Set(strSender, strReference, 0, wtx.GetHash(), nBlock, idx, (unsigned char *)&single_pkt, packet_size, fMultisig, (inAll-outAll));  
 
@@ -1506,7 +1596,7 @@ const int max_block = GetHeight();
     CBlockIndex* pblockindex = chainActive[blockNum];
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
-    if (msc_debug_exo) fprintf(mp_fp, "%s(%d; max=%d):%s, line %d, file: %s\n",
+    if (msc_debug_exo) file_log("%s(%d; max=%d):%s, line %d, file: %s\n",
      __FUNCTION__, blockNum, max_block, strBlockHash.c_str(), __LINE__, __FILE__);
 
     ReadBlockFromDisk(block, pblockindex);
@@ -1551,12 +1641,12 @@ int input_msc_balances_string(const string &s)
 
   string strAddress = addrData[0];
 
-  // split the tuples of currencies
-  std::vector<std::string> vCurrencies;
-  boost::split(vCurrencies, addrData[1], boost::is_any_of(";"), token_compress_on);
+  // split the tuples of properties
+  std::vector<std::string> vProperties;
+  boost::split(vProperties, addrData[1], boost::is_any_of(";"), token_compress_on);
 
   std::vector<std::string>::const_iterator iter;
-  for (iter = vCurrencies.begin(); iter != vCurrencies.end(); ++iter) {
+  for (iter = vProperties.begin(); iter != vProperties.end(); ++iter) {
     if ((*iter).empty()) {
       continue;
     }
@@ -1564,16 +1654,16 @@ int input_msc_balances_string(const string &s)
     std::vector<std::string> curData;
     boost::split(curData, *iter, boost::is_any_of(","), token_compress_on);
     if (curData.size() < 1) {
-      // malformed currency entry
+      // malformed property entry
        return -1;
     }
 
     size_t delimPos = curData[0].find(':');
-    int currency = MASTERCOIN_CURRENCY_MSC;
+    int property = OMNI_PROPERTY_MSC;
     uint64_t balance = 0, sellReserved = 0, acceptReserved = 0;
 
     if (delimPos != curData[0].npos) {
-      currency = atoi(curData[0].substr(0,delimPos));
+      property = atoi(curData[0].substr(0,delimPos));
       balance = boost::lexical_cast<boost::uint64_t>(curData[0].substr(delimPos + 1, curData[0].npos));
     } else {
       balance = boost::lexical_cast<boost::uint64_t>(curData[0]);
@@ -1591,21 +1681,21 @@ int input_msc_balances_string(const string &s)
       continue;
     }
 
-    if (balance) update_tally_map(strAddress, currency, balance, MONEY);
-    if (sellReserved) update_tally_map(strAddress, currency, sellReserved, SELLOFFER_RESERVE);
-    if (acceptReserved) update_tally_map(strAddress, currency, acceptReserved, ACCEPT_RESERVE);
+    if (balance) update_tally_map(strAddress, property, balance, BALANCE);
+    if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
+    if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
   }
 
   return 1;
 }
 
-// seller-address, offer_block, amount, currency, desired BTC , currency_desired, fee, blocktimelimit
+// seller-address, offer_block, amount, property, desired BTC , property_desired, fee, blocktimelimit
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,299076,76375000,1,6415500,0,10000,6
 int input_mp_offers_string(const string &s)
 {
   int offerBlock;
   uint64_t amountOriginal, btcDesired, minFee;
-  unsigned int curr, curr_desired;
+  unsigned int prop, prop_desired;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
@@ -1618,17 +1708,17 @@ int input_mp_offers_string(const string &s)
   sellerAddr = vstr[i++];
   offerBlock = atoi(vstr[i++]);
   amountOriginal = boost::lexical_cast<uint64_t>(vstr[i++]);
-  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
-  btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
-  curr_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
-  minFee = boost::lexical_cast<uint64_t>(vstr[i++]);
-  blocktimelimit = atoi(vstr[i++]);
+  prop = boost::lexical_cast<unsigned int>(vstr[i++]);
+  btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]); // metadex: amount of desired property
+  prop_desired = boost::lexical_cast<unsigned int>(vstr[i++]);
+  minFee = boost::lexical_cast<uint64_t>(vstr[i++]);  // metadex: subaction
+  blocktimelimit = atoi(vstr[i++]); // metadex: index of tx in block
   txidStr = vstr[i++];
 
-  if (MASTERCOIN_CURRENCY_BTC == curr_desired)
+  if (OMNI_PROPERTY_BTC == prop_desired)
   {
-  const string combo = STR_SELLOFFER_ADDR_CURR_COMBO(sellerAddr);
-  CMPOffer newOffer(offerBlock, amountOriginal, curr, btcDesired, minFee, blocktimelimit, uint256(txidStr));
+  const string combo = STR_SELLOFFER_ADDR_PROP_COMBO(sellerAddr);
+  CMPOffer newOffer(offerBlock, amountOriginal, prop, btcDesired, minFee, blocktimelimit, uint256(txidStr));
 
     if (my_offers.insert(std::make_pair(combo, newOffer)).second)
     {
@@ -1641,14 +1731,38 @@ int input_mp_offers_string(const string &s)
   }
   else
   {
-    // MetaDEx
-    // TODO ...
+    CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
+    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
+
+    XDOUBLE neworder_price = (XDOUBLE)amountOriginal / (XDOUBLE)btcDesired;
+
+    if (0 >= neworder_price) return METADEX_ERROR -66;
+
+    md_PricesMap temp_prices, *p_prices = get_Prices(prop);
+    md_Set temp_indexes, *p_indexes = NULL;
+
+    std::pair<md_Set::iterator,bool> ret;
+
+    if (p_prices) p_indexes = get_Indexes(p_prices, neworder_price);
+
+    if (!p_indexes) p_indexes = &temp_indexes;
+    {
+      ret = p_indexes->insert(new_mdex);
+
+      if (false == ret.second) return -1;
+    }
+
+    if (!p_prices) p_prices = &temp_prices;
+
+    (*p_prices)[neworder_price] = *p_indexes;
+
+    metadex[prop] = *p_prices;
   }
 
   return 0;
 }
 
-// seller-address, currency, buyer-address, amount, fee, block
+// seller-address, property, buyer-address, amount, fee, block
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1, 148EFCFXbk2LrUhEHDfs9y3A5dJ4tttKVd,100000,11000,299126
 // 13z1JFtDMGTYQvtMq5gs4LmCztK3rmEZga,1,1Md8GwMtWpiobRnjRabMT98EW6Jh4rEUNy,50000000,11000,299132
 int input_mp_accepts_string(const string &s)
@@ -1658,14 +1772,14 @@ int input_mp_accepts_string(const string &s)
   std::vector<std::string> vstr;
   boost::split(vstr, s, boost::is_any_of(" ,="), token_compress_on);
   uint64_t amountRemaining, amountOriginal, offerOriginal, btcDesired;
-  unsigned int curr;
+  unsigned int prop;
   string sellerAddr, buyerAddr, txidStr;
   int i = 0;
 
   if (10 != vstr.size()) return -1;
 
   sellerAddr = vstr[i++];
-  curr = boost::lexical_cast<unsigned int>(vstr[i++]);
+  prop = boost::lexical_cast<unsigned int>(vstr[i++]);
   buyerAddr = vstr[i++];
   nBlock = atoi(vstr[i++]);
   amountRemaining = boost::lexical_cast<uint64_t>(vstr[i++]);
@@ -1675,8 +1789,8 @@ int input_mp_accepts_string(const string &s)
   btcDesired = boost::lexical_cast<uint64_t>(vstr[i++]);
   txidStr = vstr[i++];
 
-  const string combo = STR_ACCEPT_ADDR_CURR_ADDR_COMBO(sellerAddr, buyerAddr);
-  CMPAccept newAccept(amountOriginal, amountRemaining, nBlock, blocktimelimit, curr, offerOriginal, btcDesired, uint256(txidStr));
+  const string combo = STR_ACCEPT_ADDR_PROP_ADDR_COMBO(sellerAddr, buyerAddr);
+  CMPAccept newAccept(amountOriginal, amountRemaining, nBlock, blocktimelimit, prop, offerOriginal, btcDesired, uint256(txidStr));
   if (my_accepts.insert(std::make_pair(combo, newAccept)).second) {
     return 0;
   } else {
@@ -1703,13 +1817,13 @@ int input_globals_state_string(const string &s)
   return 0;
 }
 
-// addr,propertyId,nValue,currency_desired,deadline,early_bird,percentage,txid
+// addr,propertyId,nValue,property_desired,deadline,early_bird,percentage,txid
 int input_mp_crowdsale_string(const string &s)
 {
   string sellerAddr;
   unsigned int propertyId;
   uint64_t nValue;
-  unsigned int currency_desired;
+  unsigned int property_desired;
   uint64_t deadline;
   unsigned char early_bird;
   unsigned char percentage;
@@ -1725,14 +1839,14 @@ int input_mp_crowdsale_string(const string &s)
   sellerAddr = vstr[i++];
   propertyId = atoi(vstr[i++]);
   nValue = boost::lexical_cast<uint64_t>(vstr[i++]);
-  currency_desired = atoi(vstr[i++]);
+  property_desired = atoi(vstr[i++]);
   deadline = boost::lexical_cast<uint64_t>(vstr[i++]);
   early_bird = (unsigned char)atoi(vstr[i++]);
   percentage = (unsigned char)atoi(vstr[i++]);
   u_created = boost::lexical_cast<uint64_t>(vstr[i++]);
   i_created = boost::lexical_cast<uint64_t>(vstr[i++]);
 
-  CMPCrowd newCrowdsale(propertyId,nValue,currency_desired,deadline,early_bird,percentage,u_created,i_created);
+  CMPCrowd newCrowdsale(propertyId,nValue,property_desired,deadline,early_bird,percentage,u_created,i_created);
 
   // load the remaining as database pairs
   while (i < vstr.size()) {
@@ -1779,6 +1893,13 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
 
     case FILETYPE_OFFERS:
       my_offers.clear();
+
+      // FIXME
+      // memory leak ... gotta unallocate inner layers first....
+      // TODO
+      // ...
+      metadex.clear();
+
       inputLineFunc = input_mp_offers_string;
       break;
 
@@ -1803,7 +1924,7 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
   if (msc_debug_persistence)
   {
     LogPrintf("Loading %s ... \n", filename);
-    fprintf(mp_fp, "%s(%s), line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
+    file_log("%s(%s), line %d, file: %s\n", __FUNCTION__, filename.c_str(), __LINE__, __FILE__);
   }
 
   ifstream file;
@@ -1857,12 +1978,12 @@ static int msc_file_load(const string &filename, int what, bool verifyHash = fal
     SHA256((unsigned char*)&hash1, sizeof(hash1), (unsigned char*)&hash2);
 
     if (false == boost::iequals(hash2.ToString(), fileHash)) {
-      fprintf(mp_fp, "File %s loaded, but failed hash validation!\n", filename.c_str());
+      file_log("File %s loaded, but failed hash validation!\n", filename.c_str());
       res = -1;
     }
   }
 
-  fprintf(mp_fp, "%s(%s), loaded lines= %d, res= %d\n", __FUNCTION__, filename.c_str(), lines, res);
+  file_log("%s(%s), loaded lines= %d, res= %d\n", __FUNCTION__, filename.c_str(), lines, res);
   LogPrintf("%s(): file: %s , loaded lines= %d, res= %d\n", __FUNCTION__, filename, lines, res);
 
   return res;
@@ -1988,11 +2109,11 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
     lineOut.append("=");
     CMPTally &curAddr = (*iter).second;
     curAddr.init();
-    unsigned int curr = 0;
-    while (0 != (curr = curAddr.next())) {
-      uint64_t balance = (*iter).second.getMoney(curr, MONEY);
-      uint64_t sellReserved = (*iter).second.getMoney(curr, SELLOFFER_RESERVE);
-      uint64_t acceptReserved = (*iter).second.getMoney(curr, ACCEPT_RESERVE);
+    unsigned int prop = 0;
+    while (0 != (prop = curAddr.next())) {
+      uint64_t balance = (*iter).second.getMoney(prop, BALANCE);
+      uint64_t sellReserved = (*iter).second.getMoney(prop, SELLOFFER_RESERVE);
+      uint64_t acceptReserved = (*iter).second.getMoney(prop, ACCEPT_RESERVE);
 
       // we don't allow 0 balances to read in, so if we don't write them
       // it makes things match up better between persisted state and processed state
@@ -2003,7 +2124,7 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
       emptyWallet = false;
 
       lineOut.append((boost::format("%d:%d,%d,%d;")
-          % curr
+          % prop
           % balance
           % sellReserved
           % acceptReserved).str());
@@ -2039,10 +2160,19 @@ static int write_mp_offers(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_mp_metadex(ofstream &file, SHA256_CTX *shaCtx)
 {
-//  printf("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-
-  // TODO
-  // ...
+  for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
+  {
+    md_PricesMap & prices = my_it->second;
+    for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
+    {
+      md_Set & indexes = (it->second);
+      for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
+      {
+        CMPMetaDEx meta = *it;
+        meta.saveOffer(file, shaCtx);
+      }
+    }
+  }
 
   return 0;
 }
@@ -2063,8 +2193,8 @@ static int write_mp_accepts(ofstream &file, SHA256_CTX *shaCtx)
 
 static int write_globals_state(ofstream &file, SHA256_CTX *shaCtx)
 {
-  unsigned int nextSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_MSC);
-  unsigned int nextTestSPID = _my_sps->peekNextSPID(MASTERCOIN_CURRENCY_TMSC);
+  unsigned int nextSPID = _my_sps->peekNextSPID(OMNI_PROPERTY_MSC);
+  unsigned int nextTestSPID = _my_sps->peekNextSPID(OMNI_PROPERTY_TMSC);
   string lineOut = (boost::format("%d,%d,%d")
     % exodus_prev
     % nextSPID
@@ -2161,7 +2291,7 @@ static void prune_state_files( CBlockIndex const *topIndex )
     std::string fName = dIter->path().empty() ? "<invalid>" : (*--dIter->path().end()).string();
     if (false == boost::filesystem::is_regular_file(dIter->status())) {
       // skip funny business
-      fprintf(mp_fp, "Non-regular file found in persistence directory : %s\n", fName.c_str());
+      file_log("Non-regular file found in persistence directory : %s\n", fName.c_str());
       continue;
     }
 
@@ -2174,7 +2304,7 @@ static void prune_state_files( CBlockIndex const *topIndex )
       blockHash.SetHex(vstr[1]);
       statefulBlockHashes.insert(blockHash);
     } else {
-      fprintf(mp_fp, "None state file found in persistence directory : %s\n", fName.c_str());
+      file_log("None state file found in persistence directory : %s\n", fName.c_str());
     }
   }
 
@@ -2193,9 +2323,9 @@ static void prune_state_files( CBlockIndex const *topIndex )
      if (msc_debug_persistence)
      {
       if (curIndex) {
-        fprintf(mp_fp, "State from Block:%s is no longer need, removing files (age-from-tip: %d)\n", (*iter).ToString().c_str(), topIndex->nHeight - curIndex->nHeight);
+        file_log("State from Block:%s is no longer need, removing files (age-from-tip: %d)\n", (*iter).ToString().c_str(), topIndex->nHeight - curIndex->nHeight);
       } else {
-        fprintf(mp_fp, "State from Block:%s is no longer need, removing files (not in index)\n", (*iter).ToString().c_str());
+        file_log("State from Block:%s is no longer need, removing files (not in index)\n", (*iter).ToString().c_str());
       }
      }
 
@@ -2246,6 +2376,7 @@ int mastercore_init()
 
   shrinkDebugFile();
 
+/*
 #ifndef  DISABLE_LOG_FILE
   boost::filesystem::path pathTempLog = GetDataDir() / LOG_FILENAME;
   mp_fp = fopen(pathTempLog.string().c_str(), "a");
@@ -2254,8 +2385,9 @@ int mastercore_init()
 #endif
 
   if (!mp_fp) mp_fp = stdout; // dump to terminal if file can't be opened
+*/
 
-  fprintf(mp_fp, "\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  file_log("\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
   {
@@ -2267,6 +2399,7 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2316,29 +2449,29 @@ int mastercore_init()
 #if 0
     if (isNonMainNet()) nWaterlineBlock = 272790;
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 1 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 1 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 1 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 3 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 3 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 3 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 3 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483652 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483652 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483652 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483652 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483660 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483660 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483660 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483660 , 100000, BALANCE);
 
-    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, MONEY);
-    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, MONEY);
+    update_tally_map("mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64" , 2147483661 , 500000, BALANCE);
+    update_tally_map("mxaYwMv2Brbs7CW9r5aYuEr1jKTSDXg1TH" , 2147483661 , 100000, BALANCE);
 #endif
 #endif
   }
 
   // collect the real Exodus balances available at the snapshot time
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
@@ -2347,10 +2480,8 @@ int mastercore_init()
   // initial scan
   (void) msc_initial_scan(nWaterlineBlock);
 
-  if (mp_fp) fflush(mp_fp);
-
   // display Exodus balance
-  exodus_balance = getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY);
+  exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("Exodus balance: %lu\n", exodus_balance);
 
   return 0;
@@ -2364,14 +2495,18 @@ int mastercore_shutdown()
   {
     delete p_txlistdb; p_txlistdb = NULL;
   }
-
-  if (mp_fp)
+  if (t_tradelistdb)
   {
-    fprintf(mp_fp, "\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+    delete t_tradelistdb; t_tradelistdb = NULL;
+  }
+
+//  if (mp_fp)
+  {
+    file_log("\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 #ifndef  DISABLE_LOG_FILE
-    fclose(mp_fp);
+//    fclose(mp_fp);
 #endif
-    mp_fp = NULL;
+//    mp_fp = NULL;
   }
 
   if (_my_sps)
@@ -2407,7 +2542,7 @@ int interp_ret = -555555, pop_ret;
   // true MP transaction, validity (such as insufficient funds, or offer not found) is determined elsewhere
 
     interp_ret = mp_obj.interpretPacket();
-    if (interp_ret) fprintf(mp_fp, "!!! interpretPacket() returned %d !!!\n", interp_ret);
+    if (interp_ret) file_log("!!! interpretPacket() returned %d !!!\n", interp_ret);
 
     mp_obj.print();
 
@@ -2522,9 +2657,8 @@ static int64_t selectCoins(const string &FromAddress, CCoinControl &coinControl,
           int64_t n = bIsSpent ? 0 : pcoin->vout[i].nValue;
 
           sAddress = CBitcoinAddress(dest).ToString();
-          if (msc_debug_coins)
-            fprintf(mp_fp,
-                "%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
+          if (msc_debug_tokens)
+            file_log("%s:IsMine()=%s:IsSpent()=%s:%s: i=%d, nValue= %lu\n",
                 sAddress.c_str(), bIsMine ? "yes" : "NO",
                 bIsSpent ? "YES" : "no", wtxid.ToString().c_str(), i, n);
 
@@ -2596,7 +2730,7 @@ vector< pair<CScript, int64_t> > vecSend;
   {
     if (address.IsScript())
     {
-      fprintf(mp_fp, "%s() ERROR: Redemption Address must be specified !\n", __FUNCTION__);
+      file_log("%s() ERROR: Redemption Address must be specified !\n", __FUNCTION__);
       return MP_REDEMP_ILLEGAL;
     }
     else
@@ -2672,7 +2806,7 @@ vector< pair<CScript, int64_t> > vecSend;
         fakeKey[32] = random_byte;
 
         pubKey = CPubKey(fakeKey);
-        printf("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
+        file_log("pubKey check: %s\n", (HexStr(pubKey.begin(), pubKey.end()).c_str()));
 
         if (pubKey.IsFullyValid()) break;
 
@@ -2732,7 +2866,7 @@ vector< pair<CScript, int64_t> > vecSend;
     return 0;
   }
 
-  printf("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
+  file_log("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
 
   if (!wallet->CommitTransaction(wtxNew, reserveKey)) return MP_ERR_COMMIT_TX;
 
@@ -2742,19 +2876,17 @@ vector< pair<CScript, int64_t> > vecSend;
 }
 
 // WIP: expanding the function to a general-purpose one, but still sending 1 packet only for now (30-31 bytes)
-uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int CurrencyID, uint64_t Amount, unsigned int CurrencyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
+uint256 mastercore::send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount, unsigned int PropertyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code)
 {
-const int64_t iAvailable = getMPbalance(FromAddress, CurrencyID, MONEY);
-const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, CurrencyID);
+const int64_t iAvailable = getMPbalance(FromAddress, PropertyID, BALANCE);
+const int64_t iUserAvailable = getUserAvailableMPbalance(FromAddress, PropertyID);
 int rc = MP_INSUF_FUNDS_BPENDI;
 uint256 txid = 0;
 const int64_t amount = Amount;
-const unsigned int curr = CurrencyID;
+const unsigned int prop = PropertyID;
 
-  if (msc_debug_send) fprintf(mp_fp, "%s(From: %s , To: %s , Currency= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
-   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), CurrencyID, Amount, iAvailable, iUserAvailable);
-
-  if (mp_fp) fflush(mp_fp);
+  if (msc_debug_send) file_log("%s(From: %s , To: %s , Property= %u, Amount= %lu, Available= %ld, Pending= %ld)\n",
+   __FUNCTION__, FromAddress.c_str(), ToAddress.c_str(), PropertyID, Amount, iAvailable, iUserAvailable);
 
   if (!isRangeOK(Amount))
   {
@@ -2764,11 +2896,18 @@ const unsigned int curr = CurrencyID;
     return 0;
   }
 
-  // make sure this address has enough MP currency available!
-  if (((uint64_t)iAvailable < Amount) || (0 == Amount))
+  bool bCancel_AllOrPair = false;
+  //If doing a METADEX CANCEL 3 or 4, use following flag to bypass funds checks
+  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
   {
-    LogPrintf("%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
-    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
+    bCancel_AllOrPair = true;
+  } 
+
+  // make sure this address has enough MP property available!
+  if ((((uint64_t)iAvailable < Amount) || (0 == Amount)) && !bCancel_AllOrPair)
+  {
+    LogPrintf("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
+    if (msc_debug_send) file_log("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
 
     if (error_code) *error_code = rc;
 
@@ -2776,11 +2915,11 @@ const unsigned int curr = CurrencyID;
   }
 
   // check once more, this time considering PENDING amount reduction
-  // make sure this address has enough MP currency available!
-  if ((iUserAvailable < (int64_t)Amount) || (0 == Amount))
+  // make sure this address has enough MP property available!
+  if (((iUserAvailable < (int64_t)Amount) || (0 == Amount)) && !bCancel_AllOrPair)
   {
-    LogPrintf("%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
-    if (msc_debug_send) fprintf(mp_fp, "%s(): aborted -- not enough MP currency with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+    LogPrintf("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
+    if (msc_debug_send) file_log("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
 
     rc = MP_INSUF_FUNDS_APENDI;
     if (error_code) *error_code = rc;
@@ -2790,39 +2929,37 @@ const unsigned int curr = CurrencyID;
 
   vector<unsigned char> data;
   swapByteOrder32(TransactionType);
-  swapByteOrder32(CurrencyID);
+  swapByteOrder32(PropertyID);
   swapByteOrder64(Amount);
 
   PUSH_BACK_BYTES(data, TransactionType);
-  PUSH_BACK_BYTES(data, CurrencyID);
+  PUSH_BACK_BYTES(data, PropertyID);
   PUSH_BACK_BYTES(data, Amount);
   
-  if ( CurrencyID_2 != 0 ) //for trade_MP
+  if ( PropertyID_2 != 0 ) //for trade_MP
   {
     //use additional to pass action byte
     unsigned char action = boost::lexical_cast<int>(additional); 
     //zero out additional for trade_MP
     additional = 0;
 
-    swapByteOrder32(CurrencyID_2);
+    swapByteOrder32(PropertyID_2);
     swapByteOrder64(Amount_2);
 
-    PUSH_BACK_BYTES(data, CurrencyID_2);
+    PUSH_BACK_BYTES(data, PropertyID_2);
     PUSH_BACK_BYTES(data, Amount_2);
     PUSH_BACK_BYTES(data, action);
   }
 
   rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, txid, additional);
-  if (msc_debug_send) fprintf(mp_fp, "ClassB_send returned %d\n", rc);
+  if (msc_debug_send) file_log("ClassB_send returned %d\n", rc);
 
   if (error_code) *error_code = rc;
 
   if (0 == rc)
   {
-    (void) pendingAdd(txid, FromAddress, curr, amount);
+    (void) pendingAdd(txid, FromAddress, prop, amount);
   }
-
-  if (mp_fp) fflush(mp_fp);
 
   return txid;
 }
@@ -2866,6 +3003,51 @@ int CMPTxList::setLastAlert(int blockHeight)
 //    fprintf(mp_fp, "lastAlertTxid %s\n", lastAlertTxid);
 }
 
+uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
+{
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  uint256 cancelTxid;
+  Iterator* it = pdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string svalueStr = svalue.ToString().c_str();
+      boost::split(vstr, svalueStr, boost::is_any_of(":"), token_compress_on);
+      // obtain the existing affected tx count
+      if (3 <= vstr.size())
+      {
+          if (vstr[0] == txidStr) { delete it; cancelTxid.SetHex(skey.ToString().c_str()); return cancelTxid; }
+      }
+  }
+
+  delete it;
+  return 0;
+}
+
+int CMPTxList::getNumberOfMetaDExCancels(const uint256 txid)
+{
+    if (!pdb) return 0;
+    int numberOfCancels = 0;
+    std::vector<std::string> vstr;
+    string strValue;
+    Status status = pdb->Get(readoptions, txid.ToString() + "-C", &strValue);
+    if (status.ok())
+    {
+        // parse the string returned
+        boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+        // obtain the number of cancels
+        if (4 <= vstr.size())
+        {
+            numberOfCancels = atoi(vstr[3]);
+        }
+    }
+    return numberOfCancels;
+}
+
 int CMPTxList::getNumberOfPurchases(const uint256 txid)
 {
     if (!pdb) return 0;
@@ -2884,6 +3066,14 @@ int CMPTxList::getNumberOfPurchases(const uint256 txid)
         }
     }
     return numberOfPurchases;
+}
+
+string CMPTxList::getKeyValue(string key)
+{
+    if (!pdb) return "";
+    string strValue;
+    Status status = pdb->Get(readoptions, key, &strValue);
+    if (status.ok()) { return strValue; } else { return ""; }
 }
 
 bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue)
@@ -2908,6 +3098,58 @@ bool CMPTxList::getPurchaseDetails(const uint256 txid, int purchaseNumber, strin
         }
     }
     return false;
+}
+
+void CMPTxList::recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &txidSub, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue)
+{
+  if (!pdb) return;
+
+       // Prep - setup vars
+       unsigned int type = 99992104;
+       unsigned int refNumber = 1;
+       uint64_t existingAffectedTXCount = 0;
+       string txidMasterStr = txidMaster.ToString() + "-C";
+
+       // Step 1 - Check TXList to see if this cancel TXID exists
+       // Step 2a - If doesn't exist leave number of affected txs & ref set to 1
+       // Step 2b - If does exist add +1 to existing ref and set this ref as new number of affected
+       std::vector<std::string> vstr;
+       string strValue;
+       Status status = pdb->Get(readoptions, txidMasterStr, &strValue);
+       if (status.ok())
+       {
+           // parse the string returned
+           boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+
+           // obtain the existing affected tx count
+           if (4 <= vstr.size())
+           {
+               existingAffectedTXCount = atoi(vstr[3]);
+               refNumber = existingAffectedTXCount + 1;
+           }
+       }
+
+       // Step 3 - Create new/update master record for cancel tx in TXList
+       const string key = txidMasterStr;
+       const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, refNumber);
+       file_log("METADEXCANCELDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of affected transactions= %d)\n", __FUNCTION__, txidMaster.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, refNumber);
+       if (pdb)
+       {
+           status = pdb->Put(writeoptions, key, value);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+       }
+
+       // Step 4 - Write sub-record with cancel details
+       const string txidStr = txidMaster.ToString() + "-C";
+       const string subKey = STR_REF_SUBKEY_TXID_REF_COMBO(txidStr);
+       const string subValue = strprintf("%s:%d:%lu", txidSub.ToString(), propertyId, nValue);
+       Status subStatus;
+       file_log("METADEXCANCELDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       if (pdb)
+       {
+           subStatus = pdb->Put(writeoptions, subKey, subValue);
+           file_log("METADEXCANCELDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+       }
 }
 
 void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller)
@@ -2950,11 +3192,11 @@ void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, un
        const string key = txid.ToString();
        const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, numberOfPayments); 
        Status status;
-       fprintf(mp_fp, "DEXPAYDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of payments= %lu)\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, numberOfPayments);
+       file_log("DEXPAYDEBUG : Writing master record %s(%s, valid=%s, block= %d, type= %d, number of payments= %lu)\n", __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, numberOfPayments);
        if (pdb)
        {
            status = pdb->Put(writeoptions, key, value);
-           fprintf(mp_fp, "DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+           file_log("DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
        }
 
        // Step 4 - Write sub-record with payment details
@@ -2962,11 +3204,11 @@ void CMPTxList::recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, un
        const string subKey = STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr);
        const string subValue = strprintf("%d:%s:%s:%d:%lu", vout, buyer, seller, propertyId, nValue);
        Status subStatus;
-       fprintf(mp_fp, "DEXPAYDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
+       file_log("DEXPAYDEBUG : Writing sub-record %s with value %s\n", subKey.c_str(), subValue.c_str());
        if (pdb)
        {
            subStatus = pdb->Put(writeoptions, subKey, subValue);
-           fprintf(mp_fp, "DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
+           file_log("DEXPAYDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, subStatus.ToString().c_str(), __LINE__, __FILE__);
        }
 }
 
@@ -2974,18 +3216,22 @@ void CMPTxList::recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned 
 {
   if (!pdb) return;
 
+  // overwrite detection, we should never be overwriting a tx, as that means we have redone something a second time
+  // reorgs delete all txs from levelDB above reorg_chain_height
+  if (p_txlistdb->exists(txid)) file_log("LEVELDB TX OVERWRITE DETECTION - %s\n", txid.ToString().c_str());
+
 const string key = txid.ToString();
 const string value = strprintf("%u:%d:%u:%lu", fValid ? 1:0, nBlock, type, nValue);
 Status status;
 
-  fprintf(mp_fp, "%s(%s, valid=%s, block= %d, type= %d, value= %lu)\n",
+  file_log("%s(%s, valid=%s, block= %d, type= %d, value= %lu)\n",
    __FUNCTION__, txid.ToString().c_str(), fValid ? "YES":"NO", nBlock, type, nValue);
 
   if (pdb)
   {
     status = pdb->Put(writeoptions, key, value);
     ++nWritten;
-    if (msc_debug_txdb) fprintf(mp_fp, "%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    if (msc_debug_txdb) file_log("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
   }
 }
 
@@ -3020,7 +3266,7 @@ Status status = pdb->Get(readoptions, txid.ToString(), &value);
 
 void CMPTxList::printStats()
 {
-  fprintf(mp_fp, "CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+  file_log("CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
 }
 
 void CMPTxList::printAll()
@@ -3078,7 +3324,7 @@ unsigned int n_found = 0;
       if ((starting_block <= block) && (block <= ending_block))
       {
         ++n_found;
-        fprintf(mp_fp, "%s() DELETING: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        file_log("%s() DELETING: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
         if (bDeleteFound) pdb->Delete(writeoptions, skey);
       }
     }
@@ -3089,6 +3335,173 @@ unsigned int n_found = 0;
   delete it;
 
   return (n_found);
+}
+
+// MPTradeList here
+bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought)
+{
+  if (!tdb) return false;
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  string txidStr = txid.ToString();
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      svalue = it->value();
+      string strkey = it->key().ToString();
+      size_t txidMatch = strkey.find(txidStr);
+      if(txidMatch!=std::string::npos)
+      {
+          // we have a matching trade involving this txid
+          // get the txid of the match
+          string matchTxid;
+          // make sure string is correct length
+          if (strkey.length() == 129)
+          {
+              if (txidMatch==0) { matchTxid = strkey.substr(65,64); } else { matchTxid = strkey.substr(0,64); }
+
+              string strvalue = it->value().ToString();
+              boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+              if (7 == vstr.size()) // ensure there are the expected amount of tokens
+              {
+                  string address;
+                  string address1 = vstr[0];
+                  string address2 = vstr[1];
+                  unsigned int prop1;
+                  unsigned int prop2;
+                  uint64_t uAmount1;
+                  uint64_t uAmount2;
+                  uint64_t nBought;
+                  uint64_t nSold;
+                  string amountBought;
+                  string amountSold;
+                  string amount1;
+                  string amount2;
+                  prop1 = boost::lexical_cast<unsigned int>(vstr[2]);
+                  prop2 = boost::lexical_cast<unsigned int>(vstr[3]);
+                  uAmount1 = boost::lexical_cast<uint64_t>(vstr[4]);
+                  uAmount2 = boost::lexical_cast<uint64_t>(vstr[5]);
+                  if(isPropertyDivisible(prop1))
+                     { amount1 = FormatDivisibleMP(uAmount1); }
+                  else
+                     { amount1 = FormatIndivisibleMP(uAmount1); }
+                  if(isPropertyDivisible(prop2))
+                     { amount2 = FormatDivisibleMP(uAmount2); }
+                  else
+                     { amount2 = FormatIndivisibleMP(uAmount2); }
+
+                  // correct orientation of trade
+                  if (prop1 == propertyId)
+                  {
+                      address = address1;
+                      amountBought = amount2;
+                      amountSold = amount1;
+                      nBought = uAmount2;
+                      nSold = uAmount1;
+                  }
+                  else
+                  {
+                      address = address2;
+                      amountBought = amount1;
+                      amountSold = amount2;
+                      nBought = uAmount1;
+                      nSold = uAmount2;
+                  }
+                  int blockNum = atoi(vstr[6]);
+                  Object trade;
+                  trade.push_back(Pair("txid", matchTxid));
+                  trade.push_back(Pair("address", address));
+                  trade.push_back(Pair("block", blockNum));
+                  trade.push_back(Pair("amountsold", amountSold));
+                  trade.push_back(Pair("amountbought", amountBought));
+                  tradeArray->push_back(trade);
+                  ++count;
+                  *totalBought += nBought;
+                  *totalSold += nSold;
+              }
+          }
+      }
+  }
+  delete it;
+  if (count) { return true; } else { return false; }
+}
+
+void CMPTradeList::recordTrade(const uint256 txid1, const uint256 txid2, string address1, string address2, unsigned int prop1, unsigned int prop2, uint64_t amount1, uint64_t amount2, int blockNum)
+{
+  if (!tdb) return;
+  const string key = txid1.ToString() + "+" + txid2.ToString();
+  const string value = strprintf("%s:%s:%u:%u:%lu:%lu:%d", address1, address2, prop1, prop2, amount1, amount2, blockNum);
+  Status status;
+  if (tdb)
+  {
+    status = tdb->Put(writeoptions, key, value);
+    ++tWritten;
+    if (msc_debug_tradedb) file_log("%s(): %s\n", __FUNCTION__, status.ToString().c_str());
+  }
+}
+
+// delete any trades after blockNum
+int CMPTradeList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = tdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+    // only care about the block number/height here
+    if (7 == vstr.size())
+    {
+      block = atoi(vstr[6]);
+
+      if (block >= blockNum)
+      {
+        ++n_found;
+        file_log("%s() DELETING FROM TRADEDB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        tdb->Delete(writeoptions, skey);
+      }
+    }
+  }
+
+  printf("%s(%d); tradedb n_found= %d\n", __FUNCTION__, blockNum, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
+void CMPTradeList::printStats()
+{
+  file_log("CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
+}
+
+void CMPTradeList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = tdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
 }
 
 // global wrapper, block numbers are inclusive, if ending_block is 0 top of the chain will be used
@@ -3113,7 +3526,7 @@ bool mastercore::getValidMPTX(const uint256 &txid, int *block, unsigned int *typ
 string result;
 int validity = 0;
 
-  if (msc_debug_txdb) fprintf(mp_fp, "%s()\n", __FUNCTION__);
+  if (msc_debug_txdb) file_log("%s()\n", __FUNCTION__);
 
   if (!p_txlistdb) return false;
 
@@ -3123,7 +3536,7 @@ int validity = 0;
   std::vector<std::string> vstr;
   boost::split(vstr, result, boost::is_any_of(":"), token_compress_on);
 
-  fprintf(mp_fp, "%s() size=%lu : %s\n", __FUNCTION__, vstr.size(), result.c_str());
+  file_log("%s() size=%lu : %s\n", __FUNCTION__, vstr.size(), result.c_str());
 
   if (1 <= vstr.size()) validity = atoi(vstr[0]);
 
@@ -3191,6 +3604,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     // reset states
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
+    t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
@@ -3244,23 +3658,21 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   unsigned int how_many_erased = eraseExpiredAccepts(nBlockNow);
 
   if (how_many_erased)
-    fprintf(mp_fp, "%s(%d); erased %u accepts this block, line %d, file: %s\n",
+    file_log("%s(%d); erased %u accepts this block, line %d, file: %s\n",
         __FUNCTION__, how_many_erased, nBlockNow, __LINE__, __FILE__);
 
   // calculate devmsc as of this block and update the Exodus' balance
   devmsc = calculate_and_update_devmsc(pBlockIndex->GetBlockTime());
 
   if (msc_debug_exo)
-    fprintf(mp_fp, "devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
-        devmsc, getMPbalance(exodus_address, MASTERCOIN_CURRENCY_MSC, MONEY));
+    file_log("devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
+        devmsc, getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE));
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
 
   // check the alert status, do we need to do anything else here?
   bool alertExpired = checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
-
-  if (mp_fp) fflush(mp_fp);
 
   // save out the state after this block
   if (writePersistence(nBlockNow))
@@ -3299,7 +3711,7 @@ static const string addr = "1MpNote1jsHkbQLwEmgoMr29EoUC1nyxxV";
  //
  // RETURNS:  0 if the packet is fully valid
  // RETURNS: <0 if the packet is invalid
- // RETURNS: >0 the only known case today is: return PKT_RETURN_OFFER
+ // RETURNS: >0 the only known case today is: return PKT_RETURNED_OBJECT
  //
  // 
  // the following functions may augment the amount in question (nValue):
@@ -3311,7 +3723,7 @@ static const string addr = "1MpNote1jsHkbQLwEmgoMr29EoUC1nyxxV";
  // optional: provide the pointer to the CMPOffer object, it will get filled in
  // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
  //
-int CMPTransaction::interpretPacket(CMPOffer *obj_o)
+int CMPTransaction::interpretPacket(CMPOffer *obj_o, CMPMetaDEx *mdex_o)
 {
 int rc = PKT_ERROR;
 int step_rc;
@@ -3320,6 +3732,7 @@ std::string new_global_alert_message;
   if (0>step1()) return -98765;
 
   if ((obj_o) && (MSC_TYPE_TRADE_OFFER != type)) return -777; // can't fill in the Offer object !
+  if ((mdex_o) && (MSC_TYPE_METADEX != type)) return -778; // can't fill in the MetaDEx object !
 
   // further processing for complex types
   // TODO: version may play a role here !
@@ -3371,7 +3784,7 @@ std::string new_global_alert_message;
         newSP.creation_block = newSP.update_block = chainActive[block]->GetBlockHash();
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        update_tally_map(sender, id, nValue, MONEY);
+        update_tally_map(sender, id, nValue, BALANCE);
       }
       rc = 0;
       break;
@@ -3389,8 +3802,8 @@ std::string new_global_alert_message;
       // check if one exists for this address already !
       if (NULL != getCrowd(sender)) return (PKT_ERROR_SP -20);
 
-      // must check that the desired currency exists in our universe
-      if (false == _my_sps->hasSP(currency)) return (PKT_ERROR_SP -30);
+      // must check that the desired property exists in our universe
+      if (false == _my_sps->hasSP(property)) return (PKT_ERROR_SP -30);
 
       if (0 == step_rc)
       {
@@ -3405,15 +3818,15 @@ std::string new_global_alert_message;
         newSP.url.assign(url);
         newSP.data.assign(data);
         newSP.fixed = false;
-        newSP.currency_desired = currency;
+        newSP.property_desired = property;
         newSP.deadline = deadline;
         newSP.early_bird = early_bird;
         newSP.percentage = percentage;
         newSP.creation_block = newSP.update_block = chainActive[block]->GetBlockHash();
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, currency, deadline, early_bird, percentage, 0, 0)));
-        fprintf(mp_fp, "CREATED CROWDSALE id: %u value: %lu currency: %u\n", id, nValue, currency);  
+        my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, property, deadline, early_bird, percentage, 0, 0)));
+        file_log("CREATED CROWDSALE id: %u value: %lu property: %u\n", id, nValue, property);  
       }
       rc = 0;
       break;
@@ -3426,14 +3839,13 @@ std::string new_global_alert_message;
       if (it != my_crowds.end())
       {
         // retrieve the property id from the incoming packet
-        memcpy(&currency, &pkt[4], 4);
-        swapByteOrder32(currency);
+        memcpy(&property, &pkt[4], 4);
+        swapByteOrder32(property);
 
-        if (msc_debug_sp) fprintf(mp_fp, "%s() trying to ERASE CROWDSALE for propid= %u=%X, line %d, file: %s\n",
-         __FUNCTION__, currency, currency, __LINE__, __FILE__);
+        if (msc_debug_sp) file_log("%s() trying to ERASE CROWDSALE for propid= %u=%X\n", __FUNCTION__, property, property);
 
-        // ensure we are closing the crowdsale which we opened by checking the currency
-        if ((it->second).getPropertyId() != currency)
+        // ensure we are closing the crowdsale which we opened by checking the property
+        if ((it->second).getPropertyId() != property)
         {
           rc = (PKT_ERROR_SP -606);
           break;
@@ -3448,7 +3860,7 @@ std::string new_global_alert_message;
         CMPSPInfo::Entry sp;
         _my_sps->getSP(crowd.getPropertyId(), sp);
 
-        //fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
+        //file_log("\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
         double missedTokens = calculateFractional(sp.prop_type,
                             sp.early_bird,
@@ -3458,7 +3870,7 @@ std::string new_global_alert_message;
                             crowd.getDatabase(),
                             crowd.getIssuerCreated());
 
-        //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+        //file_log("\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %ld %ld %ld %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
         sp.historicalData = crowd.getDatabase();
         sp.update_block = chainActive[block]->GetBlockHash();
         sp.close_early = 1;
@@ -3467,7 +3879,7 @@ std::string new_global_alert_message;
         sp.missedTokens = (int64_t) missedTokens;
         _my_sps->updateSP(crowd.getPropertyId() , sp);
         
-        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, MONEY);
+        update_tally_map(sp.issuer, crowd.getPropertyId(), missedTokens, BALANCE);
         //End
 
         my_crowds.erase(it);
@@ -3498,7 +3910,7 @@ std::string new_global_alert_message;
         newSP.manual = true;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
-        fprintf(mp_fp, "CREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
+        file_log("CREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
       }
       rc = 0;
       break;
@@ -3534,7 +3946,7 @@ std::string new_global_alert_message;
       }
       else
       {
-        fprintf(mp_fp, "\nPROBLEM writing %s, errno= %d\n", OWNERS_FILENAME, errno);
+        file_log("\nPROBLEM writing %s, errno= %d\n", OWNERS_FILENAME, errno);
       }
 
       rc = logicMath_SendToOwners(fp);
@@ -3545,18 +3957,27 @@ std::string new_global_alert_message;
 
     case MSC_TYPE_METADEX:
 #ifdef  MY_HACK
-      if (304500 > block) return -31337;
+//      if (304500 > block) return -31337;
+//      if (305100 > block) return -31337;
+
+//      if (304930 > block) return -31337;
+//      if (307057 > block) return -31337;
+
+//      if (307234 > block) return -31337;
+//      if (307607 > block) return -31337;
+
+      if (307057 > block) return -31337;
 #endif
       step_rc = step2_Value();
       if (0>step_rc) return step_rc;
 
-      rc = logicMath_MetaDEx();
+      rc = logicMath_MetaDEx(mdex_o);
       break;
 
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
-      // parse the currency from the packet
-      memcpy(&currency, &pkt[4], 4);
-      swapByteOrder32(currency);
+      // parse the property from the packet
+      memcpy(&property, &pkt[4], 4);
+      swapByteOrder32(property);
 
       rc = logicMath_ChangeIssuer();
       break;
@@ -3588,7 +4009,7 @@ int CMPTransaction::logicMath_SimpleSend()
 int rc = PKT_ERROR_SEND -1000;
 int invalid = 0;  // unused
 
-      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_SEND -22);
+      if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_SEND -22);
 
       if (sender.empty()) ++invalid;
       // special case: if can't find the receiver -- assume sending to itself !
@@ -3601,12 +4022,12 @@ int invalid = 0;  // unused
       if (receiver.empty()) ++invalid;
 
       // insufficient funds check & return
-      if (!update_tally_map(sender, currency, - nValue, MONEY))
+      if (!update_tally_map(sender, property, - nValue, BALANCE))
       {
         return (PKT_ERROR -111);
       }
 
-      update_tally_map(receiver, currency, nValue, MONEY);
+      update_tally_map(receiver, property, nValue, BALANCE);
 
       // is there a crowdsale running from this recepient ?
       {
@@ -3614,12 +4035,12 @@ int invalid = 0;  // unused
 
         crowd = getCrowd(receiver);
 
-        if (crowd && (crowd->getCurrDes() == currency) )
+        if (crowd && (crowd->getCurrDes() == property) )
         {
           CMPSPInfo::Entry sp;
           bool spFound = _my_sps->getSP(crowd->getPropertyId(), sp);
 
-          fprintf(mp_fp, "INVESTMENT SEND to Crowdsale Issuer: %s\n", receiver.c_str());
+          file_log("INVESTMENT SEND to Crowdsale Issuer: %s\n", receiver.c_str());
           
           if (spFound)
           {
@@ -3638,11 +4059,11 @@ int invalid = 0;  // unused
             //account for 1.0 Div != 1 Indiv but actually 1.0 Div == 100000000 Indiv.
             //The unit must be shifted or your values will be incorrect,
             //that is what we check for below.
-            if ( !(isPropertyDivisible(currency)) ) {
+            if ( !(isPropertyDivisible(property)) ) {
               nValue = nValue * 1e8;
             }
 
-            //fprintf(mp_fp, "\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
+            //file_log("\nValues going into calculateFundraiser(): hexid %s nValue %lu earlyBird %d deadline %lu blockTime %ld numProps %lu issuerPerc %d \n", txid.GetHex().c_str(), nValue, sp.early_bird, sp.deadline, (uint64_t) blockTime, sp.num_tokens, sp.percentage);
 
             // calc tokens per this fundraise
             calculateFundraiser(sp.prop_type,         //u short
@@ -3656,14 +4077,14 @@ int invalid = 0;  // unused
                                 tokens,
                                 close_crowdsale);
 
-            //fprintf(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            //file_log(mp_fp,"\n before incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
             //getIssuerCreated() is passed into calcluateFractional() at close
             //getUserCreated() is a convenient way to get user created during a crowdsale
             crowd->incTokensUserCreated(tokens.first);
             crowd->incTokensIssuerCreated(tokens.second);
             
-            //fprintf(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
+            //file_log(mp_fp,"\n after incrementing global tokens user: %ld issuer: %ld\n", crowd->getUserCreated(), crowd->getIssuerCreated());
             
             //init data to pass to txFundraiserData
             uint64_t txdata[] = { (uint64_t) nValue, (uint64_t) blockTime, (uint64_t) tokens.first, (uint64_t) tokens.second };
@@ -3673,11 +4094,11 @@ int invalid = 0;  // unused
             //insert data
             crowd->insertDatabase(txid.GetHex().c_str(), txDataVec  );
 
-            //fprintf(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
+            //file_log(mp_fp,"\nValues coming out of calculateFundraiser(): hex %s: Tokens created, Tokens for issuer: %ld %ld\n",txid.GetHex().c_str(), tokens.first, tokens.second);
 
             //update sender/rec
-            update_tally_map(sender, crowd->getPropertyId(), tokens.first, MONEY);
-            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, MONEY);
+            update_tally_map(sender, crowd->getPropertyId(), tokens.first, BALANCE);
+            update_tally_map(receiver, crowd->getPropertyId(), tokens.second, BALANCE);
 
             // close crowdsale if we hit MAX_TOKENS
             if( close_crowdsale ) {
@@ -3696,12 +4117,12 @@ int CMPTransaction::logicMath_SendToOwners(FILE *fhandle)
 {
 int rc = PKT_ERROR_STO -1000;
 
-      if (!isTransactionTypeAllowed(block, currency, type, version)) return (PKT_ERROR_STO -888);
+      if (!isTransactionTypeAllowed(block, property, type, version)) return (PKT_ERROR_STO -888);
 
-      // totalTokens will be 0 for non-existing currency
-      int64_t totalTokens = getTotalTokens(currency);
+      // totalTokens will be 0 for non-existing property
+      int64_t totalTokens = getTotalTokens(property);
 
-      fprintf(mp_fp, "\t    Total Tokens: %s\n", FormatMP(currency, totalTokens).c_str());
+      file_log("\t    Total Tokens: %s\n", FormatMP(property, totalTokens).c_str());
 
       if (0 >= totalTokens)
       {
@@ -3709,7 +4130,7 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       // does the sender have enough of the property he's trying to "Send To Owners" ?
-      if (getMPbalance(sender, currency, MONEY) < (int64_t)nValue)
+      if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue)
       {
         return (PKT_ERROR_STO -3);
       }
@@ -3730,9 +4151,9 @@ int rc = PKT_ERROR_STO -1000;
 
           int64_t tokens = 0;
 
-          tokens += getMPbalance(address, currency, MONEY);
-          tokens += getMPbalance(address, currency, SELLOFFER_RESERVE);
-          tokens += getMPbalance(address, currency, ACCEPT_RESERVE);
+          tokens += getMPbalance(address, property, BALANCE);
+          tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
           if (tokens)
           {
@@ -3742,7 +4163,7 @@ int rc = PKT_ERROR_STO -1000;
         }
       }
 
-      fprintf(mp_fp, "  Excluding Sender: %s\n", FormatMP(currency, totalTokens).c_str());
+      file_log("  Excluding Sender: %s\n", FormatMP(property, totalTokens).c_str());
 
       // loop #1 -- count the actual number of owners to receive the payment
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
@@ -3750,7 +4171,7 @@ int rc = PKT_ERROR_STO -1000;
         n_owners++;
       }
 
-      fprintf(mp_fp, "\t          Owners: %lu\n", n_owners);
+      file_log("\t          Owners: %lu\n", n_owners);
 
       // make sure we found some owners
       if (0 >= n_owners)
@@ -3760,28 +4181,28 @@ int rc = PKT_ERROR_STO -1000;
 
       int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
 
-      // determine which currency the fee will be paid in
-      const unsigned int feeCurrency = isTestEcosystemProperty(currency) ? MASTERCOIN_CURRENCY_TMSC : MASTERCOIN_CURRENCY_MSC;
+      // determine which property the fee will be paid in
+      const unsigned int feeProperty = isTestEcosystemProperty(property) ? OMNI_PROPERTY_TMSC : OMNI_PROPERTY_MSC;
 
-      fprintf(mp_fp, "\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPCurrency(feeCurrency).c_str());
+      file_log("\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
       // enough coins to pay the fee?
-      if (getMPbalance(sender, feeCurrency, MONEY) < nXferFee)
+      if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
       {
         return (PKT_ERROR_STO -5);
       }
 
-      // special case check, only if distributing MSC or TMSC -- the currency the fee will be paid in
-      if (feeCurrency == currency)
+      // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
+      if (feeProperty == property)
       {
-        if (getMPbalance(sender, feeCurrency, MONEY) < (int64_t)(nValue + nXferFee))
+        if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
         {
           return (PKT_ERROR_STO -55);
         }
       }
 
       // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeCurrency, - nXferFee, MONEY))
+      if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
       {
         // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
         return (PKT_ERROR_STO -500);
@@ -3814,23 +4235,23 @@ int rc = PKT_ERROR_STO -1000;
         sent_so_far += will_really_receive;
 
         if (msc_debug_sto)
-         fprintf(mp_fp, "%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+         file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
           owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
 
         // record the detailed info as needed
 //        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(currency, will_really_receive).c_str());
+        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
 
-        if (!update_tally_map(sender, currency, - will_really_receive, MONEY))
+        if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
         {
           return (PKT_ERROR_STO -1);
         }
 
-        update_tally_map(address, currency, will_really_receive, MONEY);
+        update_tally_map(address, property, will_really_receive, BALANCE);
 
         if (sent_so_far >= nValue)
         {
-          fprintf(mp_fp, "SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
+          file_log("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
           break; // done here, everybody who could get paid got paid
         }
       }
@@ -3838,8 +4259,7 @@ int rc = PKT_ERROR_STO -1000;
       // sent_so_far must equal nValue here
       if (sent_so_far != nValue)
       {
-        fprintf(mp_fp, "send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n",
-         sent_so_far, nValue, n_owners);
+        file_log("send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n", sent_so_far, nValue, n_owners);
 
         // rc = ???
       }

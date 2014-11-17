@@ -20,7 +20,7 @@ private:
   int multi;  // Class A = 0, Class B = 1
   uint64_t tx_fee_paid;
   unsigned int type;
-  unsigned int currency;
+  unsigned int property;
   unsigned short version; // = MP_TX_PKT_V0;
   uint64_t nNewValue;
   int64_t blockTime;  // internally nTime is still an "unsigned int"
@@ -41,7 +41,7 @@ private:
   unsigned char percentage;
 
   // METADEX additions
-  unsigned int desired_currency;
+  unsigned int desired_property;
   uint64_t desired_value;
 
   class SendToOwners_compare
@@ -55,14 +55,28 @@ private:
     }
   };
 
-  enum ActionTypes { INVALID = 0, NEW = 1, ADD = 1, UPDATE = 2, SUBTRACT = 2, CANCEL = 3 };
-
 public:
+  enum ActionTypes
+  {
+    INVALID = 0,
+
+    NEW = 1,
+
+    UPDATE = 2,
+
+    CANCEL = 3,
+
+    ADD                 = 1,
+    CANCEL_AT_PRICE     = 2,
+    CANCEL_ALL_FOR_PAIR = 3,
+    CANCEL_EVERYTHING   = 4,
+  };
+
 //  mutable CCriticalSection cs_msc;  // TODO: need to refactor first...
 
   unsigned int getType() const { return type; }
   const string getTypeString() const { return string(c_strMasterProtocolTXType(getType())); }
-  unsigned int getCurrency() const { return currency; }
+  unsigned int getProperty() const { return property; }
   unsigned short getVersion() const { return version; }
   unsigned short getPropertyType() const { return prop_type; }
   uint64_t getFeePaid() const { return tx_fee_paid; }
@@ -79,7 +93,7 @@ public:
 
   void SetNull()
   {
-    currency = 0;
+    property = 0;
     type = 0;
     txid = 0;
     tx_idx = 0;  // tx # within the block, 0-based
@@ -112,17 +126,17 @@ public:
   }
 
   int logicMath_SimpleSend(void);
-  int logicMath_TradeOffer(CMPOffer *obj_o);
+  int logicMath_TradeOffer(CMPOffer *);
   int logicMath_AcceptOffer_BTC(void);
   int logicMath_SendToOwners(FILE *fp = NULL);
-  int logicMath_MetaDEx(void);
+  int logicMath_MetaDEx(CMPMetaDEx *);
   int logicMath_GrantTokens(void);
   int logicMath_RevokeTokens(void);
   int logicMath_ChangeIssuer(void);
   int logicMath_SavingsMark(void);
   int logicMath_SavingsCompromised(void);
 
- int interpretPacket(CMPOffer *obj_o = NULL);
+ int interpretPacket(CMPOffer *obj_o = NULL, CMPMetaDEx *mdex_o = NULL);
  int step1(void);
  int step2_Alert(std::string *new_global_alert_message);
  int step2_Value(void);
@@ -164,12 +178,12 @@ public:
 
   void print()
   {
-    fprintf(mp_fp, "BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
-    fprintf(mp_fp, "sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
+    file_log("BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
+    file_log("sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
 
     if (0<pkt_size)
     {
-      fprintf(mp_fp, "pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
+      file_log("pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
     }
     else
     {
