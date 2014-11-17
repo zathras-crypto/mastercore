@@ -74,7 +74,7 @@ unsigned int CMPSPInfo::updateSP(unsigned int propertyID, Entry const &info)
     commitBatch.Put(spKey, spValue);
     pDb->Write(writeOptions, &commitBatch);
 
-    fprintf(mp_fp,"Updated LevelDB with SP data successfully\n");
+    file_log("Updated LevelDB with SP data successfully\n");
     return res;
 }
 
@@ -106,9 +106,9 @@ unsigned int CMPSPInfo::putSP(unsigned char ecosystem, Entry const &info)
     leveldb::ReadOptions readOpts;
     readOpts.fill_cache = true;
     if (false == pDb->Get(readOpts, spKey, &existingEntry).IsNotFound() && false == boost::equals(spValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
+      file_log("%s WRITING SP %d TO LEVELDB WHEN A DIFFERENT SP ALREADY EXISTS FOR THAT ID!!!\n", __FUNCTION__, res);
     } else if (false == pDb->Get(readOpts, txIndexKey, &existingEntry).IsNotFound() && false == boost::equals(txValue, existingEntry)) {
-      fprintf(mp_fp, "%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
+      file_log("%s WRITING INDEX TXID %s : SP %d IS OVERWRITING A DIFFERENT VALUE!!!\n", __FUNCTION__, info.txid.ToString().c_str(), res);
     }
 
     // atomically write both the the SP and the index to the database
@@ -301,7 +301,7 @@ void mastercore::dumpCrowdsaleInfo(const string &address, CMPCrowd &crowd, bool 
 
   if (!fp)
   {
-    fprintf(mp_fp, "\nPROBLEM writing %s, errno= %d\n", INFO_FILENAME, errno);
+    file_log("\nPROBLEM writing %s, errno= %d\n", INFO_FILENAME, errno);
     return;
   }
 
@@ -486,7 +486,7 @@ void mastercore::eraseMaxedCrowdsale(const string &address, uint64_t blockTime, 
     if (it != my_crowds.end()) {
 
       CMPCrowd &crowd = it->second;
-      fprintf(mp_fp, "%s() FOUND MAXED OUT CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, address.c_str());
+      file_log("%s() FOUND MAXED OUT CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, address.c_str());
 
       dumpCrowdsaleInfo(address, crowd);
       
@@ -526,7 +526,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
 
     if (blockTime > (int64_t)crowd.getDeadline())
     {
-      fprintf(mp_fp, "%s() FOUND EXPIRED CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, (my_it->first).c_str());
+      file_log("%s() FOUND EXPIRED CROWDSALE from address= '%s', erasing...\n", __FUNCTION__, (my_it->first).c_str());
 
       // TODO: dump the info about this crowdsale being delete into a TXT file (JSON perhaps)
       dumpCrowdsaleInfo(my_it->first, my_it->second, true);
@@ -537,7 +537,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
       //get sp from data struct
       _my_sps->getSP(crowd.getPropertyId(), sp);
 
-      //fprintf(mp_fp, "\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
+      //file_log("\nValues going into calculateFractional(): hexid %s earlyBird %d deadline %lu numProps %lu issuerPerc %d, issuerCreated %ld \n", sp.txid.GetHex().c_str(), sp.early_bird, sp.deadline, sp.num_tokens, sp.percentage, crowd.getIssuerCreated());
 
       //find missing tokens
       double missedTokens = calculateFractional(sp.prop_type,
@@ -549,7 +549,7 @@ CrowdMap::iterator my_it = my_crowds.begin();
                           crowd.getIssuerCreated());
 
 
-      //fprintf(mp_fp,"\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %lu %lu %lu %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
+      //file_log("\nValues coming out of calculateFractional(): Total tokens, Tokens created, Tokens for issuer, amountMissed: issuer %s %lu %lu %lu %f\n",sp.issuer.c_str(), crowd.getUserCreated() + crowd.getIssuerCreated(), crowd.getUserCreated(), crowd.getIssuerCreated(), missedTokens);
 
       //get txdata
       sp.historicalData = crowd.getDatabase();

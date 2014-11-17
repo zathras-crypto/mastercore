@@ -10,9 +10,9 @@ http://www.mastercoin.org
 What is Master Core
 ---------------------------
 
-Master Core is a fast, portable Master Protocol implementation that is based off the Bitcoin Core codebase (currently 0.9.1). This implementation requires no external dependencies extraneous to Bitcoin Core, and is native to the Bitcoin network just like other Bitcoin nodes. It currently has two modes, in its wallet form it will be seamlessly available on 3 platforms: Windows, Linux & Mac OS, and its node form exposes Master Protocol extensions via JSON-RPC. Development has been consolidated on the Master Core product, and once officially released it will become the reference client for the Master Protocol.
+Master Core is a fast, portable Master Protocol implementation that is based off the Bitcoin Core codebase (currently 0.9.3). This implementation requires no external dependencies extraneous to Bitcoin Core, and is native to the Bitcoin network just like other Bitcoin nodes. It currently supports a wallet mode and it will be seamlessly available on 3 platforms: Windows, Linux and Mac OS. Master Protocol extensions are exposed via a JSON-RPC interface. Development has been consolidated on the Master Core product, and once officially released it will become the reference client for the Master Protocol.
 
-Disclaimer, Warning
+Disclaimer, warning
 --------------
 
 This software is EXPERIMENTAL software for **TESTNET TRANSACTIONS** only. *USE ON MAINNET AT YOUR OWN RISK.*
@@ -30,8 +30,8 @@ This software is provided open-source at no cost.  You are responsible for knowi
 Testnet
 -------------------
 
-1. To run Master Core in testnet mode, run mastercore with the following option in place: ``` -testnet ```.
-2. To receive MSC (and TMSC) on TestNet please send TBTC to moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP. For each 1 TBTC you will receive 100 MSC & 100 TMSC.
+1. To run Master Core in testnet mode, run Master Core with the following option in place: ``` -testnet ```.
+2. To receive MSC (and TMSC) on testnet please send TBTC to moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP. For each 1 TBTC you will receive 100 MSC and 100 TMSC.
 
 All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
@@ -45,43 +45,43 @@ Installation
 
 *NOTE: This will only build on Ubuntu Linux for now.*
 
-You will need appropriate libraries to run Mastercore on Unix, 
+You will need appropriate libraries to run Master Core on Unix, 
 please see [doc/build-unix.md](doc/build-unix.md) for the full listing.
 
-You will need to install git & pkg-config.
+You will need to install git & pkg-config:
 
 ```
 sudo apt-get install git
 sudo apt-get install pkg-config
 ```
 
-Clone the Mastercore repo.
+Clone the Master Core repository:
 
 ```
  git clone https://github.com/mastercoin-MSC/mastercore.git
  cd mastercore/
 ```
 
-Then, run
+Then, run:
 
 ```
 ./autogen.sh
 ./configure
 make
 ```
-Once complete
+Once complete:
 
 ```
 cd src/
 ```
-and start Mastercore using ```./bitcoind```. The inital parse step for a first time run
+and start Master Core using ```./mastercored```. The inital parse step for a first time run
 will take approximately 10-15 minutes, during this time your client will scan the blockchain for
 Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
-located in your datadir, usually: ```~/.bitcoin/mastercore.log```.
+located in your datadir, by default: ```~/.bitcoin/mastercore.log```.
 
-If a message is returned asking you to reindex, pass the ```-reindex``` flag to bitcoind. The reindexing process can take serveral hours.
+If a message is returned asking you to reindex, pass the ```-reindex``` flag to mastercored. The reindexing process can take serveral hours.
 
-Note: to issue RPC commands to Mastercore you may add the 'server' CLI flag to the bitcoin.conf file (located in ~/.bitcoin/ by default).
+Note: to issue RPC commands to Master Core you may add the '-server=1' CLI flag or add an entry to the bitcoin.conf file (located in '~/.bitcoin/' by default).
 
 In bitcoin.conf:
 ```
@@ -89,46 +89,48 @@ server=1
 ```
 
 After this step completes, check that the installation went smoothly by issuing the following
-command ```./bitcoind getinfo``` which should return the 'mastercore version' as well as some
-additional information related to the Bitcoin Network.
+command ```./mastercore-cli getinfo``` which should return the 'mastercoreversion' as well as some
+additional information related to the Bitcoin network.
 
-*NOTE: This release of Mastercore _does not contain a UI_, please do not try to compile/use 'bitcoinqt' for Master Protocol functionality. The full documentation for the command-line is located in doc/apidocumentation.md.* 
+The documentation for the RPC interface and command-line is located in [doc/apidocumentation.md] (doc/apidocumentation.md).
 
-Current Featureset:
+Current feature set:
 --------------------
 
 * Broadcasting of simple send (tx0), and send to owners (tx3) [doc] (doc/apidocumentation.md#broadcasting-a-simple-send-transaction)
 
 * Obtaining a Master Protocol balance [doc] (doc/apidocumentation.md#obtaining-a-master-protocol-balance)
 
-* Obtaining all MP (including Smart property) balances for an address [doc] (doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-an-address)
+* Obtaining all balances (including smart property) for an address [doc] (doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-an-address)
 
-* Obtaining all balances for a specific Smart property ID [doc] (doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-a-property-id)
+* Obtaining all balances associated with a specific smart property [doc] (doc/apidocumentation.md#obtaining-all-master-protocol-balances-for-a-property-id)
 
-* Retrieving information about any Master Protocol Transaction [doc] (doc/apidocumentation.md#retrieving-a-master-protocol-transaction)
+* Retrieving information about any Master Protocol transaction [doc] (doc/apidocumentation.md#retrieving-a-master-protocol-transaction)
 
 * Listing historical transactions of addresses in the wallet [doc] (doc/apidocumentation.md#listing-historical-transactions)                            
 
-* Retreiving MP information about a Smart Property [doc] (doc/apidocumentation.md#retrieving-information-about-a-master-protocol-property)
+* Retreiving detailed information about a smart property [doc] (doc/apidocumentation.md#retrieving-information-about-a-master-protocol-property)
 
 * Retreiving active and expired crowdsale information [doc] (doc/apidocumentation.md#retrieving-information-for-a-master-protocol-crowdsale)
 
-* Additional referenceamount in send_MP
+* Sending a specific BTC amount to a receiver with referenceamount in send_MP
+
+* Creating and broadcasting transactions based on raw Master Protocol data with sendrawtx_MP
 
 Pending additions:
 -------------------
 
 * Fully functional UI
 
-* MetaDex support
+* Meta-DEx support
 
-* Dex support ( making offer, making accept, making payment)
+* DEx support (making offer, making accept, making payment)
 
-* Crowdsales ( issuing SP, fundraisers, changing currency, closing fundraisers)
+* Crowdsales (issuing smart properties, fundraisers, changing currency, closing fundraisers)
 
-* gettransaction_MP output should include matched sell offer txid
+* gettransaction_MP output should include matched sell offer transaction reference
 
 Support:
 ------------------
 
-* Email <mastercore@mastercoin.org> or open a Github Issue to file a bug submission.
+* Email <mastercore@mastercoin.org> or open a [GitHub issue] (https://github.com/mastercoin-MSC/mastercore/issues) to file a bug submission.
