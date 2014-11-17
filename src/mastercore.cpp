@@ -3301,7 +3301,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   // correct orientation of trade
                   if (prop1 == propertyId)
                   {
-                      address = address2;
+                      address = address1;
                       amountBought = amount2;
                       amountSold = amount1;
                       nBought = uAmount2;
@@ -3309,7 +3309,7 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   }
                   else
                   {
-                      address = address1;
+                      address = address2;
                       amountBought = amount1;
                       amountSold = amount2;
                       nBought = uAmount1;
