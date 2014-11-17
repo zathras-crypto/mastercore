@@ -2167,7 +2167,7 @@ Value gettrade_MP(const Array& params, bool fHelp)
                     boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
                     if (3 <= vstr.size())
                     {
-                        uint64_t propId = atoi(vstr[1]);
+                        uint64_t propId = boost::lexical_cast<uint64_t>(vstr[1]);
                         bool propDivisible = isPropertyDivisible(propId);
                         uint64_t amountUnreserved = boost::lexical_cast<uint64_t>(vstr[2]);
                         cancelTx.push_back(Pair("txid", vstr[0]));
