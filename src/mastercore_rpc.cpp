@@ -2056,9 +2056,10 @@ Value getalert_MP(const Array& params, bool fHelp)
     Object alertResponse;
 
     string global_alert_message = getMasterCoreAlertString();
-    uint64_t expiryBlock;
-    uint64_t expiryTime;
-    uint64_t expiryVersion;
+    uint64_t alertType;
+    uint64_t expiryValue;
+    uint64_t typeCheck;
+    uint64_t verCheck;
     string alertMessage;
 
     std::vector<std::string> vstr;
@@ -2068,15 +2069,24 @@ Value getalert_MP(const Array& params, bool fHelp)
     {
         boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
         // make sure there are 4 bits
-        if (4 == vstr.size())
+        if (5 == vstr.size())
         {
-             expiryBlock = boost::lexical_cast<uint64_t>(vstr[0]);
-             expiryTime = boost::lexical_cast<uint64_t>(vstr[1]);
-             expiryVersion = boost::lexical_cast<uint64_t>(vstr[2]);
-             alertMessage = vstr[3];
-             alertResponse.push_back(Pair("expiryblock", FormatIndivisibleMP(expiryBlock)));
-             alertResponse.push_back(Pair("expirytime", FormatIndivisibleMP(expiryTime)));
-             alertResponse.push_back(Pair("expiryversion", FormatIndivisibleMP(expiryVersion)));
+             alertType = boost::lexical_cast<uint64_t>(vstr[0]);
+             expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+             typeCheck = boost::lexical_cast<uint64_t>(vstr[2]);
+             verCheck = boost::lexical_cast<uint64_t>(vstr[3]);
+             alertMessage = vstr[4];
+             string alertTypeStr;
+             switch (alertType)
+             {
+                 case 1: alertTypeStr = "textalertexpiringbyblock"; break;
+                 case 2: alertTypeStr = "textalertexpiringbytime"; break;
+                 case 3: alertTypeStr = "textalertexpiringbyversion"; break;
+                 case 4: alertTypeStr = "updatealertexpiringbyversion"; break;
+             }
+             alertResponse.push_back(Pair("alerttype", alertTypeStr));
+             alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
+             if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
              alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
         }
         else

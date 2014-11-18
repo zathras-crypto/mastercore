@@ -121,14 +121,17 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
           uint64_t alertType;
           uint64_t expiryValue;
           uint64_t typeCheck;
+          uint64_t verCheck;
           string alertMessage;
           alertType = boost::lexical_cast<uint64_t>(vstr[0]);
           expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
           typeCheck = boost::lexical_cast<uint64_t>(vstr[2]);
-          alertMessage = vstr[3];
+          verCheck = boost::lexical_cast<uint64_t>(vstr[3]);
+          alertMessage = vstr[4];
           file_log("\t    message type: %llu\n",(uint64_t)alertType);
           file_log("\t    expiry value: %llu\n",(uint64_t)expiryValue);
           file_log("\t      type check: %llu\n",(uint64_t)typeCheck);
+          file_log("\t       ver check: %llu\n",(uint64_t)verCheck);
           file_log("\t   alert message: %s\n", alertMessage.c_str());
           // copy the alert string into the global_alert_message and return a 0 rc
           string message(alertString);
