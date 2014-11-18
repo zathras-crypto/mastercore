@@ -217,6 +217,9 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
 ///////////////////////////
         XDOUBLE x_buyer_got = (XDOUBLE) seller_amountGot / sellers_price;
+
+        x_buyer_got += (XDOUBLE) 0.5; // ROUND UP
+
         std::string str_buyer_got = x_buyer_got.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
         std::string str_buyer_got_int_part = str_buyer_got.substr(0, str_buyer_got.find_first_of("."));
         const int64_t buyer_amountGot = boost::lexical_cast<int64_t>( str_buyer_got_int_part );
@@ -226,18 +229,18 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
         if (msc_debug_metadex) file_log("$$ buyer_got= %ld, seller_got= %ld, seller_left_for_sale= %ld, buyer_still_for_sale= %ld\n",
          buyer_amountGot, seller_amountGot, seller_amountLeft, buyer_amountStillForSale);
 
-        XDOUBLE amount_left = (XDOUBLE) seller_amountLeft * sellers_price;
+        XDOUBLE seller_amount_stilldesired = (XDOUBLE) seller_amountLeft * sellers_price;
 
-        amount_left += (XDOUBLE) 0.5; // ROUND UP
+        seller_amount_stilldesired += (XDOUBLE) 0.5; // ROUND UP
 
-        std::string str_amount_left = amount_left.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
-        std::string str_left_int_part = str_amount_left.substr(0, str_amount_left.find_first_of("."));
+        std::string str_amount_stilldesired = seller_amount_stilldesired.str(INTERNAL_PRECISION_LEN, std::ios_base::fixed);
+        std::string str_stilldesired_int_part = str_amount_stilldesired.substr(0, str_amount_stilldesired.find_first_of("."));
 
 ///////////////////////////
         CMPMetaDEx seller_replacement = *p_older;
 
         seller_replacement.setAmountForSale(seller_amountLeft, "seller_replacement");
-        seller_replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_left_int_part ), "seller_replacement");
+        seller_replacement.setAmountDesired(boost::lexical_cast<int64_t>( str_stilldesired_int_part ), "seller_replacement");
 
         // transfer the payment property from buyer to seller
         // TODO: do something when failing here............
@@ -317,7 +320,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
   return NewReturn;
 }
 
-void mastercore::MetaDEx_debug_print(bool bShowPriceLevel)
+void mastercore::MetaDEx_debug_print(bool bShowPriceLevel, bool bDisplay)
 {
   file_log("<<<\n");
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
@@ -338,7 +341,13 @@ void mastercore::MetaDEx_debug_print(bool bShowPriceLevel)
       {
       CMPMetaDEx obj = *it;
 
-        file_log("%s= %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed) , obj.ToString());
+        if (bDisplay) printf("%s= %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed).c_str() , obj.ToString().c_str());
+        else file_log("%s= %s\n", price.str(DISPLAY_PRECISION_LEN, std::ios_base::fixed) , obj.ToString());
+
+        // extra checks: price or either of the amounts is 0
+//        assert((XDOUBLE)0 != obj.effectivePrice());
+//        assert(obj.getAmountForSale());
+//        assert(obj.getAmountDesired());
       }
     }
   }
@@ -365,7 +374,7 @@ CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValu
 
 std::string CMPMetaDEx::ToString() const
 {
-  return strprintf("%s:%34s in %d/%03u, txid: %s, trade #%u %s for #%u %s",
+  return strprintf("%s:%34s in %d/%03u, txid: %s , trade #%u %s for #%u %s",
    effectivePrice().str(DISPLAY_PRECISION_LEN, std::ios_base::fixed),
    addr.c_str(), block, idx, txid.ToString().substr(0,10).c_str(),
    property, FormatMP(property, amount_forsale), desired_property, FormatMP(desired_property, amount_desired));
