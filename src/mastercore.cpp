@@ -571,16 +571,15 @@ bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyI
 
 std::string mastercore::getMasterCoreAlertString()
 {
-    //return "326900:1414315890:10009:Please upgrade immediately.  A loose rat has been found eating your tokens.";
     return global_alert_message;
 }
 
 bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
 {
     //expire any alerts that need expiring
-    uint64_t expiryBlock;
-    uint64_t expiryTime;
-    uint64_t expiryVersion;
+    uint64_t alertType;
+    uint64_t expiryValue;
+    uint64_t coreVersion = 0;
     std::vector<std::string> vstr;
 
     //split the global message string if it's not empty
@@ -590,29 +589,59 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
         // make sure there are 4 bits
         if (4 == vstr.size())
         {
-             expiryBlock = boost::lexical_cast<uint64_t>(vstr[0]);
-             expiryTime = boost::lexical_cast<uint64_t>(vstr[1]);
-             expiryVersion = boost::lexical_cast<uint64_t>(vstr[2]);
+             alertType = boost::lexical_cast<uint64_t>(vstr[0]);
+             expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
         }
         else
         {
              file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 4 tokens\n");
              return false;
         }
-        if ((expiryBlock == 0) || (expiryTime == 0))
+        if ((alertType < 1) || (alertType > 4) || (expiryValue == 0))
         {
-             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are zero.\n");
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are not as expected.\n");
              return false;
- 
         }
-        if ((curBlock > expiryBlock) || (curTime > expiryTime) || (MASTERCORE_VERSION > expiryVersion))
+        switch (alertType)
         {
-             //the alert has expired, clear the global alert string
-             file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
-             global_alert_message = "";
-             return true;
+             case 1: //Text based alert only expiring by block number, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (curBlock > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 2: //Text based alert only expiring by block time, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (curTime > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (coreVersion > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 4: //Update alert, show upgrade alert in UI and getalert_MP call + use isTransactionTypeAllowed to verify client support and shutdown if not present
+                 if (coreVersion > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
         }
-        else { return false; }
+        return false;
     }
     else { return false; }
 }
