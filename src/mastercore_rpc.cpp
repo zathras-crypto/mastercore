@@ -2051,8 +2051,15 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     return response;   // return response array for JSON serialization
 }
 
-Value getalert_MP(const Array& params, bool fHelp)
+Value getinfo_MP(const Array& params, bool fHelp)
 {
+    Object infoResponse;
+    // other bits of info we want to report should be included here
+
+    // provide the mastercore version
+    infoResponse.push_back(Pair("mastercoreversion", "0.0." + boost::lexical_cast<string>((double)MASTERCORE_VERSION_BASE/10) + MASTERCORE_VERSION_TYPE ));
+
+    // handle alerts
     Object alertResponse;
 
     string global_alert_message = getMasterCoreAlertString();
@@ -2095,7 +2102,8 @@ Value getalert_MP(const Array& params, bool fHelp)
                   throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
         }
     }
-    return alertResponse;
+    infoResponse.push_back(Pair("alert", alertResponse));
+    return infoResponse;
 }
 
 Value gettrade_MP(const Array& params, bool fHelp)
