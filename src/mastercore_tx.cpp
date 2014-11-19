@@ -110,7 +110,7 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
       file_log("\t      alert auth: true\n");
       file_log("\t    alert sender: %s\n", sender.c_str());
 
-      if (4 != vstr.size())
+      if (5 != vstr.size())
       {
           // there are not 4 tokens in the alert, badly formed alert and must discard
           file_log("\t    packet error: badly formed alert != 4 tokens\n");
