@@ -2063,10 +2063,10 @@ Value getinfo_MP(const Array& params, bool fHelp)
     Object alertResponse;
 
     string global_alert_message = getMasterCoreAlertString();
-    int32_t alertType;
-    uint64_t expiryValue;
-    uint32_t typeCheck;
-    uint8_t verCheck;
+    int32_t alertType = 0;
+    uint64_t expiryValue = 0;
+    uint32_t typeCheck = 0;
+    uint8_t verCheck = 0;
     std::vector<std::string> vstr;
     string alertMessage;
 
