@@ -2540,7 +2540,7 @@ int mastercore_init()
   printf("Exodus balance: %lu\n", exodus_balance);
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
-  //  (void) setLastAlert(nWaterlineBlock);
+  (void) p_txlistdb->setLastAlert(nWaterlineBlock);
 
   // initial scan
   (void) msc_initial_scan(nWaterlineBlock);
