@@ -1,5 +1,3 @@
-// REMEMBER TO ADD PACKET VERSION FF CHECK
-
 //
 // first & so far only Master protocol source file
 // WARNING: Work In Progress -- major refactoring will be occurring often
@@ -4123,9 +4121,13 @@ std::string new_global_alert_message;
       break;
 
     case MASTERCORE_MESSAGE_TYPE_ALERT:
-      rc = step2_Alert(&new_global_alert_message);
-      if (rc == 0) global_alert_message = new_global_alert_message;
-      // end of block handler will expire any old alerts
+      // check the packet version is also FF
+      if ((int)version != 65535)
+      {
+          rc = step2_Alert(&new_global_alert_message);
+          if (rc == 0) global_alert_message = new_global_alert_message;
+          // end of block handler will expire any old alerts
+      }
       break;
 
     default:
