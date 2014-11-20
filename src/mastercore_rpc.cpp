@@ -2063,43 +2063,52 @@ Value getinfo_MP(const Array& params, bool fHelp)
     Object alertResponse;
 
     string global_alert_message = getMasterCoreAlertString();
-    uint64_t alertType;
+    int32_t alertType;
     uint64_t expiryValue;
-    uint64_t typeCheck;
-    uint64_t verCheck;
-    string alertMessage;
-
+    uint32_t typeCheck;
+    uint8_t verCheck;
     std::vector<std::string> vstr;
+    string alertMessage;
 
     //split the global message string if it's not empty
     if(!global_alert_message.empty())
     {
         boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 4 bits
+        // make sure there are 5 tokens and they convert ok
         if (5 == vstr.size())
         {
-             alertType = boost::lexical_cast<uint64_t>(vstr[0]);
-             expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
-             typeCheck = boost::lexical_cast<uint64_t>(vstr[2]);
-             verCheck = boost::lexical_cast<uint64_t>(vstr[3]);
-             alertMessage = vstr[4];
-             string alertTypeStr;
-             switch (alertType)
-             {
-                 case 1: alertTypeStr = "textalertexpiringbyblock"; break;
-                 case 2: alertTypeStr = "textalertexpiringbytime"; break;
-                 case 3: alertTypeStr = "textalertexpiringbyversion"; break;
-                 case 4: alertTypeStr = "updatealertexpiringbyversion"; break;
-             }
-             alertResponse.push_back(Pair("alerttype", alertTypeStr));
-             alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
-             if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
-             alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
+            try
+            {
+                alertType = boost::lexical_cast<int32_t>(vstr[0]);
+                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+                verCheck = boost::lexical_cast<uint8_t>(vstr[3]);
+                alertMessage = vstr[4];
+            } catch (const boost::bad_lexical_cast &e)
+              {
+                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
+                  alertType = 0;
+                  expiryValue = 0;
+                  alertMessage = "error";
+              }
+            string alertTypeStr;
+            switch (alertType)
+            {
+                case 0: alertTypeStr = "error"; break;
+                case 1: alertTypeStr = "textalertexpiringbyblock"; break;
+                case 2: alertTypeStr = "textalertexpiringbytime"; break;
+                case 3: alertTypeStr = "textalertexpiringbyversion"; break;
+                case 4: alertTypeStr = "updatealertexpiringbyversion"; break;
+            }
+            alertResponse.push_back(Pair("alerttype", alertTypeStr));
+            alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
+            if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
+            alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
         }
         else
         {
-             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
-                  throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
         }
     }
     infoResponse.push_back(Pair("alert", alertResponse));
