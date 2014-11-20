@@ -580,7 +580,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
     int32_t alertType;
     uint64_t expiryValue;
     uint32_t typeCheck;
-    uint8_t verCheck;
+    uint32_t verCheck;
     std::vector<std::string> vstr;
 
     //split the global message string if it's not empty
@@ -595,7 +595,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                 alertType = boost::lexical_cast<int32_t>(vstr[0]);
                 expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
                 typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
-                verCheck = boost::lexical_cast<uint8_t>(vstr[3]);
+                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
             } catch (const boost::bad_lexical_cast &e)
               {
                   file_log("DEBUG ALERT - error in converting values from global alert string\n");

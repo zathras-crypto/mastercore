@@ -2066,7 +2066,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
     int32_t alertType = 0;
     uint64_t expiryValue = 0;
     uint32_t typeCheck = 0;
-    uint8_t verCheck = 0;
+    uint32_t verCheck = 0;
     std::vector<std::string> vstr;
     string alertMessage;
 
@@ -2082,7 +2082,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
                 alertType = boost::lexical_cast<int32_t>(vstr[0]);
                 expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
                 typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
-                verCheck = boost::lexical_cast<uint8_t>(vstr[3]);
+                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
                 alertMessage = vstr[4];
             } catch (const boost::bad_lexical_cast &e)
               {
@@ -2098,7 +2098,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
                 case 1: alertTypeStr = "textalertexpiringbyblock"; break;
                 case 2: alertTypeStr = "textalertexpiringbytime"; break;
                 case 3: alertTypeStr = "textalertexpiringbyversion"; break;
-                case 4: alertTypeStr = "updatealertexpiringbyversion"; break;
+                case 4: alertTypeStr = "updatealerttxcheck"; break;
             }
             alertResponse.push_back(Pair("alerttype", alertTypeStr));
             alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
