@@ -645,17 +645,19 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  //check of the new tx type is supported at live block
                  bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
 
-                 //testnet allows all types of transactions, so override this here for testing
-                 txSupported = false; //testing
-
                  //check if we are at/past the live blockheight
                  bool txLive = (chainActive.Height()>(int64_t)expiryValue);
+
+                 //testnet allows all types of transactions, so override this here for testing
+                 //txSupported = false; //testing
+                 //txLive = true; //testing
 
                  if ((!txSupported) && (txLive))
                  {
                      // we know we have transactions live we don't understand
                      // can't be trusted to provide valid data, shutdown
                      file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
+                     printf("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str()); //echo to screen
                      StartShutdown();
                      return false;
                  }
