@@ -577,24 +577,34 @@ std::string mastercore::getMasterCoreAlertString()
 bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
 {
     //expire any alerts that need expiring
-    uint64_t alertType;
+    int32_t alertType;
     uint64_t expiryValue;
-    uint64_t coreVersion = 0;
+    uint32_t typeCheck;
+    uint8_t verCheck;
     std::vector<std::string> vstr;
 
     //split the global message string if it's not empty
     if(!global_alert_message.empty())
     {
         boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 4 bits
-        if (4 == vstr.size())
+        // make sure there are 5 tokens and they convert ok
+        if (5 == vstr.size())
         {
-             alertType = boost::lexical_cast<uint64_t>(vstr[0]);
-             expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+            try
+            {
+                alertType = boost::lexical_cast<int32_t>(vstr[0]);
+                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+                verCheck = boost::lexical_cast<uint8_t>(vstr[3]);
+            } catch (const boost::bad_lexical_cast &e)
+              {
+                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
+                  return false; //(something went wrong)
+              }
         }
         else
         {
-             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 4 tokens\n");
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 5 tokens\n");
              return false;
         }
         if ((alertType < 1) || (alertType > 4) || (expiryValue == 0))
@@ -623,7 +633,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  }
              break;
              case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (coreVersion > expiryValue)
+                 if (MASTERCORE_VERSION_BASE > expiryValue)
                  {
                      //the alert has expired, clear the global alert string
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
@@ -632,7 +642,13 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  }
              break;
              case 4: //Update alert, show upgrade alert in UI and getalert_MP call + use isTransactionTypeAllowed to verify client support and shutdown if not present
-                 if (coreVersion > expiryValue)
+                 //check of the new tx type is supported at live block
+                 bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
+
+                 //check if we are at/past the live blockheight
+                 bool txLive = (chainActive.Height()>expiryValue);
+
+                 if (MASTERCORE_VERSION_BASE > expiryValue)
                  {
                      //the alert has expired, clear the global alert string
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
