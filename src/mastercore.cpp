@@ -56,7 +56,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-#define MY_HACK
+// #define MY_HACK
 // #define DISABLE_LOG_FILE
 
 using boost::multiprecision::int128_t;
@@ -649,7 +649,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  bool txLive = (chainActive.Height()>(int64_t)expiryValue);
 
                  //testnet allows all types of transactions, so override this here for testing
-                 //txSupported = false; //testing
+                 txSupported = false; //testing
                  //txLive = true; //testing
 
                  if ((!txSupported) && (txLive))
@@ -2500,7 +2500,6 @@ int mastercore_init()
   else
   {
   // my old way
-
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
@@ -2541,7 +2540,6 @@ int mastercore_init()
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
   (void) p_txlistdb->setLastAlert(nWaterlineBlock);
-
   // initial scan
   (void) msc_initial_scan(nWaterlineBlock);
 
@@ -3039,7 +3037,6 @@ int CMPTxList::setLastAlert(int blockHeight)
     string lastAlertData;
     string itData;
     int64_t lastAlertBlock = 0;
-
     for(it->SeekToFirst(); it->Valid(); it->Next())
     {
        skey = it->key();
@@ -3076,8 +3073,9 @@ int CMPTxList::setLastAlert(int blockHeight)
         file_log("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
         // reparse lastAlertTxid
 
+
         // check if expired
-        CBlockIndex* mpBlockIndex = chainActive[blockHeight];
+        CBlockIndex* mpBlockIndex = chainActive[blockHeight-1];
         bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
     }
 }
