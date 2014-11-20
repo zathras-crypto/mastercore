@@ -3029,6 +3029,7 @@ const unsigned int prop = PropertyID;
 
 int CMPTxList::setLastAlert(int blockHeight)
 {
+    if (blockHeight > chainActive.Height()) blockHeight = chainActive.Height();
     if (!pdb) return 0;
     Slice skey, svalue;
     readoptions.fill_cache = false;
@@ -3075,7 +3076,7 @@ int CMPTxList::setLastAlert(int blockHeight)
 
 
         // check if expired
-        CBlockIndex* mpBlockIndex = chainActive[blockHeight-1];
+        CBlockIndex* mpBlockIndex = chainActive[blockHeight];
         bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
     }
 }
