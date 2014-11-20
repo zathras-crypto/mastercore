@@ -347,6 +347,7 @@ public:
     void printStats();
     void printAll();
     bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought);
+    int getMPTradeCountTotal();
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
@@ -406,6 +407,8 @@ public:
     int getNumberOfPurchases(const uint256 txid);
     int getNumberOfMetaDExCancels(const uint256 txid);
     bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
+    int getMPTransactionCountTotal();
+    int getMPTransactionCountBlock(int block);
 
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);

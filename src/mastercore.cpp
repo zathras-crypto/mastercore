@@ -3146,6 +3146,46 @@ int CMPTxList::getNumberOfPurchases(const uint256 txid)
     return numberOfPurchases;
 }
 
+int CMPTxList::getMPTransactionCountTotal()
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        skey = it->key();
+        if (skey.ToString().length() == 64) { ++count; } //extra entries for cancels and purchases are more than 64 chars long
+    }
+    delete it;
+    return count;
+}
+
+int CMPTxList::getMPTransactionCountBlock(int block)
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        skey = it->key();
+        svalue = it->value();
+        if (skey.ToString().length() == 64)
+        {
+            string strValue = svalue.ToString().c_str();
+            std::vector<std::string> vstr;
+            boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+            if (4 == vstr.size())
+            {
+                if (atoi(vstr[1]) == block) { ++count; }
+            }
+        }
+    }
+    delete it;
+    return count;
+}
+
 string CMPTxList::getKeyValue(string key)
 {
     if (!pdb) return "";
@@ -3560,6 +3600,20 @@ int CMPTradeList::deleteAboveBlock(int blockNum)
 void CMPTradeList::printStats()
 {
   file_log("CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
+}
+
+int CMPTradeList::getMPTradeCountTotal()
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = tdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        ++count;
+    }
+    delete it;
+    return count;
 }
 
 void CMPTradeList::printAll()
