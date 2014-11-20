@@ -451,10 +451,10 @@ void OverviewPage::updateAlerts(const QString &warnings)
     if(!alertMessage.empty())
     {
         boost::split(vstr, alertMessage, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 4 bits
-        if (4 == vstr.size())
+        // make sure there are 5 tokens
+        if (5 == vstr.size())
         {
-             totalMessage+=QString::fromStdString(vstr[3]);
+             totalMessage+=QString::fromStdString(vstr[4]);
         }
         else
         {
