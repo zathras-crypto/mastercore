@@ -2056,12 +2056,27 @@ Value getinfo_MP(const Array& params, bool fHelp)
     Object infoResponse;
     // other bits of info we want to report should be included here
 
-    // provide the mastercore version
+    // provide the mastercore and bitcoin version
     infoResponse.push_back(Pair("mastercoreversion", "0.0." + boost::lexical_cast<string>((double)MASTERCORE_VERSION_BASE/10) + MASTERCORE_VERSION_TYPE ));
+    infoResponse.push_back(Pair("bitcoincoreversion", "0." + boost::lexical_cast<string>((int)CLIENT_VERSION/100)));
+
+    // provide the current block details
+    uint64_t block = chainActive.Height();
+    uint64_t blockTime = chainActive[chainActive.Height()]->GetBlockTime();
+    int64_t blockMPTransactions = p_txlistdb->getMPTransactionCountBlock(block);
+    int64_t totalMPTransactions = p_txlistdb->getMPTransactionCountTotal();
+    int64_t totalMPTrades = t_tradelistdb->getMPTradeCountTotal();
+    infoResponse.push_back(Pair("block", block));
+    infoResponse.push_back(Pair("blocktime", blockTime));
+    infoResponse.push_back(Pair("blocktransactions", blockMPTransactions));
+
+    // provide the number of trades completed
+    infoResponse.push_back(Pair("totaltrades", totalMPTrades));
+    // provide the number of transactions parsed
+    infoResponse.push_back(Pair("totaltransactions", totalMPTransactions));
 
     // handle alerts
     Object alertResponse;
-
     string global_alert_message = getMasterCoreAlertString();
     int32_t alertType = 0;
     uint64_t expiryValue = 0;
