@@ -3033,34 +3033,48 @@ int CMPTxList::setLastAlert(int blockHeight)
     string lastAlertTxid;
     string lastAlertData;
     string itData;
-    uint64_t lastAlertBlock;
+    int64_t lastAlertBlock = 0;
 
     for(it->SeekToFirst(); it->Valid(); it->Next())
     {
-       //lastAlertTxid = it->key();
-     //  itData = it->value();
+       skey = it->key();
+       svalue = it->value();
+       string itData = svalue.ToString().c_str();
        std::vector<std::string> vstr;
-     //  boost::split(vstr, itData, boost::is_any_of(":"), token_compress_on);
-       // we expect 4 tokens
-     //  if (4 == vstr.size())
-     //  {
-     //      if (atoi(vstr[0]) == 0)
-     //      {
-     //          if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT)
-     //          {
-     //              if (atoi(vstr[1]) > lastAlertBlock)
-     //              {
-    //                   lastAlertTxid = it->key();
-    //                   lastAlertData = it->value();
-     //              }
-     //          }
-     //      }
-      // }
+       boost::split(vstr, itData, boost::is_any_of(":"), token_compress_on);
+       // we expect 5 tokens
+       if (4 == vstr.size())
+       {
+           if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT) // is it an alert?
+           {
+               if (atoi(vstr[0]) == 1) // is it valid?
+               {
+                   if ( (atoi(vstr[1]) > lastAlertBlock) && (atoi(vstr[1]) < blockHeight) ) // is it the most recent and within our parsed range?
+                   {
+                      lastAlertTxid = skey.ToString().c_str();
+                      lastAlertData = svalue.ToString().c_str();
+                      lastAlertBlock = atoi(vstr[1]);
+                   }
+               }
+           }
+       }
     }
     delete it;
 
     // if lastAlertTxid is not empty, load the alert and see if it's still valid - if so, copy to global_alert_message
-//    fprintf(mp_fp, "lastAlertTxid %s\n", lastAlertTxid);
+    if(lastAlertTxid.empty())
+    {
+        file_log("DEBUG ALERT No alerts found to load\n");
+    }
+    else
+    {
+        file_log("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
+        // reparse lastAlertTxid
+
+        // check if expired
+        CBlockIndex* mpBlockIndex = chainActive[blockHeight];
+        bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
+    }
 }
 
 uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
