@@ -646,11 +646,26 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
 
                  //check if we are at/past the live blockheight
-                 bool txLive = (chainActive.Height()>expiryValue);
+                 bool txLive = (chainActive.Height()>(int64_t)expiryValue);
 
-                 if (MASTERCORE_VERSION_BASE > expiryValue)
+                 if ((!txSupported) && (txLive))
                  {
-                     //the alert has expired, clear the global alert string
+                     // we know we have transactions live we don't understand
+                     // can't be trusted to provide valid data, shutdown
+                     file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
+                     StartShutdown();
+                     return false;
+                 }
+
+                 if ((!txSupported) && (!txLive))
+                 {
+                     // warn the user this version does not support the new coming TX and they will need to update
+                     // we don't actually need to take any action here, we leave the alert string in place and simply don't expire it
+                 }
+
+                 if (txSupported)
+                 {
+                     // we can simply expire this update as this version supports the new coming TX
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
                      global_alert_message = "";
                      return true;
