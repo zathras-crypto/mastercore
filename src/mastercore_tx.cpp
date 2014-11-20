@@ -132,7 +132,7 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
           } catch (const boost::bad_lexical_cast &e)
             {
                   file_log("DEBUG ALERT - error in converting values from global alert string\n");
-                  return false; //(something went wrong)
+                  return (PKT_ERROR -910); //(something went wrong)
             }
           alertMessage = vstr[4];
           file_log("\t    message type: %llu\n",alertType);
