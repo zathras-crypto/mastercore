@@ -9,7 +9,7 @@
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
 #define STR_REF_SUBKEY_TXID_REF_COMBO(txidStr) ( txidStr + strprintf("%d", refNumber))
 
-#define DISPLAY_PRECISION_LEN  20
+#define DISPLAY_PRECISION_LEN  50
 #define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
@@ -316,7 +316,7 @@ int MetaDEx_CANCEL_EVERYTHING(const uint256, unsigned int, const string &);
 md_PricesMap *get_Prices(unsigned int prop);
 md_Set *get_Indexes(md_PricesMap *p, XDOUBLE price);
 
-void MetaDEx_debug_print(bool bShowPriceLevel = false);
+void MetaDEx_debug_print(bool bShowPriceLevel = false, bool bDisplay = false);
 }
 
 #endif // #ifndef _MASTERCOIN_DEX
