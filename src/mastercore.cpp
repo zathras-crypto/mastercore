@@ -656,7 +656,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                      // can't be trusted to provide valid data, shutdown
                      file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
                      printf("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str()); //echo to screen
-                     StartShutdown();
+                     if (!GetBoolArg("-overrideforcedshutdown", false)) StartShutdown();
                      return false;
                  }
 
