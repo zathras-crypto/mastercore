@@ -678,6 +678,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
         return false;
     }
     else { return false; }
+    return false;
 }
 
 // get total tokens for a property
@@ -3096,13 +3097,14 @@ int CMPTxList::setLastAlert(int blockHeight)
                             global_alert_message = new_global_alert_message;
                             // check if expired
                             CBlockIndex* mpBlockIndex = chainActive[blockHeight];
-                            bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
+                            (void) checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
                         }
                     }
                 }
             }
         }
     }
+    return 0;
 }
 
 uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
@@ -3828,7 +3830,7 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   (void) set_wallet_totals();
 
   // check the alert status, do we need to do anything else here?
-  bool alertExpired = checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
+  (void) checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
 
   // save out the state after this block
   if (writePersistence(nBlockNow))
