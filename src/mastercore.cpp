@@ -3070,12 +3070,38 @@ int CMPTxList::setLastAlert(int blockHeight)
     else
     {
         file_log("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
+
         // reparse lastAlertTxid
-
-
-        // check if expired
-        CBlockIndex* mpBlockIndex = chainActive[blockHeight];
-        bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
+        uint256 hash;
+        hash.SetHex(lastAlertTxid);
+        CTransaction wtx;
+        uint256 blockHash = 0;
+        if (!GetTransaction(hash, wtx, blockHash, true)) //can't find transaction
+        {
+            file_log("DEBUG ALERT Unable to load lastAlertTxid, transaction not found\n");
+        }
+        else
+        {
+            CMPTransaction mp_obj;
+            int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+            string new_global_alert_message;
+            if (0 <= parseRC)
+            {
+                if (0<=mp_obj.step1())
+                {
+                    if(65535 == mp_obj.getType())
+                    {
+                        if (0 == mp_obj.step2_Alert(&new_global_alert_message))
+                        {
+                            global_alert_message = new_global_alert_message;
+                            // check if expired
+                            CBlockIndex* mpBlockIndex = chainActive[blockHeight];
+                            bool alertExpired = checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
