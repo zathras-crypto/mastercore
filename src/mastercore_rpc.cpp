@@ -2051,6 +2051,85 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     return response;   // return response array for JSON serialization
 }
 
+Value getinfo_MP(const Array& params, bool fHelp)
+{
+    Object infoResponse;
+    // other bits of info we want to report should be included here
+
+    // provide the mastercore and bitcoin version
+    infoResponse.push_back(Pair("mastercoreversion", "0.0." + boost::lexical_cast<string>((double)MASTERCORE_VERSION_BASE/10) + MASTERCORE_VERSION_TYPE ));
+    infoResponse.push_back(Pair("bitcoincoreversion", "0." + boost::lexical_cast<string>((int)CLIENT_VERSION/100)));
+
+    // provide the current block details
+    uint64_t block = chainActive.Height();
+    uint64_t blockTime = chainActive[chainActive.Height()]->GetBlockTime();
+    int64_t blockMPTransactions = p_txlistdb->getMPTransactionCountBlock(block);
+    int64_t totalMPTransactions = p_txlistdb->getMPTransactionCountTotal();
+    int64_t totalMPTrades = t_tradelistdb->getMPTradeCountTotal();
+    infoResponse.push_back(Pair("block", block));
+    infoResponse.push_back(Pair("blocktime", blockTime));
+    infoResponse.push_back(Pair("blocktransactions", blockMPTransactions));
+
+    // provide the number of trades completed
+    infoResponse.push_back(Pair("totaltrades", totalMPTrades));
+    // provide the number of transactions parsed
+    infoResponse.push_back(Pair("totaltransactions", totalMPTransactions));
+
+    // handle alerts
+    Object alertResponse;
+    string global_alert_message = getMasterCoreAlertString();
+    int32_t alertType = 0;
+    uint64_t expiryValue = 0;
+    uint32_t typeCheck = 0;
+    uint32_t verCheck = 0;
+    std::vector<std::string> vstr;
+    string alertMessage;
+
+    //split the global message string if it's not empty
+    if(!global_alert_message.empty())
+    {
+        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 5 tokens and they convert ok
+        if (5 == vstr.size())
+        {
+            try
+            {
+                alertType = boost::lexical_cast<int32_t>(vstr[0]);
+                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
+                alertMessage = vstr[4];
+            } catch (const boost::bad_lexical_cast &e)
+              {
+                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
+                  alertType = 0;
+                  expiryValue = 0;
+                  alertMessage = "error";
+              }
+            string alertTypeStr;
+            switch (alertType)
+            {
+                case 0: alertTypeStr = "error"; break;
+                case 1: alertTypeStr = "textalertexpiringbyblock"; break;
+                case 2: alertTypeStr = "textalertexpiringbytime"; break;
+                case 3: alertTypeStr = "textalertexpiringbyversion"; break;
+                case 4: alertTypeStr = "updatealerttxcheck"; break;
+            }
+            alertResponse.push_back(Pair("alerttype", alertTypeStr));
+            alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
+            if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
+            alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
+        }
+        else
+        {
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
+        }
+    }
+    infoResponse.push_back(Pair("alert", alertResponse));
+    return infoResponse;
+}
+
 Value gettrade_MP(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)

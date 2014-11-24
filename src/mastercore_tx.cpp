@@ -77,6 +77,77 @@ int CMPTransaction::step1()
   return (type);
 }
 
+// extract alert info for alert packets
+int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
+{
+  const char *p = 4 + (char *)&pkt;
+  std::vector<std::string>spstr;
+  char alertString[SP_STRING_FIELD_LEN];
+
+  // is sender authorized?
+  bool authorized = false;
+  if (
+     (sender=="mMichaelsAddress") || // Michael
+     (sender=="mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64") || //Faiz
+     (sender=="mCraigAddress") || // Craig
+     (sender=="mpZATHupfCLqet5N1YL48ByCM1ZBfddbGJ") //Zathras
+     ) authorized = true;
+
+  if(!authorized)
+  {
+      // not authorized, ignore alert
+      file_log("\t      alert auth: false\n");
+      return (PKT_ERROR -912);
+  }
+  else
+  {
+      // authorized, decode and make sure there are 4 tokens, then replace global_alert_message
+      spstr.push_back(std::string(p));
+      memcpy(alertString, spstr[0].c_str(), std::min(spstr[0].length(),sizeof(alertString)-1));
+
+      std::vector<std::string> vstr;
+      boost::split(vstr, alertString, boost::is_any_of(":"), token_compress_on);
+      file_log("\t      alert auth: true\n");
+      file_log("\t    alert sender: %s\n", sender.c_str());
+
+      if (5 != vstr.size())
+      {
+          // there are not 5 tokens in the alert, badly formed alert and must discard
+          file_log("\t    packet error: badly formed alert != 5 tokens\n");
+          return (PKT_ERROR -911);
+      }
+      else
+      {
+          int32_t alertType;
+          uint64_t expiryValue;
+          uint32_t typeCheck;
+          uint32_t verCheck;
+          string alertMessage;
+          try
+          {
+              alertType = boost::lexical_cast<int32_t>(vstr[0]);
+              expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+              typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+              verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
+          } catch (const boost::bad_lexical_cast &e)
+            {
+                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
+                  return (PKT_ERROR -910); //(something went wrong)
+            }
+          alertMessage = vstr[4];
+          file_log("\t    message type: %llu\n",alertType);
+          file_log("\t    expiry value: %llu\n",expiryValue);
+          file_log("\t      type check: %llu\n",typeCheck);
+          file_log("\t       ver check: %llu\n",verCheck);
+          file_log("\t   alert message: %s\n", alertMessage.c_str());
+          // copy the alert string into the global_alert_message and return a 0 rc
+          string message(alertString);
+          *new_global_alert_message=message;
+          return 0;
+      }
+  }
+}
+
 // extract Value for certain types of packets
 int CMPTransaction::step2_Value()
 {

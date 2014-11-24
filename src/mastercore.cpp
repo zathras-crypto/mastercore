@@ -91,6 +91,8 @@ uint64_t global_balance_reserved_maineco[100000];
 uint64_t global_balance_money_testeco[100000];
 uint64_t global_balance_reserved_testeco[100000];
 
+string global_alert_message;
+
 static uint64_t exodus_prev = 0;
 static uint64_t exodus_balance;
 
@@ -563,6 +565,120 @@ bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyI
       }
   }
   return false;
+}
+
+std::string mastercore::getMasterCoreAlertString()
+{
+    return global_alert_message;
+}
+
+bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
+{
+    //expire any alerts that need expiring
+    int32_t alertType;
+    uint64_t expiryValue;
+    uint32_t typeCheck;
+    uint32_t verCheck;
+    std::vector<std::string> vstr;
+
+    //split the global message string if it's not empty
+    if(!global_alert_message.empty())
+    {
+        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 5 tokens and they convert ok
+        if (5 == vstr.size())
+        {
+            try
+            {
+                alertType = boost::lexical_cast<int32_t>(vstr[0]);
+                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
+            } catch (const boost::bad_lexical_cast &e)
+              {
+                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
+                  return false; //(something went wrong)
+              }
+        }
+        else
+        {
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 5 tokens\n");
+             return false;
+        }
+        if ((alertType < 1) || (alertType > 4) || (expiryValue == 0))
+        {
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are not as expected.\n");
+             return false;
+        }
+        switch (alertType)
+        {
+             case 1: //Text based alert only expiring by block number, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (curBlock > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 2: //Text based alert only expiring by block time, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (curTime > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                 if (MASTERCORE_VERSION_BASE > expiryValue)
+                 {
+                     //the alert has expired, clear the global alert string
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+             case 4: //Update alert, show upgrade alert in UI and getalert_MP call + use isTransactionTypeAllowed to verify client support and shutdown if not present
+                 //check of the new tx type is supported at live block
+                 bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
+
+                 //check if we are at/past the live blockheight
+                 bool txLive = (chainActive.Height()>(int64_t)expiryValue);
+
+                 //testnet allows all types of transactions, so override this here for testing
+                 txSupported = false; //testing
+                 //txLive = true; //testing
+
+                 if ((!txSupported) && (txLive))
+                 {
+                     // we know we have transactions live we don't understand
+                     // can't be trusted to provide valid data, shutdown
+                     file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
+                     printf("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str()); //echo to screen
+                     if (!GetBoolArg("-overrideforcedshutdown", false)) StartShutdown();
+                     return false;
+                 }
+
+                 if ((!txSupported) && (!txLive))
+                 {
+                     // warn the user this version does not support the new coming TX and they will need to update
+                     // we don't actually need to take any action here, we leave the alert string in place and simply don't expire it
+                 }
+
+                 if (txSupported)
+                 {
+                     // we can simply expire this update as this version supports the new coming TX
+                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                     global_alert_message = "";
+                     return true;
+                 }
+             break;
+        }
+        return false;
+    }
+    else { return false; }
+    return false;
 }
 
 // get total tokens for a property
@@ -2312,7 +2428,6 @@ static void clear_all_state() {
   exodus_prev = 0;
 }
 
-
 // called from init.cpp of Bitcoin Core
 int mastercore_init()
 {
@@ -2384,7 +2499,6 @@ int mastercore_init()
   else
   {
   // my old way
-
     nWaterlineBlock = GENESIS_BLOCK - 1;  // the DEX block
 
     if (TestNet()) nWaterlineBlock = START_TESTNET_BLOCK; //testnet3
@@ -2423,6 +2537,9 @@ int mastercore_init()
   exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("Exodus balance: %lu\n", exodus_balance);
 
+  // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
+  (void) p_txlistdb->setLastAlert(nWaterlineBlock);
+  // initial scan
   (void) msc_initial_scan(nWaterlineBlock);
 
   // display Exodus balance
@@ -2909,6 +3026,87 @@ const unsigned int prop = PropertyID;
   return txid;
 }
 
+int CMPTxList::setLastAlert(int blockHeight)
+{
+    if (blockHeight > chainActive.Height()) blockHeight = chainActive.Height();
+    if (!pdb) return 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    string lastAlertTxid;
+    string lastAlertData;
+    string itData;
+    int64_t lastAlertBlock = 0;
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+       skey = it->key();
+       svalue = it->value();
+       string itData = svalue.ToString().c_str();
+       std::vector<std::string> vstr;
+       boost::split(vstr, itData, boost::is_any_of(":"), token_compress_on);
+       // we expect 5 tokens
+       if (4 == vstr.size())
+       {
+           if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT) // is it an alert?
+           {
+               if (atoi(vstr[0]) == 1) // is it valid?
+               {
+                   if ( (atoi(vstr[1]) > lastAlertBlock) && (atoi(vstr[1]) < blockHeight) ) // is it the most recent and within our parsed range?
+                   {
+                      lastAlertTxid = skey.ToString().c_str();
+                      lastAlertData = svalue.ToString().c_str();
+                      lastAlertBlock = atoi(vstr[1]);
+                   }
+               }
+           }
+       }
+    }
+    delete it;
+
+    // if lastAlertTxid is not empty, load the alert and see if it's still valid - if so, copy to global_alert_message
+    if(lastAlertTxid.empty())
+    {
+        file_log("DEBUG ALERT No alerts found to load\n");
+    }
+    else
+    {
+        file_log("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
+
+        // reparse lastAlertTxid
+        uint256 hash;
+        hash.SetHex(lastAlertTxid);
+        CTransaction wtx;
+        uint256 blockHash = 0;
+        if (!GetTransaction(hash, wtx, blockHash, true)) //can't find transaction
+        {
+            file_log("DEBUG ALERT Unable to load lastAlertTxid, transaction not found\n");
+        }
+        else
+        {
+            CMPTransaction mp_obj;
+            int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+            string new_global_alert_message;
+            if (0 <= parseRC)
+            {
+                if (0<=mp_obj.step1())
+                {
+                    if(65535 == mp_obj.getType())
+                    {
+                        if (0 == mp_obj.step2_Alert(&new_global_alert_message))
+                        {
+                            global_alert_message = new_global_alert_message;
+                            // check if expired
+                            CBlockIndex* mpBlockIndex = chainActive[blockHeight];
+                            (void) checkExpiredAlerts(blockHeight, mpBlockIndex->GetBlockTime());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 uint256 CMPTxList::findMetaDExCancel(const uint256 txid)
 {
   std::vector<std::string> vstr;
@@ -2972,6 +3170,46 @@ int CMPTxList::getNumberOfPurchases(const uint256 txid)
         }
     }
     return numberOfPurchases;
+}
+
+int CMPTxList::getMPTransactionCountTotal()
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        skey = it->key();
+        if (skey.ToString().length() == 64) { ++count; } //extra entries for cancels and purchases are more than 64 chars long
+    }
+    delete it;
+    return count;
+}
+
+int CMPTxList::getMPTransactionCountBlock(int block)
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = pdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        skey = it->key();
+        svalue = it->value();
+        if (skey.ToString().length() == 64)
+        {
+            string strValue = svalue.ToString().c_str();
+            std::vector<std::string> vstr;
+            boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+            if (4 == vstr.size())
+            {
+                if (atoi(vstr[1]) == block) { ++count; }
+            }
+        }
+    }
+    delete it;
+    return count;
 }
 
 string CMPTxList::getKeyValue(string key)
@@ -3390,6 +3628,20 @@ void CMPTradeList::printStats()
   file_log("CMPTradeList stats: tWritten= %d , tRead= %d\n", tWritten, tRead);
 }
 
+int CMPTradeList::getMPTradeCountTotal()
+{
+    int count = 0;
+    Slice skey, svalue;
+    readoptions.fill_cache = false;
+    Iterator* it = tdb->NewIterator(readoptions);
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        ++count;
+    }
+    delete it;
+    return count;
+}
+
 void CMPTradeList::printAll()
 {
   int count = 0;
@@ -3576,7 +3828,9 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   // get the total MSC for this wallet, for QT display
   (void) set_wallet_totals();
-//  printf("the globals: MSC_total= %lu, MSC_RESERVED_total= %lu\n", global_MSC_total, global_MSC_RESERVED_total);
+
+  // check the alert status, do we need to do anything else here?
+  (void) checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
 
   // save out the state after this block
   if (writePersistence(nBlockNow))
@@ -3631,6 +3885,7 @@ int CMPTransaction::interpretPacket(CMPOffer *obj_o, CMPMetaDEx *mdex_o)
 {
 int rc = PKT_ERROR;
 int step_rc;
+std::string new_global_alert_message;
 
   if (0>step1()) return -98765;
 
@@ -3891,6 +4146,16 @@ int step_rc;
 
     case MSC_TYPE_SAVINGS_COMPROMISED:
       rc = logicMath_SavingsCompromised();
+      break;
+
+    case MASTERCORE_MESSAGE_TYPE_ALERT:
+      // check the packet version is also FF
+      if ((int)version != 65535)
+      {
+          rc = step2_Alert(&new_global_alert_message);
+          if (rc == 0) global_alert_message = new_global_alert_message;
+          // end of block handler will expire any old alerts
+      }
       break;
 
     default:

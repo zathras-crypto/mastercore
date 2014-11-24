@@ -19,8 +19,12 @@ int const MAX_STATE_HISTORY = 50;
 
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
+// define the version for alert messages
+#define MASTERCORE_VERSION_BASE 90 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
+#define MASTERCORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
+
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
-// maximum numeric values from the spec: 
+// maximum numeric values from the spec:
 #define MAX_INT_8_BYTES (9223372036854775807UL)
 
 // what should've been in the Exodus address for this block if none were spent
@@ -70,6 +74,7 @@ enum TransactionType {
   MSC_TYPE_GRANT_PROPERTY_TOKENS    = 55,
   MSC_TYPE_REVOKE_PROPERTY_TOKENS   = 56,
   MSC_TYPE_CHANGE_ISSUER_ADDRESS    = 70,
+  MASTERCORE_MESSAGE_TYPE_ALERT     = 65535
 };
 
 #define MSC_PROPERTY_TYPE_INDIVISIBLE             1
@@ -342,6 +347,7 @@ public:
     void printStats();
     void printAll();
     bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought);
+    int getMPTradeCountTotal();
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
@@ -401,9 +407,13 @@ public:
     int getNumberOfPurchases(const uint256 txid);
     int getNumberOfMetaDExCancels(const uint256 txid);
     bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
+    int getMPTransactionCountTotal();
+    int getMPTransactionCountBlock(int block);
 
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
+
+    int setLastAlert(int blockHeight);
 
     void printStats();
     void printAll();
@@ -486,6 +496,7 @@ CMPTally *getTally(const string & address);
 
 bool isMetaDExOfferActive(const uint256 txid, unsigned int propertyId);
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL);
+bool checkExpiredAlerts(unsigned int curBlock, uint64_t curTime);
 int set_wallet_totals();
 
 char *c_strMasterProtocolTXType(int i);
@@ -494,7 +505,8 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int
 
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 
-bool update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype);
+bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
+std::string getMasterCoreAlertString();
 }
 
 #endif
