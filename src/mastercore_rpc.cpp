@@ -49,7 +49,7 @@ void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
     _my_sps->getSP(obj.getProperty(), spProperty);
     _my_sps->getSP(obj.getDesProperty(), spDesProperty);
 
-    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
+    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmountForSale());
     std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
     std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
 
@@ -69,7 +69,7 @@ void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
 }
 
 void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
-{    
+{
     MetaDEx_compare compareByHeight;
     
     // sorts metadex objects based on block height and position in block
@@ -78,7 +78,7 @@ void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
     for (std::vector<CMPMetaDEx>::const_iterator it = vMetaDexObjs.begin(); it != vMetaDexObjs.end(); ++it) {
         Object metadex_obj;
         MetaDexObjectToJSON(*it, metadex_obj);
-        
+
         response.push_back(metadex_obj);
     }
 }
