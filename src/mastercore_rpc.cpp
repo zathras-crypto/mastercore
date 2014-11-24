@@ -41,6 +41,48 @@ using namespace mastercore;
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
 
+void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
+{
+    CMPSPInfo::Entry spProperty;
+    CMPSPInfo::Entry spDesProperty;
+
+    _my_sps->getSP(obj.getProperty(), spProperty);
+    _my_sps->getSP(obj.getDesProperty(), spDesProperty);
+
+    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
+    std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
+    std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
+
+    // add data to JSON object
+    metadex_obj.push_back(Pair("address", obj.getAddr()));
+    metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
+    metadex_obj.push_back(Pair("ecosystem", strEcosystem));
+    metadex_obj.push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
+    metadex_obj.push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
+    metadex_obj.push_back(Pair("property_owned_divisible", spProperty.isDivisible()));
+    metadex_obj.push_back(Pair("property_desired_divisible", spDesProperty.isDivisible()));
+    metadex_obj.push_back(Pair("amount_original", strAmountOriginal));
+    metadex_obj.push_back(Pair("amount_desired", strAmountDesired));
+    metadex_obj.push_back(Pair("action", (int) obj.getAction()));
+    metadex_obj.push_back(Pair("block", obj.getBlock()));
+    metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
+}
+
+void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
+{    
+    MetaDEx_compare compareByHeight;
+    
+    // sorts metadex objects based on block height and position in block
+    std::sort (vMetaDexObjs.begin(), vMetaDexObjs.end(), compareByHeight);
+
+    for (std::vector<CMPMetaDEx>::const_iterator it = vMetaDexObjs.begin(); it != vMetaDexObjs.end(); ++it) {
+        Object metadex_obj;
+        MetaDexObjectToJSON(*it, metadex_obj);
+        
+        response.push_back(metadex_obj);
+    }
+}
+
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
 {
@@ -1040,29 +1082,6 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
   return tmpPropId;
 }
 
-void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c_want_div, string eco) {
-
-  metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
-  metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
-  metadex_obj->push_back(Pair("ecosystem", eco ));
-  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
-  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
-  metadex_obj->push_back(Pair("property_owned_divisible", c_own_div));
-  metadex_obj->push_back(Pair("property_desired_divisible", c_want_div));
-
-  //uint64_t *price = obj.getPrice();
-  //uint64_t *invprice = obj.getInversePrice();
-
-  //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-  //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-  //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmountForSale())));
-  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
-  metadex_obj->push_back(Pair("action", (int) obj.getAction()));
-  metadex_obj->push_back(Pair("block", obj.getBlock()));
-  metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
-}
-
 Value trade_MP(const Array& params, bool fHelp) {
 
    if (fHelp || params.size() < 6)
@@ -1151,9 +1170,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
             "2. property_id2         (int, optional) property owned to put up on sale\n"
         );
 
-  Array response;
-
-  Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
   bool filter_by_desired = (params.size() == 2) ? true : false;
@@ -1166,6 +1182,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
   //for each address
   //get property pair and total order amount at a price
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1176,33 +1193,19 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
         CMPMetaDEx obj = *it;
-        CMPSPInfo::Entry sp;
 
         //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
         bool filter = ( filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) && ( obj.getDesProperty() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) );
 
         if ( filter  ) {
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
-
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
         }
-
       }
     }
   }
+  
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
   
   return response;
 }
@@ -1220,8 +1223,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
             "3. property_id2            (int, optional) filter orders by property_id1 and property_id2\n"
         );
 
-  Array response;
-  Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
   uint64_t timestamp = (params.size() > 0) ? params[0].get_int64() : GetLatestBlockTime() - 1209600; //2 weeks 
@@ -1236,6 +1237,8 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
   if ( filter_by_both ) {
     propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
+  
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1246,7 +1249,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
-          CMPSPInfo::Entry sp;
 
           bool filter = 1;
 
@@ -1256,26 +1258,14 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
           }
 
           if ( filter &&  (obj.getBlockTime() >= timestamp)) {
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
-
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-            
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
           }
       }
     }
   }
+  
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
   
   return response;
 }
@@ -1314,9 +1304,6 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
             "2. number            (int, optional ) number of trades to retreive\n"
             "3. property_id         (int, optional) filter by propertyid on one side\n"
         );
-  
-  Array response;
-  Object metadex_obj;
 
   string address = params[0].get_str();
   unsigned int number_trades = (params.size() == 2 ? (unsigned int) params[1].get_int64() : 512);
@@ -1327,6 +1314,8 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
   if( filter_by_one ) {
     propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
+  
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1337,42 +1326,23 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
-          CMPSPInfo::Entry sp;
 
           bool filter = 1;
 
           //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
           filter = (obj.getAddr() == address) && 
                    ( ( ( filter_by_one && (obj.getProperty() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
-                   (response.size() < number_trades);
+                   (vMetaDexObjects.size() < number_trades);
           if ( filter ) {
-
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdFilter) == true) ? "Test" : "Main";
-    
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
           }
       }
     }
   }
   
-  //for ( json_spirit::Object::iterator it = response.begin(); it != response.end(); ++it) {
-
-   // char firs = it->first[0];
-    //printf ("\n first %s and %s \n", firs, it->first);
-  //}
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
+  
   return response;
 }
 
