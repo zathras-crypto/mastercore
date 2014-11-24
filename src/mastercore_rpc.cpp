@@ -49,7 +49,7 @@ void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
     _my_sps->getSP(obj.getProperty(), spProperty);
     _my_sps->getSP(obj.getDesProperty(), spDesProperty);
 
-    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmount());
+    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmountForSale());
     std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
     std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
 
