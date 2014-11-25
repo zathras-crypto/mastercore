@@ -178,12 +178,12 @@ public:
 
   void print()
   {
-    file_log("BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
-    file_log("sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
+    file_log("BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex(), (double)tx_fee_paid/(double)COIN);
+    file_log("sender: %s ; receiver: %s\n", sender, receiver);
 
     if (0<pkt_size)
     {
-      file_log("pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
+      file_log("pkt: %s\n", HexStr(pkt, pkt_size + pkt, false));
     }
     else
     {

@@ -45,7 +45,7 @@ public:
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),property(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
-    if (msc_debug_dex) file_log("%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
+    if (msc_debug_dex) file_log("%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex(), __LINE__, __FILE__);
   }
 
   void Set(uint64_t d, uint64_t fee, unsigned char btl, unsigned char suba)
@@ -202,13 +202,13 @@ public:
   void setAmountForSale(int64_t ao, const string &label = "")
   {
     amount_forsale = ao;
-    file_log("%s(%ld %s):%s\n", __FUNCTION__, ao, label.c_str(), ToString().c_str());
+    file_log("%s(%ld %s):%s\n", __FUNCTION__, ao, label, ToString());
   }
 
   void setAmountDesired(int64_t ad, const string &label = "")
   {
     amount_desired = ad;
-    file_log("%s(%ld %s):%s\n", __FUNCTION__, ad, label.c_str(), ToString().c_str());
+    file_log("%s(%ld %s):%s\n", __FUNCTION__, ad, label, ToString());
   }
 
   unsigned char getAction() const { return subaction; }

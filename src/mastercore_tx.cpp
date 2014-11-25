@@ -109,7 +109,7 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
       std::vector<std::string> vstr;
       boost::split(vstr, alertString, boost::is_any_of(":"), token_compress_on);
       file_log("\t      alert auth: true\n");
-      file_log("\t    alert sender: %s\n", sender.c_str());
+      file_log("\t    alert sender: %s\n", sender);
 
       if (5 != vstr.size())
       {
@@ -140,7 +140,7 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
           file_log("\t    expiry value: %llu\n",expiryValue);
           file_log("\t      type check: %llu\n",typeCheck);
           file_log("\t       ver check: %llu\n",verCheck);
-          file_log("\t   alert message: %s\n", alertMessage.c_str());
+          file_log("\t   alert message: %s\n", alertMessage);
           // copy the alert string into the global_alert_message and return a 0 rc
           string message(alertString);
           *new_global_alert_message=message;
