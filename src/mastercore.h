@@ -19,8 +19,12 @@ int const MAX_STATE_HISTORY = 50;
 
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
+// define the version for alert messages
+#define MASTERCORE_VERSION_BASE 90 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
+#define MASTERCORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
+
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
-// maximum numeric values from the spec: 
+// maximum numeric values from the spec:
 #define MAX_INT_8_BYTES (9223372036854775807UL)
 
 // what should've been in the Exodus address for this block if none were spent
@@ -70,6 +74,7 @@ enum TransactionType {
   MSC_TYPE_GRANT_PROPERTY_TOKENS    = 55,
   MSC_TYPE_REVOKE_PROPERTY_TOKENS   = 56,
   MSC_TYPE_CHANGE_ISSUER_ADDRESS    = 70,
+  MASTERCORE_MESSAGE_TYPE_ALERT     = 65535
 };
 
 #define MSC_PROPERTY_TYPE_INDIVISIBLE             1
@@ -141,9 +146,24 @@ int mp_LogPrintStr(const std::string &str);
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int mp_log(TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format("%s", TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
     static inline int mp_log(const char* format, TINYFORMAT_VARARGS(n))  \
     {                                                                         \
         return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int file_log(const char* format, TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+    }                                                                         \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline int file_log(TINYFORMAT_VARARGS(n))  \
+    {                                                                         \
+        return mp_LogPrintStr(tfm::format("%s", TINYFORMAT_PASSARGS(n))); \
     }                                                                         \
     /*   Log error and return false */                                        \
     template<TINYFORMAT_ARGTYPES(n)>                                          \
@@ -156,7 +176,6 @@ int mp_LogPrintStr(const std::string &str);
 TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
 //--- CUT HERE ---
 
-
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
@@ -164,8 +183,6 @@ uint256 send_MP(const string &FromAddress, const string &ToAddress, const string
 int64_t feeCheck(const string &address);
 
 const std::string ExodusAddress();
-
-extern FILE *mp_fp;
 
 extern int msc_debug_dex;
 
@@ -330,6 +347,7 @@ public:
     void printStats();
     void printAll();
     bool getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought);
+    int getMPTradeCountTotal();
 };
 
 /* leveldb-based storage for the list of ALL Master Protocol TXIDs (key) with validity bit & other misc data as value */
@@ -382,12 +400,20 @@ public:
 
     void recordTX(const uint256 &txid, bool fValid, int nBlock, unsigned int type, uint64_t nValue);
     void recordPaymentTX(const uint256 &txid, bool fValid, int nBlock, unsigned int vout, unsigned int propertyId, uint64_t nValue, string buyer, string seller);
+    void recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &txidSub, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue);
 
+    string getKeyValue(string key);
+    uint256 findMetaDExCancel(const uint256 txid);
     int getNumberOfPurchases(const uint256 txid);
+    int getNumberOfMetaDExCancels(const uint256 txid);
     bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
+    int getMPTransactionCountTotal();
+    int getMPTransactionCountBlock(int block);
 
     bool exists(const uint256 &txid);
     bool getTX(const uint256 &txid, string &value);
+
+    int setLastAlert(int blockHeight);
 
     void printStats();
     void printAll();
@@ -431,14 +457,6 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 int mastercore_handler_tx(const CTransaction &tx, int nBlock, unsigned int idx, CBlockIndex const *pBlockIndex );
 int mastercore_save_state( CBlockIndex const *pBlockIndex );
 
-uint64_t rounduint64(double d);
-
-bool isBigEndian(void);
-
-void swapByteOrder16(unsigned short& us);
-void swapByteOrder32(unsigned int& ui);
-void swapByteOrder64(uint64_t& ull);
-
 namespace mastercore
 {
 extern std::map<string, CMPTally> mp_tally_map;
@@ -460,14 +478,16 @@ std::string FormatIndivisibleMP(int64_t n);
 
 int ClassB_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const vector<unsigned char> &data, uint256 & txid, int64_t additional = 0);
 
-uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount, unsigned int PropertyID_2, uint64_t Amount_2,
- unsigned int TransactionType, int64_t additional, int *error_code = NULL);
+uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount,
+ unsigned int PropertyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code = NULL);
 
 bool isTestEcosystemProperty(unsigned int property);
 
 CMPTally *getTally(const string & address);
 
+bool isMetaDExOfferActive(const uint256 txid, unsigned int propertyId);
 int64_t getTotalTokens(unsigned int propertyId, int64_t *n_owners_total = NULL);
+bool checkExpiredAlerts(unsigned int curBlock, uint64_t curTime);
 int set_wallet_totals();
 
 char *c_strMasterProtocolTXType(int i);
@@ -476,7 +496,8 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int
 
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 
-bool update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype);
+bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
+std::string getMasterCoreAlertString();
 }
 
 #endif

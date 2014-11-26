@@ -7,12 +7,14 @@
 #define STR_SELLOFFER_ADDR_PROP_COMBO(x) ( x + "-" + strprintf("%d", prop))
 #define STR_ACCEPT_ADDR_PROP_ADDR_COMBO( _seller , _buyer ) ( _seller + "-" + strprintf("%d", prop) + "+" + _buyer)
 #define STR_PAYMENT_SUBKEY_TXID_PAYMENT_COMBO(txidStr) ( txidStr + "-" + strprintf("%d", paymentNumber))
+#define STR_REF_SUBKEY_TXID_REF_COMBO(txidStr) ( txidStr + strprintf("%d", refNumber))
 
-#define DISPLAY_PRECISION_LEN  20
+#define DISPLAY_PRECISION_LEN  50
 #define INTERNAL_PRECISION_LEN 50
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
-using boost::multiprecision::cpp_dec_float_50;
+using boost::multiprecision::cpp_dec_float_100;
+
 // a single outstanding offer -- from one seller of one property, internally may have many accepts
 class CMPOffer
 {
@@ -43,7 +45,7 @@ public:
   CMPOffer(int b, uint64_t a, unsigned int cu, uint64_t d, uint64_t fee, unsigned char btl, const uint256 &tx)
    :offerBlock(b),offer_amount_original(a),property(cu),BTC_desired_original(d),min_fee(fee),blocktimelimit(btl),txid(tx)
   {
-    if (msc_debug_dex) fprintf(mp_fp, "%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex().c_str(), __LINE__, __FILE__);
+    if (msc_debug_dex) file_log("%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex(), __LINE__, __FILE__);
   }
 
   void Set(uint64_t d, uint64_t fee, unsigned char btl, unsigned char suba)
@@ -109,24 +111,24 @@ public:
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
   {
     accept_amount_original = accept_amount_remaining;
-    fprintf(mp_fp, "%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
+    file_log("%s(%lu), line %d, file: %s\n", __FUNCTION__, a, __LINE__, __FILE__);
   }
 
   CMPAccept(uint64_t origA, uint64_t remA, int b, unsigned char blt, unsigned int c, uint64_t o, uint64_t btc, const uint256 &txid):accept_amount_original(origA),accept_amount_remaining(remA),blocktimelimit(blt),property(c),
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)
   {
-    fprintf(mp_fp, "%s(%lu[%lu]), line %d, file: %s\n", __FUNCTION__, remA, origA, __LINE__, __FILE__);
+    file_log("%s(%lu[%lu]), line %d, file: %s\n", __FUNCTION__, remA, origA, __LINE__, __FILE__);
   }
 
   void print()
   {
-    fprintf(mp_fp, "buying: %12.8lf (originally= %12.8lf) in block# %d\n",
+    file_log("buying: %12.8lf (originally= %12.8lf) in block# %d\n",
      (double)accept_amount_remaining/(double)COIN, (double)accept_amount_original/(double)COIN, block);
   }
 
   uint64_t getAcceptAmountRemaining() const
   { 
-    fprintf(mp_fp, "%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount_remaining, __LINE__, __FILE__);
+    file_log("%s(); buyer still wants = %lu, line %d, file: %s\n", __FUNCTION__, accept_amount_remaining, __LINE__, __FILE__);
 
     return accept_amount_remaining;
   }
@@ -167,7 +169,7 @@ public:
 
 };  // end of CMPAccept class
 
-typedef cpp_dec_float_50 XDOUBLE;
+typedef cpp_dec_float_100 XDOUBLE;
 // typedef double XDOUBLE;
 
 // a metadex trade
@@ -194,19 +196,19 @@ public:
   unsigned int getDesProperty() const { return desired_property; }
   const string & getAddr() const { return addr; }
 
-  uint64_t getAmount() const { return amount_forsale; }
+  uint64_t getAmountForSale() const { return amount_forsale; }
   int64_t getAmountDesired() const { return amount_desired; }
 
   void setAmountForSale(int64_t ao, const string &label = "")
   {
     amount_forsale = ao;
-    fprintf(mp_fp, "%s(%ld %s):%s\n", __FUNCTION__, ao, label.c_str(), ToString().c_str());
+    file_log("%s(%ld %s):%s\n", __FUNCTION__, ao, label, ToString());
   }
 
   void setAmountDesired(int64_t ad, const string &label = "")
   {
     amount_desired = ad;
-    fprintf(mp_fp, "%s(%ld %s):%s\n", __FUNCTION__, ad, label.c_str(), ToString().c_str());
+    file_log("%s(%ld %s):%s\n", __FUNCTION__, ad, label, ToString());
   }
 
   unsigned char getAction() const { return subaction; }
@@ -308,13 +310,13 @@ int DEx_acceptDestroy(const string &buyer, const string &seller, int, bool bForc
 int DEx_payment(uint256 txid, unsigned int vout, string seller, string buyer, uint64_t BTC_paid, int blockNow, uint64_t *nAmended = NULL);
 
 int MetaDEx_ADD(const string &sender_addr, unsigned int, uint64_t, int block, unsigned int property_desired, uint64_t amount_desired, const uint256 &txid, unsigned int idx);
-int MetaDEx_CANCEL_AT_PRICE(const string &, unsigned int, uint64_t, unsigned int, uint64_t);
-int MetaDEx_CANCEL_ALL_FOR_PAIR(const string &, unsigned int, unsigned int);
-int MetaDEx_CANCEL_EVERYTHING(const string &);
+int MetaDEx_CANCEL_AT_PRICE(const uint256, unsigned int, const string &, unsigned int, uint64_t, unsigned int, uint64_t);
+int MetaDEx_CANCEL_ALL_FOR_PAIR(const uint256, unsigned int, const string &, unsigned int, unsigned int);
+int MetaDEx_CANCEL_EVERYTHING(const uint256, unsigned int, const string &);
 md_PricesMap *get_Prices(unsigned int prop);
 md_Set *get_Indexes(md_PricesMap *p, XDOUBLE price);
 
-void MetaDEx_debug_print(FILE * fp = stdout, bool bShowPriceLevel = false);
+void MetaDEx_debug_print(bool bShowPriceLevel = false, bool bDisplay = false);
 }
 
 #endif // #ifndef _MASTERCOIN_DEX

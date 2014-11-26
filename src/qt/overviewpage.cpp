@@ -433,8 +433,37 @@ void OverviewPage::updateDisplayUnit()
 
 void OverviewPage::updateAlerts(const QString &warnings)
 {
-    this->ui->labelAlerts->setVisible(!warnings.isEmpty());
-    this->ui->labelAlerts->setText(warnings);
+    string alertMessage = getMasterCoreAlertString();
+    // any BitcoinCore or MasterCore alerts to display?
+    bool showAlert = false;
+    if((!alertMessage.empty()) || (!warnings.isEmpty())) showAlert = true;
+    this->ui->labelAlerts->setVisible(showAlert);
+    QString totalMessage;
+    std::vector<std::string> vstr;
+
+    // check if we have a Bitcoin alert to display
+    if(!warnings.isEmpty())
+    {
+        totalMessage=warnings + "\n";
+    }
+
+    // check if we have a MasterProtocol alert to display
+    if(!alertMessage.empty())
+    {
+        boost::split(vstr, alertMessage, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 5 tokens
+        if (5 == vstr.size())
+        {
+             totalMessage+=QString::fromStdString(vstr[4]);
+        }
+        else
+        {
+             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
+        }
+    }
+
+    // display the alert if needed
+    if(showAlert) { this->ui->labelAlerts->setText(totalMessage); }
 }
 
 void OverviewPage::showOutOfSyncWarning(bool fShow)

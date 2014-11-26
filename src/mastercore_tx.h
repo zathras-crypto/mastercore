@@ -138,6 +138,7 @@ public:
 
  int interpretPacket(CMPOffer *obj_o = NULL, CMPMetaDEx *mdex_o = NULL);
  int step1(void);
+ int step2_Alert(std::string *new_global_alert_message);
  int step2_Value(void);
  bool isOverrun(const char *p, unsigned int line);
  const char *step2_SmartProperty(int &error_code);
@@ -177,12 +178,12 @@ public:
 
   void print()
   {
-    fprintf(mp_fp, "BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex().c_str(), (double)tx_fee_paid/(double)COIN);
-    fprintf(mp_fp, "sender: %s ; receiver: %s\n", sender.c_str(), receiver.c_str());
+    file_log("BLOCK: %d =txid: %s =fee: %1.8lf\n", block, txid.GetHex(), (double)tx_fee_paid/(double)COIN);
+    file_log("sender: %s ; receiver: %s\n", sender, receiver);
 
     if (0<pkt_size)
     {
-      fprintf(mp_fp, "pkt: %s\n", HexStr(pkt, pkt_size + pkt, false).c_str());
+      file_log("pkt: %s\n", HexStr(pkt, pkt_size + pkt, false));
     }
     else
     {
