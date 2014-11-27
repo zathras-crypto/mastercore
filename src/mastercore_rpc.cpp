@@ -34,11 +34,54 @@ using namespace json_spirit;
 
 using namespace mastercore;
 
+#include "mastercore_convert.h"
 #include "mastercore_dex.h"
 #include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
+
+void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
+{
+    CMPSPInfo::Entry spProperty;
+    CMPSPInfo::Entry spDesProperty;
+
+    _my_sps->getSP(obj.getProperty(), spProperty);
+    _my_sps->getSP(obj.getDesProperty(), spDesProperty);
+
+    std::string strAmountOriginal = FormatMP(obj.getProperty(), obj.getAmountForSale());
+    std::string strAmountDesired = FormatMP(obj.getDesProperty(), obj.getAmountDesired());
+    std::string strEcosystem = isTestEcosystemProperty(obj.getProperty()) ? "Test" : "Main";
+
+    // add data to JSON object
+    metadex_obj.push_back(Pair("address", obj.getAddr()));
+    metadex_obj.push_back(Pair("txid", obj.getHash().GetHex()));
+    metadex_obj.push_back(Pair("ecosystem", strEcosystem));
+    metadex_obj.push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
+    metadex_obj.push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
+    metadex_obj.push_back(Pair("property_owned_divisible", spProperty.isDivisible()));
+    metadex_obj.push_back(Pair("property_desired_divisible", spDesProperty.isDivisible()));
+    metadex_obj.push_back(Pair("amount_original", strAmountOriginal));
+    metadex_obj.push_back(Pair("amount_desired", strAmountDesired));
+    metadex_obj.push_back(Pair("action", (int) obj.getAction()));
+    metadex_obj.push_back(Pair("block", obj.getBlock()));
+    metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
+}
+
+void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
+{
+    MetaDEx_compare compareByHeight;
+    
+    // sorts metadex objects based on block height and position in block
+    std::sort (vMetaDexObjs.begin(), vMetaDexObjs.end(), compareByHeight);
+
+    for (std::vector<CMPMetaDEx>::const_iterator it = vMetaDexObjs.begin(); it != vMetaDexObjs.end(); ++it) {
+        Object metadex_obj;
+        MetaDexObjectToJSON(*it, metadex_obj);
+
+        response.push_back(metadex_obj);
+    }
+}
 
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
@@ -166,28 +209,16 @@ Value getbalance_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
-    bool divisible = false;
-    divisible=sp.isDivisible();
-
-    Object balObj;
-
     int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
     int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
     int64_t tmpBalReservedAccept = 0;
     if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
-    if (divisible)
-    {
-        balObj.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
-        balObj.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-    }
-    else
-    {
-        balObj.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
-        balObj.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-    }
+    Object balance_obj;
+    balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
+    balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
 
-    return balObj;
+    return balance_obj;
 }
 
 // send a MP transaction via RPC - simple send
@@ -224,8 +255,7 @@ if (fHelp || params.size() < 4 || params.size() > 6)
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
   }
 
-  bool divisible = false;
-  divisible=sp.isDivisible();
+  bool divisible = sp.isDivisible();
 
   string strAmount = params[3].get_str();
   int64_t Amount = 0, additional = 0;
@@ -285,8 +315,7 @@ if (fHelp || params.size() < 3 || params.size() > 4)
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
   }
 
-  bool divisible = false;
-  divisible=sp.isDivisible();
+  bool divisible = sp.isDivisible();
 
 //  printf("%s(), params3='%s' line %d, file: %s\n", __FUNCTION__, params[3].get_str().c_str(), __LINE__, __FILE__);
 
@@ -381,9 +410,6 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
-    bool divisible=false;
-    divisible=sp.isDivisible();
-
     Array response;
 
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
@@ -399,25 +425,17 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
 
-        Object addressbal;
-
         int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
         int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
         int64_t tmpBalReservedAccept = 0;
         if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
-        addressbal.push_back(Pair("address", address));
-        if(divisible)
-        {
-        addressbal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
-        addressbal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-        }
-        else
-        {
-        addressbal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
-        addressbal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-        }
-        response.push_back(addressbal);
+        Object balance_obj;
+        balance_obj.push_back(Pair("address", address));
+        balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
+
+        response.push_back(balance_obj);
     }
 return response;
 }
@@ -460,33 +478,17 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     uint64_t propertyId; // avoid issues with json spirit at uint32
     while (0 != (propertyId = addressTally->next()))
     {
-            bool divisible=false;
-            CMPSPInfo::Entry sp;
-            if (_my_sps->getSP(propertyId, sp)) {
-              divisible = sp.isDivisible();
-            }
-
-            Object propertyBal;
-
-            propertyBal.push_back(Pair("propertyid", propertyId));
-
             int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
             int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
             int64_t tmpBalReservedAccept = 0;
             if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
-            if (divisible)
-            {
-                    propertyBal.push_back(Pair("balance", FormatDivisibleMP(tmpBalAvailable)));
-                    propertyBal.push_back(Pair("reserved", FormatDivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-            }
-            else
-            {
-                    propertyBal.push_back(Pair("balance", FormatIndivisibleMP(tmpBalAvailable)));
-                    propertyBal.push_back(Pair("reserved", FormatIndivisibleMP(tmpBalReservedSell+tmpBalReservedAccept)));
-            }
+            Object balance_obj;
+            balance_obj.push_back(Pair("propertyid", propertyId));
+            balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
+            balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
 
-            response.push_back(propertyBal);
+            response.push_back(balance_obj);
     }
 
     return response;
@@ -529,8 +531,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
     }
 
     Object response;
-        bool divisible = false;
-        divisible=sp.isDivisible();
+        bool divisible = sp.isDivisible();
         string propertyName = sp.name;
         string propertyCategory = sp.category;
         string propertySubCategory = sp.subcategory;
@@ -552,14 +553,7 @@ Value getproperty_MP(const Array& params, bool fHelp)
         response.push_back(Pair("issuer", issuer));
         response.push_back(Pair("creationtxid", creationTXID.GetHex()));
         response.push_back(Pair("fixedissuance", fixedIssuance));
-        if (divisible)
-        {
-            response.push_back(Pair("totaltokens", FormatDivisibleMP(totalTokens)));
-        }
-        else
-        {
-            response.push_back(Pair("totaltokens", FormatIndivisibleMP(totalTokens)));
-        }
+        response.push_back(Pair("totaltokens", FormatMP(propertyId, totalTokens)));
 
 return response;
 }
@@ -707,8 +701,6 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
     bool active = false;
     active = isCrowdsaleActive(propertyId);
-    bool divisible = false;
-    divisible=sp.isDivisible();
     string propertyName = sp.name;
     int64_t startTime = mapBlockIndex[hashBlock]->nTime;
     int64_t deadline = sp.deadline;
@@ -751,14 +743,6 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     //bool closedEarly = false; //this needs to wait for dead crowdsale persistence
     //int64_t endedTime = 0; //this needs to wait for dead crowdsale persistence
 
-    bool divisibleDesired = false;
-    CMPSPInfo::Entry spDesired;
-    if (false == _my_sps->getSP(propertyId, spDesired)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Desired property identifier does not exist");
-    }
-    divisibleDesired = spDesired.isDivisible();
-    divisibleDesired = isPropertyDivisible(propertyIdDesired);
-
     Array participanttxs;
     std::map<std::string, std::vector<uint64_t> >::const_iterator it;
     for(it = database.begin(); it != database.end(); it++)
@@ -772,30 +756,9 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
         amountRaised += amountSent;
         participanttx.push_back(Pair("txid", txid)); //.GetHex()).c_str();
-        if (divisibleDesired)
-        {
-             participanttx.push_back(Pair("amountsent", FormatDivisibleMP(amountSent)));
-        }
-        else
-        {
-             participanttx.push_back(Pair("amountsent", FormatIndivisibleMP(amountSent)));
-        }
-        if (divisible)
-        {
-             participanttx.push_back(Pair("participanttokens", FormatDivisibleMP(userTokens)));
-        }
-        else
-        {
-             participanttx.push_back(Pair("participanttokens", FormatIndivisibleMP(userTokens)));
-        }
-        if (divisible)
-        {
-             participanttx.push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
-        }
-        else
-        {
-             participanttx.push_back(Pair("issuertokens", FormatIndivisibleMP(issuerTokens)));
-        }
+        participanttx.push_back(Pair("amountsent", FormatMP(propertyIdDesired, amountSent)));
+        participanttx.push_back(Pair("participanttokens", FormatMP(propertyId, userTokens)));
+        participanttx.push_back(Pair("issuertokens", FormatMP(propertyId, issuerTokens)));        
         participanttxs.push_back(participanttx);
     }
 
@@ -803,37 +766,15 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
     response.push_back(Pair("active", active));
     response.push_back(Pair("issuer", issuer));
     response.push_back(Pair("propertyiddesired", propertyIdDesired));
-    if (divisible)
-    {
-        response.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
-    }
-    else
-    {
-        response.push_back(Pair("tokensperunit", FormatIndivisibleMP(tokensPerUnit)));
-    }
+    response.push_back(Pair("tokensperunit", FormatMP(propertyId, tokensPerUnit)));
     response.push_back(Pair("earlybonus", earlyBonus));
     response.push_back(Pair("percenttoissuer", percentToIssuer));
     response.push_back(Pair("starttime", startTime));
     response.push_back(Pair("deadline", deadline));
+    response.push_back(Pair("amountraised", FormatMP(propertyIdDesired, amountRaised)));
+    response.push_back(Pair("tokensissued", FormatMP(propertyId, tokensIssued)));
+    response.push_back(Pair("addedissuertokens", FormatMP(propertyId, missedTokens)));
 
-    if (divisibleDesired)
-    {
-        response.push_back(Pair("amountraised", FormatDivisibleMP(amountRaised)));
-    }
-    else
-    {
-        response.push_back(Pair("amountraised", FormatIndivisibleMP(amountRaised)));
-    }
-    if (divisible)
-    {
-        response.push_back(Pair("tokensissued", FormatDivisibleMP(tokensIssued)));
-        response.push_back(Pair("addedissuertokens", FormatDivisibleMP(missedTokens)));
-    }
-    else
-    {
-        response.push_back(Pair("tokensissued", FormatIndivisibleMP(tokensIssued)));
-        response.push_back(Pair("addedissuertokens", FormatIndivisibleMP(missedTokens)));
-    }
     if (!active) response.push_back(Pair("closedearly", closeEarly));
     if (!active) response.push_back(Pair("maxtokens", maxTokens));
     if (closeEarly) response.push_back(Pair("endedtime", timeClosed));
@@ -893,8 +834,6 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               if ((0 == hashBlock) || (NULL == mapBlockIndex[hashBlock]))
                   throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
 
-              bool divisible = false;
-              divisible=sp.isDivisible();
               string propertyName = sp.name;
               int64_t startTime = mapBlockIndex[hashBlock]->nTime;
               int64_t deadline = sp.deadline;
@@ -908,14 +847,7 @@ Value getactivecrowdsales_MP(const Array& params, bool fHelp)
               responseObj.push_back(Pair("name", propertyName));
               responseObj.push_back(Pair("issuer", issuer));
               responseObj.push_back(Pair("propertyiddesired", propertyIdDesired));
-              if (divisible)
-              {
-                  responseObj.push_back(Pair("tokensperunit", FormatDivisibleMP(tokensPerUnit)));
-              }
-              else
-              {
-                  responseObj.push_back(Pair("tokensperunit", FormatIndivisibleMP(tokensPerUnit)));
-              }
+              responseObj.push_back(Pair("tokensperunit", FormatMP(propertyId, tokensPerUnit)));
               responseObj.push_back(Pair("earlybonus", earlyBonus));
               responseObj.push_back(Pair("percenttoissuer", percentToIssuer));
               responseObj.push_back(Pair("starttime", startTime));
@@ -996,22 +928,14 @@ Value getgrants_MP(const Array& params, bool fHelp)
         if (grantedTokens > 0){
           Object granttx;
           granttx.push_back(Pair("txid", txid));
-          if (sp.isDivisible()) {
-            granttx.push_back(Pair("grant", FormatDivisibleMP(grantedTokens)));
-          } else {
-            granttx.push_back(Pair("grant", FormatIndivisibleMP(grantedTokens)));
-          }
+          granttx.push_back(Pair("grant", FormatMP(propertyId, grantedTokens)));
           issuancetxs.push_back(granttx);
         }
 
         if (revokedTokens > 0){
           Object revoketx;
           revoketx.push_back(Pair("txid", txid));
-          if (sp.isDivisible()) {
-            revoketx.push_back(Pair("revoke", FormatDivisibleMP(revokedTokens)));
-          } else {
-            revoketx.push_back(Pair("revoke", FormatIndivisibleMP(revokedTokens)));
-          }
+          revoketx.push_back(Pair("revoke", FormatMP(propertyId, revokedTokens)));
           issuancetxs.push_back(revoketx);
         }
     }
@@ -1019,11 +943,7 @@ Value getgrants_MP(const Array& params, bool fHelp)
     response.push_back(Pair("name", propertyName));
     response.push_back(Pair("issuer", issuer));
     response.push_back(Pair("creationtxid", creationHash.GetHex()));
-    if (sp.isDivisible()) {
-      response.push_back(Pair("totaltokens", FormatDivisibleMP(totalTokens)));
-    } else {
-      response.push_back(Pair("totaltokens", FormatIndivisibleMP(totalTokens)));
-    }
+    response.push_back(Pair("totaltokens", FormatMP(propertyId, totalTokens)));
     response.push_back(Pair("issuances", issuancetxs));
     return response;
 }
@@ -1037,29 +957,6 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
     throw JSONRPCError(RPC_INVALID_PARAMETER, exist_error);
 
   return tmpPropId;
-}
-
-void add_mdex_fields(Object *metadex_obj, CMPMetaDEx obj, bool c_own_div, bool c_want_div, string eco) {
-
-  metadex_obj->push_back(Pair("address", obj.getAddr().c_str()));
-  metadex_obj->push_back(Pair("txid", obj.getHash().GetHex()));
-  metadex_obj->push_back(Pair("ecosystem", eco ));
-  metadex_obj->push_back(Pair("property_owned", (uint64_t) obj.getProperty()));
-  metadex_obj->push_back(Pair("property_desired", (uint64_t) obj.getDesProperty()));
-  metadex_obj->push_back(Pair("property_owned_divisible", c_own_div));
-  metadex_obj->push_back(Pair("property_desired_divisible", c_want_div));
-
-  //uint64_t *price = obj.getPrice();
-  //uint64_t *invprice = obj.getInversePrice();
-
-  //metadex_obj->push_back(Pair("unit_price", strprintf("%lu.%.8s",  price[0],  boost::lexical_cast<std::string>(price[1]) ).c_str() ) );
-  //metadex_obj->push_back(Pair("inverse_unit_price", strprintf("%lu.%.8s", invprice[0], boost::lexical_cast<std::string>(invprice[1]) ).c_str() ) );
-  //active?
-  metadex_obj->push_back(Pair("amount_original", FormatDivisibleMP(obj.getAmountForSale())));
-  metadex_obj->push_back(Pair("amount_desired", FormatDivisibleMP(obj.getAmountDesired())));
-  metadex_obj->push_back(Pair("action", (int) obj.getAction()));
-  metadex_obj->push_back(Pair("block", obj.getBlock()));
-  metadex_obj->push_back(Pair("blockTime", obj.getBlockTime()));
 }
 
 Value trade_MP(const Array& params, bool fHelp) {
@@ -1150,9 +1047,6 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
             "2. property_id2         (int, optional) property owned to put up on sale\n"
         );
 
-  Array response;
-
-  Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
   bool filter_by_desired = (params.size() == 2) ? true : false;
@@ -1165,6 +1059,7 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
 
   //for each address
   //get property pair and total order amount at a price
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1175,33 +1070,19 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
         CMPMetaDEx obj = *it;
-        CMPSPInfo::Entry sp;
 
         //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
         bool filter = ( filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) && ( obj.getDesProperty() == propertyIdWantFilter ) ) || ( !filter_by_desired && ( obj.getProperty() == propertyIdSaleFilter ) );
 
         if ( filter  ) {
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
-
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
         }
-
       }
     }
   }
+  
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
   
   return response;
 }
@@ -1219,8 +1100,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
             "3. property_id2            (int, optional) filter orders by property_id1 and property_id2\n"
         );
 
-  Array response;
-  Object metadex_obj;
   unsigned int propertyIdSaleFilter = 0, propertyIdWantFilter = 0;
 
   uint64_t timestamp = (params.size() > 0) ? params[0].get_int64() : GetLatestBlockTime() - 1209600; //2 weeks 
@@ -1235,6 +1114,8 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
   if ( filter_by_both ) {
     propertyIdWantFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
   }
+  
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1245,7 +1126,6 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
-          CMPSPInfo::Entry sp;
 
           bool filter = 1;
 
@@ -1255,26 +1135,14 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
           }
 
           if ( filter &&  (obj.getBlockTime() >= timestamp)) {
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdSaleFilter) == true) ? "Test" : "Main";
-
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-            
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
           }
       }
     }
   }
+  
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
   
   return response;
 }
@@ -1313,9 +1181,6 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
             "2. number            (int, optional ) number of trades to retreive\n"
             "3. property_id         (int, optional) filter by propertyid on one side\n"
         );
-  
-  Array response;
-  Object metadex_obj;
 
   string address = params[0].get_str();
   unsigned int number_trades = (params.size() == 2 ? (unsigned int) params[1].get_int64() : 512);
@@ -1326,6 +1191,8 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
   if( filter_by_one ) {
     propertyIdFilter = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
   }
+  
+  std::vector<CMPMetaDEx> vMetaDexObjects;
 
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
   {
@@ -1336,42 +1203,23 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
       for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
       {
           CMPMetaDEx obj = *it;
-          CMPSPInfo::Entry sp;
 
           bool filter = 1;
 
           //this filter, the first part is filtering by two currencies, the second part is filtering by the first only
           filter = (obj.getAddr() == address) && 
                    ( ( ( filter_by_one && (obj.getProperty() == propertyIdFilter) == 1 ) ) || !filter_by_one ) && 
-                   (response.size() < number_trades);
+                   (vMetaDexObjects.size() < number_trades);
           if ( filter ) {
-
-            //clear obj before reuse
-            metadex_obj.clear();
-            
-            _my_sps->getSP(obj.getProperty(), sp);
-            bool c_own_div = sp.isDivisible();
-
-            _my_sps->getSP(obj.getDesProperty(), sp);
-            bool c_want_div = sp.isDivisible();
-
-            string eco = (isTestEcosystemProperty(propertyIdFilter) == true) ? "Test" : "Main";
-    
-            // add data to obj
-            add_mdex_fields( &metadex_obj , obj , c_own_div, c_want_div, eco);
-
-            //add it to response
-            response.push_back(metadex_obj);
+            vMetaDexObjects.push_back(obj);
           }
       }
     }
   }
   
-  //for ( json_spirit::Object::iterator it = response.begin(); it != response.end(); ++it) {
-
-   // char firs = it->first[0];
-    //printf ("\n first %s and %s \n", firs, it->first);
-  //}
+  Array response;
+  MetaDexObjectsToJSON(vMetaDexObjects, response);
+  
   return response;
 }
 
@@ -1816,6 +1664,8 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         txobj->push_back(Pair("confirmations", confirmations));
         txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
         txobj->push_back(Pair("blocktime", blockTime));
+        txobj->push_back(Pair("version", (int64_t)mp_obj.getVersion()));
+        txobj->push_back(Pair("type_int", (int64_t)mp_obj.getType()));
         txobj->push_back(Pair("type", MPTxType));
         if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("propertyid", propertyId));
         if ((MSC_TYPE_CREATE_PROPERTY_VARIABLE == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_FIXED == MPTxTypeInt) || (MSC_TYPE_CREATE_PROPERTY_MANUAL == MPTxTypeInt))
@@ -1823,32 +1673,14 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
             txobj->push_back(Pair("propertyname", propertyName));
         }
         if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("divisible", divisible));
-        if (MSC_TYPE_METADEX != MPTxTypeInt)
-        {
-            if (divisible)
-            {
-                txobj->push_back(Pair("amount", FormatDivisibleMP(amount))); //divisible, format w/ bitcoins VFA func
-            }
-            else
-            {
-                txobj->push_back(Pair("amount", FormatIndivisibleMP(amount))); //indivisible, push raw 64
-            }
-        }
+        if (MSC_TYPE_METADEX != MPTxTypeInt) txobj->push_back(Pair("amount", FormatMP(propertyId, amount)));
         if (crowdPurchase)
         {
             txobj->push_back(Pair("purchasedpropertyid", crowdPropertyId));
             txobj->push_back(Pair("purchasedpropertyname", crowdName));
             txobj->push_back(Pair("purchasedpropertydivisible", crowdDivisible));
-            if (crowdDivisible)
-            {
-                txobj->push_back(Pair("purchasedtokens", FormatDivisibleMP(crowdTokens))); //divisible, format w/ bitcoins VFA func
-                txobj->push_back(Pair("issuertokens", FormatDivisibleMP(issuerTokens)));
-            }
-            else
-            {
-                txobj->push_back(Pair("purchasedtokens", FormatIndivisibleMP(crowdTokens))); //indivisible, push raw 64
-                txobj->push_back(Pair("issuertokens", FormatIndivisibleMP(issuerTokens)));
-            }
+            txobj->push_back(Pair("purchasedtokens", FormatMP(crowdPropertyId, crowdTokens)));
+            txobj->push_back(Pair("issuertokens", FormatMP(crowdPropertyId, issuerTokens)));
         }
         if (MSC_TYPE_TRADE_OFFER == MPTxTypeInt)
         {
@@ -1861,15 +1693,10 @@ static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filt
         }
         if (MSC_TYPE_METADEX == MPTxTypeInt)
         {
-            string amountOffered;
-            string amountDesired;
-            if (mdex_propertyId_Div) {amountOffered=FormatDivisibleMP(amount);} else {amountOffered=FormatIndivisibleMP(amount);}
-            if (mdex_propertyWanted_Div) {amountDesired=FormatDivisibleMP(mdex_amountWanted);} else {amountDesired=FormatIndivisibleMP(mdex_amountWanted);}
-
-            txobj->push_back(Pair("amountoffered", amountOffered));
+            txobj->push_back(Pair("amountoffered", FormatMP(propertyId, amount)));
             txobj->push_back(Pair("propertyoffered", propertyId));
             txobj->push_back(Pair("propertyofferedisdivisible", mdex_propertyId_Div));
-            txobj->push_back(Pair("amountdesired", amountDesired));
+            txobj->push_back(Pair("amountdesired", FormatMP(mdex_propertyWanted, mdex_amountWanted)));
             txobj->push_back(Pair("propertydesired", mdex_propertyWanted));
             txobj->push_back(Pair("propertydesiredisdivisible", mdex_propertyWanted_Div));
             txobj->push_back(Pair("action", mdex_actionStr));
@@ -2247,18 +2074,10 @@ Value gettrade_MP(const Array& params, bool fHelp)
                     if (3 <= vstr.size())
                     {
                         uint64_t propId = boost::lexical_cast<uint64_t>(vstr[1]);
-                        bool propDivisible = isPropertyDivisible(propId);
                         uint64_t amountUnreserved = boost::lexical_cast<uint64_t>(vstr[2]);
                         cancelTx.push_back(Pair("txid", vstr[0]));
                         cancelTx.push_back(Pair("propertyid", propId));
-                        if(propDivisible)
-                        {
-                            cancelTx.push_back(Pair("amountunreserved", FormatDivisibleMP(amountUnreserved)));
-                        }
-                        else
-                        {
-                            cancelTx.push_back(Pair("amountunreserved", FormatIndivisibleMP(amountUnreserved)));
-                        }
+                        cancelTx.push_back(Pair("amountunreserved", FormatMP(propId, amountUnreserved)));
                     cancelArray.push_back(cancelTx);
                     }
                 }

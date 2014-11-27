@@ -73,6 +73,7 @@ static const string getmoney_testnet = "moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP";
 
 using namespace mastercore;
 
+#include "mastercore_convert.h"
 #include "mastercore_dex.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
@@ -313,54 +314,6 @@ string str = "*unknown*";
   }
 
   return str;
-}
-
-bool isBigEndian()
-{
-  union
-  {
-    uint32_t i;
-    char c[4];
-  } bint = {0x01020304};
-
-  return 1 == bint.c[0];
-}
-
-void swapByteOrder16(unsigned short& us)
-{
-  if (isBigEndian()) return;
-
-    us = (us >> 8) |
-         (us << 8);
-}
-
-void swapByteOrder32(unsigned int& ui)
-{
-  if (isBigEndian()) return;
-
-    ui = (ui >> 24) |
-         ((ui<<8) & 0x00FF0000) |
-         ((ui>>8) & 0x0000FF00) |
-         (ui << 24);
-}
-
-void swapByteOrder64(uint64_t& ull)
-{
-  if (isBigEndian()) return;
-
-    ull = (ull >> 56) |
-          ((ull<<40) & 0x00FF000000000000) |
-          ((ull<<24) & 0x0000FF0000000000) |
-          ((ull<<8) & 0x000000FF00000000) |
-          ((ull>>8) & 0x00000000FF000000) |
-          ((ull>>24) & 0x0000000000FF0000) |
-          ((ull>>40) & 0x000000000000FF00) |
-          (ull << 56);
-}
-
-uint64_t rounduint64(double d)
-{
-  return (uint64_t)(abs(0.5 + d));
 }
 
 bool isNonMainNet()
@@ -2752,13 +2705,6 @@ int64_t feeCheck(const string &address)
     CCoinControl coinControl;
     return selectCoins(address, coinControl, 0);
 }
-
-#define PUSH_BACK_BYTES(vector, value)\
-    vector.insert(vector.end(), reinterpret_cast<unsigned char *>(&(value)), reinterpret_cast<unsigned char *>(&(value)) + sizeof((value)));
-
-#define PUSH_BACK_BYTES_PTR(vector, ptr, size)\
-    vector.insert(vector.end(), reinterpret_cast<unsigned char *>((ptr)), reinterpret_cast<unsigned char *>((ptr)) + (size));
-
 
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
