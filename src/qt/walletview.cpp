@@ -119,26 +119,27 @@ WalletView::WalletView(QWidget *parent):
     exchangePage->setLayout(exvbox);
 
     // smart property page
-    smartPropertyPage = new QWidget(this);
+    /*smartPropertyPage = new QWidget(this);
     QVBoxLayout *spvbox = new QVBoxLayout();
-    spLookupTab = new LookupSPDialog();
     QTabWidget *spTabHolder = new QTabWidget();
-    spTabHolder->addTab(spLookupTab,tr("Lookup Property"));
     spTabHolder->addTab(new QWidget(),tr("Crowdsale Participation"));
-//    spTabHolder->addTab(new QWidget(),tr("Property Issuance"));
-//    spTabHolder->addTab(new QWidget(),tr("Revoke or Grant Tokens"));
+    spTabHolder->addTab(new QWidget(),tr("Property Issuance"));
+    spTabHolder->addTab(new QWidget(),tr("Revoke or Grant Tokens"));
     spvbox->addWidget(spTabHolder);
     smartPropertyPage->setLayout(spvbox);
+    */
 
     // toolbox page
     toolboxPage = new QWidget(this);
     QVBoxLayout *tvbox = new QVBoxLayout();
     addressLookupTab = new LookupAddressDialog();
+    spLookupTab = new LookupSPDialog();
 //    txLookupTab = new LookupTXDialog();
     QTabWidget *tTabHolder = new QTabWidget();
-    tTabHolder->addTab(addressLookupTab,tr("Search Address"));
-//    tTabHolder->addTab(txLookupTab,tr("Search Transaction");
-    tTabHolder->addTab(new QWidget(),tr("Search Transaction"));
+    tTabHolder->addTab(addressLookupTab,tr("Lookup Address"));
+    tTabHolder->addTab(spLookupTab,tr("Lookup Property"));
+//    tTabHolder->addTab(txLookupTab,tr("Lookup Transaction");
+    tTabHolder->addTab(new QWidget(),tr("Lookup Transaction"));
 
     tvbox->addWidget(tTabHolder);
     toolboxPage->setLayout(tvbox);
@@ -150,7 +151,7 @@ WalletView::WalletView(QWidget *parent):
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
     addWidget(exchangePage);
-    addWidget(smartPropertyPage);
+    //addWidget(smartPropertyPage);
     addWidget(toolboxPage);
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page

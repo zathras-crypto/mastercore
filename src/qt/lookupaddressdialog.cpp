@@ -72,6 +72,17 @@ LookupAddressDialog::LookupAddressDialog(QWidget *parent) :
 
     // connect actions
     connect(ui->searchButton, SIGNAL(clicked()), this, SLOT(searchButtonClicked()));
+
+    // hide balance labels
+    QLabel* balances[] = { ui->propertyLabel1, ui->propertyLabel2, ui->propertyLabel3, ui->propertyLabel4, ui->propertyLabel5, ui->propertyLabel6, ui->propertyLabel7, ui->propertyLabel8, ui->propertyLabel9, ui->propertyLabel10 };
+    QLabel* labels[] = { ui->property1, ui->property2, ui->property3, ui->property4, ui->property5, ui->property6, ui->property7, ui->property8, ui->property9, ui->property10 };
+    int pItem = 0;
+    for (pItem = 1; pItem < 11; pItem++)
+    {
+        labels[pItem-1]->setVisible(false);
+        balances[pItem-1]->setVisible(false);
+    }
+    ui->onlyLabel->setVisible(false);
 }
 
 void LookupAddressDialog::searchAddress()
@@ -91,6 +102,7 @@ void LookupAddressDialog::searchAddress()
         ui->addressLabel->setText(QString::fromStdString(searchText));
         if ((searchText.substr(0,1) == "1") || (searchText.substr(0,1) == "m") || (searchText.substr(0,1) == "n")) ui->addressTypeLabel->setText("Public Key Hash");
         if ((searchText.substr(0,1) == "2") || (searchText.substr(0,1) == "3")) ui->addressTypeLabel->setText("Pay to Script Hash");
+        if (IsMyAddress(searchText)) { ui->isMineLabel->setText("True"); } else { ui->isMineLabel->setText("False"); }
 
         //scrappy way to do this, find a more efficient way of interacting with labels
         //show first 10 SPs with balances - needs to be converted to listwidget or something
@@ -106,7 +118,7 @@ void LookupAddressDialog::searchAddress()
         for (pItem = 1; pItem < 12; pItem++)
         {
             pFound[pItem] = false;
-            for (propertyId = lastFoundPropertyIdMainEco+1; propertyId<100000; propertyId++)
+            for (propertyId = lastFoundPropertyIdMainEco+1; propertyId<10000; propertyId++)
             {
                 foundProperty=false;
                 if (getUserAvailableMPbalance(searchText, propertyId) > 0)
@@ -114,7 +126,7 @@ void LookupAddressDialog::searchAddress()
                     lastFoundPropertyIdMainEco = propertyId;
                     foundProperty=true;
                     pName[pItem] = getPropertyName(propertyId).c_str();
-                    if(pName[pItem].size()>22) pName[pItem]=pName[pItem].substr(0,22)+"...";
+                    if(pName[pItem].size()>32) pName[pItem]=pName[pItem].substr(0,32)+"...";
                     pName[pItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str() + ")";
                     pBal[pItem] = getUserAvailableMPbalance(searchText, propertyId);
                     pDivisible[pItem] = isPropertyDivisible(propertyId);
@@ -126,14 +138,14 @@ void LookupAddressDialog::searchAddress()
             // have we found a property in main eco?  If not let's try test eco
             if (!foundProperty)
             {
-                for (propertyId = lastFoundPropertyIdTestEco+1; propertyId<100000; propertyId++)
+                for (propertyId = lastFoundPropertyIdTestEco+1; propertyId<10000; propertyId++)
                 {
                     if (getUserAvailableMPbalance(searchText, propertyId+2147483647) > 0)
                     {
                         lastFoundPropertyIdTestEco = propertyId;
                         foundProperty=true;
                         pName[pItem] = getPropertyName(propertyId+2147483647).c_str();
-                        if(pName[pItem].size()>22) pName[pItem]=pName[pItem].substr(0,22)+"...";
+                        if(pName[pItem].size()>32) pName[pItem]=pName[pItem].substr(0,32)+"...";
                         pName[pItem] += " (#" + static_cast<ostringstream*>( &(ostringstream() << propertyId+2147483647) )->str() + ")";
                         pBal[pItem] = getUserAvailableMPbalance(searchText, propertyId+2147483647);
                         pDivisible[pItem] = isPropertyDivisible(propertyId+2147483647);
@@ -174,6 +186,32 @@ void LookupAddressDialog::searchAddress()
                 balances[pItem-1]->setVisible(false);
             }
         }
+        if (pFound[11]) { ui->onlyLabel->setVisible(true); } else { ui->onlyLabel->setVisible(false); }
+    }
+    else
+    {
+         // hide balance labels
+        QLabel* balances[] = { ui->propertyLabel1, ui->propertyLabel2, ui->propertyLabel3, ui->propertyLabel4, ui->propertyLabel5, ui->propertyLabel6, ui->propertyLabel7, ui->propertyLabel8, ui->propertyLabel9, ui->propertyLabel10 };
+        QLabel* labels[] = { ui->property1, ui->property2, ui->property3, ui->property4, ui->property5, ui->property6, ui->property7, ui->property8, ui->property9, ui->property10 };
+        int pItem = 0;
+        for (pItem = 1; pItem < 11; pItem++)
+        {
+            labels[pItem-1]->setVisible(false);
+            balances[pItem-1]->setVisible(false);
+        }
+        ui->addressLabel->setText("N/A");
+        ui->addressTypeLabel->setText("N/A");
+        ui->isMineLabel->setText("N/A");
+        // show error message
+        string strText = "The address entered was not valid.";
+        QString strQText = QString::fromStdString(strText);
+        QMessageBox errorDialog;
+        errorDialog.setIcon(QMessageBox::Critical);
+        errorDialog.setWindowTitle("Address error");
+        errorDialog.setText(strQText);
+        errorDialog.setStandardButtons(QMessageBox::Ok);
+        errorDialog.setDefaultButton(QMessageBox::Ok);
+        if(errorDialog.exec() == QMessageBox::Ok) { } // no other button to choose, acknowledged
     }
 }
 

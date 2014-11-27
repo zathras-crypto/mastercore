@@ -259,7 +259,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     smartPropertyAction->setToolTip(smartPropertyAction->statusTip());
     smartPropertyAction->setCheckable(true);
     smartPropertyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
-    tabGroup->addAction(smartPropertyAction);
+//    tabGroup->addAction(smartPropertyAction);
 
     historyAction = new QAction(QIcon(":/icons/history"), tr("&Transactions"), this);
     historyAction->setStatusTip(tr("Browse transaction history"));
@@ -423,7 +423,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(exchangeAction);
-        toolbar->addAction(smartPropertyAction);
+//        toolbar->addAction(smartPropertyAction);
         toolbar->addAction(historyAction);
         toolbar->addAction(toolboxAction);
         overviewAction->setChecked(true);
