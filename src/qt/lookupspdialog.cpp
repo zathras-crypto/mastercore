@@ -79,7 +79,6 @@ void LookupSPDialog::searchSP()
 {
     // search function to lookup properties, we want this search function to be as capable as possible to
     // help users find the property they're looking for via search terms they may want to use
-printf("search\n");
     int searchParamType = 0;
     string searchText = ui->searchLineEdit->text().toStdString();
     unsigned int searchPropertyId = 0;
@@ -96,7 +95,7 @@ printf("search\n");
     catch(const boost::bad_lexical_cast &e) { }
     if (searchParamType == 1 && 0 >= searchPropertyId) searchParamType = 0; // we got a number but it's <=0
 
-    // next if not positive numerical, lets see if the string is a valid bitcoin address
+    // next if not positive numerical, lets see if the string is a valid bitcoin address for issuer search
     if (searchParamType == 0)
     {
         CBitcoinAddress address;
@@ -106,7 +105,6 @@ printf("search\n");
 
     // if we still don't have a param we'll search against free text in the name
     if (searchParamType == 0) searchParamType = 3; // search by free text
-printf("selected search type is %d\n", searchParamType);
 
     // clear matching results combo
     ui->matchingComboBox->clear();
@@ -127,7 +125,7 @@ printf("selected search type is %d\n", searchParamType);
            if (spExists)
            {
                addSPToMatchingResults(propertyId);
-               updateDisplayedProperty();
+               updateDisplayedProperty(); //show straight away, only one to select
            }
            else
            {
@@ -164,6 +162,42 @@ printf("selected search type is %d\n", searchParamType);
         break;
         case 3: //search by freetext
            // iterate through my_sps and see if property name contains the search text
+           nextSPID = _my_sps->peekNextSPID(1);
+           nextTestSPID = _my_sps->peekNextSPID(2);
+           for (tmpPropertyId = 1; tmpPropertyId<nextSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp))
+               {
+                   // make the search case insensitive
+                   string lowerName = sp.name;
+                   std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+                   string lowerSearch = searchText;
+                   std::transform(lowerSearch.begin(), lowerSearch.end(), lowerSearch.begin(), ::tolower);
+                   size_t loc = lowerName.find(lowerSearch);
+                   if (loc!=std::string::npos)
+                   {
+                       addSPToMatchingResults(tmpPropertyId);
+                   }
+               }
+           }
+           for (tmpPropertyId = TEST_ECO_PROPERTY_1; tmpPropertyId<nextTestSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp))
+               {
+                   // make the search case insensitive
+                   string lowerName = sp.name;
+                   std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+                   string lowerSearch = searchText;
+                   std::transform(lowerSearch.begin(), lowerSearch.end(), lowerSearch.begin(), ::tolower);
+                   size_t loc = lowerName.find(lowerSearch);
+                   if (loc!=std::string::npos)
+                   {
+                       addSPToMatchingResults(tmpPropertyId);
+                   }
+               }
+           }
         break;
     }
 
