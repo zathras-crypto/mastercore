@@ -15,6 +15,7 @@ class SendCoinsDialog;
 class SendMPDialog;
 class OrderHistoryDialog;
 class LookupSPDialog;
+class LookupAddressDialog;
 class MetaDExDialog;
 class SendCoinsRecipient;
 class TransactionView;
@@ -72,6 +73,7 @@ private:
     SendCoinsDialog *sendCoinsTab;
     SendMPDialog *sendMPTab;
     LookupSPDialog *spLookupTab;
+    LookupAddressDialog *addressLookupTab;
     OrderHistoryDialog *orderHistoryTab;
     MetaDExDialog *metaDExTab;
     TransactionView *transactionView;

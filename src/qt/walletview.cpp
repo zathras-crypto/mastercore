@@ -15,6 +15,7 @@
 #include "sendcoinsdialog.h"
 #include "sendmpdialog.h"
 #include "lookupspdialog.h"
+#include "lookupaddressdialog.h"
 #include "metadexdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
@@ -131,6 +132,16 @@ WalletView::WalletView(QWidget *parent):
 
     // toolbox page
     toolboxPage = new QWidget(this);
+    QVBoxLayout *tvbox = new QVBoxLayout();
+    addressLookupTab = new LookupAddressDialog();
+//    txLookupTab = new LookupTXDialog();
+    QTabWidget *tTabHolder = new QTabWidget();
+    tTabHolder->addTab(addressLookupTab,tr("Search Address"));
+//    tTabHolder->addTab(txLookupTab,tr("Search Transaction");
+    tTabHolder->addTab(new QWidget(),tr("Search Transaction"));
+
+    tvbox->addWidget(tTabHolder);
+    toolboxPage->setLayout(tvbox);
 
     // add pages
     addWidget(overviewPage);

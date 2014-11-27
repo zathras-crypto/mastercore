@@ -211,7 +211,8 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     //scrappy way to do this, find a more efficient way of interacting with labels
     //show first 5 SPs with balances - needs to be converted to listwidget or something
     unsigned int propertyId;
-    unsigned int lastFoundPropertyId = 1;
+    unsigned int lastFoundPropertyIdMainEco = 1;
+    unsigned int lastFoundPropertyIdTestEco = 1;
     string spName[7];
     uint64_t spBal[7];
     bool spDivisible[7];
@@ -222,12 +223,12 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     for (spItem = 1; spItem < 7; spItem++)
     {
         spFound[spItem] = false;
-        for (propertyId = lastFoundPropertyId+1; propertyId<100000; propertyId++)
+        for (propertyId = lastFoundPropertyIdMainEco+1; propertyId<100000; propertyId++)
         {
             foundProperty=false;
             if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
             {
-                lastFoundPropertyId = propertyId;
+                lastFoundPropertyIdMainEco = propertyId;
                 foundProperty=true;
                 spName[spItem] = getPropertyName(propertyId).c_str();
                 if(spName[spItem].size()>22) spName[spItem]=spName[spItem].substr(0,22)+"...";
@@ -241,11 +242,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
         // have we found a property in main eco?  If not let's try test eco
         if (!foundProperty)
         {
-            for (propertyId = lastFoundPropertyId+1; propertyId<100000; propertyId++)
+            for (propertyId = lastFoundPropertyIdTestEco+1; propertyId<100000; propertyId++)
             {
                 if ((global_balance_money_testeco[propertyId] > 0) || (global_balance_reserved_testeco[propertyId] > 0))
                 {
-                    lastFoundPropertyId = propertyId;
+                    lastFoundPropertyIdTestEco = propertyId;
                     foundProperty=true;
                     spName[spItem] = getPropertyName(propertyId+2147483647).c_str();
                     if(spName[spItem].size()>22) spName[spItem]=spName[spItem].substr(0,22)+"...";
