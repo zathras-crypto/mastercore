@@ -23,6 +23,7 @@
 #include "balancesview.h"
 #include "walletmodel.h"
 #include "orderhistorydialog.h"
+#include "txhistorydialog.h"
 #include "ui_interface.h"
 
 #include <QAction>
@@ -65,9 +66,6 @@ WalletView::WalletView(QWidget *parent):
 
     // transactions page
     // bitcoin transactions in second tab, MP transactions in first
-    //masterprotocol
-    mpTXTab = new QWidget();
-
     //bitcoin
     bitcoinTXTab = new QWidget(this);
     QVBoxLayout *vbox = new QVBoxLayout();
@@ -83,7 +81,7 @@ WalletView::WalletView(QWidget *parent):
     hbox_buttons->addWidget(exportButton);
     vbox->addLayout(hbox_buttons);
     bitcoinTXTab->setLayout(vbox);
-
+    mpTXTab = new TXHistoryDialog;
     transactionsPage = new QWidget(this);
     QVBoxLayout *txvbox = new QVBoxLayout();
     QTabWidget *txTabHolder = new QTabWidget();
