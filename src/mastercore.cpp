@@ -4095,7 +4095,7 @@ std::string new_global_alert_message;
 
     case MASTERCORE_MESSAGE_TYPE_ALERT:
       // check the packet version is also FF
-      if ((int)version != 65535)
+      if ((int)version == 65535)
       {
           rc = step2_Alert(&new_global_alert_message);
           if (rc == 0) global_alert_message = new_global_alert_message;
@@ -4104,7 +4104,6 @@ std::string new_global_alert_message;
       break;
 
     default:
-
       return (PKT_ERROR -100);
   }
 

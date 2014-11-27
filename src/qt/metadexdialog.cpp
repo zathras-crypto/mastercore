@@ -236,7 +236,7 @@ void MetaDExDialog::UpdateSellOffers()
                 if ( ((testeco) && (obj.getDesProperty() == 2)) || ((!testeco) && (obj.getDesProperty() == 1)) )
                 {
                     available += obj.getAmountDesired();
-                    total += obj.getAmount();
+                    total += obj.getAmountForSale();
                     if(IsMyAddress(obj.getAddr())) includesMe = true;
                 }
             }
@@ -297,7 +297,7 @@ void MetaDExDialog::UpdateBuyOffers()
                 if(obj.getDesProperty()==global_metadex_market)
                 {
                     available += obj.getAmountDesired();
-                    total += obj.getAmount();
+                    total += obj.getAmountForSale();
                     if(IsMyAddress(obj.getAddr())) includesMe = true;
                 }
             }
