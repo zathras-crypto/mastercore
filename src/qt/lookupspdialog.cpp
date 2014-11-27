@@ -58,6 +58,7 @@ using namespace leveldb;
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QTextDocument>
+#include <QDateTime>
 
 LookupSPDialog::LookupSPDialog(QWidget *parent) :
     QDialog(parent),
@@ -68,11 +69,25 @@ LookupSPDialog::LookupSPDialog(QWidget *parent) :
     this->model = model;
 
     // populate placeholder text
-    ui->searchLineEdit->setPlaceholderText("Search property ID, issuer or property name");
+    ui->searchLineEdit->setPlaceholderText("ID, name or issuer");
 
     // connect actions
     connect(ui->matchingComboBox, SIGNAL(activated(int)), this, SLOT(matchingComboBoxChanged(int)));
     connect(ui->searchButton, SIGNAL(clicked()), this, SLOT(searchButtonClicked()));
+
+    // hide crowd info
+    ui->desired->setVisible(false);
+    ui->tokensperunit->setVisible(false);
+    ui->deadline->setVisible(false);
+    ui->bonus->setVisible(false);
+    ui->issuerperc->setVisible(false);
+    ui->desiredLabel->setVisible(false);
+    ui->tokensPerUnitLabel->setVisible(false);
+    ui->deadlineLabel->setVisible(false);
+    ui->bonusLabel->setVisible(false);
+    ui->issuerPercLabel->setVisible(false);
+    ui->activeLabel->setVisible(false);
+    ui->active->setText("Not applicable.");
 }
 
 void LookupSPDialog::searchSP()
@@ -211,7 +226,7 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
     {
         string spName;
         spName = getPropertyName(propertyId).c_str();
-        if(spName.size()>30) spName=spName.substr(0,30)+"...";
+        if(spName.size()>50) spName=spName.substr(0,50)+"...";
         string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
         spName += " (#" + spId + ")";
         ui->matchingComboBox->addItem(spName.c_str(),spId.c_str());
@@ -239,8 +254,7 @@ void LookupSPDialog::updateDisplayedProperty()
     if (propertyId>2147483647) { ui->ecosystemLabel->setText("Test"); } else { ui->ecosystemLabel->setText("Production"); }
     ui->propertyIDLabel->setText(QString::fromStdString(FormatIndivisibleMP(propertyId)));
     ui->nameLabel->setText(QString::fromStdString(sp.name));
-    ui->categoryLabel->setText(QString::fromStdString(sp.category));
-    ui->subcategoryLabel->setText(QString::fromStdString(sp.subcategory));
+    ui->categoryLabel->setText(QString::fromStdString(sp.category + " > " + sp.subcategory));
     ui->dataLabel->setText(QString::fromStdString(sp.data));
     ui->urlLabel->setText(QString::fromStdString(sp.url));
     string strTotalTokens;
@@ -265,8 +279,67 @@ void LookupSPDialog::updateDisplayedProperty()
     ui->totalTokensLabel->setText(QString::fromStdString(strTotalTokens + tokenLabel));
     ui->walletBalanceLabel->setText(QString::fromStdString(strWalletTokens + tokenLabel));
     ui->issuerLabel->setText(QString::fromStdString(sp.issuer));
-    // issuances are no longer just fixed or variable, this needs further code changes to sp.fixed
-    //bool fixedIssuance = sp.fixed;
+    bool fixedIssuance = sp.fixed;
+    bool manualIssuance = sp.manual;
+    if ((!fixedIssuance) && (!manualIssuance) && (propertyId > 2))
+    {
+        ui->issuanceTypeLabel->setText("Crowdsale");
+        // obtain crowdinfo
+        bool active = isCrowdsaleActive(propertyId);
+        int64_t deadline = sp.deadline;
+        uint8_t earlyBonus = sp.early_bird;
+        uint8_t percentToIssuer = sp.percentage;
+        int64_t tokensPerUnit = sp.num_tokens;
+        int64_t propertyIdDesired = sp.property_desired;
+        QDateTime qDeadline;
+        qDeadline.setTime_t(deadline);
+        string desiredText = getPropertyName(propertyIdDesired).c_str();
+        if(desiredText.size()>22) desiredText=desiredText.substr(0,22)+"...";
+        string spId = static_cast<ostringstream*>( &(ostringstream() << propertyIdDesired) )->str();
+        desiredText += " (#" + spId + ")";
+        string tokensPerUnitText;
+        if (divisible) { tokensPerUnitText = FormatDivisibleMP(tokensPerUnit); } else { tokensPerUnitText = FormatIndivisibleMP(tokensPerUnit); }
+        if (active) { ui->activeLabel->setText("Yes"); } else { ui->activeLabel->setText("No"); }
+        // populate crowdinfo
+        ui->desiredLabel->setText(QString::fromStdString(desiredText));
+        ui->tokensPerUnitLabel->setText(QString::fromStdString(tokensPerUnitText));
+        ui->deadlineLabel->setText(qDeadline.toString(Qt::SystemLocaleShortDate));
+        ui->bonusLabel->setText(QString::fromStdString(FormatIndivisibleMP((int64_t)earlyBonus) + "%"));
+        ui->issuerPercLabel->setText(QString::fromStdString(FormatIndivisibleMP((int64_t)percentToIssuer) + "%"));
+        // show crowdinfo
+        ui->desired->setVisible(true);
+        ui->tokensperunit->setVisible(true);
+        ui->deadline->setVisible(true);
+        ui->bonus->setVisible(true);
+        ui->issuerperc->setVisible(true);
+        ui->desiredLabel->setVisible(true);
+        ui->tokensPerUnitLabel->setVisible(true);
+        ui->deadlineLabel->setVisible(true);
+        ui->bonusLabel->setVisible(true);
+        ui->issuerPercLabel->setVisible(true);
+        ui->activeLabel->setVisible(true);
+        ui->active->setText("Active:");
+    }
+    else
+    {
+        ui->issuanceTypeLabel->setText("Exodus");
+        if (fixedIssuance) ui->issuanceTypeLabel->setText("Fixed");
+        if (manualIssuance) ui->issuanceTypeLabel->setText("Manual");
+        // hide crowdinfo
+        ui->desired->setVisible(false);
+        ui->tokensperunit->setVisible(false);
+        ui->deadline->setVisible(false);
+        ui->bonus->setVisible(false);
+        ui->issuerperc->setVisible(false);
+        ui->desiredLabel->setVisible(false);
+        ui->tokensPerUnitLabel->setVisible(false);
+        ui->deadlineLabel->setVisible(false);
+        ui->bonusLabel->setVisible(false);
+        ui->issuerPercLabel->setVisible(false);
+        ui->activeLabel->setVisible(false);
+        ui->active->setText("Not applicable.");
+    }
+
 }
 
 void LookupSPDialog::searchButtonClicked()
