@@ -1,11 +1,11 @@
 #include "txlistdelegate.h"
 
-ListDelegate::ListDelegate(QObject *parent)
+TXListDelegate::TXListDelegate(QObject *parent)
 {
 
 }
 
-void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
+void TXListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const
 {
     QRect r = option.rect;
     QPen linePen(QColor::fromRgb(211,211,211), 1, Qt::SolidLine);
@@ -29,26 +29,20 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     QString txidsender = "ADDR: " + QString::fromStdString(index.data(Qt::UserRole + 5).toString().toStdString().substr(0,18)) + "...";
     txidsender += "   TX: " + QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,18)) + "...";
 //    txidstatus += "....\tSTATUS: " + index.data(Qt::UserRole + 4).toString();
-    QString displayText = index.data(Qt::UserRole + 1).toString();
-    QString amountBought = index.data(Qt::UserRole + 2).toString();
-    QString amountSold = index.data(Qt::UserRole + 3).toString();
-    QString status = index.data(Qt::UserRole + 4).toString();
-    QString senderText = index.data(Qt::UserRole + 5).toString();
-    QString txTimeText = index.data(Qt::UserRole + 6).toString();
+    QString displayType = index.data(Qt::UserRole + 1).toString();
+    QString displayAmount = index.data(Qt::UserRole + 2).toString();
+    QString displayDirection = index.data(Qt::UserRole + 3).toString();
+    QString displayAddress = index.data(Qt::UserRole + 4).toString();
+    QString txTimeText = index.data(Qt::UserRole + 5).toString();
 
     // add the appropriate status icon
     int imageSpace = 10;
     QIcon ic = QIcon(":/icons/meta_cancelled");
-    if(status == "CANCELLED") ic =QIcon(":/icons/meta_cancelled");
-    if(status == "PART CANCEL") ic = QIcon(":/icons/meta_partialclosed");
-    if(status == "FILLED") ic = QIcon(":/icons/meta_filled");
-    if(status == "OPEN") ic = QIcon(":/icons/meta_open");
-    if(status == "PART FILLED") ic = QIcon(":/icons/meta_partial");
     if (!ic.isNull())
     {
         r = option.rect.adjusted(5, 10, -10, -10);
         ic.paint(painter, r, Qt::AlignVCenter|Qt::AlignLeft);
-        imageSpace = 60;
+        imageSpace = 30;
     }
 
     // setup pens
@@ -58,49 +52,40 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     QPen penGrey(QColor("#606060"));
 
     QFont font = painter->font();
-    painter->setPen(penBlack);
-    // add the status
-    font.setItalic(false);
-    painter->setFont(font);
-    r = option.rect.adjusted(imageSpace-19, 0, -10, -25);
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, status, &r);
     // add the datetime
     painter->setPen(penGrey);
-    font.setItalic(true);
+//    font.setItalic(true);
     painter->setFont(font);
-    r = option.rect.adjusted(imageSpace-19, 25, -10, 0);
+    r = option.rect.adjusted(imageSpace, 5, -10, 0);
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, txTimeText, &r);
-    // add the displaytext
+    // add the displaytype
     painter->setPen(penBlack);
-    r = option.rect.adjusted(imageSpace+115, 0, -10, -25);
-    font.setBold(true);
+    r = option.rect.adjusted(imageSpace+125, 5, -10, 0);
+//    font.setBold(true);
     font.setItalic(false);
     painter->setFont(font);
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignLeft, displayText, &r);
-    // add the txid/sender
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, displayType, &r);
+    // add the address
     painter->setPen(penGrey);
     font.setBold(false);
     painter->setFont(font);
-    r = option.rect.adjusted(imageSpace+115, 25, -10, 0);
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, txidsender, &r);
+    r = option.rect.adjusted(imageSpace+250, 5, -10, 0);
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, displayAddress, &r);
+    // add the amount
     font.setBold(true);
     painter->setFont(font);
-    if("0 " != amountBought.toStdString().substr(0,2)) painter->setPen(penGreen);
-    r = option.rect.adjusted(imageSpace+115, 0, -10, -25);
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom|Qt::AlignRight, amountBought, &r);
-    if("0 " != amountSold.toStdString().substr(0,2)) painter->setPen(penRed);
-    r = option.rect.adjusted(imageSpace+115, 25, -10, 0);
-    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignRight, amountSold, &r);
+    if(displayDirection=="out") { painter->setPen(penRed); } else { painter->setPen(penGreen); }
+    r = option.rect.adjusted(imageSpace+450, 5, -10, 0);
+    painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignRight, displayAmount, &r);
     font.setBold(false);
     painter->setFont(font);
-
 }
 
-QSize ListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const
+QSize TXListDelegate::sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const
 {
-    return QSize(200, 50); // very dumb value?
+    return QSize(600, 30); // very dumb value?
 }
 
-ListDelegate::~ListDelegate()
+TXListDelegate::~TXListDelegate()
 {
 }

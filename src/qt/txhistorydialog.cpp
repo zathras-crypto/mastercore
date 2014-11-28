@@ -70,7 +70,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
 {
     ui->setupUi(this);
     this->model = model;
-    ui->txHistoryLW->setItemDelegate(new ListDelegate(ui->txHistoryLW));
+    ui->txHistoryLW->setItemDelegate(new TXListDelegate(ui->txHistoryLW));
 
     CWallet *wallet = pwalletMain;
     string sAddress = "";
@@ -164,12 +164,11 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
                 txTime.setTime_t(nTime);
                 QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
                 qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayType));
-                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount));
-                qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayToken));
-                qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayDirection));
-                qItem->setData(Qt::UserRole + 5, QString::fromStdString(displayAddress));
-                qItem->setData(Qt::UserRole + 6, txTimeStr);
-                qItem->setData(Qt::UserRole + 7, QString::fromStdString(displayValid));
+                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount + " " + displayToken));
+                qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayDirection));
+                qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayAddress));
+                qItem->setData(Qt::UserRole + 5, txTimeStr);
+                qItem->setData(Qt::UserRole + 6, QString::fromStdString(displayValid));
                 ui->txHistoryLW->addItem(qItem);
             }
         }
