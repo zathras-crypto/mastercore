@@ -26,7 +26,7 @@ void ListDelegate::paint ( QPainter * painter, const QStyleOptionViewItem & opti
     // prepare the data for the entry
 // QIcon ic = QIcon(qvariant_cast<QPixmap>(index.data(Qt::DecorationRole)));
 //    string shortTXID = QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,12));
-    QString txidsender = "ADD: " + QString::fromStdString(index.data(Qt::UserRole + 5).toString().toStdString().substr(0,18)) + "...";
+    QString txidsender = "ADDR: " + QString::fromStdString(index.data(Qt::UserRole + 5).toString().toStdString().substr(0,18)) + "...";
     txidsender += "   TX: " + QString::fromStdString(index.data(Qt::DisplayRole).toString().toStdString().substr(0,18)) + "...";
 //    txidstatus += "....\tSTATUS: " + index.data(Qt::UserRole + 4).toString();
     QString displayText = index.data(Qt::UserRole + 1).toString();

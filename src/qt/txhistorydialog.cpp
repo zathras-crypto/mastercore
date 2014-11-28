@@ -75,9 +75,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     CWallet *wallet = pwalletMain;
     string sAddress = "";
     string addressParam = "";
-    bool addressFilter;
 
-    addressFilter = false;
     int64_t nCount = 10;
     int64_t nFrom = 0;
     int64_t nStartBlock = 0;
@@ -112,151 +110,72 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
             // check if the transaction exists in txlist, and if so is it correct type (21)
             if (p_txlistdb->exists(hash))
             {
-                // get type from levelDB
-                string strValue;
-                if (!p_txlistdb->getTX(hash, strValue)) continue;
-                std::vector<std::string> vstr;
-                boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
-                if (4 <= vstr.size())
+                string statusText;
+                unsigned int propertyId = 0;
+                uint64_t amount = 0;
+                string address;
+                bool divisible = false;
+                bool valid = false;
+                string MPTxType;
+
+                CMPTransaction mp_obj;
+                int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+                if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
                 {
-                    // if tx21, get the details for the list
-                    if(21 == atoi(vstr[2]))
+                    if (0<=mp_obj.step1())
                     {
-                        string statusText;
-                        unsigned int propertyIdForSale = 0;
-                        unsigned int propertyIdDesired = 0;
-                        uint64_t amountForSale = 0;
-                        uint64_t amountDesired = 0;
-                        string address;
-                        bool divisibleForSale;
-                        bool divisibleDesired;
-                        bool valid;
-                        Array tradeArray;
-                        uint64_t totalBought = 0;
-                        uint64_t totalSold = 0;
-                        bool orderOpen = false;
+                        MPTxType = mp_obj.getTypeString();
+                        address = mp_obj.getSender();
 
-                        CMPMetaDEx temp_metadexoffer;
-                        CMPTransaction mp_obj;
-                        int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
-                        if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                        int tmpblock=0;
+                        uint32_t tmptype=0;
+                        uint64_t amountNew=0;
+                        valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
+
+                        if (0 == mp_obj.step2_Value())
                         {
-                            if (0<=mp_obj.step1())
-                            {
-                                //MPTxType = mp_obj.getTypeString();
-                                //MPTxTypeInt = mp_obj.getType();
-                                address = mp_obj.getSender();
-                                //if (!filterAddress.empty()) if ((senderAddress != filterAddress) && (refAddress != filterAddress)) return -1; // return negative rc if filtering & no match
-
-                                int tmpblock=0;
-                                uint32_t tmptype=0;
-                                uint64_t amountNew=0;
-                                valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
-
-                                if (0 == mp_obj.step2_Value())
-                                {
-                                    propertyIdForSale = mp_obj.getProperty();
-                                    amountForSale = mp_obj.getAmount();
-                                    divisibleForSale = isPropertyDivisible(propertyIdForSale);
-                                    if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer))
-                                    {
-                                        propertyIdDesired = temp_metadexoffer.getDesProperty();
-                                        divisibleDesired = isPropertyDivisible(propertyIdDesired);
-                                        amountDesired = temp_metadexoffer.getAmountDesired();
-                                        //mdex_action = temp_metadexoffer.getAction();
-                                        t_tradelistdb->getMatchingTrades(hash, propertyIdForSale, &tradeArray, &totalSold, &totalBought);
-
-                                        // status - is order cancelled/closed-filled/open/open-partialfilled?
-                                        // is the sell offer still open - need more efficient way to do this
-                                        for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
-                                        {
-                                            if (my_it->first == propertyIdForSale) //at minimum only go deeper if it's the right property id
-                                            {
-                                                md_PricesMap & prices = my_it->second;
-                                                for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
-                                                {
-                                                    md_Set & indexes = (it->second);
-                                                    for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it)
-                                                    {
-                                                        CMPMetaDEx obj = *it;
-                                                        if( obj.getHash().GetHex() == hash.GetHex() ) orderOpen = true;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            propertyId = mp_obj.getProperty();
+                            amount = mp_obj.getAmount();
+                            divisible = isPropertyDivisible(propertyId);
                         }
-
-                        // work out status
-                        bool partialFilled = false;
-                        bool filled = false;
-                        if(totalSold>0) partialFilled = true;
-                        if(totalSold>=amountForSale) filled = true;
-                        statusText = "UNKNOWN";
-                        if((!orderOpen) && (!partialFilled)) statusText = "CANCELLED";
-                        if((!orderOpen) && (partialFilled)) statusText = "PART CANCEL";
-                        if((!orderOpen) && (filled)) statusText = "FILLED";
-                        if((orderOpen) && (!partialFilled)) statusText = "OPEN";
-                        if((orderOpen) && (partialFilled)) statusText = "PART FILLED";
-
-                        // add to list
-                        QListWidgetItem *qItem = new QListWidgetItem();
-                        qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
-                        string displayText = "Sell ";
-                        string displayIn = "+";
-                        string displayOut = "-";
-                        string displayInToken;
-                        string displayOutToken;
-
-                        if(divisibleForSale) { displayText += FormatDivisibleMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
-                        if(propertyIdForSale < 3)
-                        {
-                            if(propertyIdForSale == 1) { displayText += " MSC for "; displayOutToken = " MSC"; }
-                            if(propertyIdForSale == 2) { displayText += " TMSC for "; displayOutToken = " TMSC"; }
-                        }
-                        else
-                        {
-                            string s = to_string(propertyIdForSale);
-                            displayText += " SPT#" + s + " for ";
-                            displayOutToken = " SPT#" + s;
-                        }
-                        if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
-                        if(propertyIdDesired < 3)
-                        {
-                            if(propertyIdDesired == 1) { displayText += " MSC"; displayInToken = " MSC"; }
-                            if(propertyIdDesired == 2) { displayText += " TMSC"; displayInToken = " TMSC"; }
-                        }
-                        else
-                        {
-                            string s = to_string(propertyIdDesired);
-                            displayText += " SPT#" + s;
-                            displayInToken = " SPT#" + s;
-                        }
-                        if(divisibleDesired) { displayIn += FormatDivisibleMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
-                        if(divisibleForSale) { displayOut += FormatDivisibleMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
-                        if(totalBought == 0) displayIn = "0";
-                        if(totalSold == 0) displayOut = "0";
-                        displayIn += displayInToken;
-                        displayOut += displayOutToken;
-                        QDateTime txTime;
-                        txTime.setTime_t(nTime);
-                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                        qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
-                        qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
-                        qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
-                        qItem->setData(Qt::UserRole + 4, QString::fromStdString(statusText));
-                        qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
-                        qItem->setData(Qt::UserRole + 6, txTimeStr);
-                        ui->txHistoryLW->addItem(qItem);
                     }
                 }
+                QListWidgetItem *qItem = new QListWidgetItem();
+                qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
+                string displayType = MPTxType;
+                string displayAmount;
+                string displayToken;
+                string displayValid;
+                string displayAddress = address;
+                if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
+                if (valid) { displayValid = "valid"; } else { displayValid = "invalid"; }
+                if (propertyId < 3)
+                {
+                    if(propertyId == 1) { displayToken = " MSC"; }
+                    if(propertyId == 2) { displayToken = " TMSC"; }
+                }
+                else
+                {
+                    string s = to_string(propertyId);
+                    displayToken = " SPT#" + s;
+                }
+                string displayDirection = "out";
+                QDateTime txTime;
+                txTime.setTime_t(nTime);
+                QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayType));
+                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount));
+                qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayToken));
+                qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayDirection));
+                qItem->setData(Qt::UserRole + 5, QString::fromStdString(displayAddress));
+                qItem->setData(Qt::UserRole + 6, txTimeStr);
+                qItem->setData(Qt::UserRole + 7, QString::fromStdString(displayValid));
+                ui->txHistoryLW->addItem(qItem);
             }
-            // don't burn time doing more work than we need to
-//            if ((int)response.size() >= (nCount+nFrom)) break;
         }
     }
+            // don't burn time doing more work than we need to
+//            if ((int)response.size() >= (nCount+nFrom)) break;
     // sort array here and cut on nFrom and nCount
 //    if (nFrom > (int)response.size())
 //        nFrom = response.size();
