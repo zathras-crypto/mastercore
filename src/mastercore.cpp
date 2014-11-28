@@ -600,7 +600,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  bool txLive = (chainActive.Height()>(int64_t)expiryValue);
 
                  //testnet allows all types of transactions, so override this here for testing
-                 txSupported = false; //testing
+                 //txSupported = false; //testing
                  //txLive = true; //testing
 
                  if ((!txSupported) && (txLive))
