@@ -148,6 +148,9 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
                 string displayValid;
                 string displayAddress = address;
                 if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
+                // clean up trailing zeros - good for RPC not so much for UI
+                displayAmount.erase ( displayAmount.find_last_not_of('0') + 1, std::string::npos );
+                if (displayAmount.length() > 0) { std::string::iterator it = displayAmount.end() - 1; if (*it == '.') { displayAmount.erase(it); } } //get rid of trailing dot if non decimal
                 if (valid) { displayValid = "valid"; } else { displayValid = "invalid"; }
                 if (propertyId < 3)
                 {
@@ -160,11 +163,12 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
                     displayToken = " SPT#" + s;
                 }
                 string displayDirection = "out";
+                if (!IsMyAddress(displayAddress)) displayDirection = "in";
                 QDateTime txTime;
                 txTime.setTime_t(nTime);
                 QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
                 qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayType));
-                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount + " " + displayToken));
+                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount + displayToken));
                 qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayDirection));
                 qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayAddress));
                 qItem->setData(Qt::UserRole + 5, txTimeStr);
