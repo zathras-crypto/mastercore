@@ -106,6 +106,7 @@ QT_FORMS_UI = \
   forms/metadexdialog.ui \
   forms/lookupspdialog.ui \
   forms/lookupaddressdialog.ui \
+  forms/lookuptxdialog.ui \
   forms/signverifymessagedialog.ui \
   forms/transactiondescdialog.ui 
 
@@ -148,6 +149,7 @@ QT_MOC_CPP = \
   moc_orderlistdelegate.cpp \
   moc_lookupspdialog.cpp \
   moc_lookupaddressdialog.cpp \
+  moc_lookuptxdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
   moc_trafficgraphwidget.cpp \
@@ -219,6 +221,7 @@ BITCOIN_QT_H = \
   txhistorydialog.h \
   lookupspdialog.h \
   lookupaddressdialog.h \
+  lookuptxdialog.h \
   orderlistdelegate.h \
   signverifymessagedialog.h \
   splashscreen.h \
@@ -343,6 +346,7 @@ BITCOIN_QT_CPP += \
   orderlistdelegate.cpp \
   lookupspdialog.cpp \
   lookupaddressdialog.cpp \
+  lookuptxdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
   transactiondescdialog.cpp \
