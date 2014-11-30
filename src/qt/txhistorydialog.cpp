@@ -291,29 +291,7 @@ void TXHistoryDialog::UpdateHistory()
                 ui->txHistoryTable->setItem(rowcount, 3, addressCell);
                 ui->txHistoryTable->setItem(rowcount, 4, amountCell);
                 ui->txHistoryTable->setItem(rowcount, 5, txidCell);
-/*
-                if(pending)
-                {
-                    QFont font;
-                    font.setBold(true);
-                    ui->sellList->item(rowcount, 0)->setFont(font);
-                    ui->sellList->item(rowcount, 1)->setFont(font);
-                    ui->sellList->item(rowcount, 2)->setFont(font);
-                }
-*/
                 rowcount += 1;
-
-/*
-
-
-                qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayType));
-                qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount + displayToken));
-                qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayDirection));
-                qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayAddress));
-                qItem->setData(Qt::UserRole + 5, txTimeStr);
-                qItem->setData(Qt::UserRole + 6, QString::fromStdString(displayValid));
-*/
-//                ui->txHistoryLW->addItem(qItem);
             }
         }
     }
@@ -418,7 +396,10 @@ void TXHistoryDialog::showDetails()
     dlgTextEdit->setStatusTip("Transaction Information");
     dlgLayout->addWidget(dlgTextEdit);
     txDlg->setWindowTitle("Transaction Information");
-    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok);
+    QPushButton *closeButton = new QPushButton(tr("&Close"));
+    closeButton->setDefault(true);
+    QDialogButtonBox *buttonBox = new QDialogButtonBox;
+    buttonBox->addButton(closeButton, QDialogButtonBox::AcceptRole);
     dlgLayout->addWidget(buttonBox);
     txDlg->setLayout(dlgLayout);
     txDlg->resize(700, 360);

@@ -12,6 +12,7 @@
 #include <QTableWidget>
 #include <QTextEdit>
 #include <QDialogButtonBox>
+#include <QPushButton>
 
 class OptionsModel;
 
@@ -47,6 +48,7 @@ public:
     QLayout *dlgLayout;
     QTextEdit *dlgTextEdit;
     QDialogButtonBox *buttonBox;
+    QPushButton *closeButton;
 
 public slots:
     //void switchButtonClicked();
