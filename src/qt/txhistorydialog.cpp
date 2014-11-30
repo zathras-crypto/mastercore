@@ -168,7 +168,8 @@ void TXHistoryDialog::UpdateHistory()
                 string statusText;
                 unsigned int propertyId = 0;
                 uint64_t amount = 0;
-                string address;
+                string senderAddress;
+                string refAddress;
                 bool divisible = false;
                 bool valid = false;
                 string MPTxType;
@@ -180,8 +181,8 @@ void TXHistoryDialog::UpdateHistory()
                     if (0<=mp_obj.step1())
                     {
                         MPTxType = mp_obj.getTypeString();
-                        address = mp_obj.getSender();
-
+                        senderAddress = mp_obj.getSender();
+                        refAddress = mp_obj.getReceiver();
                         int tmpblock=0;
                         uint32_t tmptype=0;
                         uint64_t amountNew=0;
@@ -224,7 +225,8 @@ void TXHistoryDialog::UpdateHistory()
                 string displayAmount;
                 string displayToken;
                 string displayValid;
-                string displayAddress = address;
+                string displayAddress;
+                if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
                 if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
                 // clean up trailing zeros - good for RPC not so much for UI
                 displayAmount.erase ( displayAmount.find_last_not_of('0') + 1, std::string::npos );
@@ -241,11 +243,12 @@ void TXHistoryDialog::UpdateHistory()
                     displayToken = " SPT#" + s;
                 }
                 string displayDirection = "out";
-                if (!IsMyAddress(displayAddress)) displayDirection = "in";
+                if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; }
+
                 QDateTime txTime;
                 txTime.setTime_t(nTime);
                 QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                if (IsMyAddress(displayAddress)) displayAmount = "-" + displayAmount;
+                if (IsMyAddress(senderAddress)) displayAmount = "-" + displayAmount;
                 //icon
                 QIcon ic = QIcon(":/icons/transaction_0");
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
@@ -273,7 +276,7 @@ void TXHistoryDialog::UpdateHistory()
                 addressCell->setForeground(QColor("#707070"));
                 amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
                 amountCell->setForeground(QColor("#00AA00"));
-                if (IsMyAddress(displayAddress)) amountCell->setForeground(QColor("#EE0000"));
+                if (IsMyAddress(senderAddress)) amountCell->setForeground(QColor("#EE0000"));
                 if (rowcount % 2)
                 {
                     amountCell->setBackground(QColor("#F0F0F0"));
