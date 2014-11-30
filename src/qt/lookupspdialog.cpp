@@ -88,6 +88,9 @@ LookupSPDialog::LookupSPDialog(QWidget *parent) :
     ui->issuerPercLabel->setVisible(false);
     ui->activeLabel->setVisible(false);
     ui->active->setText("Not applicable.");
+    ui->topFrame->setVisible(false);
+    ui->leftFrame->setVisible(false);
+    ui->rightFrame->setVisible(false);
 }
 
 void LookupSPDialog::searchSP()
@@ -339,7 +342,9 @@ void LookupSPDialog::updateDisplayedProperty()
         ui->activeLabel->setVisible(false);
         ui->active->setText("Not applicable.");
     }
-
+    ui->topFrame->setVisible(true);
+    ui->leftFrame->setVisible(true);
+    ui->rightFrame->setVisible(true);
 }
 
 void LookupSPDialog::searchButtonClicked()
