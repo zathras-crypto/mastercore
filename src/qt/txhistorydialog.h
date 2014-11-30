@@ -9,7 +9,7 @@
 
 #include <QDialog>
 #include <QString>
-
+#include <QTableWidget>
 class OptionsModel;
 
 QT_BEGIN_NAMESPACE
@@ -29,11 +29,15 @@ public:
     //void FullRefresh();
     explicit TXHistoryDialog(QWidget *parent = 0);
     void setModel(WalletModel *model);
-
+    void UpdateHistory();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
     QWidget *setupTabChain(QWidget *prev);
-
+    QTableWidgetItem *iconCell;
+    QTableWidgetItem *dateCell;
+    QTableWidgetItem *typeCell;
+    QTableWidgetItem *amountCell;
+    QTableWidgetItem *addressCell;
 
 public slots:
     //void switchButtonClicked();

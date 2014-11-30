@@ -60,6 +60,7 @@ using namespace leveldb;
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QTextDocument>
+#include <QListWidget>
 
 #include "txlistdelegate.h"
 
@@ -70,8 +71,36 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
 {
     ui->setupUi(this);
     this->model = model;
-    ui->txHistoryLW->setItemDelegate(new TXListDelegate(ui->txHistoryLW));
 
+    // setup
+    ui->txHistoryTable->setColumnCount(5);
+    ui->txHistoryTable->setHorizontalHeaderItem(0, new QTableWidgetItem(" "));
+    ui->txHistoryTable->setHorizontalHeaderItem(1, new QTableWidgetItem("Date"));
+    ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Type"));
+    ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Address"));
+    ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Amount"));
+    ui->txHistoryTable->verticalHeader()->setVisible(false);
+//    ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+//    ui->txHistoryTable->setShowGrid(false);
+    ui->txHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->txHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->txHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);
+    ui->txHistoryTable->setColumnWidth(0, 23);
+    ui->txHistoryTable->setColumnWidth(1, 150);
+    ui->txHistoryTable->setColumnWidth(2, 130);
+    ui->txHistoryTable->setColumnWidth(4, 200);
+
+    // Always show scroll bar
+    //ui->txHistoryTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    ui->txHistoryTable->setTabKeyNavigation(false);
+    //view->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    UpdateHistory();
+}
+
+void TXHistoryDialog::UpdateHistory()
+{
     CWallet *wallet = pwalletMain;
     string sAddress = "";
     string addressParam = "";
@@ -89,6 +118,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
     // iterate backwards 
+    int rowcount = 0;
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
@@ -142,7 +172,30 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
                 }
                 QListWidgetItem *qItem = new QListWidgetItem();
                 qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
-                string displayType = MPTxType;
+                // shrink tx type
+                string displayType = "Unknown";
+                switch (mp_obj.getType())
+                {
+                    case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
+                    case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;
+                    case MSC_TYPE_SEND_TO_OWNERS: displayType = "Send To Owners"; break;
+                    case MSC_TYPE_SAVINGS_MARK: displayType = "Mark Savings"; break;
+                    case MSC_TYPE_SAVINGS_COMPROMISED: ; displayType = "Lock Savings"; break;
+                    case MSC_TYPE_RATELIMITED_MARK: displayType = "Rate Limit"; break;
+                    case MSC_TYPE_AUTOMATIC_DISPENSARY: displayType = "Auto Dispense"; break; 
+                    case MSC_TYPE_TRADE_OFFER: displayType = "DEx Trade"; break;
+                    case MSC_TYPE_METADEX: displayType = "MetaDEx Trade"; break;
+                    case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; break;
+                    case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
+                    case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
+                    case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property";
+                    case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale";
+                    case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
+                    case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
+                    case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
+                    case MSC_TYPE_CHANGE_ISSUER_ADDRESS: displayType = "Change Issuer"; break;
+                }
+
                 string displayAmount;
                 string displayToken;
                 string displayValid;
@@ -167,13 +220,71 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
                 QDateTime txTime;
                 txTime.setTime_t(nTime);
                 QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                if (IsMyAddress(displayAddress)) displayAmount = "-" + displayAmount;
+                //icon
+                QIcon ic = QIcon(":/icons/transaction_0");
+                int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
+                switch(confirmations)
+                {
+                     case 1: ic = QIcon(":/icons/transaction_1");
+                     case 2: ic = QIcon(":/icons/transaction_2");
+                     case 3: ic = QIcon(":/icons/transaction_3");
+                     case 4: ic = QIcon(":/icons/transaction_4");
+                     case 5: ic = QIcon(":/icons/transaction_5");
+                }
+                if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
+                if (!valid) ic = QIcon(":/icons/transaction_invalid");
+
+                // add to history
+                ui->txHistoryTable->setRowCount(rowcount+1);
+                QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
+                QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
+                QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
+                QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
+                QTableWidgetItem *iconCell = new QTableWidgetItem;
+                iconCell->setIcon(ic);
+                addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+                addressCell->setForeground(QColor("#707070"));
+                amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                amountCell->setForeground(QColor("#00AA00"));
+                if (IsMyAddress(displayAddress)) amountCell->setForeground(QColor("#EE0000"));
+                if (rowcount % 2)
+                {
+                    amountCell->setBackground(QColor("#F0F0F0"));
+                    addressCell->setBackground(QColor("#F0F0F0"));
+                    dateCell->setBackground(QColor("#F0F0F0"));
+                    typeCell->setBackground(QColor("#F0F0F0"));
+
+                }
+                ui->txHistoryTable->setItem(rowcount, 0, iconCell);
+                ui->txHistoryTable->setItem(rowcount, 1, dateCell);
+                ui->txHistoryTable->setItem(rowcount, 2, typeCell);
+                ui->txHistoryTable->setItem(rowcount, 3, addressCell);
+                ui->txHistoryTable->setItem(rowcount, 4, amountCell);
+
+/*
+                if(pending)
+                {
+                    QFont font;
+                    font.setBold(true);
+                    ui->sellList->item(rowcount, 0)->setFont(font);
+                    ui->sellList->item(rowcount, 1)->setFont(font);
+                    ui->sellList->item(rowcount, 2)->setFont(font);
+                }
+*/
+                rowcount += 1;
+
+/*
+
+
                 qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayType));
                 qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayAmount + displayToken));
                 qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayDirection));
                 qItem->setData(Qt::UserRole + 4, QString::fromStdString(displayAddress));
                 qItem->setData(Qt::UserRole + 5, txTimeStr);
                 qItem->setData(Qt::UserRole + 6, QString::fromStdString(displayValid));
-                ui->txHistoryLW->addItem(qItem);
+*/
+//                ui->txHistoryLW->addItem(qItem);
             }
         }
     }

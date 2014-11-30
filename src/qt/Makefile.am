@@ -240,6 +240,7 @@ BITCOIN_QT_H = \
   winshutdownmonitor.h
 
 RES_ICONS = \
+  res/icons/transaction_invalid.png \
   res/icons/mp_exchange.png \
   res/icons/mp_toolbox.png \
   res/icons/mp_sp.png \
