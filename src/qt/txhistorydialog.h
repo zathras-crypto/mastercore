@@ -10,6 +10,9 @@
 #include <QDialog>
 #include <QString>
 #include <QTableWidget>
+#include <QTextEdit>
+#include <QDialogButtonBox>
+
 class OptionsModel;
 
 QT_BEGIN_NAMESPACE
@@ -30,8 +33,10 @@ public:
     explicit TXHistoryDialog(QWidget *parent = 0);
     void setModel(WalletModel *model);
     void UpdateHistory();
+    void accept();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
+    QDialog *txDlg;
     QWidget *setupTabChain(QWidget *prev);
     QTableWidgetItem *iconCell;
     QTableWidgetItem *dateCell;
@@ -39,6 +44,9 @@ public:
     QTableWidgetItem *amountCell;
     QTableWidgetItem *addressCell;
     QTableWidgetItem *txidCell;
+    QLayout *dlgLayout;
+    QTextEdit *dlgTextEdit;
+    QDialogButtonBox *buttonBox;
 
 public slots:
     //void switchButtonClicked();

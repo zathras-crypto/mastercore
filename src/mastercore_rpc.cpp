@@ -40,6 +40,7 @@ using namespace mastercore;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
+#include "mastercore_rpc.h"
 
 void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
 {
@@ -1369,7 +1370,7 @@ Value listblocktransactions_MP(const Array& params, bool fHelp)
 }
 
 // this function standardizes the RPC output for gettransaction_MP and listtransaction_MP into a central function
-static int populateRPCTransactionObject(uint256 txid, Object *txobj, string filterAddress = "")
+int populateRPCTransactionObject(uint256 txid, Object *txobj, string filterAddress = "")
 {
     //uint256 hash;
     //hash.SetHex(params[0].get_str());
