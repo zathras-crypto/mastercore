@@ -45,11 +45,17 @@ public slots:
 private:
     Ui::txHistoryDialog *ui;
     WalletModel *model;
+    QMenu *contextMenu;
 
 private slots:
-    //void buyRecalc();
+    void contextualMenu(const QPoint &);
+    void showDetails();
+    void copyAddress();
+    void copyAmount();
+    void copyTxID();
 
 signals:
+    void doubleClicked(const QModelIndex&);
     // Fired when a message should be reported to the user
     void message(const QString &title, const QString &message, unsigned int style);
 };

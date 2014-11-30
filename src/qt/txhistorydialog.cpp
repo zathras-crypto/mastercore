@@ -61,8 +61,7 @@ using namespace leveldb;
 #include <QScrollBar>
 #include <QTextDocument>
 #include <QListWidget>
-
-#include "txlistdelegate.h"
+#include <QMenu>
 
 TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     QDialog(parent),
@@ -95,6 +94,29 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     //ui->txHistoryTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     ui->txHistoryTable->setTabKeyNavigation(false);
     //view->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    ui->txHistoryTable->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    // Actions
+    QAction *copyAddressAction = new QAction(tr("Copy address"), this);
+    QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
+    QAction *copyTxIDAction = new QAction(tr("Copy transaction ID"), this);
+    QAction *showDetailsAction = new QAction(tr("Show transaction details"), this);
+
+    contextMenu = new QMenu();
+    contextMenu->addAction(copyAddressAction);
+    contextMenu->addAction(copyAmountAction);
+    contextMenu->addAction(copyTxIDAction);
+    contextMenu->addAction(showDetailsAction);
+
+    // Connect actions
+    connect(ui->txHistoryTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
+    connect(ui->txHistoryTable, SIGNAL(doubleClicked(QModelIndex)), this, SIGNAL(doubleClicked(QModelIndex)));
+    connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
+    connect(copyAmountAction, SIGNAL(triggered()), this, SLOT(copyAmount()));
+    connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
+    connect(showDetailsAction, SIGNAL(triggered()), this, SLOT(showDetails()));
+
 
     UpdateHistory();
 }
@@ -314,3 +336,40 @@ void TXHistoryDialog::setModel(WalletModel *model)
     //connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(OrderRefresh()));
 }
 
+void TXHistoryDialog::contextualMenu(const QPoint &point)
+{
+    QModelIndex index = ui->txHistoryTable->indexAt(point);
+    if(index.isValid())
+    {
+        contextMenu->exec(QCursor::pos());
+    }
+}
+
+void TXHistoryDialog::copyAddress()
+{
+//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::AddressRole);
+}
+
+void TXHistoryDialog::copyAmount()
+{
+//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::FormattedAmountRole);
+}
+
+void TXHistoryDialog::copyTxID()
+{
+//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::TxIDRole);
+}
+
+void TXHistoryDialog::showDetails()
+{
+/*
+    if(!transactionView->selectionModel())
+        return;
+    QModelIndexList selection = transactionView->selectionModel()->selectedRows();
+    if(!selection.isEmpty())
+    {
+        TransactionDescDialog dlg(selection.at(0));
+        dlg.exec();
+    }
+*/
+}

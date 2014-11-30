@@ -145,7 +145,6 @@ QT_MOC_CPP = \
   moc_metadexdialog.cpp \
   moc_orderhistorydialog.cpp \
   moc_txhistorydialog.cpp \
-  moc_txlistdelegate.cpp \
   moc_orderlistdelegate.cpp \
   moc_lookupspdialog.cpp \
   moc_lookupaddressdialog.cpp \
@@ -221,7 +220,6 @@ BITCOIN_QT_H = \
   lookupspdialog.h \
   lookupaddressdialog.h \
   orderlistdelegate.h \
-  txlistdelegate.h \
   signverifymessagedialog.h \
   splashscreen.h \
   trafficgraphwidget.h \
@@ -343,7 +341,6 @@ BITCOIN_QT_CPP += \
   orderhistorydialog.cpp \
   txhistorydialog.cpp \
   orderlistdelegate.cpp \
-  txlistdelegate.cpp \
   lookupspdialog.cpp \
   lookupaddressdialog.cpp \
   signverifymessagedialog.cpp \
