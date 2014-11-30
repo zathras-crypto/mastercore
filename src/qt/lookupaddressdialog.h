@@ -9,16 +9,41 @@
 
 #include <QDialog>
 #include <QString>
-
+#include <QImage>
+#include <QLabel>
 class OptionsModel;
 
 QT_BEGIN_NAMESPACE
 class QUrl;
+class QMenu;
 QT_END_NAMESPACE
 
 namespace Ui {
     class LookupAddressDialog;
 }
+
+/* Label widget for QR code. This image can be dragged, dropped, copied and saved
+ * to disk.
+ */
+class MPQRImageWidget : public QLabel
+{
+    Q_OBJECT
+
+public:
+    explicit MPQRImageWidget(QWidget *parent = 0);
+    QImage exportImage();
+
+public slots:
+    void saveImage();
+    void copyImage();
+
+protected:
+    virtual void mousePressEvent(QMouseEvent *event);
+    virtual void contextMenuEvent(QContextMenuEvent *event);
+
+private:
+    QMenu *contextMenu;
+};
 
 /** Dialog for looking up Master Protocol address */
 class LookupAddressDialog : public QDialog

@@ -59,6 +59,84 @@ using namespace leveldb;
 #include <QScrollBar>
 #include <QTextDocument>
 
+#include <QClipboard>
+#include <QDrag>
+#include <QMimeData>
+#include <QMouseEvent>
+#include <QPixmap>
+#include <QMenu>
+#if QT_VERSION < 0x050000
+#include <QUrl>
+#endif
+
+#if defined(HAVE_CONFIG_H)
+#include "bitcoin-config.h" /* for USE_QRCODE */
+#endif
+
+#ifdef USE_QRCODE
+#include <qrencode.h>
+#endif
+
+MPQRImageWidget::MPQRImageWidget(QWidget *parent):
+    QLabel(parent), contextMenu(0)
+{
+    contextMenu = new QMenu();
+    QAction *saveImageAction = new QAction(tr("&Save Image..."), this);
+    connect(saveImageAction, SIGNAL(triggered()), this, SLOT(saveImage()));
+    contextMenu->addAction(saveImageAction);
+    QAction *copyImageAction = new QAction(tr("&Copy Image"), this);
+    connect(copyImageAction, SIGNAL(triggered()), this, SLOT(copyImage()));
+    contextMenu->addAction(copyImageAction);
+}
+
+QImage MPQRImageWidget::exportImage()
+{
+    if(!pixmap())
+        return QImage();
+    return pixmap()->toImage().scaled(256,256);
+}
+
+void MPQRImageWidget::mousePressEvent(QMouseEvent *event)
+{
+    if(event->button() == Qt::LeftButton && pixmap())
+    {
+        event->accept();
+        QMimeData *mimeData = new QMimeData;
+        mimeData->setImageData(exportImage());
+
+        QDrag *drag = new QDrag(this);
+        drag->setMimeData(mimeData);
+        drag->exec();
+    } else {
+        QLabel::mousePressEvent(event);
+    }
+}
+
+void MPQRImageWidget::saveImage()
+{
+    if(!pixmap())
+        return;
+    QString fn = GUIUtil::getSaveFileName(this, tr("Save QR Code"), QString(), tr("PNG Image (*.png)"), NULL);
+    if (!fn.isEmpty())
+    {
+        exportImage().save(fn);
+    }
+}
+
+void MPQRImageWidget::copyImage()
+{
+    if(!pixmap())
+        return;
+    QApplication::clipboard()->setImage(exportImage());
+}
+
+void MPQRImageWidget::contextMenuEvent(QContextMenuEvent *event)
+{
+    if(!pixmap())
+        return;
+    contextMenu->exec(event->globalPos());
+}
+
 LookupAddressDialog::LookupAddressDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::LookupAddressDialog),
@@ -104,12 +182,38 @@ void LookupAddressDialog::searchAddress()
         if ((searchText.substr(0,1) == "1") || (searchText.substr(0,1) == "m") || (searchText.substr(0,1) == "n")) ui->addressTypeLabel->setText("Public Key Hash");
         if ((searchText.substr(0,1) == "2") || (searchText.substr(0,1) == "3")) ui->addressTypeLabel->setText("Pay to Script Hash");
         if (IsMyAddress(searchText)) { ui->isMineLabel->setText("Yes"); } else { ui->isMineLabel->setText("No"); }
+        ui->balanceLabel->setText(QString::fromStdString(FormatDivisibleMP(getUserAvailableMPbalance(searchText, 1)) + " MSC"));
+        // QR
+        #ifdef USE_QRCODE
+        ui->QRCode->setText("");
+        QRcode *code = QRcode_encodeString(QString::fromStdString(searchText).toUtf8().constData(), 0, QR_ECLEVEL_L, QR_MODE_8, 1);
+        if (!code)
+        {
+            ui->QRCode->setText(tr("Error encoding address into QR Code."));
+        }
+        else
+        {
+            QImage myImage = QImage(code->width + 4, code->width + 4, QImage::Format_RGB32);
+            myImage.fill(0xffffff);
+            unsigned char *p = code->data;
+            for (int y = 0; y < code->width; y++)
+            {
+                for (int x = 0; x < code->width; x++)
+                {
+                    myImage.setPixel(x + 2, y + 2, ((*p & 1) ? 0x0 : 0xffffff));
+                    p++;
+                }
+            }
+            QRcode_free(code);
+            ui->QRCode->setPixmap(QPixmap::fromImage(myImage).scaled(96, 96));
+        }
+        #endif
 
         //scrappy way to do this, find a more efficient way of interacting with labels
         //show first 10 SPs with balances - needs to be converted to listwidget or something
         unsigned int propertyId;
-        unsigned int lastFoundPropertyIdMainEco = 0;
-        unsigned int lastFoundPropertyIdTestEco = 0;
+        unsigned int lastFoundPropertyIdMainEco = 1;
+        unsigned int lastFoundPropertyIdTestEco = 1;
         string pName[12];
         uint64_t pBal[12];
         bool pDivisible[12];
@@ -170,7 +274,6 @@ void LookupAddressDialog::searchAddress()
                 labels[pItem-1]->setText(pName[pItem].c_str());
                 string tokenLabel = " SPT";
                 if (pName[pItem]=="Test MasterCoin (#2)") { tokenLabel = " TMSC"; }
-                if (pName[pItem]=="MasterCoin (#1)") { tokenLabel = " MSC"; }
                 if (pDivisible[pItem])
                 {
                     balances[pItem-1]->setText(QString::fromStdString(FormatDivisibleMP(pBal[pItem]) + tokenLabel));
