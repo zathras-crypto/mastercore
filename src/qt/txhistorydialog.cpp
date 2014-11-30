@@ -130,8 +130,7 @@ void TXHistoryDialog::UpdateHistory()
     string sAddress = "";
     string addressParam = "";
 
-    int64_t nCount = 10;
-    int64_t nFrom = 0;
+    int64_t nCount = 50; //don't display more than 50 historical transactions at the moment until we can move to a cached model
     int64_t nStartBlock = 0;
     int64_t nEndBlock = 999999;
 
@@ -294,25 +293,9 @@ void TXHistoryDialog::UpdateHistory()
                 rowcount += 1;
             }
         }
+    // don't burn time doing more work than we need to
+    if (rowcount > nCount) break;
     }
-            // don't burn time doing more work than we need to
-//            if ((int)response.size() >= (nCount+nFrom)) break;
-    // sort array here and cut on nFrom and nCount
-//    if (nFrom > (int)response.size())
-//        nFrom = response.size();
-//    if ((nFrom + nCount) > (int)response.size())
-//        nCount = response.size() - nFrom;
-//    Array::iterator first = response.begin();
-//    std::advance(first, nFrom);
-//    Array::iterator last = response.begin();
-//    std::advance(last, nFrom+nCount);
-
-//    if (last != response.end()) response.erase(last, response.end());
-//    if (first != response.begin()) response.erase(response.begin(), first);
-
-//    std::reverse(response.begin(), response.end()); // return oldest to newest?
- //   return response;   // return response array for JSON serialization
-
 }
 
 void TXHistoryDialog::setModel(WalletModel *model)
