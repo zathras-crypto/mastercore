@@ -38,6 +38,7 @@ public:
     QTableWidgetItem *typeCell;
     QTableWidgetItem *amountCell;
     QTableWidgetItem *addressCell;
+    QTableWidgetItem *txidCell;
 
 public slots:
     //void switchButtonClicked();

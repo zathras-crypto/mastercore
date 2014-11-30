@@ -72,7 +72,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     this->model = model;
 
     // setup
-    ui->txHistoryTable->setColumnCount(5);
+    ui->txHistoryTable->setColumnCount(6);
     ui->txHistoryTable->setHorizontalHeaderItem(0, new QTableWidgetItem(" "));
     ui->txHistoryTable->setHorizontalHeaderItem(1, new QTableWidgetItem("Date"));
     ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Type"));
@@ -89,6 +89,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->setColumnWidth(1, 150);
     ui->txHistoryTable->setColumnWidth(2, 130);
     ui->txHistoryTable->setColumnWidth(4, 200);
+    ui->txHistoryTable->setColumnWidth(5, 0);
 
     // Always show scroll bar
     //ui->txHistoryTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -264,6 +265,7 @@ void TXHistoryDialog::UpdateHistory()
                 QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
                 QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
                 QTableWidgetItem *iconCell = new QTableWidgetItem;
+                QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(hash.GetHex()));
                 iconCell->setIcon(ic);
                 addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
                 addressCell->setForeground(QColor("#707070"));
@@ -276,14 +278,14 @@ void TXHistoryDialog::UpdateHistory()
                     addressCell->setBackground(QColor("#F0F0F0"));
                     dateCell->setBackground(QColor("#F0F0F0"));
                     typeCell->setBackground(QColor("#F0F0F0"));
-
+                    txidCell->setBackground(QColor("#F0F0F0"));
                 }
                 ui->txHistoryTable->setItem(rowcount, 0, iconCell);
                 ui->txHistoryTable->setItem(rowcount, 1, dateCell);
                 ui->txHistoryTable->setItem(rowcount, 2, typeCell);
                 ui->txHistoryTable->setItem(rowcount, 3, addressCell);
                 ui->txHistoryTable->setItem(rowcount, 4, amountCell);
-
+                ui->txHistoryTable->setItem(rowcount, 5, txidCell);
 /*
                 if(pending)
                 {
@@ -347,17 +349,17 @@ void TXHistoryDialog::contextualMenu(const QPoint &point)
 
 void TXHistoryDialog::copyAddress()
 {
-//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::AddressRole);
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),3)->text());
 }
 
 void TXHistoryDialog::copyAmount()
 {
-//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::FormattedAmountRole);
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),4)->text());
 }
 
 void TXHistoryDialog::copyTxID()
 {
-//    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::TxIDRole);
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text());
 }
 
 void TXHistoryDialog::showDetails()
