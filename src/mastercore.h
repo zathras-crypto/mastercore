@@ -427,11 +427,14 @@ public:
   string src; // the FromAddress
   unsigned int prop;
   int64_t amount;
+  int64_t type;
+  string desc; // the description
 
   void print(uint256 txid) const
   {
-    printf("%s : %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), prop, amount);
+    printf("%s : %s %d %ld %ld %s\n", txid.GetHex().c_str(), src.c_str(), prop, amount, type, desc.c_str());
   }
+ 
 };
 
 //temp - only supporting 100,000 properties per eco here, research best way to expand array
@@ -464,7 +467,7 @@ extern CMPTxList *p_txlistdb;
 extern CMPTradeList *t_tradelistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
-
+extern PendingMap my_pending;
 string strMPProperty(unsigned int i);
 
 int GetHeight(void);

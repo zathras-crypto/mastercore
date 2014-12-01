@@ -361,7 +361,7 @@ AcceptMap mastercore::my_accepts;
 CMPSPInfo *mastercore::_my_sps;
 CrowdMap mastercore::my_crowds;
 
-static PendingMap my_pending;
+PendingMap mastercore::my_pending;
 
 static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 {
@@ -398,11 +398,11 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
   return (CMPPending *) NULL;
 }
 
-static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned int propId, int64_t Amount)
+static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned int propId, int64_t Amount, int64_t type, const string &txDesc)
 {
 CMPPending pending;
 
-  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld,%d, %s), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, type, txDesc,__LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
@@ -410,7 +410,8 @@ CMPPending pending;
     pending.src = FromAddress;
     pending.amount = Amount;
     pending.prop = propId;
-
+    pending.desc = txDesc;
+    pending.type = type;
     pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
   }
@@ -2965,7 +2966,46 @@ const unsigned int prop = PropertyID;
 
   if (0 == rc)
   {
-    (void) pendingAdd(txid, FromAddress, prop, amount);
+      // only simple sends and metadex pending needed at moment
+      Object txobj;
+      txobj.push_back(Pair("txid", txid.GetHex()));
+      txobj.push_back(Pair("sendingaddress", FromAddress));
+      if (TransactionType == MSC_TYPE_SIMPLE_SEND) txobj.push_back(Pair("referenceaddress", ToAddress));
+      txobj.push_back(Pair("confirmations", 0));
+      // txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
+      txobj.push_back(Pair("version", (int64_t)0)); //we only send v0 currently so all pending v0
+      txobj.push_back(Pair("type_int", (int64_t)TransactionType));
+      bool divisible = false;
+      bool desiredDivisible = false;
+      string amountStr;
+      string amountDStr;
+      switch (TransactionType)
+      {
+          case 0: //simple send
+              txobj.push_back(Pair("type", "Simple send"));
+              txobj.push_back(Pair("propertyid", (uint64_t)PropertyID));
+              divisible = isPropertyDivisible(PropertyID);
+              txobj.push_back(Pair("divisible", divisible));
+              if (divisible) { amountStr = FormatDivisibleMP(Amount); } else { amountStr = FormatIndivisibleMP(Amount); }
+              txobj.push_back(Pair("amount", amountStr));
+          break;
+          case 21: //metadex sell
+              txobj.push_back(Pair("type", "MetaDEx token trade"));
+              divisible = isPropertyDivisible(PropertyID);
+              desiredDivisible = isPropertyDivisible(PropertyID_2);
+              if (divisible) { amountStr = FormatDivisibleMP(Amount); } else { amountStr = FormatIndivisibleMP(Amount); }
+              if (desiredDivisible) { amountDStr = FormatDivisibleMP(Amount_2); } else { amountDStr = FormatIndivisibleMP(Amount_2); }
+              txobj.push_back(Pair("amountoffered", amountStr));
+              txobj.push_back(Pair("propertyoffered", (uint64_t)PropertyID));
+              txobj.push_back(Pair("propertyofferedisdivisible", divisible));
+              txobj.push_back(Pair("amountdesired", amountDStr));
+              txobj.push_back(Pair("propertydesired", (uint64_t)PropertyID_2));
+              txobj.push_back(Pair("propertydesiredisdivisible", desiredDivisible));
+              txobj.push_back(Pair("action", additional));
+          break;
+      }
+      string txDesc = write_string(Value(txobj), false);
+      (void) pendingAdd(txid, FromAddress, prop, amount, TransactionType, txDesc);
   }
 
   return txid;

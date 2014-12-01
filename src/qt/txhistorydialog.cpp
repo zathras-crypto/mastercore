@@ -126,6 +126,77 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
 
 void TXHistoryDialog::UpdateHistory()
 {
+    int rowcount = 0;
+
+    // handle pending transactions first
+    for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
+    {
+        CMPPending *p_pending = &(it->second);
+        //p_pending->print(txid);
+
+        string senderAddress = p_pending->src;
+        uint64_t propertyId = p_pending->prop;
+        bool divisible = isPropertyDivisible(propertyId);
+        string displayAmount;
+        int64_t amount = p_pending->amount;
+        string displayToken;
+        string displayValid;
+        string displayAddress = senderAddress;
+        int64_t type = p_pending->type;
+
+        if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
+        // clean up trailing zeros - good for RPC not so much for UI
+        displayAmount.erase ( displayAmount.find_last_not_of('0') + 1, std::string::npos );
+        if (displayAmount.length() > 0) { std::string::iterator it = displayAmount.end() - 1; if (*it == '.') { displayAmount.erase(it); } } //get rid of trailing dot if non decimal
+
+        if (propertyId < 3)
+        {
+            if(propertyId == 1) { displayToken = " MSC"; }
+            if(propertyId == 2) { displayToken = " TMSC"; }
+        }
+        else
+        {
+            string s = to_string(propertyId);
+            displayToken = " SPT#" + s;
+        }
+        QString txTimeStr = "Unconfirmed";
+        string displayType;
+        if (type == 0) displayType = "Send";
+        if (type == 21) displayType = "MetaDEx Trade";
+        displayAmount = "-" + displayAmount; //all pending are outbound
+        //icon
+        QIcon ic = QIcon(":/icons/transaction_unconfirmed");
+        // add to history
+        ui->txHistoryTable->setRowCount(rowcount+1);
+        QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
+        QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
+        QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
+        QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
+        QTableWidgetItem *iconCell = new QTableWidgetItem;
+        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString("test")); //hash.GetHex()));
+        iconCell->setIcon(ic);
+        addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+        addressCell->setForeground(QColor("#707070"));
+        amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+        amountCell->setForeground(QColor("#EE0000"));
+        if (rowcount % 2)
+        {
+            amountCell->setBackground(QColor("#F0F0F0"));
+            addressCell->setBackground(QColor("#F0F0F0"));
+            dateCell->setBackground(QColor("#F0F0F0"));
+            typeCell->setBackground(QColor("#F0F0F0"));
+            txidCell->setBackground(QColor("#F0F0F0"));
+        }
+        ui->txHistoryTable->setItem(rowcount, 0, iconCell);
+        ui->txHistoryTable->setItem(rowcount, 1, dateCell);
+        ui->txHistoryTable->setItem(rowcount, 2, typeCell);
+        ui->txHistoryTable->setItem(rowcount, 3, addressCell);
+        ui->txHistoryTable->setItem(rowcount, 4, amountCell);
+        ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+        rowcount += 1;
+    }
+
+    // wallet transactions
     CWallet *wallet = pwalletMain;
     string sAddress = "";
     string addressParam = "";
@@ -142,7 +213,6 @@ void TXHistoryDialog::UpdateHistory()
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
     // iterate backwards 
-    int rowcount = 0;
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
@@ -333,10 +403,28 @@ void TXHistoryDialog::showDetails()
     Object txobj;
     uint256 txid;
     txid.SetHex(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text().toStdString());
-    int pop = populateRPCTransactionObject(txid, &txobj, "");
-    if (0<=pop)
+    std::string strTXText;
+
+    // first of all check if the TX is a pending tx, if so grab details from pending map
+    PendingMap::iterator it = my_pending.find(txid);
+    if (it != my_pending.end())
     {
-        std::string strTXText = write_string(Value(txobj), false) + "\n";
+        CMPPending *p_pending = &(it->second);
+        p_pending->print(txid);
+        strTXText = p_pending->desc;
+    }
+    else
+    {
+        // grab details usual way
+        int pop = populateRPCTransactionObject(txid, &txobj, "");
+        if (0<=pop)
+        {
+            strTXText = write_string(Value(txobj), false) + "\n";
+        }
+    }
+
+    if (!strTXText.empty())
+    {
         // clean up
         string from = ",";
         string to = ",\n    ";

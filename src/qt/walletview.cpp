@@ -208,6 +208,7 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     sendMPTab->setModel(walletModel);
     balancesView->setModel(walletModel);
     metaDExTab->setModel(walletModel);
+    mpTXTab->setModel(walletModel);
 
     if (walletModel)
     {

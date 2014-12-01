@@ -20,6 +20,7 @@ class LookupAddressDialog;
 class MetaDExDialog;
 class SendCoinsRecipient;
 class TransactionView;
+class TXHistoryDialog;
 class BalancesView;
 class WalletModel;
 
@@ -80,7 +81,7 @@ private:
     MetaDExDialog *metaDExTab;
     TransactionView *transactionView;
     BalancesView *balancesView;
-    QWidget *mpTXTab;
+    TXHistoryDialog *mpTXTab;
     QWidget *bitcoinTXTab;
     QProgressDialog *progressDialog;
 
