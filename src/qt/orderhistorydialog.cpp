@@ -264,6 +264,12 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 
                         //icon
                         QIcon ic = QIcon(":/icons/transaction_0");
+                        if(statusText == "CANCELLED") ic =QIcon(":/icons/meta_cancelled");
+                        if(statusText == "PART CANCEL") ic = QIcon(":/icons/meta_partialclosed");
+                        if(statusText == "FILLED") ic = QIcon(":/icons/meta_filled");
+                        if(statusText == "OPEN") ic = QIcon(":/icons/meta_open");
+                        if(statusText == "PART FILLED") ic = QIcon(":/icons/meta_partial");
+
                         // add to order history
                         ui->orderHistoryTable->setRowCount(rowcount+1);
                         QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
@@ -296,8 +302,11 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                             statusCell->setForeground(QColor("#707070"));
                             infoCell->setForeground(QColor("#707070"));
                             amountOutCell->setForeground(QColor("#993333"));
-                            amountInCell->setForeground(QColor("#33CC66"));
+                            amountInCell->setForeground(QColor("#006600"));
                         }
+                        if(displayIn.substr(0,2) == "0 ") amountInCell->setForeground(QColor("#000000"));
+                        if(displayOut.substr(0,2) == "0 ") amountOutCell->setForeground(QColor("#000000"));
+
                         ui->orderHistoryTable->setItem(rowcount, 0, iconCell);
                         ui->orderHistoryTable->setItem(rowcount, 1, dateCell);
                         ui->orderHistoryTable->setItem(rowcount, 2, statusCell);
