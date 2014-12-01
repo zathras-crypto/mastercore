@@ -86,9 +86,9 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui->orderHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);
     ui->orderHistoryTable->setColumnWidth(0, 23);
     ui->orderHistoryTable->setColumnWidth(1, 150);
-    ui->orderHistoryTable->setColumnWidth(2, 130);
-    ui->orderHistoryTable->setColumnWidth(4, 200);
-    ui->orderHistoryTable->setColumnWidth(5, 200);
+    ui->orderHistoryTable->setColumnWidth(2, 110);
+    ui->orderHistoryTable->setColumnWidth(4, 180);
+    ui->orderHistoryTable->setColumnWidth(5, 180);
     ui->orderHistoryTable->setColumnWidth(6, 0);
 
     CWallet *wallet = pwalletMain;
@@ -289,6 +289,14 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                             amountInCell->setBackground(QColor("#F0F0F0"));
                             iconCell->setBackground(QColor("#F0F0F0"));
                             txidCell->setBackground(QColor("#F0F0F0"));
+                        }
+                        if((!orderOpen) && (filled)) //make filled orders background
+                        {
+                            dateCell->setForeground(QColor("#707070"));
+                            statusCell->setForeground(QColor("#707070"));
+                            infoCell->setForeground(QColor("#707070"));
+                            amountOutCell->setForeground(QColor("#993333"));
+                            amountInCell->setForeground(QColor("#33CC66"));
                         }
                         ui->orderHistoryTable->setItem(rowcount, 0, iconCell);
                         ui->orderHistoryTable->setItem(rowcount, 1, dateCell);
