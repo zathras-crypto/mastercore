@@ -2935,6 +2935,11 @@ const unsigned int prop = PropertyID;
     return 0;
   }
 
+  int64_t rawTransactionType = TransactionType;
+  int64_t rawPropertyID = PropertyID;
+  int64_t rawPropertyID_2 = PropertyID_2;
+  int64_t rawAmount = Amount;
+  int64_t rawAmount_2 = Amount_2;
   vector<unsigned char> data;
   swapByteOrder32(TransactionType);
   swapByteOrder32(PropertyID);
@@ -2970,42 +2975,42 @@ const unsigned int prop = PropertyID;
       Object txobj;
       txobj.push_back(Pair("txid", txid.GetHex()));
       txobj.push_back(Pair("sendingaddress", FromAddress));
-      if (TransactionType == MSC_TYPE_SIMPLE_SEND) txobj.push_back(Pair("referenceaddress", ToAddress));
+      if (rawTransactionType == MSC_TYPE_SIMPLE_SEND) txobj.push_back(Pair("referenceaddress", ToAddress));
       txobj.push_back(Pair("confirmations", 0));
       // txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
       txobj.push_back(Pair("version", (int64_t)0)); //we only send v0 currently so all pending v0
-      txobj.push_back(Pair("type_int", (int64_t)TransactionType));
+      txobj.push_back(Pair("type_int", (int64_t)rawTransactionType));
       bool divisible = false;
       bool desiredDivisible = false;
       string amountStr;
       string amountDStr;
-      switch (TransactionType)
+      switch (rawTransactionType)
       {
           case 0: //simple send
               txobj.push_back(Pair("type", "Simple send"));
-              txobj.push_back(Pair("propertyid", (uint64_t)PropertyID));
-              divisible = isPropertyDivisible(PropertyID);
+              txobj.push_back(Pair("propertyid", rawPropertyID));
+              divisible = isPropertyDivisible(rawPropertyID);
               txobj.push_back(Pair("divisible", divisible));
-              if (divisible) { amountStr = FormatDivisibleMP(Amount); } else { amountStr = FormatIndivisibleMP(Amount); }
+              if (divisible) { amountStr = FormatDivisibleMP(rawAmount); } else { amountStr = FormatIndivisibleMP(rawAmount); }
               txobj.push_back(Pair("amount", amountStr));
           break;
           case 21: //metadex sell
               txobj.push_back(Pair("type", "MetaDEx token trade"));
-              divisible = isPropertyDivisible(PropertyID);
-              desiredDivisible = isPropertyDivisible(PropertyID_2);
-              if (divisible) { amountStr = FormatDivisibleMP(Amount); } else { amountStr = FormatIndivisibleMP(Amount); }
-              if (desiredDivisible) { amountDStr = FormatDivisibleMP(Amount_2); } else { amountDStr = FormatIndivisibleMP(Amount_2); }
+              divisible = isPropertyDivisible(rawPropertyID);
+              desiredDivisible = isPropertyDivisible(rawPropertyID_2);
+              if (divisible) { amountStr = FormatDivisibleMP(rawAmount); } else { amountStr = FormatIndivisibleMP(rawAmount); }
+              if (desiredDivisible) { amountDStr = FormatDivisibleMP(rawAmount_2); } else { amountDStr = FormatIndivisibleMP(rawAmount_2); }
               txobj.push_back(Pair("amountoffered", amountStr));
-              txobj.push_back(Pair("propertyoffered", (uint64_t)PropertyID));
+              txobj.push_back(Pair("propertyoffered", rawPropertyID));
               txobj.push_back(Pair("propertyofferedisdivisible", divisible));
               txobj.push_back(Pair("amountdesired", amountDStr));
-              txobj.push_back(Pair("propertydesired", (uint64_t)PropertyID_2));
+              txobj.push_back(Pair("propertydesired", rawPropertyID_2));
               txobj.push_back(Pair("propertydesiredisdivisible", desiredDivisible));
               txobj.push_back(Pair("action", additional));
           break;
       }
       string txDesc = write_string(Value(txobj), false);
-      (void) pendingAdd(txid, FromAddress, prop, amount, TransactionType, txDesc);
+      (void) pendingAdd(txid, FromAddress, prop, amount, rawTransactionType, txDesc);
   }
 
   return txid;

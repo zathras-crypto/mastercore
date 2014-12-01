@@ -132,6 +132,8 @@ void TXHistoryDialog::UpdateHistory()
     for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
     {
         CMPPending *p_pending = &(it->second);
+        uint256 txid = it->first;
+        string txidStr = txid.GetHex();
         //p_pending->print(txid);
 
         string senderAddress = p_pending->src;
@@ -165,7 +167,7 @@ void TXHistoryDialog::UpdateHistory()
         if (type == 21) displayType = "MetaDEx Trade";
         displayAmount = "-" + displayAmount; //all pending are outbound
         //icon
-        QIcon ic = QIcon(":/icons/transaction_unconfirmed");
+        QIcon ic = QIcon(":/icons/transaction_0");
         // add to history
         ui->txHistoryTable->setRowCount(rowcount+1);
         QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
@@ -173,7 +175,7 @@ void TXHistoryDialog::UpdateHistory()
         QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
         QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
         QTableWidgetItem *iconCell = new QTableWidgetItem;
-        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString("test")); //hash.GetHex()));
+        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txidStr)); //hash.GetHex()));
         iconCell->setIcon(ic);
         addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
         addressCell->setForeground(QColor("#707070"));
@@ -323,11 +325,11 @@ void TXHistoryDialog::UpdateHistory()
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 switch(confirmations)
                 {
-                     case 1: ic = QIcon(":/icons/transaction_1");
-                     case 2: ic = QIcon(":/icons/transaction_2");
-                     case 3: ic = QIcon(":/icons/transaction_3");
-                     case 4: ic = QIcon(":/icons/transaction_4");
-                     case 5: ic = QIcon(":/icons/transaction_5");
+                     case 1: ic = QIcon(":/icons/transaction_1"); break;
+                     case 2: ic = QIcon(":/icons/transaction_2"); break;
+                     case 3: ic = QIcon(":/icons/transaction_3"); break;
+                     case 4: ic = QIcon(":/icons/transaction_4"); break;
+                     case 5: ic = QIcon(":/icons/transaction_5"); break;
                 }
                 if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
                 if (!valid) ic = QIcon(":/icons/transaction_invalid");
@@ -371,7 +373,7 @@ void TXHistoryDialog::UpdateHistory()
 void TXHistoryDialog::setModel(WalletModel *model)
 {
     this->model = model;
-    //connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(OrderRefresh()));
+    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(UpdateHistory()));
 }
 
 void TXHistoryDialog::contextualMenu(const QPoint &point)
@@ -410,8 +412,7 @@ void TXHistoryDialog::showDetails()
     if (it != my_pending.end())
     {
         CMPPending *p_pending = &(it->second);
-        p_pending->print(txid);
-        strTXText = p_pending->desc;
+        strTXText = "*** THIS TRANSACTION IS UNCONFIRMED ***\n" + p_pending->desc;
     }
     else
     {

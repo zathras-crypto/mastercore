@@ -33,7 +33,6 @@ public:
     //void FullRefresh();
     explicit TXHistoryDialog(QWidget *parent = 0);
     void setModel(WalletModel *model);
-    void UpdateHistory();
     void accept();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
@@ -64,6 +63,7 @@ private slots:
     void copyAddress();
     void copyAmount();
     void copyTxID();
+    void UpdateHistory();
 
 signals:
     void doubleClicked(const QModelIndex&);
