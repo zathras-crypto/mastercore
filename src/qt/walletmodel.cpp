@@ -43,10 +43,11 @@ WalletModel::WalletModel(CWallet *wallet, OptionsModel *optionsModel, QObject *p
     pollTimer->start(MODEL_UPDATE_DELAY);
 
     // The above timer is too fast for MasterCore usage, we'll have a new one here
+    /*
     updateTimer = new QTimer(this);
     connect(updateTimer, SIGNAL(timeout()), this, SLOT(forceUpdateBalances()));
     updateTimer->start(MASTERCORE_UPDATE_DELAY);
-
+    */
     subscribeToCoreSignals();
 }
 
@@ -151,6 +152,7 @@ void WalletModel::pollBalanceChanged()
         cachedNumBlocks = chainActive.Height();
 
         checkBalanceChanged();
+        forceUpdateBalances();
         if(transactionTableModel)
             transactionTableModel->updateConfirmations();
     }
