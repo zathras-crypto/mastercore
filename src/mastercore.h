@@ -178,6 +178,7 @@ TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
 
 // forward declarations
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatDivisibleShortMP(int64_t);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
 uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount);
 int64_t feeCheck(const string &address);
