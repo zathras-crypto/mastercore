@@ -61,8 +61,6 @@ using namespace leveldb;
 #include <QScrollBar>
 #include <QTextDocument>
 
-#include "orderlistdelegate.h"
-
 OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::orderHistoryDialog),
@@ -70,7 +68,28 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 {
     ui->setupUi(this);
     this->model = model;
-    ui->orderHistoryLW->setItemDelegate(new ListDelegate(ui->orderHistoryLW));
+
+    // setup
+    ui->orderHistoryTable->setColumnCount(7);
+    ui->orderHistoryTable->setHorizontalHeaderItem(0, new QTableWidgetItem(" "));
+    ui->orderHistoryTable->setHorizontalHeaderItem(1, new QTableWidgetItem("Date"));
+    ui->orderHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Status"));
+    ui->orderHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Trade Details"));
+    ui->orderHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Sold"));
+    ui->orderHistoryTable->setHorizontalHeaderItem(5, new QTableWidgetItem("Received"));
+    ui->orderHistoryTable->verticalHeader()->setVisible(false);
+//    ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+//    ui->txHistoryTable->setShowGrid(false);
+    ui->orderHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->orderHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->orderHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui->orderHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);
+    ui->orderHistoryTable->setColumnWidth(0, 23);
+    ui->orderHistoryTable->setColumnWidth(1, 150);
+    ui->orderHistoryTable->setColumnWidth(2, 130);
+    ui->orderHistoryTable->setColumnWidth(4, 200);
+    ui->orderHistoryTable->setColumnWidth(5, 200);
+    ui->orderHistoryTable->setColumnWidth(6, 0);
 
     CWallet *wallet = pwalletMain;
     string sAddress = "";
@@ -84,6 +103,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     int64_t nEndBlock = 999999;
 
     Array response; //prep an array to hold our output
+    int rowcount = 0;
 
     // rewrite to use original listtransactions methodology from core
     LOCK(wallet->cs_wallet);
@@ -202,15 +222,13 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         if((orderOpen) && (partialFilled)) statusText = "PART FILLED";
 
                         // add to list
-                        QListWidgetItem *qItem = new QListWidgetItem();
-                        qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
                         string displayText = "Sell ";
                         string displayIn = "+";
                         string displayOut = "-";
                         string displayInToken;
                         string displayOutToken;
 
-                        if(divisibleForSale) { displayText += FormatDivisibleMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
+                        if(divisibleForSale) { displayText += FormatDivisibleShortMP(amountForSale); } else { displayText += FormatIndivisibleMP(amountForSale); }
                         if(propertyIdForSale < 3)
                         {
                             if(propertyIdForSale == 1) { displayText += " MSC for "; displayOutToken = " MSC"; }
@@ -222,7 +240,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                             displayText += " SPT#" + s + " for ";
                             displayOutToken = " SPT#" + s;
                         }
-                        if(divisibleDesired) { displayText += FormatDivisibleMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
+                        if(divisibleDesired) { displayText += FormatDivisibleShortMP(amountDesired); } else { displayText += FormatIndivisibleMP(amountDesired); }
                         if(propertyIdDesired < 3)
                         {
                             if(propertyIdDesired == 1) { displayText += " MSC"; displayInToken = " MSC"; }
@@ -234,8 +252,8 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                             displayText += " SPT#" + s;
                             displayInToken = " SPT#" + s;
                         }
-                        if(divisibleDesired) { displayIn += FormatDivisibleMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
-                        if(divisibleForSale) { displayOut += FormatDivisibleMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
+                        if(divisibleDesired) { displayIn += FormatDivisibleShortMP(totalBought); } else { displayIn += FormatIndivisibleMP(totalBought); }
+                        if(divisibleForSale) { displayOut += FormatDivisibleShortMP(totalSold); } else { displayOut += FormatIndivisibleMP(totalSold); }
                         if(totalBought == 0) displayIn = "0";
                         if(totalSold == 0) displayOut = "0";
                         displayIn += displayInToken;
@@ -243,6 +261,45 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         QDateTime txTime;
                         txTime.setTime_t(nTime);
                         QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+
+                        //icon
+                        QIcon ic = QIcon(":/icons/transaction_0");
+                        // add to order history
+                        ui->orderHistoryTable->setRowCount(rowcount+1);
+                        QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
+                        QTableWidgetItem *statusCell = new QTableWidgetItem(QString::fromStdString(statusText));
+                        QTableWidgetItem *infoCell = new QTableWidgetItem(QString::fromStdString(displayText));
+                        QTableWidgetItem *amountOutCell = new QTableWidgetItem(QString::fromStdString(displayOut));
+                        QTableWidgetItem *amountInCell = new QTableWidgetItem(QString::fromStdString(displayIn));
+                        QTableWidgetItem *iconCell = new QTableWidgetItem;
+                        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(hash.GetHex()));
+                        iconCell->setIcon(ic);
+                        //addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+                        //addressCell->setForeground(QColor("#707070"));
+                        amountOutCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                        amountOutCell->setForeground(QColor("#EE0000"));
+                        amountInCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                        amountInCell->setForeground(QColor("#00AA00"));
+                        if (rowcount % 2)
+                        {
+                            dateCell->setBackground(QColor("#F0F0F0"));
+                            statusCell->setBackground(QColor("#F0F0F0"));
+                            infoCell->setBackground(QColor("#F0F0F0"));
+                            amountOutCell->setBackground(QColor("#F0F0F0"));
+                            amountInCell->setBackground(QColor("#F0F0F0"));
+                            iconCell->setBackground(QColor("#F0F0F0"));
+                            txidCell->setBackground(QColor("#F0F0F0"));
+                        }
+                        ui->orderHistoryTable->setItem(rowcount, 0, iconCell);
+                        ui->orderHistoryTable->setItem(rowcount, 1, dateCell);
+                        ui->orderHistoryTable->setItem(rowcount, 2, statusCell);
+                        ui->orderHistoryTable->setItem(rowcount, 3, infoCell);
+                        ui->orderHistoryTable->setItem(rowcount, 4, amountOutCell);
+                        ui->orderHistoryTable->setItem(rowcount, 5, amountInCell);
+                        ui->orderHistoryTable->setItem(rowcount, 6, txidCell);
+                        rowcount += 1;
+
+/*
                         qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
                         qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
                         qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
@@ -250,6 +307,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
                         qItem->setData(Qt::UserRole + 6, txTimeStr);
                         ui->orderHistoryLW->addItem(qItem);
+*/
                     }
                 }
             }

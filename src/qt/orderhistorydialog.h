@@ -9,6 +9,7 @@
 
 #include <QDialog>
 #include <QString>
+#include <QTableWidget>
 
 class OptionsModel;
 
@@ -33,6 +34,18 @@ public:
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
     QWidget *setupTabChain(QWidget *prev);
+ //   QDialog *txDlg;
+    QTableWidgetItem *iconCell;
+    QTableWidgetItem *dateCell;
+    QTableWidgetItem *statusCell;
+    QTableWidgetItem *Cell;
+    QTableWidgetItem *amountOutCell;
+    QTableWidgetItem *amountInCell;
+    QTableWidgetItem *txidCell;
+    QLayout *dlgLayout;
+//    QTextEdit *dlgTextEdit;
+//    QDialogButtonBox *buttonBox;
+    QPushButton *closeButton;
 
 
 public slots:

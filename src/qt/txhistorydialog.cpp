@@ -188,6 +188,7 @@ void TXHistoryDialog::UpdateHistory()
             dateCell->setBackground(QColor("#F0F0F0"));
             typeCell->setBackground(QColor("#F0F0F0"));
             txidCell->setBackground(QColor("#F0F0F0"));
+            iconCell->setBackground(QColor("#F0F0F0"));
         }
         ui->txHistoryTable->setItem(rowcount, 0, iconCell);
         ui->txHistoryTable->setItem(rowcount, 1, dateCell);
@@ -298,10 +299,7 @@ void TXHistoryDialog::UpdateHistory()
                 string displayValid;
                 string displayAddress;
                 if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
-                if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-                // clean up trailing zeros - good for RPC not so much for UI
-                displayAmount.erase ( displayAmount.find_last_not_of('0') + 1, std::string::npos );
-                if (displayAmount.length() > 0) { std::string::iterator it = displayAmount.end() - 1; if (*it == '.') { displayAmount.erase(it); } } //get rid of trailing dot if non decimal
+                if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
                 if (valid) { displayValid = "valid"; } else { displayValid = "invalid"; }
                 if (propertyId < 3)
                 {
@@ -355,6 +353,7 @@ void TXHistoryDialog::UpdateHistory()
                     dateCell->setBackground(QColor("#F0F0F0"));
                     typeCell->setBackground(QColor("#F0F0F0"));
                     txidCell->setBackground(QColor("#F0F0F0"));
+                    iconCell->setBackground(QColor("#F0F0F0"));
                 }
                 ui->txHistoryTable->setItem(rowcount, 0, iconCell);
                 ui->txHistoryTable->setItem(rowcount, 1, dateCell);
