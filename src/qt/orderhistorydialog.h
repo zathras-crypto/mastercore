@@ -49,7 +49,7 @@ public:
 
 
 public slots:
-    //void switchButtonClicked();
+    void Update();
 
 private:
     Ui::orderHistoryDialog *ui;

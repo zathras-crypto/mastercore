@@ -78,8 +78,6 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui->orderHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Sold"));
     ui->orderHistoryTable->setHorizontalHeaderItem(5, new QTableWidgetItem("Received"));
     ui->orderHistoryTable->verticalHeader()->setVisible(false);
-//    ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
-//    ui->txHistoryTable->setShowGrid(false);
     ui->orderHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->orderHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->orderHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -91,6 +89,11 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui->orderHistoryTable->setColumnWidth(5, 180);
     ui->orderHistoryTable->setColumnWidth(6, 0);
 
+    Update();
+}
+
+void OrderHistoryDialog::Update()
+{
     CWallet *wallet = pwalletMain;
     string sAddress = "";
     string addressParam = "";
@@ -315,44 +318,16 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
                         ui->orderHistoryTable->setItem(rowcount, 5, amountInCell);
                         ui->orderHistoryTable->setItem(rowcount, 6, txidCell);
                         rowcount += 1;
-
-/*
-                        qItem->setData(Qt::UserRole + 1, QString::fromStdString(displayText));
-                        qItem->setData(Qt::UserRole + 2, QString::fromStdString(displayIn));
-                        qItem->setData(Qt::UserRole + 3, QString::fromStdString(displayOut));
-                        qItem->setData(Qt::UserRole + 4, QString::fromStdString(statusText));
-                        qItem->setData(Qt::UserRole + 5, QString::fromStdString(address));
-                        qItem->setData(Qt::UserRole + 6, txTimeStr);
-                        ui->orderHistoryLW->addItem(qItem);
-*/
                     }
                 }
             }
-            // don't burn time doing more work than we need to
-//            if ((int)response.size() >= (nCount+nFrom)) break;
         }
     }
-    // sort array here and cut on nFrom and nCount
-//    if (nFrom > (int)response.size())
-//        nFrom = response.size();
-//    if ((nFrom + nCount) > (int)response.size())
-//        nCount = response.size() - nFrom;
-//    Array::iterator first = response.begin();
-//    std::advance(first, nFrom);
-//    Array::iterator last = response.begin();
-//    std::advance(last, nFrom+nCount);
-
-//    if (last != response.end()) response.erase(last, response.end());
-//    if (first != response.begin()) response.erase(response.begin(), first);
-
-//    std::reverse(response.begin(), response.end()); // return oldest to newest?
- //   return response;   // return response array for JSON serialization
-
 }
 
 void OrderHistoryDialog::setModel(WalletModel *model)
 {
     this->model = model;
-    //connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(OrderRefresh()));
+    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(Update()));
 }
 
