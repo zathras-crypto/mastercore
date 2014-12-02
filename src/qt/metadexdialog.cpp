@@ -124,6 +124,8 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
     ui->sellList->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->sellList->setSelectionMode(QAbstractItemView::SingleSelection);
 
+    ui->pendingLabel->setVisible(false);
+
     connect(ui->switchButton, SIGNAL(clicked()), this, SLOT(switchButtonClicked()));
     connect(ui->buyButton, SIGNAL(clicked()), this, SLOT(buyTrade()));
     connect(ui->sellButton, SIGNAL(clicked()), this, SLOT(sellTrade()));
@@ -462,7 +464,8 @@ void MetaDExDialog::FullRefresh()
     // update the balances
     UpdateSellAddress();
     UpdateBuyAddress();
-
+    UpdateBuyOffers();
+    UpdateSellOffers();
     // silly sizing
 //    QRect rect = ui->openOrders->geometry();
 //    int tableHeight = 2 + ui->openOrders->horizontalHeader()->height();
