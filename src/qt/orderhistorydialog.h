@@ -11,6 +11,8 @@
 #include <QString>
 #include <QTableWidget>
 #include <QMenu>
+#include <QDialogButtonBox>
+#include <QTextEdit>
 
 class OptionsModel;
 
@@ -44,8 +46,8 @@ public:
     QTableWidgetItem *amountInCell;
     QTableWidgetItem *txidCell;
     QLayout *dlgLayout;
-//    QTextEdit *dlgTextEdit;
-//    QDialogButtonBox *buttonBox;
+    QTextEdit *dlgTextEdit;
+    QDialogButtonBox *buttonBox;
     QPushButton *closeButton;
 
 
