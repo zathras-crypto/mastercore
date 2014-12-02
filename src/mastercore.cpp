@@ -2916,15 +2916,15 @@ const unsigned int prop = PropertyID;
     return 0;
   }
 
-  bool bCancel_AllOrPair = false;
-  //If doing a METADEX CANCEL 3 or 4, use following flag to bypass funds checks
-  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
+  bool bCancel_checkBypass = false;
+  //If doing a METADEX CANCEL, use following flag to bypass funds checks
+  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_AT_PRICE) || (additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
   {
-    bCancel_AllOrPair = true;
+    bCancel_checkBypass = true;
   } 
 
   // make sure this address has enough MP property available!
-  if ((((uint64_t)iAvailable < Amount) || (0 == Amount)) && !bCancel_AllOrPair)
+  if ((((uint64_t)iAvailable < Amount) || (0 == Amount)) && !bCancel_checkBypass)
   {
     LogPrintf("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
     if (msc_debug_send) file_log("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
@@ -2936,7 +2936,7 @@ const unsigned int prop = PropertyID;
 
   // check once more, this time considering PENDING amount reduction
   // make sure this address has enough MP property available!
-  if (((iUserAvailable < (int64_t)Amount) || (0 == Amount)) && !bCancel_AllOrPair)
+  if (((iUserAvailable < (int64_t)Amount) || (0 == Amount)) && !bCancel_checkBypass)
   {
     LogPrintf("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
     if (msc_debug_send) file_log("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);

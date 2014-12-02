@@ -69,7 +69,7 @@ void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
     metadex_obj.push_back(Pair("blocktime", obj.getBlockTime()));
 }
 
-void MetaDexObjectsToJSON(std::vector<CMPMetaDEx> vMetaDexObjs, Array& response)
+void MetaDexObjectsToJSON(std::vector<CMPMetaDEx>& vMetaDexObjs, Array& response)
 {
     MetaDEx_compare compareByHeight;
     
