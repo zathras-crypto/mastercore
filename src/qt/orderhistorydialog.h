@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QString>
 #include <QTableWidget>
+#include <QMenu>
 
 class OptionsModel;
 
@@ -50,10 +51,14 @@ public:
 
 public slots:
     void Update();
+    void contextualMenu(const QPoint &);
+    void showDetails();
+    void copyTxID();
 
 private:
     Ui::orderHistoryDialog *ui;
     WalletModel *model;
+    QMenu *contextMenu;
 
 private slots:
     //void buyRecalc();

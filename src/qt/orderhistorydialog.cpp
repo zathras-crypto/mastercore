@@ -88,6 +88,21 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui->orderHistoryTable->setColumnWidth(4, 180);
     ui->orderHistoryTable->setColumnWidth(5, 180);
     ui->orderHistoryTable->setColumnWidth(6, 0);
+    ui->orderHistoryTable->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    // Actions
+    QAction *copyTxIDAction = new QAction(tr("Copy transaction ID"), this);
+    QAction *showDetailsAction = new QAction(tr("Show trade details"), this);
+
+    contextMenu = new QMenu();
+    contextMenu->addAction(copyTxIDAction);
+    contextMenu->addAction(showDetailsAction);
+
+    // Connect actions
+    connect(ui->orderHistoryTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
+    connect(ui->orderHistoryTable, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(showDetails()));
+    connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
+    connect(showDetailsAction, SIGNAL(triggered()), this, SLOT(showDetails()));
 
     Update();
 }
@@ -331,3 +346,21 @@ void OrderHistoryDialog::setModel(WalletModel *model)
     connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(Update()));
 }
 
+void OrderHistoryDialog::contextualMenu(const QPoint &point)
+{
+    QModelIndex index = ui->orderHistoryTable->indexAt(point);
+    if(index.isValid())
+    {
+        contextMenu->exec(QCursor::pos());
+    }
+}
+
+void OrderHistoryDialog::copyTxID()
+{
+    GUIUtil::setClipboard(ui->orderHistoryTable->item(ui->orderHistoryTable->currentRow(),6)->text());
+}
+
+void OrderHistoryDialog::showDetails()
+{
+
+}
