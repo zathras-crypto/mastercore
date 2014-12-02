@@ -378,8 +378,17 @@ void MetaDExDialog::FullRefresh()
 {
     // populate from address selector
     unsigned int propertyId = global_metadex_market;
+    string propNameStr = getPropertyName(propertyId);
     bool testeco = false;
     if (propertyId >= TEST_ECO_PROPERTY_1) testeco = true;
+    if(testeco)
+    {
+        ui->marketLabel->setText(QString::fromStdString("Trade " + propNameStr + " (#" + FormatIndivisibleMP(propertyId) + ") for Test Mastercoin"));
+    }
+    else
+    {
+        ui->marketLabel->setText(QString::fromStdString("Trade " + propNameStr + " (#" + FormatIndivisibleMP(propertyId) + ") for Mastercoin"));
+    }
     LOCK(cs_tally);
 
     // get currently selected addresses
