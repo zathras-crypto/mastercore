@@ -83,7 +83,7 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     ui->orderHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);
     ui->orderHistoryTable->setColumnWidth(0, 23);
     ui->orderHistoryTable->setColumnWidth(1, 150);
-    ui->orderHistoryTable->setColumnWidth(2, 110);
+    ui->orderHistoryTable->setColumnWidth(2, 100);
     ui->orderHistoryTable->setColumnWidth(4, 180);
     ui->orderHistoryTable->setColumnWidth(5, 180);
     ui->orderHistoryTable->setColumnWidth(6, 0);
@@ -127,7 +127,6 @@ void OrderHistoryDialog::Update()
         string displayValid;
         string displayAddress = senderAddress;
         int64_t type = p_pending->type;
-printf("pending type %ld\n",type);
         if (type == 21)
         {
             if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
@@ -148,8 +147,9 @@ printf("pending type %ld\n",type);
                 displayText += " SPT#" + s + "";
                 displayOutToken = " SPT#" + s;
             }
-            string displayIn = "0 " + displayInToken;
-            string displayOut = "-0 " + displayOutToken;
+            displayText += " (awaiting confirmation)";
+            string displayIn = "---";
+            string displayOut = "---";
             //icon
             QIcon ic = QIcon(":/icons/transaction_0");
             // add to history
@@ -306,12 +306,12 @@ printf("pending type %ld\n",type);
                         bool filled = false;
                         if(totalSold>0) partialFilled = true;
                         if(totalSold>=amountForSale) filled = true;
-                        statusText = "UNKNOWN";
-                        if((!orderOpen) && (!partialFilled)) statusText = "CANCELLED";
-                        if((!orderOpen) && (partialFilled)) statusText = "PART CANCEL";
-                        if((!orderOpen) && (filled)) statusText = "FILLED";
-                        if((orderOpen) && (!partialFilled)) statusText = "OPEN";
-                        if((orderOpen) && (partialFilled)) statusText = "PART FILLED";
+                        statusText = "Unknown";
+                        if((!orderOpen) && (!partialFilled)) statusText = "Cancelled";
+                        if((!orderOpen) && (partialFilled)) statusText = "Part Cancel";
+                        if((!orderOpen) && (filled)) statusText = "Filled";
+                        if((orderOpen) && (!partialFilled)) statusText = "Open";
+                        if((orderOpen) && (partialFilled)) statusText = "Part Filled";
 
                         // add to list
                         string displayText = "Sell ";
@@ -356,11 +356,11 @@ printf("pending type %ld\n",type);
 
                         //icon
                         QIcon ic = QIcon(":/icons/transaction_0");
-                        if(statusText == "CANCELLED") ic =QIcon(":/icons/meta_cancelled");
-                        if(statusText == "PART CANCEL") ic = QIcon(":/icons/meta_partialclosed");
-                        if(statusText == "FILLED") ic = QIcon(":/icons/meta_filled");
-                        if(statusText == "OPEN") ic = QIcon(":/icons/meta_open");
-                        if(statusText == "PART FILLED") ic = QIcon(":/icons/meta_partial");
+                        if(statusText == "Cancelled") ic =QIcon(":/icons/meta_cancelled");
+                        if(statusText == "Part Cancel") ic = QIcon(":/icons/meta_partialclosed");
+                        if(statusText == "Filled") ic = QIcon(":/icons/meta_filled");
+                        if(statusText == "Open") ic = QIcon(":/icons/meta_open");
+                        if(statusText == "Part Filled") ic = QIcon(":/icons/meta_partial");
 
                         // add to order history
                         ui->orderHistoryTable->setRowCount(rowcount+1);
