@@ -18,6 +18,7 @@ class LookupSPDialog;
 class LookupTXDialog;
 class LookupAddressDialog;
 class MetaDExDialog;
+class MetaDExCancelDialog;
 class SendCoinsRecipient;
 class TransactionView;
 class TXHistoryDialog;
@@ -79,6 +80,7 @@ private:
     LookupAddressDialog *addressLookupTab;
     OrderHistoryDialog *orderHistoryTab;
     MetaDExDialog *metaDExTab;
+    MetaDExCancelDialog *cancelTab;
     TransactionView *transactionView;
     BalancesView *balancesView;
     TXHistoryDialog *mpTXTab;

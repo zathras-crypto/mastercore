@@ -17,6 +17,7 @@
 #include "lookupspdialog.h"
 #include "lookuptxdialog.h"
 #include "lookupaddressdialog.h"
+#include "metadexcanceldialog.h"
 #include "metadexdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
@@ -109,11 +110,13 @@ WalletView::WalletView(QWidget *parent):
     exchangePage = new QWidget(this);
     QVBoxLayout *exvbox = new QVBoxLayout();
     metaDExTab = new MetaDExDialog();
+    cancelTab = new MetaDExCancelDialog();
     QTabWidget *exTabHolder = new QTabWidget();
     orderHistoryTab = new OrderHistoryDialog;
     //exTabHolder->addTab(new QWidget(),tr("Trade Bitcoin/Mastercoin")); not yet implemented
     exTabHolder->addTab(metaDExTab,tr("Trade Mastercoin/Smart Properties"));
     exTabHolder->addTab(orderHistoryTab,tr("Order History"));
+    exTabHolder->addTab(cancelTab,tr("Cancel Orders"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
 
