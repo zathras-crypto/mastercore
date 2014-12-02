@@ -242,8 +242,8 @@ void OrderHistoryDialog::Update()
                         uint64_t amountForSale = 0;
                         uint64_t amountDesired = 0;
                         string address;
-                        bool divisibleForSale;
-                        bool divisibleDesired;
+                        bool divisibleForSale = false;
+                        bool divisibleDesired = false;
                         Array tradeArray;
                         uint64_t totalBought = 0;
                         uint64_t totalSold = 0;
@@ -363,7 +363,7 @@ void OrderHistoryDialog::Update()
                         if(statusText == "Filled") ic = QIcon(":/icons/meta_filled");
                         if(statusText == "Open") ic = QIcon(":/icons/meta_open");
                         if(statusText == "Part Filled") ic = QIcon(":/icons/meta_partial");
-
+                        if(!valid) ic = QIcon(":/icons/transaction_invalid");
                         // add to order history
                         ui->orderHistoryTable->setRowCount(rowcount+1);
                         QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
@@ -456,6 +456,91 @@ void OrderHistoryDialog::showDetails()
         int pop = populateRPCTransactionObject(txid, &txobj, "");
         if (0<=pop)
         {
+            Object tradeobj;
+            CMPMetaDEx temp_metadexoffer;
+            string senderAddress;
+            unsigned int propertyId = 0;
+            CTransaction wtx;
+            uint256 blockHash = 0;
+            if (!GetTransaction(txid, wtx, blockHash, true)) { return; }
+            CMPTransaction mp_obj;
+            int parseRC = parseTransaction(true, wtx, 0, 0, &mp_obj);
+            if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sa$
+            {
+                if (0<=mp_obj.step1())
+                {
+                    senderAddress = mp_obj.getSender();
+                    if (0 == mp_obj.step2_Value())
+                    {
+                        propertyId = mp_obj.getProperty();
+                    }
+                }
+            }
+            // get the amount for sale in this sell offer to see if filled
+            uint64_t amountForSale = mp_obj.getAmount();
+
+            // create array of matches
+            Array tradeArray;
+            uint64_t totalBought = 0;
+            uint64_t totalSold = 0;
+            t_tradelistdb->getMatchingTrades(txid, propertyId, &tradeArray, &totalSold, &totalBought);
+
+            // get action byte
+            int actionByte = 0;
+            if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer)) { actionByte = (int)temp_metadexoffer.getAction(); }
+
+            // everything seems ok, now add status and get an array of matches to add to the object
+            // work out status
+            bool orderOpen = isMetaDExOfferActive(txid, propertyId);
+            bool partialFilled = false;
+            bool filled = false;
+            string statusText;
+            if(totalSold>0) partialFilled = true;
+            if(totalSold>=amountForSale) filled = true;
+            statusText = "unknown";
+            if((!orderOpen) && (!partialFilled)) statusText = "cancelled"; // offers that are closed but not filled must have been cancelled
+            if((!orderOpen) && (partialFilled)) statusText = "cancelled part filled"; // offers that are closed but not filled must have been cancelled
+            if((!orderOpen) && (filled)) statusText = "filled"; // filled offers are closed
+            if((orderOpen) && (!partialFilled)) statusText = "open"; // offer exists but no matches yet
+            if((orderOpen) && (partialFilled)) statusText = "open part filled"; // offer exists, some matches but not filled yet
+            if(actionByte==1) txobj.push_back(Pair("status", statusText)); // no status for cancel txs
+
+            // add cancels array to object and set status as cancelled only if cancel type
+            if(actionByte != 1)
+            {
+                Array cancelArray;
+                int numberOfCancels = p_txlistdb->getNumberOfMetaDExCancels(txid);
+                if (0<numberOfCancels)
+                {
+                    for(int refNumber = 1; refNumber <= numberOfCancels; refNumber++)
+                    {
+                        Object cancelTx;
+                        string strValue = p_txlistdb->getKeyValue(txid.ToString() + "-C" + to_string(refNumber));
+                        if (!strValue.empty())
+                        {
+                            std::vector<std::string> vstr;
+                            boost::split(vstr, strValue, boost::is_any_of(":"), token_compress_on);
+                            if (3 <= vstr.size())
+                            {
+                                uint64_t propId = boost::lexical_cast<uint64_t>(vstr[1]);
+                                uint64_t amountUnreserved = boost::lexical_cast<uint64_t>(vstr[2]);
+                                cancelTx.push_back(Pair("txid", vstr[0]));
+                                cancelTx.push_back(Pair("propertyid", propId));
+                                cancelTx.push_back(Pair("amountunreserved", FormatMP(propId, amountUnreserved)));
+                                cancelArray.push_back(cancelTx);
+                            }
+                        }
+                    }
+                }
+                txobj.push_back(Pair("cancelledtransactions", cancelArray));
+            }
+            else
+            {
+                // if cancelled, show cancellation txid
+                if((statusText == "cancelled") || (statusText == "cancelled part filled")) { txobj.push_back(Pair("canceltxid", p_txlistdb->findMetaDExCancel(txid).GetHex())); }
+                // add matches array to object
+                txobj.push_back(Pair("matches", tradeArray)); // only action 1 offers can have matches
+            }
             strTXText = write_string(Value(txobj), false) + "\n";
         }
     }
@@ -489,6 +574,22 @@ void OrderHistoryDialog::showDetails()
         }
         from = "}";
         to = "\n}";
+        start_pos = 0;
+        while((start_pos = strTXText.find(from, start_pos)) != std::string::npos)
+        {
+            strTXText.replace(start_pos, from.length(), to);
+            start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+        }
+        from = "[";
+        to = "[\n";
+        start_pos = 0;
+        while((start_pos = strTXText.find(from, start_pos)) != std::string::npos)
+        {
+            strTXText.replace(start_pos, from.length(), to);
+            start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+        }
+        from = "]";
+        to = "\n]";
         start_pos = 0;
         while((start_pos = strTXText.find(from, start_pos)) != std::string::npos)
         {
