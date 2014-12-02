@@ -146,10 +146,7 @@ void TXHistoryDialog::UpdateHistory()
         string displayAddress = senderAddress;
         int64_t type = p_pending->type;
 
-        if (divisible) { displayAmount = FormatDivisibleMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-        // clean up trailing zeros - good for RPC not so much for UI
-        displayAmount.erase ( displayAmount.find_last_not_of('0') + 1, std::string::npos );
-        if (displayAmount.length() > 0) { std::string::iterator it = displayAmount.end() - 1; if (*it == '.') { displayAmount.erase(it); } } //get rid of trailing dot if non decimal
+        if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
 
         if (propertyId < 3)
         {

@@ -67,7 +67,6 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
     model(0)
 {
     ui->setupUi(this);
-    this->model = model;
 
     // setup
     ui->orderHistoryTable->setColumnCount(7);
@@ -109,26 +108,101 @@ OrderHistoryDialog::OrderHistoryDialog(QWidget *parent) :
 
 void OrderHistoryDialog::Update()
 {
+    //pending orders
+    int rowcount = 0;
+
+    // handle pending transactions first
+    for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
+    {
+        CMPPending *p_pending = &(it->second);
+        uint256 txid = it->first;
+        string txidStr = txid.GetHex();
+
+        string senderAddress = p_pending->src;
+        uint64_t propertyId = p_pending->prop;
+        bool divisible = isPropertyDivisible(propertyId);
+        string displayAmount;
+        int64_t amount = p_pending->amount;
+        string displayToken;
+        string displayValid;
+        string displayAddress = senderAddress;
+        int64_t type = p_pending->type;
+printf("pending type %ld\n",type);
+        if (type == 21)
+        {
+            if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
+            QString txTimeStr = "Unconfirmed";
+            string statusText = "Pending";
+            string displayText = "Sell ";
+            string displayInToken;
+            string displayOutToken;
+            if(divisible) { displayText += FormatDivisibleShortMP(amount); } else { displayText += FormatIndivisibleMP(amount); }
+            if(propertyId < 3)
+            {
+                if(propertyId == 1) { displayText += " MSC"; displayOutToken = " MSC"; }
+                if(propertyId == 2) { displayText += " TMSC"; displayOutToken = " TMSC"; }
+            }
+            else
+            {
+                string s = to_string(propertyId);
+                displayText += " SPT#" + s + "";
+                displayOutToken = " SPT#" + s;
+            }
+            string displayIn = "0 " + displayInToken;
+            string displayOut = "-0 " + displayOutToken;
+            //icon
+            QIcon ic = QIcon(":/icons/transaction_0");
+            // add to history
+            ui->orderHistoryTable->setRowCount(rowcount+1);
+            QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
+            QTableWidgetItem *statusCell = new QTableWidgetItem(QString::fromStdString(statusText));
+            QTableWidgetItem *infoCell = new QTableWidgetItem(QString::fromStdString(displayText));
+            QTableWidgetItem *amountOutCell = new QTableWidgetItem(QString::fromStdString(displayOut));
+            QTableWidgetItem *amountInCell = new QTableWidgetItem(QString::fromStdString(displayIn));
+            QTableWidgetItem *iconCell = new QTableWidgetItem;
+            QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txidStr));
+            iconCell->setIcon(ic);
+            amountOutCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+            amountOutCell->setForeground(QColor("#EE0000"));
+            amountInCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+            amountInCell->setForeground(QColor("#00AA00"));
+            if (rowcount % 2)
+            {
+                dateCell->setBackground(QColor("#F0F0F0"));
+                statusCell->setBackground(QColor("#F0F0F0"));
+                infoCell->setBackground(QColor("#F0F0F0"));
+                amountOutCell->setBackground(QColor("#F0F0F0"));
+                amountInCell->setBackground(QColor("#F0F0F0"));
+                iconCell->setBackground(QColor("#F0F0F0"));
+                txidCell->setBackground(QColor("#F0F0F0"));
+            }
+            amountInCell->setForeground(QColor("#000000"));
+            amountOutCell->setForeground(QColor("#000000"));
+
+            ui->orderHistoryTable->setItem(rowcount, 0, iconCell);
+            ui->orderHistoryTable->setItem(rowcount, 1, dateCell);
+            ui->orderHistoryTable->setItem(rowcount, 2, statusCell);
+            ui->orderHistoryTable->setItem(rowcount, 3, infoCell);
+            ui->orderHistoryTable->setItem(rowcount, 4, amountOutCell);
+            ui->orderHistoryTable->setItem(rowcount, 5, amountInCell);
+            ui->orderHistoryTable->setItem(rowcount, 6, txidCell);
+            rowcount += 1;
+        }
+    }
+
+
+    //wallet orders
     CWallet *wallet = pwalletMain;
     string sAddress = "";
-    string addressParam = "";
-    bool addressFilter;
-
-    addressFilter = false;
-    int64_t nCount = 10;
-    int64_t nFrom = 0;
     int64_t nStartBlock = 0;
     int64_t nEndBlock = 999999;
-
-    Array response; //prep an array to hold our output
-    int rowcount = 0;
 
     // rewrite to use original listtransactions methodology from core
     LOCK(wallet->cs_wallet);
     std::list<CAccountingEntry> acentries;
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
-    // iterate backwards 
+    // iterate backwards
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
@@ -168,11 +242,11 @@ void OrderHistoryDialog::Update()
                         string address;
                         bool divisibleForSale;
                         bool divisibleDesired;
-                        bool valid;
                         Array tradeArray;
                         uint64_t totalBought = 0;
                         uint64_t totalSold = 0;
                         bool orderOpen = false;
+                        bool valid = false;
 
                         CMPMetaDEx temp_metadexoffer;
                         CMPTransaction mp_obj;
@@ -241,7 +315,7 @@ void OrderHistoryDialog::Update()
 
                         // add to list
                         string displayText = "Sell ";
-                        string displayIn = "+";
+                        string displayIn = "";
                         string displayOut = "-";
                         string displayInToken;
                         string displayOutToken;
