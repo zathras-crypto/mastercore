@@ -56,6 +56,15 @@ using namespace leveldb;
 #include "mastercore_sp.h"
 #include "mastercore_parse_string.h"
 
+#include <boost/math/constants/constants.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
+
+using boost::multiprecision::int128_t;
+using boost::multiprecision::cpp_int;
+using boost::multiprecision::cpp_dec_float;
+using boost::multiprecision::cpp_dec_float_100;
+
 #include <QDateTime>
 #include <QMessageBox>
 #include <QScrollBar>
@@ -225,7 +234,7 @@ void MetaDExDialog::UpdateSellOffers()
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
-            XDOUBLE price = (it->first);
+            //XDOUBLE price = (it->first);
             int64_t available = 0;
             int64_t total = 0;
             bool includesMe = false;
@@ -236,19 +245,19 @@ void MetaDExDialog::UpdateSellOffers()
                 CMPMetaDEx obj = *it;
                 if ( ((testeco) && (obj.getDesProperty() == 2)) || ((!testeco) && (obj.getDesProperty() == 1)) )
                 {
-                    available += obj.getAmountDesired();
-                    total += obj.getAmountForSale();
+                    available += obj.getAmountForSale();
+                    total += obj.getAmountDesired();
                     if(IsMyAddress(obj.getAddr())) includesMe = true;
                 }
             }
-
             // done checking this price, if there are any available/total add to pricebook
             if ((available > 0) && (total > 0))
             {
                 // add to pricebook
-                QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
-                QString tstr = QString::fromStdString(FormatDivisibleMP(available));
-                QString mstr = QString::fromStdString(FormatDivisibleMP(total));
+                double price = (double)total/(double)available;
+                QString pstr = QString::fromStdString(FormatPriceMP(price)); //(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
+                QString tstr = QString::fromStdString(FormatDivisibleShortMP(available));
+                QString mstr = QString::fromStdString(FormatDivisibleShortMP(total));
                 if (!ui->sellList) { printf("metadex dialog error\n"); return; }
                 ui->sellList->setRowCount(rowcount+2);
                 ui->sellList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
@@ -286,7 +295,7 @@ void MetaDExDialog::UpdateBuyOffers()
         md_PricesMap & prices = my_it->second;
         for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it)
         {
-            XDOUBLE price = (1/it->first);
+            //XDOUBLE price = (1/it->first);
             double available = 0;
             double total = 0;
             bool includesMe = false;
@@ -306,9 +315,10 @@ void MetaDExDialog::UpdateBuyOffers()
             if ((available > 0) && (total > 0))
             {
                 // add to pricebook
-                QString pstr = QString::fromStdString(strprintf("%20.10lf",price));//FormatDivisibleAmount(price));
-                QString tstr = QString::fromStdString(FormatDivisibleMP(available));
-                QString mstr = QString::fromStdString(FormatDivisibleMP(total));
+                double price = (double)total/(double)available;
+                QString pstr = QString::fromStdString(FormatPriceMP(price));
+                QString tstr = QString::fromStdString(FormatDivisibleShortMP(available));
+                QString mstr = QString::fromStdString(FormatDivisibleShortMP(total));
                 if (!ui->buyList) { printf("metadex dialog error\n"); return; }
                 ui->buyList->setRowCount(rowcount+2);
                 ui->buyList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
@@ -469,7 +479,6 @@ void MetaDExDialog::FullRefresh()
     if (sellIdx != -1) { ui->sellAddressCombo->setCurrentIndex(sellIdx); } // -1 means the new prop doesn't have the previously selected address
     int buyIdx = ui->buyAddressCombo->findText(currentSetBuyAddress);
     if (buyIdx != -1) { ui->buyAddressCombo->setCurrentIndex(buyIdx); } // -1 means the new prop doesn't have the previously selected address
-
     // update the balances
     UpdateSellAddress();
     UpdateBuyAddress();

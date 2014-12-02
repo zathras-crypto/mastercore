@@ -9,6 +9,9 @@
 
 #include <QDialog>
 #include <QString>
+#include <boost/multiprecision/cpp_dec_float.hpp>
+
+using boost::multiprecision::cpp_dec_float_100;
 
 class OptionsModel;
 

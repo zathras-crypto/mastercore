@@ -132,6 +132,10 @@ enum FILETYPES {
 #define OMNI_PROPERTY_MSC   1
 #define OMNI_PROPERTY_TMSC  2
 
+#include <boost/multiprecision/cpp_dec_float.hpp>
+using boost::multiprecision::cpp_dec_float_100;
+typedef cpp_dec_float_100 XDOUBLE;
+
 int mp_LogPrintStr(const std::string &str);
 
 /* When we switch to C++11, this can be switched to variadic templates instead
@@ -177,6 +181,7 @@ TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
 //--- CUT HERE ---
 
 // forward declarations
+std::string FormatPriceMP(double n);
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
 std::string FormatDivisibleShortMP(int64_t);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
