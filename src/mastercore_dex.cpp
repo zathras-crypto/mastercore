@@ -370,6 +370,7 @@ void CMPMetaDEx::Set(const string &sa, int b, unsigned int c, uint64_t nValue, u
 
 CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba)
 {
+  still_left_forsale = 0;
   Set(addr, b,c,nValue,cd,ad,tx,i,suba);
 }
 
@@ -1005,5 +1006,27 @@ bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) c
 {
   if (lhs.getBlock() == rhs.getBlock()) return lhs.getIdx() < rhs.getIdx();
   else return lhs.getBlock() < rhs.getBlock();
+}
+
+void CMPMetaDEx::saveOffer(ofstream &file, SHA256_CTX *shaCtx) const
+{
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s,%d")
+      % addr
+      % block
+      % amount_forsale
+      % property
+      % amount_desired
+      % desired_property
+      % (unsigned int) subaction
+      % idx
+      % txid.ToString()
+      % still_left_forsale
+      ).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
 }
 

@@ -1711,7 +1711,7 @@ int input_msc_balances_string(const string &s)
 int input_mp_offers_string(const string &s)
 {
   int offerBlock;
-  uint64_t amountOriginal, btcDesired, minFee;
+  uint64_t amountOriginal, btcDesired, minFee, left_forsale;
   unsigned int prop, prop_desired;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
@@ -1720,7 +1720,7 @@ int input_mp_offers_string(const string &s)
   string txidStr;
   int i = 0;
 
-  if (9 != vstr.size()) return -1;
+  if ((10 != vstr.size()) && (9 != vstr.size())) return -1;
 
   sellerAddr = vstr[i++];
   offerBlock = atoi(vstr[i++]);
@@ -1748,6 +1748,10 @@ int input_mp_offers_string(const string &s)
   }
   else
   {
+    assert(10 == vstr.size());
+
+    left_forsale = boost::lexical_cast<uint64_t>(vstr[i++]);
+
     CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
     btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
 
