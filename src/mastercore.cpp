@@ -600,7 +600,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  bool txLive = (chainActive.Height()>(int64_t)expiryValue);
 
                  //testnet allows all types of transactions, so override this here for testing
-                 txSupported = false; //testing
+                 //txSupported = false; //testing
                  //txLive = true; //testing
 
                  if ((!txSupported) && (txLive))
@@ -4101,7 +4101,7 @@ std::string new_global_alert_message;
 
     case MASTERCORE_MESSAGE_TYPE_ALERT:
       // check the packet version is also FF
-      if ((int)version != 65535)
+      if ((int)version == 65535)
       {
           rc = step2_Alert(&new_global_alert_message);
           if (rc == 0) global_alert_message = new_global_alert_message;
