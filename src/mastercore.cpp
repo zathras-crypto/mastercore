@@ -1753,7 +1753,7 @@ int input_mp_offers_string(const string &s)
     left_forsale = boost::lexical_cast<uint64_t>(vstr[i++]);
 
     CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
-    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
+    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee, left_forsale );
 
     XDOUBLE neworder_price = (XDOUBLE)amountOriginal / (XDOUBLE)btcDesired;
 
@@ -2135,10 +2135,11 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
       uint64_t balance = (*iter).second.getMoney(prop, BALANCE);
       uint64_t sellReserved = (*iter).second.getMoney(prop, SELLOFFER_RESERVE);
       uint64_t acceptReserved = (*iter).second.getMoney(prop, ACCEPT_RESERVE);
+      const uint64_t metadexReserve = (*iter).second.getMoney(prop, METADEX_RESERVE);
 
       // we don't allow 0 balances to read in, so if we don't write them
       // it makes things match up better between persisted state and processed state
-      if ( 0 == balance && 0 == sellReserved && 0 == acceptReserved ) {
+      if ( 0 == balance && 0 == sellReserved && 0 == acceptReserved  && 0 == metadexReserve ) {
         continue;
       }
 

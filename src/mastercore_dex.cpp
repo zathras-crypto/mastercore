@@ -134,6 +134,7 @@ const bool bOK = (left == right);
 }
 
 // find the best match on the market
+// NOTE: sometimes I refer to the older order as seller & the newer order as buyer, in this trade
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: 
 static MatchReturnType x_Trade(CMPMetaDEx *newo)
@@ -245,6 +246,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         // transfer the payment property from buyer to seller
         // TODO: do something when failing here............
+        // FIXME
         // ...
         if (update_tally_map(newo->getAddr(), newo->getProperty(), - seller_amountGot, BALANCE))
         {
@@ -255,6 +257,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         // transfer the market (the one being sold) property from seller to buyer
         // TODO: do something when failing here............
+        // FIXME
         // ...
         if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
         {
@@ -368,9 +371,9 @@ void CMPMetaDEx::Set(const string &sa, int b, unsigned int c, uint64_t nValue, u
   subaction = suba;
 }
 
-CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba)
+CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba, uint64_t lfors)
 {
-  still_left_forsale = 0;
+  still_left_forsale = lfors;
   Set(addr, b,c,nValue,cd,ad,tx,i,suba);
 }
 
@@ -809,8 +812,12 @@ int rc = METADEX_ERROR -1;
       }
       else
       {
+        // TODO: think about failure scenarios
+        // FIXME
         if (update_tally_map(sender_addr, prop, - new_mdex.getAmountForSale(), BALANCE)) // subtract from what's available
         {
+          // TODO: think about failure scenarios
+          // FIXME
           update_tally_map(sender_addr, prop, new_mdex.getAmountForSale(), SELLOFFER_RESERVE); // put in reserve
         }
 
