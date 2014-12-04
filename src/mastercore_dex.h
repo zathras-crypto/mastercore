@@ -183,6 +183,9 @@ private:
   uint64_t amount_forsale; // the amount for sale specified when the offer was placed
   unsigned int desired_property;
   int64_t amount_desired;
+
+  uint64_t still_left_forsale;
+
   unsigned char subaction;
 
   string    addr;
@@ -223,12 +226,13 @@ public:
   }
 
   // needed only by the RPC functions
-  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount_forsale(0),desired_property(0),amount_desired(0),subaction(0)
+  CMPMetaDEx():block(0),txid(0),idx(0),property(0),amount_forsale(0),desired_property(0),amount_desired(0),still_left_forsale(0),subaction(0)
   {
+    still_left_forsale = 0;
     addr.empty();
   }
 
-  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
+  CMPMetaDEx(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char, uint64_t lfors = 0);
 
   void Set(const string &, int, unsigned int, uint64_t, unsigned int, uint64_t, const uint256 &, unsigned int, unsigned char);
 
@@ -238,35 +242,13 @@ public:
   {
   XDOUBLE effective_price = 0;
 
-/*
-    // I am the buyer; I have 'amount' dollars, I want 'amount_desired' of oranges:
-    // example: I have 10 dollars, want 5 oranges; to me the price of 1 orange is thus: $10 / 5 or. = $2
-    if (amount_desired) effective_price = (XDOUBLE) amount / (XDOUBLE) amount_desired; // division by 0 check
-*/
     // I am the seller
     if (amount_forsale) effective_price = (XDOUBLE) amount_desired / (XDOUBLE) amount_forsale; // division by 0 check
 
     return (effective_price);
   }
 
-  void saveOffer(ofstream &file, SHA256_CTX *shaCtx) const {
-    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s")
-      % addr
-      % block
-      % amount_forsale
-      % property
-      % amount_desired
-      % desired_property
-      % (unsigned int) subaction
-      % idx
-      % txid.ToString()).str();
-
-    // add the line to the hash
-    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
-
-    // write the line
-    file << lineOut << endl;
-  }
+  void saveOffer(ofstream &file, SHA256_CTX *shaCtx) const;
 };
 
 unsigned int eraseExpiredAccepts(int blockNow);

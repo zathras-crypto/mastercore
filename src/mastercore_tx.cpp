@@ -510,12 +510,6 @@ unsigned char action = 0;
       return PKT_RETURNED_OBJECT;
     }
 
-    // do we have enough?
-    if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue)
-    {
-      return PKT_ERROR_METADEX -567;
-    }
-
     switch (action)
     {
       case ADD:
@@ -532,6 +526,9 @@ unsigned char action = 0;
 
         if (!nValue) return (PKT_ERROR_METADEX -11);
         if (!desired_value) return (PKT_ERROR_METADEX -12);
+
+        // ensure sufficient balance is available to offer
+        if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue) return (PKT_ERROR_METADEX -567);
 
         // Does the sender have any tokens?
         if (0 >= nNewValue) return (PKT_ERROR_METADEX -3);
