@@ -263,6 +263,10 @@ void MetaDExDialog::UpdateSellOffers()
                 ui->sellList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
                 ui->sellList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
                 ui->sellList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                ui->sellList->item(rowcount, 0)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                ui->sellList->item(rowcount, 1)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                ui->sellList->item(rowcount, 2)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+
                 if(includesMe)
                 {
                     QFont font;
@@ -324,6 +328,10 @@ void MetaDExDialog::UpdateBuyOffers()
                 ui->buyList->setItem(rowcount, 0, new QTableWidgetItem(pstr));
                 ui->buyList->setItem(rowcount, 1, new QTableWidgetItem(tstr));
                 ui->buyList->setItem(rowcount, 2, new QTableWidgetItem(mstr));
+                ui->buyList->item(rowcount, 0)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                ui->buyList->item(rowcount, 1)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                ui->buyList->item(rowcount, 2)->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+
                 if(includesMe)
                 {
                     QFont font;
