@@ -152,6 +152,7 @@ static const int txRestrictionsRules[][3] = {
 
 CMPTxList *mastercore::p_txlistdb;
 CMPTradeList *mastercore::t_tradelistdb;
+CMPSTOList *mastercore::s_stolistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -2451,12 +2452,12 @@ int mastercore_init()
           boost::filesystem::path txlistPath = GetDataDir() / "MP_txlist";
           boost::filesystem::path tradePath = GetDataDir() / "MP_tradelist";
           boost::filesystem::path spPath = GetDataDir() / "MP_spinfo";
-//          string stoPath = GetDataDir() / "MP_sto";
+          boost::filesystem::path stoPath = GetDataDir() / "MP_sto";
           if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
           if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
           if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
           if (boost::filesystem::exists(spPath)) boost::filesystem::remove_all(spPath);
-//          boost::filesystem::remove_all(stoPath);
+          if (boost::filesystem::exists(stoPath)) boost::filesystem::remove_all(stoPath);
       }
       catch(boost::filesystem::filesystem_error const & e)
       {
@@ -2466,6 +2467,7 @@ int mastercore_init()
   }
 
   t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
+  s_stolistdb = new CMPSTOList(GetDataDir() / "MP_stolist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2562,6 +2564,10 @@ int mastercore_shutdown()
   if (t_tradelistdb)
   {
     delete t_tradelistdb; t_tradelistdb = NULL;
+  }
+  if (s_stolistdb)
+  {
+    delete s_stolistdb; s_stolistdb = NULL;
   }
 
 //  if (mp_fp)
@@ -3514,6 +3520,69 @@ unsigned int n_found = 0;
   }
 
   printf("%s(%d, %d); n_found= %d\n", __FUNCTION__, starting_block, ending_block, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
+// MPSTOList here
+void CMPSTOList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = sdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
+void CMPSTOList::printStats()
+{
+  file_log("CMPSTOList stats: tWritten= %d , tRead= %d\n", sWritten, sRead);
+}
+
+// delete any STO receipts after blockNum
+int CMPSTOList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  int block;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = sdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
+    // only care about the block number/height here
+    if (7 == vstr.size())
+    {
+      block = atoi(vstr[6]);
+
+      if (block >= blockNum)
+      {
+        ++n_found;
+        file_log("%s() DELETING FROM STODB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
+        sdb->Delete(writeoptions, skey);
+      }
+    }
+  }
+
+  printf("%s(%d); stodb n_found= %d\n", __FUNCTION__, blockNum, n_found);
 
   delete it;
 
