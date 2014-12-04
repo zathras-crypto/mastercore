@@ -182,6 +182,10 @@ int extra2 = 0, extra3 = 0;
       t_tradelistdb->printStats();
       break;
 
+    case 8:
+      // display the STO receive list
+      s_stolistdb->printAll();
+      s_stolistdb->printStats();
   }
 
   return GetHeight();
