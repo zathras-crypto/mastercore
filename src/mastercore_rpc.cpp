@@ -959,81 +959,87 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
   return tmpPropId;
 }
 
-Value trade_MP(const Array& params, bool fHelp) {
-
-   if (fHelp || params.size() < 6)
+Value trade_MP(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 6)
         throw runtime_error(
-            "trade_MP\n"
-            "\nPlace a trade on the Metadex\n"
-            
+            "trade_MP \"address\" \"amountforsale\" propertyid1 \"amountdesired\" propertid2 action ( \"redeemaddress\" )\n"
+            "\nPlace or cancel an offer on the distributed token exchange.\n"
+
             "\nArguments:\n"
             "1. address           (string, required) address that is making the sale\n"
-            "2. amount            (string, required) amount owned to put up on sale\n"
+            "2. amount_for_sale   (string, required) amount owned to put up on sale\n"
             "3. property_id1      (int, required) property owned to put up on sale\n"
-            "4. amount            (string, required) amount wanted/willing to purchase\n"
+            "4. amount_desired    (string, required) amount wanted/willing to purchase\n"
             "5. property_id2      (int, required) property wanted/willing to purchase\n"
-            "6. action            (int, required) decision to either start a new (1), cancel_price(2), cancel_pair(3), or cancel_all(4) for an offer\n"
-            "7. RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "6. action            (int, required) decision to either start a new (1), cancel_price (2), cancel_pair (3), or cancel_all (4) for an offer\n"
+            "7. redeem_address    (optional) the address that can redeem the bitcoin outputs, defaults to sender\n"
         );
 
-  CMPSPInfo::Entry sp;
-  bool divisible_sale = false, divisible_want = false; 
-  std::string FromAddress = params[0].get_str();
-  std::string RedeemAddress = (params.size() > 6) ? (params[6].get_str()): "";
+    std::string fromAddress = params[0].get_str();
+    std::string redeemAddress = (params.size() > 6) ? (params[6].get_str()) : "";
 
-  const unsigned int propertyIdSale = check_prop_valid( params[2].get_int64() , "Invalid property identifier (Sale)", "Property identifier does not exist (Sale)"); 
+    uint32_t propertyIdSale = static_cast<uint32_t>(params[2].get_int64());
+    uint32_t propertyIdWant = static_cast<uint32_t>(params[4].get_int64());
 
-  const unsigned int propertyIdWant = check_prop_valid( params[4].get_int64() , "Invalid property identifier (Want)", "Property identifier does not exist (Want)"); 
-  
-  if (! (isTestEcosystemProperty(propertyIdSale) == isTestEcosystemProperty(propertyIdWant)) )
-  {
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be in the same ecosystem (Main/Test)");
-  }
+    int64_t amountSale = 0;
+    int64_t amountWant = 0;
+    int64_t action = params[5].get_int64();
+    
+    if (action <= 0 || CMPTransaction::CANCEL_EVERYTHING < action)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1, 2, 3, 4 only)");
 
-  if (propertyIdSale == propertyIdWant)
-  {
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be different");
-  }
+    // CANCEL-EVERYTHING doesn't require additional checks or setup
+    // CANCEL-AT-PRICE and CANCEL-ALL-FOR-PAIR have property values
+    if (action <= CMPTransaction::CANCEL_ALL_FOR_PAIR)
+    {
+        check_prop_valid(propertyIdSale,
+                "Invalid property identifier (Sale)",
+                "Property identifier does not exist (Sale)");
 
-  _my_sps->getSP(propertyIdSale, sp);
-  divisible_sale=sp.isDivisible();
+        check_prop_valid(propertyIdWant,
+                "Invalid property identifier (Want)",
+                "Property identifier does not exist (Want)");
 
-  _my_sps->getSP(propertyIdWant, sp);
-  divisible_want=sp.isDivisible();
+        if (isTestEcosystemProperty(propertyIdSale) != isTestEcosystemProperty(propertyIdWant))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be in the same ecosystem (Main/Test)");
 
-  std::string strAmountSale = params[1].get_str();
-  int64_t Amount_Sale = 0;
-  Amount_Sale = StrToInt64(strAmountSale, divisible_sale);
+        if (propertyIdSale == propertyIdWant)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Properties must be different");
+    }
 
-  std::string strAmountWant = params[3].get_str();
-  int64_t Amount_Want = 0;
-  Amount_Want = StrToInt64(strAmountWant, divisible_want);
+    // CANCEL-AT-PRICE has also price information
+    if (action <= CMPTransaction::CANCEL_AT_PRICE)
+    {
+        CMPSPInfo::Entry sp;
+        bool divisible_sale = false, divisible_want = false;
 
-  int64_t action = params[5].get_int64();
+        _my_sps->getSP(propertyIdSale, sp);
+        divisible_sale = sp.isDivisible();
 
-  if ((action > CMPTransaction::CANCEL_EVERYTHING) || (0 >= action))
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid action (1,2,3,4 only)");
+        _my_sps->getSP(propertyIdWant, sp);
+        divisible_want = sp.isDivisible();
 
-  if (0 >= Amount_Sale && ( action <= CMPTransaction::CANCEL_AT_PRICE ) )
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
+        std::string strAmountSale = params[1].get_str();        
+        amountSale = StrToInt64(strAmountSale, divisible_sale);
 
-  if (0 >= Amount_Want && ( action <= CMPTransaction::CANCEL_AT_PRICE ) )
-    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
+        std::string strAmountWant = params[3].get_str();        
+        amountWant = StrToInt64(strAmountWant, divisible_want);
 
-  if (action >= CMPTransaction::CANCEL_ALL_FOR_PAIR ) {
-     Amount_Want = 0;
-     Amount_Sale = 0;
-  }
+        if (0 >= amountSale)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Sale)");
 
- //printf("\n params: %s %lu %u %lu %u\n", FromAddress.c_str(), Amount_Sale, propertyIdSale, Amount_Want, propertyIdWant);
-  int code = 0;
-  uint256 newTX = send_INTERNAL_1packet(FromAddress, "", RedeemAddress, propertyIdSale, Amount_Sale, propertyIdWant, Amount_Want, MSC_TYPE_METADEX, action, &code);
+        if (0 >= amountWant)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount (Want)");
+    }
 
-  if (0 != code) throw JSONRPCError(code, error_str(code) );
-  
-  //we need to do better than just returning a string of 0000000 here if we can't send the TX
-  return newTX.GetHex();
-} 
+    int code = 0;    
+    uint256 newTX = send_INTERNAL_1packet(fromAddress, "", redeemAddress, propertyIdSale, amountSale, propertyIdWant, amountWant, MSC_TYPE_METADEX, action, &code);
+    if (0 != code) throw JSONRPCError(code, error_str(code));
+
+    // we need to do better than just returning a string of 0000000 here if we can't send the TX
+    return newTX.GetHex();
+}
 
 Value getorderbook_MP(const Array& params, bool fHelp) {
 
