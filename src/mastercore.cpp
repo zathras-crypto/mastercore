@@ -3631,6 +3631,10 @@ void CMPSTOList::recordSTOReceive(string address, const uint256 &txid, int nBloc
       if (status.ok())
       {
           // add details to record
+          // see if we are overwriting (check)
+          size_t txidMatch = strValue.find(txid.ToString());
+          if(txidMatch!=std::string::npos) file_log("STODEBUG : Duplicating entry for %s : %s\n",address,txid.ToString());
+
           const string key = address;
           const string newValue = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
           strValue += newValue;
@@ -3687,27 +3691,40 @@ int CMPSTOList::deleteAboveBlock(int blockNum)
   leveldb::Slice skey, svalue;
   unsigned int count = 0;
   std::vector<std::string> vstr;
-  int block;
   unsigned int n_found = 0;
   leveldb::Iterator* it = sdb->NewIterator(iteroptions);
   for(it->SeekToFirst(); it->Valid(); it->Next())
   {
     skey = it->key();
+    string address = skey.ToString();
     svalue = it->value();
     ++count;
     string strvalue = it->value().ToString();
-    boost::split(vstr, strvalue, boost::is_any_of(":"), token_compress_on);
-    // only care about the block number/height here
-    if (7 == vstr.size())
+    boost::split(vstr, strvalue, boost::is_any_of(","), token_compress_on);
+    string newValue = "";
+    bool needsUpdate = false;
+    for(uint32_t i = 0; i<vstr.size(); i++)
     {
-      block = atoi(vstr[6]);
+        std::vector<std::string> svstr;
+        boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+        if(4 == svstr.size())
+        {
+            if(atoi(svstr[1]) <= blockNum) { newValue += vstr[i]; } else { needsUpdate = true; } // add back to new key
+        }
+    }
 
-      if (block >= blockNum)
-      {
+    if(needsUpdate)
+    {
         ++n_found;
-        file_log("%s() DELETING FROM STODB: %s=%s\n", __FUNCTION__, skey.ToString().c_str(), svalue.ToString().c_str());
-        sdb->Delete(writeoptions, skey);
-      }
+        const string key = address;
+        // write updated record
+        Status status;
+        if (sdb)
+        {
+            status = sdb->Put(writeoptions, key, newValue);
+            file_log("DEBUG STO - rewriting STO data after reorg\n");
+            file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+        }
     }
   }
 
