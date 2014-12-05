@@ -3527,6 +3527,11 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
+void CMPSTOList::getRecipients(const uint256 hash, string filterAddress, Array *receiveArray)
+{
+
+}
+
 bool CMPSTOList::exists(string address)
 {
   if (!sdb) return false;
