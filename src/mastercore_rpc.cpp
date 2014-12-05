@@ -1964,7 +1964,64 @@ Value getinfo_MP(const Array& params, bool fHelp)
 
 Value getsto_MP(const Array& params, bool fHelp)
 {
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "getsto_MP \"txid\" \"recipientfilter\"\n"
+            "\nGet information and recipients of send to owners transaction <txid>\n"
+            "\nArguments:\n"
+            "1. \"txid\"    (string, required) The transaction id\n"
+            "2. \"recipientfilter\"    (string, optional) The recipient address filter (wallet by default, \"*\" for all)\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id\n"
+            + HelpExampleCli("getsto_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+            + HelpExampleRpc("getsto_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+        );
 
+    uint256 hash;
+    hash.SetHex(params[0].get_str());
+    string filterAddress = "";
+    if (params.size() == 2) filterAddress=params[1].get_str();
+    Object txobj;
+    CTransaction wtx;
+    uint256 blockHash = 0;
+    if (!GetTransaction(hash, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
+    CMPTransaction mp_obj;
+    int parseRC = parseTransaction(true, wtx, 0, 0, &mp_obj);
+    if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for safety
+    {
+        // make a request to new RPC populator function to populate a transaction object
+        int populateResult = populateRPCTransactionObject(hash, &txobj);
+        // check the response, throw any error codes if false
+        if (0>populateResult)
+        {
+            // TODO: consider throwing other error codes, check back with Bitcoin Core
+            switch (populateResult)
+            {
+                case MP_TX_NOT_FOUND:
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+                case MP_TX_UNCONFIRMED:
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unconfirmed transactions are not supported");
+                case MP_BLOCK_NOT_IN_CHAIN:
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not part of the active chain");
+                case MP_CROWDSALE_WITHOUT_PROPERTY:
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: \
+                                                          \"Crowdsale Purchase\" without valid property identifier");
+                case MP_INVALID_TX_IN_DB_FOUND:
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, "Potential database corruption: Invalid transaction found");
+                case MP_TX_IS_NOT_MASTER_PROTOCOL:
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+            }
+        }
+        // create array of recipients
+        Array receiveArray;
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray);
+        // add matches array to object
+        txobj.push_back(Pair("recipients", receiveArray));
+    }
+
+    // return object
+    return txobj;
 }
 
 Value gettrade_MP(const Array& params, bool fHelp)
