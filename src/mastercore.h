@@ -483,6 +483,7 @@ uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress
  unsigned int PropertyID_2, uint64_t Amount_2, unsigned int TransactionType, int64_t additional, int *error_code = NULL);
 
 bool isTestEcosystemProperty(unsigned int property);
+bool isMainEcosystemProperty(unsigned int property);
 
 CMPTally *getTally(const string & address);
 
