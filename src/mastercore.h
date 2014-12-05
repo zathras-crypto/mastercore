@@ -347,7 +347,7 @@ public:
       sdb = NULL;
     }
 
-    void getRecipients(const uint256 hash, string filterAddress, Array *receiveArray);
+    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible);
     int deleteAboveBlock(int blockNum);
     bool exists(string address);
     void printStats();

@@ -1986,10 +1986,22 @@ Value getsto_MP(const Array& params, bool fHelp)
     CTransaction wtx;
     uint256 blockHash = 0;
     if (!GetTransaction(hash, wtx, blockHash, true)) { return MP_TX_NOT_FOUND; }
+    uint64_t propertyId = 0;
     CMPTransaction mp_obj;
     int parseRC = parseTransaction(true, wtx, 0, 0, &mp_obj);
     if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for safety
     {
+        if (0<=mp_obj.step1())
+        {
+            if (0 == mp_obj.step2_Value())
+            {
+                propertyId = mp_obj.getProperty();
+            }
+        }
+        if (propertyId == 0) // something went wrong, couldn't decode property ID - bad packet?
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
+
+        bool divisible = isPropertyDivisible(propertyId);
         // make a request to new RPC populator function to populate a transaction object
         int populateResult = populateRPCTransactionObject(hash, &txobj);
         // check the response, throw any error codes if false
@@ -2015,7 +2027,7 @@ Value getsto_MP(const Array& params, bool fHelp)
         }
         // create array of recipients
         Array receiveArray;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray);
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, divisible);
         // add matches array to object
         txobj.push_back(Pair("recipients", receiveArray));
     }

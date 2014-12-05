@@ -3527,9 +3527,74 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
-void CMPSTOList::getRecipients(const uint256 hash, string filterAddress, Array *receiveArray)
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible)
 {
+  if (!sdb) return;
 
+  bool filter = true; //default
+  bool filterByWallet = true; //default
+  bool filterByAddress = false; //default
+
+  if (filterAddress == "*") filter = false;
+  if ((filterAddress != "") && (filterAddress != "*")) { filterByWallet = false; filterByAddress = true; }
+
+  // iterate through SDB, dropping all records where key is not filterAddress (if filtering)
+  int count = 0;
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  Iterator* it = sdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      string recipientAddress = skey.ToString();
+      if(filter)
+      {
+          if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
+          { } else { continue; } // move on if no filter match
+      }
+      svalue = it->value();
+      string strValue = svalue.ToString();
+      // see if txid is in the data
+      size_t txidMatch = strValue.find(txid.ToString());
+      if(txidMatch!=std::string::npos)
+      {
+          // the txid exists inside the data, this address was a recipient of this STO, add the details
+          std::vector<std::string> vstr;
+          boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
+          for(uint32_t i = 0; i<vstr.size(); i++)
+          {
+              std::vector<std::string> svstr;
+              boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+              if(4 == svstr.size())
+              {
+                  //add data to array
+                  uint64_t amount = 0;
+                  try
+                  {
+                      amount = boost::lexical_cast<uint64_t>(vstr[3]);
+                  } catch (const boost::bad_lexical_cast &e)
+                  {
+                      file_log("DEBUG STO - error in converting values from leveldb\n");
+                      return; //(something went wrong)
+                  }
+                  Object recipient;
+                  recipient.push_back(Pair("address", recipientAddress));
+                  if(divisible)
+                  {
+                     recipient.push_back(Pair("amount", FormatDivisibleMP(amount)));
+                  }
+                  else
+                  {
+                     recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
+                  }
+                  recipientArray->push_back(recipient);
+                  ++count;
+              }
+          }
+      }
+  }
+
+  delete it;
 }
 
 bool CMPSTOList::exists(string address)
