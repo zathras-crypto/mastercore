@@ -3567,34 +3567,39 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
               boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
               if(4 == svstr.size())
               {
-                  //add data to array
-                  uint64_t amount = 0;
-                  try
+                  if(svstr[0] == txid.ToString())
                   {
-                      amount = boost::lexical_cast<uint64_t>(vstr[3]);
-                  } catch (const boost::bad_lexical_cast &e)
-                  {
-                      file_log("DEBUG STO - error in converting values from leveldb\n");
-                      return; //(something went wrong)
+                      //add data to array
+                      uint64_t amount = 0;
+                      try
+                      {
+                          amount = boost::lexical_cast<uint64_t>(svstr[3]);
+                      } catch (const boost::bad_lexical_cast &e)
+                      {
+                          file_log("DEBUG STO - error in converting values from leveldb\n");
+                          delete it;
+                          return; //(something went wrong)
+                      }
+                      Object recipient;
+                      recipient.push_back(Pair("address", recipientAddress));
+                      if(divisible)
+                      {
+                         recipient.push_back(Pair("amount", FormatDivisibleMP(amount)));
+                      }
+                      else
+                      {
+                         recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
+                      }
+                      recipientArray->push_back(recipient);
+                      ++count;
                   }
-                  Object recipient;
-                  recipient.push_back(Pair("address", recipientAddress));
-                  if(divisible)
-                  {
-                     recipient.push_back(Pair("amount", FormatDivisibleMP(amount)));
-                  }
-                  else
-                  {
-                     recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
-                  }
-                  recipientArray->push_back(recipient);
-                  ++count;
               }
           }
       }
   }
 
   delete it;
+  return;
 }
 
 bool CMPSTOList::exists(string address)
