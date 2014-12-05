@@ -329,6 +329,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getactivedexsells_MP",   &getactivedexsells_MP,   false,     false,      true },
     { "getactivecrowdsales_MP", &getactivecrowdsales_MP, false,     false,      true },
     { "trade_MP",               &trade_MP,               false,     false,      true },
+    { "getsto_MP",              &getsto_MP,              false,     false,      true },
     { "getorderbook_MP",        &getorderbook_MP,        false,     false,      true },
     { "gettradessince_MP",      &gettradessince_MP,      false,     false,      true },
     { "getopenorders_MP",       &getopenorders_MP,       false,     false,      true },

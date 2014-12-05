@@ -1962,6 +1962,11 @@ Value getinfo_MP(const Array& params, bool fHelp)
     return infoResponse;
 }
 
+Value getsto_MP(const Array& params, bool fHelp)
+{
+
+}
+
 Value gettrade_MP(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
