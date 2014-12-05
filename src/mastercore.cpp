@@ -584,7 +584,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  }
              break;
              case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (MASTERCORE_VERSION_BASE > expiryValue)
+                 if (OMNICORE_VERSION_BASE > expiryValue)
                  {
                      //the alert has expired, clear the global alert string
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
@@ -655,6 +655,7 @@ int64_t prev = 0, owners = 0;
           string address = (my_it->first).c_str();
           totalTokens += getMPbalance(address, propertyId, BALANCE);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          totalTokens += getMPbalance(address, propertyId, METADEX_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
           if (prev != totalTokens)
@@ -962,6 +963,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
               if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
        }
        for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
@@ -969,6 +971,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
        }
     }
   }
@@ -1701,6 +1704,10 @@ int input_msc_balances_string(const string &s)
     if (balance) update_tally_map(strAddress, property, balance, BALANCE);
     if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
     if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
+
+    // FIXME
+    const uint64_t metadexReserve = 0;
+    if (metadexReserve) update_tally_map(strAddress, property, sellReserved, METADEX_RESERVE);
   }
 
   return 1;
@@ -2145,11 +2152,12 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
       emptyWallet = false;
 
-      lineOut.append((boost::format("%d:%d,%d,%d;")
+      lineOut.append((boost::format("%d:%d,%d,%d,%d;")
           % prop
           % balance
           % sellReserved
-          % acceptReserved).str());
+          % acceptReserved
+          % metadexReserve).str());
 
     }
 
@@ -2409,7 +2417,7 @@ int mastercore_init()
   if (!mp_fp) mp_fp = stdout; // dump to terminal if file can't be opened
 */
 
-  file_log("\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  file_log("\n%s OMNICORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
   {
@@ -2522,7 +2530,7 @@ int mastercore_shutdown()
 
 //  if (mp_fp)
   {
-    file_log("\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+    file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 #ifndef  DISABLE_LOG_FILE
 //    fclose(mp_fp);
 #endif
@@ -2998,7 +3006,7 @@ int CMPTxList::setLastAlert(int blockHeight)
        // we expect 5 tokens
        if (4 == vstr.size())
        {
-           if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT) // is it an alert?
+           if (atoi(vstr[2]) == OMNICORE_MESSAGE_TYPE_ALERT) // is it an alert?
            {
                if (atoi(vstr[0]) == 1) // is it valid?
                {
@@ -4099,7 +4107,7 @@ std::string new_global_alert_message;
       rc = logicMath_SavingsCompromised();
       break;
 
-    case MASTERCORE_MESSAGE_TYPE_ALERT:
+    case OMNICORE_MESSAGE_TYPE_ALERT:
       // check the packet version is also FF
       if ((int)version == 65535)
       {
@@ -4266,6 +4274,7 @@ int rc = PKT_ERROR_STO -1000;
 
           tokens += getMPbalance(address, property, BALANCE);
           tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, property, METADEX_RESERVE);
           tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
           if (tokens)

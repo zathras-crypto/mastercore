@@ -20,8 +20,8 @@ int const MAX_STATE_HISTORY = 50;
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
 // define the version for alert messages
-#define MASTERCORE_VERSION_BASE 90 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
-#define MASTERCORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
+#define OMNICORE_VERSION_BASE 90 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
+#define OMNICORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
 
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
 // maximum numeric values from the spec:
@@ -74,7 +74,7 @@ enum TransactionType {
   MSC_TYPE_GRANT_PROPERTY_TOKENS    = 55,
   MSC_TYPE_REVOKE_PROPERTY_TOKENS   = 56,
   MSC_TYPE_CHANGE_ISSUER_ADDRESS    = 70,
-  MASTERCORE_MESSAGE_TYPE_ALERT     = 65535
+  OMNICORE_MESSAGE_TYPE_ALERT     = 65535
 };
 
 #define MSC_PROPERTY_TYPE_INDIVISIBLE             1
