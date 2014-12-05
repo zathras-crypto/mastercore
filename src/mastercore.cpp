@@ -54,8 +54,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 // comment out MY_HACK & others here - used for Unit Testing only !
-// #define MY_HACK
-// #define DISABLE_LOG_FILE
+#define MY_HACK
 
 using boost::multiprecision::int128_t;
 using boost::multiprecision::cpp_int;
@@ -264,7 +263,6 @@ static bool writePersistence(int block_now)
 static void shrinkDebugFile()
 {
     // Scroll log if it's getting too big
-#ifndef  DISABLE_LOG_FILE
     const int buffer_size = 8000000;  // 8MBytes
     boost::filesystem::path pathLog = GetDataDir() / LOG_FILENAME;
     FILE* file = fopen(pathLog.string().c_str(), "r");
@@ -292,7 +290,6 @@ static void shrinkDebugFile()
     {
       if (NULL != file) fclose(file);
     }
-#endif
 }
 
 string mastercore::strMPProperty(unsigned int i)
@@ -2406,17 +2403,6 @@ int mastercore_init()
 
   shrinkDebugFile();
 
-/*
-#ifndef  DISABLE_LOG_FILE
-  boost::filesystem::path pathTempLog = GetDataDir() / LOG_FILENAME;
-  mp_fp = fopen(pathTempLog.string().c_str(), "a");
-#else
-  mp_fp = stdout;
-#endif
-
-  if (!mp_fp) mp_fp = stdout; // dump to terminal if file can't be opened
-*/
-
   file_log("\n%s OMNICORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
@@ -2528,14 +2514,7 @@ int mastercore_shutdown()
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
 
-//  if (mp_fp)
-  {
-    file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
-#ifndef  DISABLE_LOG_FILE
-//    fclose(mp_fp);
-#endif
-//    mp_fp = NULL;
-  }
+  file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
   {

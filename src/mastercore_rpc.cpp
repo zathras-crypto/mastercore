@@ -172,7 +172,7 @@ int extra2 = 0, extra3 = 0;
       break;
 
     case 6:
-      MetaDEx_debug_print(false, true);
+      MetaDEx_debug_print(true, true);
       break;
 
     case 7:
