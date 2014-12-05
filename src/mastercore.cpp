@@ -2452,7 +2452,7 @@ int mastercore_init()
           boost::filesystem::path txlistPath = GetDataDir() / "MP_txlist";
           boost::filesystem::path tradePath = GetDataDir() / "MP_tradelist";
           boost::filesystem::path spPath = GetDataDir() / "MP_spinfo";
-          boost::filesystem::path stoPath = GetDataDir() / "MP_sto";
+          boost::filesystem::path stoPath = GetDataDir() / "MP_stolist";
           if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
           if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
           if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
@@ -4000,6 +4000,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
     t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
+    s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
