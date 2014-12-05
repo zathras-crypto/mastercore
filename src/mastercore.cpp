@@ -848,7 +848,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // certain transaction types are not live on the network until some specific block height
 // certain transactions will be unknown to the client, i.e. "black holes" based on their version
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
-bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version)
+bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version, bool bAllowNullProperty)
 {
 bool bAllowed = false;
 bool bBlackHole = false;
@@ -856,8 +856,8 @@ unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
-  // BTC as property is never allowed
-  if (OMNI_PROPERTY_BTC == txProperty) return false;
+  // bitcoin as property is never allowed, unless explicitly stated otherwise
+  if ((OMNI_PROPERTY_BTC == txProperty) && !bAllowNullProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
   if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
