@@ -134,6 +134,7 @@ const bool bOK = (left == right);
 }
 
 // find the best match on the market
+// NOTE: sometimes I refer to the older order as seller & the newer order as buyer, in this trade
 // INPUT: property, desprop, desprice = of the new order being inserted; the new object being processed
 // RETURN: 
 static MatchReturnType x_Trade(CMPMetaDEx *newo)
@@ -245,6 +246,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         // transfer the payment property from buyer to seller
         // TODO: do something when failing here............
+        // FIXME
         // ...
         if (update_tally_map(newo->getAddr(), newo->getProperty(), - seller_amountGot, BALANCE))
         {
@@ -255,8 +257,9 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         // transfer the market (the one being sold) property from seller to buyer
         // TODO: do something when failing here............
+        // FIXME
         // ...
-        if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
+        if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, METADEX_RESERVE))
         {
           update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, BALANCE);
         }
@@ -368,8 +371,9 @@ void CMPMetaDEx::Set(const string &sa, int b, unsigned int c, uint64_t nValue, u
   subaction = suba;
 }
 
-CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba)
+CMPMetaDEx::CMPMetaDEx(const string &addr, int b, unsigned int c, uint64_t nValue, unsigned int cd, uint64_t ad, const uint256 &tx, unsigned int i, unsigned char suba, uint64_t lfors)
 {
+  still_left_forsale = lfors;
   Set(addr, b,c,nValue,cd,ad,tx,i,suba);
 }
 
@@ -808,9 +812,13 @@ int rc = METADEX_ERROR -1;
       }
       else
       {
+        // TODO: think about failure scenarios
+        // FIXME
         if (update_tally_map(sender_addr, prop, - new_mdex.getAmountForSale(), BALANCE)) // subtract from what's available
         {
-          update_tally_map(sender_addr, prop, new_mdex.getAmountForSale(), SELLOFFER_RESERVE); // put in reserve
+          // TODO: think about failure scenarios
+          // FIXME
+          update_tally_map(sender_addr, prop, new_mdex.getAmountForSale(), METADEX_RESERVE); // put in reserve
         }
 
         // price check
@@ -875,7 +883,7 @@ const CMPMetaDEx *p_mdex = NULL;
       file_log("%s(): REMOVING %s\n", __FUNCTION__, p_mdex->ToString());
 
       // move from reserve to main
-      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), SELLOFFER_RESERVE);
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), METADEX_RESERVE);
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmountForSale(), BALANCE);
 
       // record the cancellation
@@ -928,7 +936,7 @@ const CMPMetaDEx *p_mdex = NULL;
       file_log("%s(): REMOVING %s\n", __FUNCTION__, p_mdex->ToString());
 
       // move from reserve to main
-      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), SELLOFFER_RESERVE);
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), METADEX_RESERVE);
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmountForSale(), BALANCE);
 
       // record the cancellation
@@ -983,7 +991,7 @@ int rc = METADEX_ERROR -40;
         file_log("%s(): REMOVING %s\n", __FUNCTION__, it->ToString());
 
         // move from reserve to balance
-        update_tally_map(it->getAddr(), it->getProperty(), - it->getAmountForSale(), SELLOFFER_RESERVE);
+        update_tally_map(it->getAddr(), it->getProperty(), - it->getAmountForSale(), METADEX_RESERVE);
         update_tally_map(it->getAddr(), it->getProperty(), it->getAmountForSale(), BALANCE);
 
         // record the cancellation
@@ -1005,5 +1013,27 @@ bool MetaDEx_compare::operator()(const CMPMetaDEx &lhs, const CMPMetaDEx &rhs) c
 {
   if (lhs.getBlock() == rhs.getBlock()) return lhs.getIdx() < rhs.getIdx();
   else return lhs.getBlock() < rhs.getBlock();
+}
+
+void CMPMetaDEx::saveOffer(ofstream &file, SHA256_CTX *shaCtx) const
+{
+    string lineOut = (boost::format("%s,%d,%d,%d,%d,%d,%d,%d,%s,%d")
+      % addr
+      % block
+      % amount_forsale
+      % property
+      % amount_desired
+      % desired_property
+      % (unsigned int) subaction
+      % idx
+      % txid.ToString()
+      % still_left_forsale
+      ).str();
+
+    // add the line to the hash
+    SHA256_Update(shaCtx, lineOut.c_str(), lineOut.length());
+
+    // write the line
+    file << lineOut << endl;
 }
 

@@ -55,7 +55,6 @@
 
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
-// #define DISABLE_LOG_FILE
 
 using boost::multiprecision::int128_t;
 using boost::multiprecision::cpp_int;
@@ -264,7 +263,6 @@ static bool writePersistence(int block_now)
 static void shrinkDebugFile()
 {
     // Scroll log if it's getting too big
-#ifndef  DISABLE_LOG_FILE
     const int buffer_size = 8000000;  // 8MBytes
     boost::filesystem::path pathLog = GetDataDir() / LOG_FILENAME;
     FILE* file = fopen(pathLog.string().c_str(), "r");
@@ -292,7 +290,6 @@ static void shrinkDebugFile()
     {
       if (NULL != file) fclose(file);
     }
-#endif
 }
 
 string mastercore::strMPProperty(unsigned int i)
@@ -584,7 +581,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  }
              break;
              case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (MASTERCORE_VERSION_BASE > expiryValue)
+                 if (OMNICORE_VERSION_BASE > expiryValue)
                  {
                      //the alert has expired, clear the global alert string
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
@@ -655,6 +652,7 @@ int64_t prev = 0, owners = 0;
           string address = (my_it->first).c_str();
           totalTokens += getMPbalance(address, propertyId, BALANCE);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          totalTokens += getMPbalance(address, propertyId, METADEX_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
           if (prev != totalTokens)
@@ -848,7 +846,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // certain transaction types are not live on the network until some specific block height
 // certain transactions will be unknown to the client, i.e. "black holes" based on their version
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
-bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version)
+bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version, bool bAllowNullProperty)
 {
 bool bAllowed = false;
 bool bBlackHole = false;
@@ -856,8 +854,8 @@ unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
-  // BTC as property is never allowed
-  if (OMNI_PROPERTY_BTC == txProperty) return false;
+  // bitcoin as property is never allowed, unless explicitly stated otherwise
+  if ((OMNI_PROPERTY_BTC == txProperty) && !bAllowNullProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
   if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
@@ -962,6 +960,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
               if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
        }
        for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
@@ -969,6 +968,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
        }
     }
   }
@@ -1701,6 +1701,10 @@ int input_msc_balances_string(const string &s)
     if (balance) update_tally_map(strAddress, property, balance, BALANCE);
     if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
     if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
+
+    // FIXME
+    const uint64_t metadexReserve = 0;
+    if (metadexReserve) update_tally_map(strAddress, property, sellReserved, METADEX_RESERVE);
   }
 
   return 1;
@@ -1711,7 +1715,7 @@ int input_msc_balances_string(const string &s)
 int input_mp_offers_string(const string &s)
 {
   int offerBlock;
-  uint64_t amountOriginal, btcDesired, minFee;
+  uint64_t amountOriginal, btcDesired, minFee, left_forsale;
   unsigned int prop, prop_desired;
   unsigned char blocktimelimit;
   std::vector<std::string> vstr;
@@ -1720,7 +1724,7 @@ int input_mp_offers_string(const string &s)
   string txidStr;
   int i = 0;
 
-  if (9 != vstr.size()) return -1;
+  if ((10 != vstr.size()) && (9 != vstr.size())) return -1;
 
   sellerAddr = vstr[i++];
   offerBlock = atoi(vstr[i++]);
@@ -1748,8 +1752,12 @@ int input_mp_offers_string(const string &s)
   }
   else
   {
+    assert(10 == vstr.size());
+
+    left_forsale = boost::lexical_cast<uint64_t>(vstr[i++]);
+
     CMPMetaDEx new_mdex(sellerAddr, offerBlock, prop, amountOriginal, prop_desired, 
-    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee );
+    btcDesired, uint256(txidStr), blocktimelimit, (unsigned char) minFee, left_forsale );
 
     XDOUBLE neworder_price = (XDOUBLE)amountOriginal / (XDOUBLE)btcDesired;
 
@@ -2131,20 +2139,22 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
       uint64_t balance = (*iter).second.getMoney(prop, BALANCE);
       uint64_t sellReserved = (*iter).second.getMoney(prop, SELLOFFER_RESERVE);
       uint64_t acceptReserved = (*iter).second.getMoney(prop, ACCEPT_RESERVE);
+      const uint64_t metadexReserve = (*iter).second.getMoney(prop, METADEX_RESERVE);
 
       // we don't allow 0 balances to read in, so if we don't write them
       // it makes things match up better between persisted state and processed state
-      if ( 0 == balance && 0 == sellReserved && 0 == acceptReserved ) {
+      if ( 0 == balance && 0 == sellReserved && 0 == acceptReserved  && 0 == metadexReserve ) {
         continue;
       }
 
       emptyWallet = false;
 
-      lineOut.append((boost::format("%d:%d,%d,%d;")
+      lineOut.append((boost::format("%d:%d,%d,%d,%d;")
           % prop
           % balance
           % sellReserved
-          % acceptReserved).str());
+          % acceptReserved
+          % metadexReserve).str());
 
     }
 
@@ -2393,18 +2403,7 @@ int mastercore_init()
 
   shrinkDebugFile();
 
-/*
-#ifndef  DISABLE_LOG_FILE
-  boost::filesystem::path pathTempLog = GetDataDir() / LOG_FILENAME;
-  mp_fp = fopen(pathTempLog.string().c_str(), "a");
-#else
-  mp_fp = stdout;
-#endif
-
-  if (!mp_fp) mp_fp = stdout; // dump to terminal if file can't be opened
-*/
-
-  file_log("\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  file_log("\n%s OMNICORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
   {
@@ -2515,14 +2514,7 @@ int mastercore_shutdown()
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
 
-//  if (mp_fp)
-  {
-    file_log("\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
-#ifndef  DISABLE_LOG_FILE
-//    fclose(mp_fp);
-#endif
-//    mp_fp = NULL;
-  }
+  file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
   {
@@ -2904,15 +2896,15 @@ const unsigned int prop = PropertyID;
     return 0;
   }
 
-  bool bCancel_AllOrPair = false;
-  //If doing a METADEX CANCEL 3 or 4, use following flag to bypass funds checks
-  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
+  bool bCancel_checkBypass = false;
+  //If doing a METADEX CANCEL, use following flag to bypass funds checks
+  if((TransactionType == MSC_TYPE_METADEX) && ((additional == CMPTransaction::CANCEL_AT_PRICE) || (additional == CMPTransaction::CANCEL_ALL_FOR_PAIR) || (additional == CMPTransaction::CANCEL_EVERYTHING)))
   {
-    bCancel_AllOrPair = true;
+    bCancel_checkBypass = true;
   } 
 
   // make sure this address has enough MP property available!
-  if ((((uint64_t)iAvailable < Amount) || (0 == Amount)) && !bCancel_AllOrPair)
+  if ((((uint64_t)iAvailable < Amount) || (0 == Amount)) && !bCancel_checkBypass)
   {
     LogPrintf("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
     if (msc_debug_send) file_log("%s(): aborted -- not enough MP property (%lu < %lu)\n", __FUNCTION__, iAvailable, Amount);
@@ -2924,7 +2916,7 @@ const unsigned int prop = PropertyID;
 
   // check once more, this time considering PENDING amount reduction
   // make sure this address has enough MP property available!
-  if (((iUserAvailable < (int64_t)Amount) || (0 == Amount)) && !bCancel_AllOrPair)
+  if (((iUserAvailable < (int64_t)Amount) || (0 == Amount)) && !bCancel_checkBypass)
   {
     LogPrintf("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
     if (msc_debug_send) file_log("%s(): aborted -- not enough MP property with PENDING reduction (%lu < %lu)\n", __FUNCTION__, iUserAvailable, Amount);
@@ -2993,7 +2985,7 @@ int CMPTxList::setLastAlert(int blockHeight)
        // we expect 5 tokens
        if (4 == vstr.size())
        {
-           if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT) // is it an alert?
+           if (atoi(vstr[2]) == OMNICORE_MESSAGE_TYPE_ALERT) // is it an alert?
            {
                if (atoi(vstr[0]) == 1) // is it valid?
                {
@@ -4094,7 +4086,7 @@ std::string new_global_alert_message;
       rc = logicMath_SavingsCompromised();
       break;
 
-    case MASTERCORE_MESSAGE_TYPE_ALERT:
+    case OMNICORE_MESSAGE_TYPE_ALERT:
       // check the packet version is also FF
       if ((int)version == 65535)
       {
@@ -4261,6 +4253,7 @@ int rc = PKT_ERROR_STO -1000;
 
           tokens += getMPbalance(address, property, BALANCE);
           tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, property, METADEX_RESERVE);
           tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
           if (tokens)
