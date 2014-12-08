@@ -496,6 +496,13 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
+bool mastercore::isMainEcosystemProperty(unsigned int property)
+{
+  if ((OMNI_PROPERTY_BTC != property) && !isTestEcosystemProperty(property)) return true;
+
+  return false;
+}
+
 bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyId)
 {
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
