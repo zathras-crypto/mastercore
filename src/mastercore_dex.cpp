@@ -259,7 +259,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
         // TODO: do something when failing here............
         // FIXME
         // ...
-        if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, SELLOFFER_RESERVE))
+        if (update_tally_map(p_older->getAddr(), p_older->getProperty(), - buyer_amountGot, METADEX_RESERVE))
         {
           update_tally_map(newo->getAddr(), newo->getDesProperty(), buyer_amountGot, BALANCE);
         }
@@ -819,7 +819,7 @@ int rc = METADEX_ERROR -1;
         {
           // TODO: think about failure scenarios
           // FIXME
-          update_tally_map(sender_addr, prop, new_mdex.getAmountForSale(), SELLOFFER_RESERVE); // put in reserve
+          update_tally_map(sender_addr, prop, new_mdex.getAmountForSale(), METADEX_RESERVE); // put in reserve
         }
 
         // price check
@@ -884,7 +884,7 @@ const CMPMetaDEx *p_mdex = NULL;
       file_log("%s(): REMOVING %s\n", __FUNCTION__, p_mdex->ToString());
 
       // move from reserve to main
-      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), SELLOFFER_RESERVE);
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), METADEX_RESERVE);
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmountForSale(), BALANCE);
 
       // record the cancellation
@@ -937,7 +937,7 @@ const CMPMetaDEx *p_mdex = NULL;
       file_log("%s(): REMOVING %s\n", __FUNCTION__, p_mdex->ToString());
 
       // move from reserve to main
-      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), SELLOFFER_RESERVE);
+      update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), - p_mdex->getAmountForSale(), METADEX_RESERVE);
       update_tally_map(p_mdex->getAddr(), p_mdex->getProperty(), p_mdex->getAmountForSale(), BALANCE);
 
       // record the cancellation
@@ -992,7 +992,7 @@ int rc = METADEX_ERROR -40;
         file_log("%s(): REMOVING %s\n", __FUNCTION__, it->ToString());
 
         // move from reserve to balance
-        update_tally_map(it->getAddr(), it->getProperty(), - it->getAmountForSale(), SELLOFFER_RESERVE);
+        update_tally_map(it->getAddr(), it->getProperty(), - it->getAmountForSale(), METADEX_RESERVE);
         update_tally_map(it->getAddr(), it->getProperty(), it->getAmountForSale(), BALANCE);
 
         // record the cancellation

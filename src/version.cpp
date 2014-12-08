@@ -49,6 +49,9 @@ const std::string CLIENT_NAME("Satoshi");
 #define BUILD_DESC_FROM_UNKNOWN(maj,min,rev,build) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-unk"
 
+#define BUILD_SUFFIX_ONLY(suffix) \
+    DO_STRINGIZE(suffix)
+
 #ifndef BUILD_DESC
 #    ifdef BUILD_SUFFIX
 #        define BUILD_DESC BUILD_DESC_WITH_SUFFIX(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, BUILD_SUFFIX)
@@ -67,5 +70,12 @@ const std::string CLIENT_NAME("Satoshi");
 #    endif
 #endif
 
+#ifdef BUILD_SUFFIX
+#    define COMMIT_DEF BUILD_SUFFIX_ONLY(BUILD_SUFFIX)
+#else
+#    define COMMIT_DEF ""
+#endif
+
+const std::string COMMIT_INFO(COMMIT_DEF);
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
 const std::string CLIENT_DATE(BUILD_DATE);

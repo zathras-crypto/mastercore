@@ -55,7 +55,6 @@
 
 // comment out MY_HACK & others here - used for Unit Testing only !
 // #define MY_HACK
-// #define DISABLE_LOG_FILE
 
 using boost::multiprecision::int128_t;
 using boost::multiprecision::cpp_int;
@@ -264,7 +263,6 @@ static bool writePersistence(int block_now)
 static void shrinkDebugFile()
 {
     // Scroll log if it's getting too big
-#ifndef  DISABLE_LOG_FILE
     const int buffer_size = 8000000;  // 8MBytes
     boost::filesystem::path pathLog = GetDataDir() / LOG_FILENAME;
     FILE* file = fopen(pathLog.string().c_str(), "r");
@@ -292,7 +290,6 @@ static void shrinkDebugFile()
     {
       if (NULL != file) fclose(file);
     }
-#endif
 }
 
 string mastercore::strMPProperty(unsigned int i)
@@ -521,6 +518,13 @@ bool mastercore::isTestEcosystemProperty(unsigned int property)
   return false;
 }
 
+bool mastercore::isMainEcosystemProperty(unsigned int property)
+{
+  if ((OMNI_PROPERTY_BTC != property) && !isTestEcosystemProperty(property)) return true;
+
+  return false;
+}
+
 bool mastercore::isMetaDExOfferActive(const uint256 txid, unsigned int propertyId)
 {
   for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it)
@@ -606,7 +610,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                  }
              break;
              case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (MASTERCORE_VERSION_BASE > expiryValue)
+                 if (OMNICORE_VERSION_BASE > expiryValue)
                  {
                      //the alert has expired, clear the global alert string
                      file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
@@ -677,6 +681,7 @@ int64_t prev = 0, owners = 0;
           string address = (my_it->first).c_str();
           totalTokens += getMPbalance(address, propertyId, BALANCE);
           totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+          totalTokens += getMPbalance(address, propertyId, METADEX_RESERVE);
           if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
 
           if (prev != totalTokens)
@@ -870,7 +875,7 @@ void calculateFundraiser(unsigned short int propType, uint64_t amtTransfer, unsi
 // certain transaction types are not live on the network until some specific block height
 // certain transactions will be unknown to the client, i.e. "black holes" based on their version
 // the Restrictions array is as such: type, block-allowed-in, top-version-allowed
-bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version)
+bool mastercore::isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int txType, unsigned short version, bool bAllowNullProperty)
 {
 bool bAllowed = false;
 bool bBlackHole = false;
@@ -878,8 +883,8 @@ unsigned int type;
 int block_FirstAllowed;
 unsigned short version_TopAllowed;
 
-  // BTC as property is never allowed
-  if (OMNI_PROPERTY_BTC == txProperty) return false;
+  // bitcoin as property is never allowed, unless explicitly stated otherwise
+  if ((OMNI_PROPERTY_BTC == txProperty) && !bAllowNullProperty) return false;
 
   // everything is always allowed on Bitcoin's TestNet or with TMSC/TestEcosystem on MainNet
   if ((isNonMainNet()) || isTestEcosystemProperty(txProperty))
@@ -984,6 +989,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_maineco[propertyId] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_maineco[propertyId] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
               if (propertyId < 3) global_balance_reserved_maineco[propertyId] += getMPbalance(my_it->first, propertyId, ACCEPT_RESERVE);
        }
        for (propertyId = TEST_ECO_PROPERTY_1; propertyId<nextTestSPID; propertyId++) //test eco
@@ -991,6 +997,7 @@ int mastercore::set_wallet_totals()
               //global_balance_money_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, BALANCE);
               global_balance_money_testeco[propertyId-2147483647] += getUserAvailableMPbalance(my_it->first, propertyId);
               global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, SELLOFFER_RESERVE);
+              global_balance_reserved_testeco[propertyId-2147483647] += getMPbalance(my_it->first, propertyId, METADEX_RESERVE);
        }
     }
   }
@@ -1723,6 +1730,10 @@ int input_msc_balances_string(const string &s)
     if (balance) update_tally_map(strAddress, property, balance, BALANCE);
     if (sellReserved) update_tally_map(strAddress, property, sellReserved, SELLOFFER_RESERVE);
     if (acceptReserved) update_tally_map(strAddress, property, acceptReserved, ACCEPT_RESERVE);
+
+    // FIXME
+    const uint64_t metadexReserve = 0;
+    if (metadexReserve) update_tally_map(strAddress, property, sellReserved, METADEX_RESERVE);
   }
 
   return 1;
@@ -2167,11 +2178,12 @@ static int write_msc_balances(ofstream &file, SHA256_CTX *shaCtx)
 
       emptyWallet = false;
 
-      lineOut.append((boost::format("%d:%d,%d,%d;")
+      lineOut.append((boost::format("%d:%d,%d,%d,%d;")
           % prop
           % balance
           % sellReserved
-          % acceptReserved).str());
+          % acceptReserved
+          % metadexReserve).str());
 
     }
 
@@ -2420,18 +2432,7 @@ int mastercore_init()
 
   shrinkDebugFile();
 
-/*
-#ifndef  DISABLE_LOG_FILE
-  boost::filesystem::path pathTempLog = GetDataDir() / LOG_FILENAME;
-  mp_fp = fopen(pathTempLog.string().c_str(), "a");
-#else
-  mp_fp = stdout;
-#endif
-
-  if (!mp_fp) mp_fp = stdout; // dump to terminal if file can't be opened
-*/
-
-  file_log("\n%s MASTERCORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+  file_log("\n%s OMNICORE INIT, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (isNonMainNet())
   {
@@ -2570,14 +2571,7 @@ int mastercore_shutdown()
     delete s_stolistdb; s_stolistdb = NULL;
   }
 
-//  if (mp_fp)
-  {
-    file_log("\n%s MASTERCORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
-#ifndef  DISABLE_LOG_FILE
-//    fclose(mp_fp);
-#endif
-//    mp_fp = NULL;
-  }
+  file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
   {
@@ -3092,7 +3086,7 @@ int CMPTxList::setLastAlert(int blockHeight)
        // we expect 5 tokens
        if (4 == vstr.size())
        {
-           if (atoi(vstr[2]) == MASTERCORE_MESSAGE_TYPE_ALERT) // is it an alert?
+           if (atoi(vstr[2]) == OMNICORE_MESSAGE_TYPE_ALERT) // is it an alert?
            {
                if (atoi(vstr[0]) == 1) // is it valid?
                {
@@ -4403,7 +4397,7 @@ std::string new_global_alert_message;
       rc = logicMath_SavingsCompromised();
       break;
 
-    case MASTERCORE_MESSAGE_TYPE_ALERT:
+    case OMNICORE_MESSAGE_TYPE_ALERT:
       // check the packet version is also FF
       if ((int)version == 65535)
       {
@@ -4569,6 +4563,7 @@ int rc = PKT_ERROR_STO -1000;
 
           tokens += getMPbalance(address, property, BALANCE);
           tokens += getMPbalance(address, property, SELLOFFER_RESERVE);
+          tokens += getMPbalance(address, property, METADEX_RESERVE);
           tokens += getMPbalance(address, property, ACCEPT_RESERVE);
 
           if (tokens)
