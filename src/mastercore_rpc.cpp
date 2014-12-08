@@ -4,6 +4,7 @@
 #include "util.h"
 #include "init.h"
 #include "wallet.h"
+#include "clientversion.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -1883,9 +1884,10 @@ Value getinfo_MP(const Array& params, bool fHelp)
     Object infoResponse;
     // other bits of info we want to report should be included here
 
-    // provide the mastercore and bitcoin version
+    // provide the mastercore and bitcoin version and if available commit id
     infoResponse.push_back(Pair("mastercoreversion", "0.0." + boost::lexical_cast<string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE ));
     infoResponse.push_back(Pair("bitcoincoreversion", "0." + boost::lexical_cast<string>((int)CLIENT_VERSION/100)));
+    infoResponse.push_back(Pair("commitinfo", COMMIT_INFO));
 
     // provide the current block details
     uint64_t block = chainActive.Height();
