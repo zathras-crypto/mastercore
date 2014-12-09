@@ -1867,21 +1867,13 @@ Value listtransactions_MP(const Array& params, bool fHelp)
                         uint256 hash;
                         hash.SetHex(svstr[0]);
                         Object txobj;
-                        uint64_t propertyId = 0;
-                        try {
-                            propertyId = boost::lexical_cast<uint64_t>(svstr[3]);
-                        } catch (const boost::bad_lexical_cast &e) {
-                            file_log("DEBUG STO - error in converting values from leveldb\n");
-                            continue; //(something went wrong)
-                        }
-                        bool divisible = isPropertyDivisible(propertyId);
                         int populateResult = -1;
                         populateResult = populateRPCTransactionObject(hash, &txobj);
                         if (0 == populateResult)
                         {
                             Array receiveArray;
                             uint64_t tmpAmount = 0;
-                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, divisible, &tmpAmount); // get matching receipts
+                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount); // get matching receipts
                             txobj.push_back(Pair("recipients", receiveArray));
                             response.push_back(txobj); // add the transaction object to the response array
                         }
@@ -2075,7 +2067,7 @@ Value getsto_MP(const Array& params, bool fHelp)
         // create array of recipients
         Array receiveArray;
         uint64_t tmpAmount = 0;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, divisible, &tmpAmount);
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount);
         // add matches array to object
         txobj.push_back(Pair("recipients", receiveArray));
     }
