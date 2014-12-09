@@ -101,10 +101,7 @@ QT_FORMS_UI = \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
   forms/sendmpdialog.ui \
-  forms/orderhistorydialog.ui \
   forms/txhistorydialog.ui \
-  forms/metadexcanceldialog.ui \
-  forms/metadexdialog.ui \
   forms/lookupspdialog.ui \
   forms/lookupaddressdialog.ui \
   forms/lookuptxdialog.ui \
@@ -144,9 +141,6 @@ QT_MOC_CPP = \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
   moc_sendmpdialog.cpp \
-  moc_metadexdialog.cpp \
-  moc_metadexcanceldialog.cpp \
-  moc_orderhistorydialog.cpp \
   moc_txhistorydialog.cpp \
   moc_lookupspdialog.cpp \
   moc_lookupaddressdialog.cpp \
@@ -217,9 +211,6 @@ BITCOIN_QT_H = \
   sendcoinsdialog.h \
   sendcoinsentry.h \
   sendmpdialog.h \
-  metadexdialog.h \
-  metadexcanceldialog.h \
-  orderhistorydialog.h \
   txhistorydialog.h \
   lookupspdialog.h \
   lookupaddressdialog.h \
@@ -341,9 +332,6 @@ BITCOIN_QT_CPP += \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
   sendmpdialog.cpp \
-  metadexcanceldialog.cpp \
-  metadexdialog.cpp \
-  orderhistorydialog.cpp \
   txhistorydialog.cpp \
   lookupspdialog.cpp \
   lookupaddressdialog.cpp \

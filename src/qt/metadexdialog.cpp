@@ -77,7 +77,6 @@ MetaDExDialog::MetaDExDialog(QWidget *parent) :
 {
     ui->setupUi(this);
     this->model = model;
-
     //open
     global_metadex_market = 3;
 

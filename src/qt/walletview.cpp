@@ -17,14 +17,14 @@
 #include "lookupspdialog.h"
 #include "lookuptxdialog.h"
 #include "lookupaddressdialog.h"
-#include "metadexcanceldialog.h"
-#include "metadexdialog.h"
+//#include "metadexcanceldialog.h"
+//#include "metadexdialog.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
 #include "transactionview.h"
 #include "balancesview.h"
 #include "walletmodel.h"
-#include "orderhistorydialog.h"
+//#include "orderhistorydialog.h"
 #include "txhistorydialog.h"
 #include "ui_interface.h"
 
@@ -107,6 +107,7 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsPage->setLayout(svbox);
 
     // exchange page
+    /* no MetaDEx in this ver
     exchangePage = new QWidget(this);
     QVBoxLayout *exvbox = new QVBoxLayout();
     metaDExTab = new MetaDExDialog();
@@ -119,6 +120,7 @@ WalletView::WalletView(QWidget *parent):
     exTabHolder->addTab(cancelTab,tr("Cancel Orders"));
     exvbox->addWidget(exTabHolder);
     exchangePage->setLayout(exvbox);
+    */
 
     // smart property page
     /*smartPropertyPage = new QWidget(this);
@@ -151,7 +153,7 @@ WalletView::WalletView(QWidget *parent):
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
-    addWidget(exchangePage);
+    //addWidget(exchangePage);
     //addWidget(smartPropertyPage);
     addWidget(toolboxPage);
 
@@ -210,10 +212,10 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     sendCoinsTab->setModel(walletModel);
     sendMPTab->setModel(walletModel);
     balancesView->setModel(walletModel);
-    metaDExTab->setModel(walletModel);
+//    metaDExTab->setModel(walletModel);
     mpTXTab->setModel(walletModel);
-    cancelTab->setModel(walletModel);
-    orderHistoryTab->setModel(walletModel);
+//    cancelTab->setModel(walletModel);
+//    orderHistoryTab->setModel(walletModel);
 
     if (walletModel)
     {

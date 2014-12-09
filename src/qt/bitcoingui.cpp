@@ -252,7 +252,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     exchangeAction->setToolTip(exchangeAction->statusTip());
     exchangeAction->setCheckable(true);
     exchangeAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
-    tabGroup->addAction(exchangeAction);
+//    tabGroup->addAction(exchangeAction);
 
     smartPropertyAction = new QAction(QIcon(":/icons/smartproperty"), tr("Smart &Property"), this);
     smartPropertyAction->setStatusTip(tr("Lookup and interact with Master Protocol Smart Properties"));
@@ -285,10 +285,10 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
-    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(gotoSmartPropertyPage()));
-    connect(exchangeAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(exchangeAction, SIGNAL(triggered()), this, SLOT(gotoExchangePage()));
+//    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+//    connect(smartPropertyAction, SIGNAL(triggered()), this, SLOT(gotoSmartPropertyPage()));
+//    connect(exchangeAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+//    connect(exchangeAction, SIGNAL(triggered()), this, SLOT(gotoExchangePage()));
     connect(historyAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(historyAction, SIGNAL(triggered()), this, SLOT(gotoHistoryPage()));
     connect(toolboxAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -422,7 +422,7 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(balancesAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
-        toolbar->addAction(exchangeAction);
+//        toolbar->addAction(exchangeAction);
 //        toolbar->addAction(smartPropertyAction);
         toolbar->addAction(historyAction);
         toolbar->addAction(toolboxAction);
@@ -490,8 +490,8 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     balancesAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
-    exchangeAction->setEnabled(enabled);
-    smartPropertyAction->setEnabled(enabled);
+//    exchangeAction->setEnabled(enabled);
+//    smartPropertyAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
     toolboxAction->setEnabled(enabled);
     encryptWalletAction->setEnabled(enabled);

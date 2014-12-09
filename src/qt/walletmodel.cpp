@@ -104,7 +104,7 @@ void WalletModel::updateStatus()
 
 void WalletModel::forceUpdateBalances()
 {
-    boost::timer t;
+    // boost::timer t;
     // Get required locks upfront. This avoids the GUI from getting stuck on
     // periodical polls if the core is holding the locks for a longer time -
     // for example, during a wallet rescan.
@@ -129,9 +129,9 @@ void WalletModel::forceUpdateBalances()
     // force everything to be updated
     emit balanceChanged(newBalance, newUnconfirmedBalance, newImmatureBalance);
     if(transactionTableModel) transactionTableModel->updateConfirmations();
-    printf("DEBUG: forceUpdate took");
+    /* printf("DEBUG: forceUpdate took");
     std::cout << t.elapsed() << std::endl;
-    printf("\n");
+    printf("\n"); */
 }
 
 void WalletModel::pollBalanceChanged()
