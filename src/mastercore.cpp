@@ -3562,6 +3562,7 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
           }
       }
   }
+  delete it;
   return mySTOReceipts;
 }
 
