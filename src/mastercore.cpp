@@ -3566,7 +3566,7 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
   return mySTOReceipts;
 }
 
-void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible)
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible, uint64_t *total)
 {
   if (!sdb) return;
 
@@ -3629,6 +3629,7 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
                       {
                          recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
                       }
+                      total += amount;
                       recipientArray->push_back(recipient);
                       ++count;
                   }
