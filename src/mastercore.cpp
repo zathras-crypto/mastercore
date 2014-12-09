@@ -3521,7 +3521,7 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
-std::string CMPSTOList::getMySTOReceipts()
+std::string CMPSTOList::getMySTOReceipts(string filterAddress)
 {
   if (!sdb) return "";
   string mySTOReceipts = "";
@@ -3534,6 +3534,7 @@ std::string CMPSTOList::getMySTOReceipts()
       skey = it->key();
       string recipientAddress = skey.ToString();
       if(!IsMyAddress(recipientAddress)) continue; // not ours, not interested
+      if((!filterAddress.empty()) && (filterAddress != recipientAddress)) continue; // not the filtered address
       // ours, get info
       svalue = it->value();
       string strValue = svalue.ToString();

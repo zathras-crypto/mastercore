@@ -346,7 +346,7 @@ public:
       delete sdb;
       sdb = NULL;
     }
-    std::string getMySTOReceipts();
+    std::string getMySTOReceipts(string filterAddress);
     void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible);
     int deleteAboveBlock(int blockNum);
     bool exists(string address);
