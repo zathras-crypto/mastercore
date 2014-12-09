@@ -1828,6 +1828,10 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
     Array response; //prep an array to hold our output
 
+    // STO has no inbound transaction, so we need to use an insert methodology here
+    // get STO receipts affecting me
+    string mySTOReceipts = s_stolistdb->getMySTOReceipts();
+    printf("%s\n",mySTOReceipts.c_str());
     // rewrite to use original listtransactions methodology from core
     LOCK(wallet->cs_wallet);
     std::list<CAccountingEntry> acentries;
