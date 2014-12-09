@@ -201,11 +201,18 @@ void TXHistoryDialog::UpdateHistory()
     string sAddress = "";
     string addressParam = "";
 
-    int64_t nCount = 50; //don't display more than 50 historical transactions at the moment until we can move to a cached model
+    int64_t nCount = 100; //don't display more than 100 historical transactions at the moment until we can move to a cached model
     int64_t nStartBlock = 0;
     int64_t nEndBlock = 999999;
 
     Array response; //prep an array to hold our output
+
+    // STO has no inbound transaction, so we need to use an insert methodology here
+    // get STO receipts affecting me
+    string mySTOReceipts = s_stolistdb->getMySTOReceipts(addressParam);
+    std::vector<std::string> vecReceipts;
+    boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
+    int64_t lastTXBlock = 999999;
 
     // rewrite to use original listtransactions methodology from core
     LOCK(wallet->cs_wallet);
@@ -231,7 +238,91 @@ void TXHistoryDialog::UpdateHistory()
             if (NULL == pBlockIndex) continue;
             int blockHeight = pBlockIndex->nHeight;
             if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue; // ignore it if not within our range
-            // check if the transaction exists in txlist, and if so is it correct type (21)
+
+            // look for an STO receipt to see if we need to insert it
+            for(uint32_t i = 0; i<vecReceipts.size(); i++)
+            {
+                std::vector<std::string> svstr;
+                boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), token_compress_on);
+                if(4 == svstr.size()) // make sure expected num items
+                {
+                    if((atoi(svstr[1]) < lastTXBlock) && (atoi(svstr[1]) > blockHeight))
+                    {
+                        // STO receipt insert here - add STO receipt to response array
+                        uint256 hash;
+                        hash.SetHex(svstr[0]);
+                        string displayAddress = svstr[2];
+                        Object txobj;
+                        uint64_t propertyId = 0;
+                        try {
+                            propertyId = boost::lexical_cast<uint64_t>(svstr[3]);
+                        } catch (const boost::bad_lexical_cast &e) {
+                            file_log("DEBUG STO - error in converting values from leveldb\n");
+                            continue; //(something went wrong)
+                        }
+                        bool divisible = isPropertyDivisible(propertyId);
+                        QDateTime txTime;
+                        CBlockIndex* pBlkIdx = chainActive[atoi(svstr[1])];
+                        txTime.setTime_t(pBlkIdx->GetBlockTime());
+                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                        Array receiveArray;
+                        uint64_t total = 0;
+                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, divisible, &total); // get matching receipts
+                        QIcon ic = QIcon(":/icons/transaction_0");
+                        int confirmations =  1 + GetHeight() - pBlkIdx->nHeight;
+                        switch(confirmations)
+                        {
+                            case 1: ic = QIcon(":/icons/transaction_1"); break;
+                            case 2: ic = QIcon(":/icons/transaction_2"); break;
+                            case 3: ic = QIcon(":/icons/transaction_3"); break;
+                            case 4: ic = QIcon(":/icons/transaction_4"); break;
+                            case 5: ic = QIcon(":/icons/transaction_5"); break;
+                        }
+                        if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
+                        string displayAmount;
+                        string displayToken;
+                        if (divisible) { displayAmount = FormatDivisibleShortMP(total); } else { displayAmount = FormatIndivisibleMP(total); }
+                        if (propertyId < 3) {
+                            if(propertyId == 1) { displayToken = " MSC"; } else { displayToken = " TMSC"; }
+                        } else {
+                            string s = to_string(propertyId);
+                            displayToken = " SPT#" + s;
+                        }
+
+                        // add to history
+                        ui->txHistoryTable->setRowCount(rowcount+1);
+                        QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
+                        QTableWidgetItem *typeCell = new QTableWidgetItem("STO Receive");
+                        QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
+                        QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
+                        QTableWidgetItem *iconCell = new QTableWidgetItem;
+                        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(hash.GetHex()));
+                        iconCell->setIcon(ic);
+                        addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+                        addressCell->setForeground(QColor("#707070"));
+                        amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                        amountCell->setForeground(QColor("#00AA00"));
+                        if (rowcount % 2)
+                        {
+                            amountCell->setBackground(QColor("#F0F0F0"));
+                            addressCell->setBackground(QColor("#F0F0F0"));
+                            dateCell->setBackground(QColor("#F0F0F0"));
+                            typeCell->setBackground(QColor("#F0F0F0"));
+                            txidCell->setBackground(QColor("#F0F0F0"));
+                            iconCell->setBackground(QColor("#F0F0F0"));
+                        }
+                        ui->txHistoryTable->setItem(rowcount, 0, iconCell);
+                        ui->txHistoryTable->setItem(rowcount, 1, dateCell);
+                        ui->txHistoryTable->setItem(rowcount, 2, typeCell);
+                        ui->txHistoryTable->setItem(rowcount, 3, addressCell);
+                        ui->txHistoryTable->setItem(rowcount, 4, amountCell);
+                        ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+                        rowcount += 1;
+                    }
+                }
+            }
+            lastTXBlock = blockHeight;
+            // check if the transaction exists in txlist
             if (p_txlistdb->exists(hash))
             {
                 string statusText;

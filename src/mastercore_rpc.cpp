@@ -1831,7 +1831,6 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     // STO has no inbound transaction, so we need to use an insert methodology here
     // get STO receipts affecting me
     string mySTOReceipts = s_stolistdb->getMySTOReceipts(addressParam);
-    printf("%s\n",mySTOReceipts.c_str());
     std::vector<std::string> vecReceipts;
     boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
     int64_t lastTXBlock = 999999;
@@ -1860,7 +1859,7 @@ Value listtransactions_MP(const Array& params, bool fHelp)
             {
                 std::vector<std::string> svstr;
                 boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), token_compress_on);
-                if(3 == svstr.size()) // make sure expected num items
+                if(4 == svstr.size()) // make sure expected num items
                 {
                     if((atoi(svstr[1]) < lastTXBlock) && (atoi(svstr[1]) > blockHeight))
                     {
@@ -1868,14 +1867,21 @@ Value listtransactions_MP(const Array& params, bool fHelp)
                         uint256 hash;
                         hash.SetHex(svstr[0]);
                         Object txobj;
-                        bool divisible = false;
-                        if (svstr[2]=="true") divisible = true;
+                        uint64_t propertyId = 0;
+                        try {
+                            propertyId = boost::lexical_cast<uint64_t>(svstr[3]);
+                        } catch (const boost::bad_lexical_cast &e) {
+                            file_log("DEBUG STO - error in converting values from leveldb\n");
+                            continue; //(something went wrong)
+                        }
+                        bool divisible = isPropertyDivisible(propertyId);
                         int populateResult = -1;
                         populateResult = populateRPCTransactionObject(hash, &txobj);
                         if (0 == populateResult)
                         {
                             Array receiveArray;
-                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, divisible); // get matching receipts
+                            uint64_t tmpAmount = 0;
+                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, divisible, &tmpAmount); // get matching receipts
                             txobj.push_back(Pair("recipients", receiveArray));
                             response.push_back(txobj); // add the transaction object to the response array
                         }
@@ -2068,7 +2074,8 @@ Value getsto_MP(const Array& params, bool fHelp)
         }
         // create array of recipients
         Array receiveArray;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, divisible);
+        uint64_t tmpAmount = 0;
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, divisible, &tmpAmount);
         // add matches array to object
         txobj.push_back(Pair("recipients", receiveArray));
     }
