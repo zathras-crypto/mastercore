@@ -1,5 +1,6 @@
 #include "mastercore_parse_string.h"
 
+#include <stdint.h>
 #include <string>
 
 #include <boost/test/unit_test.hpp>
@@ -13,9 +14,9 @@ BOOST_AUTO_TEST_CASE(mastercore_strtoint64_invidisible)
     // zero amount
     BOOST_CHECK(StrToInt64("0", false) == 0);
     // big num
-    BOOST_CHECK(StrToInt64("4000000000000000", false) == 4000000000000000);
+    BOOST_CHECK(StrToInt64("4000000000000000", false) == static_cast<int64_t>(4000000000000000U));
     // max int64
-    BOOST_CHECK(StrToInt64("9223372036854775807", false) == 9223372036854775807);
+    BOOST_CHECK(StrToInt64("9223372036854775807", false) == static_cast<int64_t>(9223372036854775807U));
 }
 
 BOOST_AUTO_TEST_CASE(mastercore_strtoint64_invidisible_truncate)
@@ -40,7 +41,7 @@ BOOST_AUTO_TEST_CASE(mastercore_strtoint64_divisible)
 {
     // range 0 to max int64
     BOOST_CHECK(StrToInt64("0.000", true) == 0);    
-    BOOST_CHECK(StrToInt64("92233720368.54775807", true) == 9223372036854775807);
+    BOOST_CHECK(StrToInt64("92233720368.54775807", true) == static_cast<int64_t>(9223372036854775807U));
     // check padding
     BOOST_CHECK(StrToInt64("0.00000004", true) == 4);
     BOOST_CHECK(StrToInt64("0.0000004", true) == 40);
@@ -48,16 +49,16 @@ BOOST_AUTO_TEST_CASE(mastercore_strtoint64_divisible)
     BOOST_CHECK(StrToInt64("0.4", true) == 40000000);
     BOOST_CHECK(StrToInt64("4.0", true) == 400000000);    
     // truncate after 8 digits
-    BOOST_CHECK(StrToInt64("40.00000000000099", true) == 4000000000);
-    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == 9223372036854775807);
+    BOOST_CHECK(StrToInt64("40.00000000000099", true) == static_cast<int64_t>(4000000000U));
+    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == static_cast<int64_t>(9223372036854775807U));
 }
 
 BOOST_AUTO_TEST_CASE(mastercore_strtoint64_divisible_truncate)
 {
     // truncate after 8 digits
-    BOOST_CHECK(StrToInt64("40.00000000000099", true) == 4000000000);
-    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == 9223372036854775807);
-    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == 9223372036854775807);
+    BOOST_CHECK(StrToInt64("40.00000000000099", true) == static_cast<int64_t>(4000000000U));
+    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == static_cast<int64_t>(9223372036854775807U));
+    BOOST_CHECK(StrToInt64("92233720368.54775807000", true) == static_cast<int64_t>(9223372036854775807U));
 }
 
 BOOST_AUTO_TEST_CASE(mastercore_strtoint64_divisible_invalid)
