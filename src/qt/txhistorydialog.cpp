@@ -267,7 +267,7 @@ void TXHistoryDialog::UpdateHistory()
                         QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
                         Array receiveArray;
                         uint64_t total = 0;
-                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, divisible, &total); // get matching receipts
+                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total); // get matching receipts
                         QIcon ic = QIcon(":/icons/transaction_0");
                         int confirmations =  1 + GetHeight() - pBlkIdx->nHeight;
                         switch(confirmations)
@@ -508,6 +508,16 @@ void TXHistoryDialog::showDetails()
         if (0<=pop)
         {
             strTXText = write_string(Value(txobj), false) + "\n";
+            // manipulate for STO if needed
+            size_t pos = strTXText.find("Send To Owners");
+            if (pos!=std::string::npos) {
+                Array receiveArray;
+                uint64_t tmpAmount = 0;
+                s_stolistdb->getRecipients(txid, "", &receiveArray, &tmpAmount);
+                txobj.push_back(Pair("recipients", receiveArray));
+                //rewrite string
+                strTXText = write_string(Value(txobj), false) + "\n";
+            }
         }
     }
 
@@ -546,7 +556,14 @@ void TXHistoryDialog::showDetails()
             strTXText.replace(start_pos, from.length(), to);
             start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
         }
-
+        from = "[";
+        to = "[\n";
+        start_pos = 0;
+        while((start_pos = strTXText.find(from, start_pos)) != std::string::npos)
+        {
+            strTXText.replace(start_pos, from.length(), to);
+            start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+        }
         QString txText = QString::fromStdString(strTXText);
         QDialog *txDlg = new QDialog;
         QLayout *dlgLayout = new QVBoxLayout;
