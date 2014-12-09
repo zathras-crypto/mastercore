@@ -3521,6 +3521,35 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
+std::string CMPSTOList::getMySTOReceipts()
+{
+  if (!sdb) return "";
+  string mySTOReceipts = "";
+
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  Iterator* it = sdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      string recipientAddress = skey.ToString();
+      if(!IsMyAddress(recipientAddress)) continue; // not ours, not interested
+      // ours, get info
+      svalue = it->value();
+      string strValue = svalue.ToString();
+      // break into individual receipts
+      std::vector<std::string> vstr;
+      boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
+      for(uint32_t i = 0; i<vstr.size(); i++)
+      {
+          // add to array
+          vstr[i] = recipientAddress + vstr[i] + ",";
+          mySTOReceipts += vstr[i];
+      }
+  }
+  return mySTOReceipts;
+}
+
 void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible)
 {
   if (!sdb) return;
