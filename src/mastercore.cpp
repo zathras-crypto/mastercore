@@ -3548,8 +3548,17 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
           boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
           if(4 == svstr.size())
           {
+              uint64_t propertyId = 0;
+              try {
+                  propertyId = boost::lexical_cast<uint64_t>(svstr[2]);
+              } catch (const boost::bad_lexical_cast &e) {
+                  file_log("DEBUG STO - error in converting values from leveldb\n");
+                  return ""; //(something went wrong)
+              }
+              string divisStr = "false";
+              if (isPropertyDivisible(propertyId)) divisStr = "true";
               size_t txidMatch = strValue.find(svstr[0]);
-              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0] + ":" + svstr[1] + ",";
+              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0] + ":" + svstr[1] + ":" + divisStr + ",";
           }
       }
   }
