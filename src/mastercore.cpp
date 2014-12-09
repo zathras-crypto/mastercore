@@ -3543,7 +3543,7 @@ std::string CMPSTOList::getMySTOReceipts()
       for(uint32_t i = 0; i<vstr.size(); i++)
       {
           // add to array
-          vstr[i] = recipientAddress + vstr[i] + ",";
+          vstr[i] = recipientAddress + ":" + vstr[i] + ",";
           mySTOReceipts += vstr[i];
       }
   }
