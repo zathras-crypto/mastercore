@@ -2943,7 +2943,7 @@ const unsigned int prop = PropertyID;
   PUSH_BACK_BYTES(data, PropertyID);
   PUSH_BACK_BYTES(data, Amount);
   
-  if ( PropertyID_2 != 0 ) //for trade_MP
+  if (PropertyID_2 != 0 || bCancel_checkBypass == true) // for trade_MP
   {
     //use additional to pass action byte
     unsigned char action = boost::lexical_cast<int>(additional); 
