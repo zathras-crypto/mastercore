@@ -3543,8 +3543,13 @@ std::string CMPSTOList::getMySTOReceipts()
       for(uint32_t i = 0; i<vstr.size(); i++)
       {
           // add to array
-          vstr[i] = recipientAddress + ":" + vstr[i] + ",";
-          mySTOReceipts += vstr[i];
+          std::vector<std::string> svstr;
+          boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+          if(4 == svstr.size())
+          {
+              size_t txidMatch = strValue.find(svstr[0]);
+              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0] + ":" + svstr[1] + ",";
+          }
       }
   }
   return mySTOReceipts;
