@@ -752,6 +752,7 @@ char *mastercore::c_strMasterProtocolTXType(int i)
     case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return ((char *)"Revoke Property Tokens");
     case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return ((char *)"Change Issuer Address");
     case MSC_TYPE_NOTIFICATION: return ((char *)"Notification");
+    case OMNICORE_MESSAGE_TYPE_ALERT: return ((char *)"ALERT");
 
     default: return ((char *)"* unknown type *");
   }

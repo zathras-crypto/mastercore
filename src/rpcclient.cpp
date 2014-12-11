@@ -191,6 +191,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "listtransactions_MP"    && n > 4) ConvertTo<int64_t>(params[4]);
     if (strMethod == "getallbalancesforid_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
     if (strMethod == "listblocktransactions_MP"    && n > 0) ConvertTo<int64_t>(params[0]);
+#if 0
     if (strMethod == "trade_MP"                && n > 2) ConvertTo<int64_t>(params[2]);
     if (strMethod == "trade_MP"                && n > 4) ConvertTo<int64_t>(params[4]);
     if (strMethod == "trade_MP"                && n > 5) ConvertTo<int64_t>(params[5]);
@@ -201,6 +202,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "gettradessince_MP"         && n > 2) ConvertTo<int64_t>(params[2]);
     if (strMethod == "gettradehistory_MP"         && n > 1) ConvertTo<int64_t>(params[1]);
     if (strMethod == "gettradehistory_MP"         && n > 2) ConvertTo<int64_t>(params[2]);
+#endif
 
     return params;
 }
