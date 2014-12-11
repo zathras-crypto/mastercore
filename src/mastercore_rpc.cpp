@@ -960,6 +960,7 @@ int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
   return tmpPropId;
 }
 
+#ifndef DISABLE_METADEX
 Value trade_MP(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 6)
@@ -1042,8 +1043,8 @@ Value trade_MP(const Array& params, bool fHelp)
     return newTX.GetHex();
 }
 
-Value getorderbook_MP(const Array& params, bool fHelp) {
-
+Value getorderbook_MP(const Array& params, bool fHelp)
+{
    if (fHelp || params.size() < 1)
         throw runtime_error(
             "getorderbook_MP property_id1 ( property_id2 )\n"
@@ -1094,8 +1095,8 @@ Value getorderbook_MP(const Array& params, bool fHelp) {
   return response;
 }
  
-Value gettradessince_MP(const Array& params, bool fHelp) {
-
+Value gettradessince_MP(const Array& params, bool fHelp)
+{
    if (fHelp)
         throw runtime_error(
             "gettradessince_MP\n"
@@ -1153,8 +1154,9 @@ Value gettradessince_MP(const Array& params, bool fHelp) {
   
   return response;
 }
-Value getopenorders_MP(const Array& params, bool fHelp) {
 
+Value getopenorders_MP(const Array& params, bool fHelp)
+{
    if (fHelp)
         throw runtime_error(
             "getorderbook_MP\n"
@@ -1176,8 +1178,9 @@ Value getopenorders_MP(const Array& params, bool fHelp) {
         );
   return "\nNot Implemented";
 }
-Value gettradehistory_MP(const Array& params, bool fHelp) {
 
+Value gettradehistory_MP(const Array& params, bool fHelp)
+{
    if (fHelp || params.size() < 1)
         throw runtime_error(
             "gettradehistory_MP\n"
@@ -1229,6 +1232,7 @@ Value gettradehistory_MP(const Array& params, bool fHelp) {
   
   return response;
 }
+#endif
 
 Value getactivedexsells_MP(const Array& params, bool fHelp)
 {

@@ -328,15 +328,17 @@ static const CRPCCommand vRPCCommands[] =
     { "getgrants_MP",           &getgrants_MP,           false,     false,      true },
     { "getactivedexsells_MP",   &getactivedexsells_MP,   false,     false,      true },
     { "getactivecrowdsales_MP", &getactivecrowdsales_MP, false,     false,      true },
+#if 0
     { "trade_MP",               &trade_MP,               false,     false,      true },
     { "getorderbook_MP",        &getorderbook_MP,        false,     false,      true },
     { "gettradessince_MP",      &gettradessince_MP,      false,     false,      true },
     { "getopenorders_MP",       &getopenorders_MP,       false,     false,      true },
     { "gettradehistory_MP",     &gettradehistory_MP,     false,     false,      true },
+    { "gettrade_MP",            &gettrade_MP,            false,     false,      true },
+#endif
     { "sendtoowners_MP",        &sendtoowners_MP,        false,     false,      true },
     { "sendrawtx_MP",           &sendrawtx_MP,           false,     false,      true },
     { "getinfo_MP",             &getinfo_MP,            false,     false,      true },
-    { "gettrade_MP",            &gettrade_MP,            false,     false,      true },
     { "listblocktransactions_MP",       &listblocktransactions_MP,       false,     false,      true },
     { "getallbalancesforaddress_MP",    &getallbalancesforaddress_MP,    false,     false,      true },
 
