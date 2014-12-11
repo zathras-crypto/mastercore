@@ -692,8 +692,6 @@ uint64_t before, after;
     return false;
   }
 
-  if (string("1zAtHRASgdHvZDfHs6xJquMghga4eG7gy") == who) ++amount; // FIXME
-
   LOCK(cs_tally);
 
   before = getMPbalance(who, which_property, ttype);
