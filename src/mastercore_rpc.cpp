@@ -42,6 +42,16 @@ using namespace mastercore;
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
 
+void PropertyToJSON(const CMPSPInfo::Entry& sProperty, Object& property_obj)
+{
+    property_obj.push_back(Pair("name", sProperty.name));
+    property_obj.push_back(Pair("category", sProperty.category));
+    property_obj.push_back(Pair("subcategory", sProperty.subcategory));
+    property_obj.push_back(Pair("data", sProperty.data));
+    property_obj.push_back(Pair("url", sProperty.url));
+    property_obj.push_back(Pair("divisible", sProperty.isDivisible()));
+}
+
 void MetaDexObjectToJSON(const CMPMetaDEx& obj, Object& metadex_obj)
 {
     CMPSPInfo::Entry spProperty;
@@ -531,30 +541,17 @@ Value getproperty_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
-    Object response;
-        bool divisible = sp.isDivisible();
-        string propertyName = sp.name;
-        string propertyCategory = sp.category;
-        string propertySubCategory = sp.subcategory;
-        string propertyData = sp.data;
-        string propertyURL = sp.url;
-        uint256 creationTXID = sp.txid;
-        int64_t totalTokens = getTotalTokens(propertyId);
-        string issuer = sp.issuer;
-        bool fixedIssuance = sp.fixed;
+    int64_t nTotalTokens = getTotalTokens(propertyId);
+    std::string strCreationHash = sp.txid.GetHex();
+    std::string strTotalTokens = FormatMP(propertyId, nTotalTokens);
 
-        uint64_t dispPropertyId = propertyId; //json spirit needs a uint64 as noted elsewhere
-        response.push_back(Pair("propertyid", dispPropertyId)); //req by DexX to include propId in this output, no harm :)
-        response.push_back(Pair("name", propertyName));
-        response.push_back(Pair("category", propertyCategory));
-        response.push_back(Pair("subcategory", propertySubCategory));
-        response.push_back(Pair("data", propertyData));
-        response.push_back(Pair("url", propertyURL));
-        response.push_back(Pair("divisible", divisible));
-        response.push_back(Pair("issuer", issuer));
-        response.push_back(Pair("creationtxid", creationTXID.GetHex()));
-        response.push_back(Pair("fixedissuance", fixedIssuance));
-        response.push_back(Pair("totaltokens", FormatMP(propertyId, totalTokens)));
+    Object response;
+    response.push_back(Pair("propertyid", (uint64_t) propertyId));
+    PropertyToJSON(sp, response); // name, category, subcategory, data, url, divisible
+    response.push_back(Pair("issuer", sp.issuer));
+    response.push_back(Pair("creationtxid", strCreationHash));
+    response.push_back(Pair("fixedissuance", sp.fixed));
+    response.push_back(Pair("totaltokens", strTotalTokens));
 
 return response;
 }
@@ -589,24 +586,11 @@ Value listproperties_MP(const Array& params, bool fHelp)
         CMPSPInfo::Entry sp;
         if (false != _my_sps->getSP(propertyId, sp))
         {
-            Object responseItem;
+            Object property_obj;
+            property_obj.push_back(Pair("propertyid", propertyId));
+            PropertyToJSON(sp, property_obj); // name, category, subcategory, data, url, divisible
 
-            bool divisible=sp.isDivisible();
-            string propertyName = sp.name;
-            string propertyCategory = sp.category;
-            string propertySubCategory = sp.subcategory;
-            string propertyData = sp.data;
-            string propertyURL = sp.url;
-
-            responseItem.push_back(Pair("propertyid", propertyId));
-            responseItem.push_back(Pair("name", propertyName));
-            responseItem.push_back(Pair("category", propertyCategory));
-            responseItem.push_back(Pair("subcategory", propertySubCategory));
-            responseItem.push_back(Pair("data", propertyData));
-            responseItem.push_back(Pair("url", propertyURL));
-            responseItem.push_back(Pair("divisible", divisible));
-
-            response.push_back(responseItem);
+            response.push_back(property_obj);
         }
     }
 
@@ -616,24 +600,11 @@ Value listproperties_MP(const Array& params, bool fHelp)
         CMPSPInfo::Entry sp;
         if (false != _my_sps->getSP(propertyId, sp))
         {
-            Object responseItem;
+            Object property_obj;
+            property_obj.push_back(Pair("propertyid", propertyId));
+            PropertyToJSON(sp, property_obj); // name, category, subcategory, data, url, divisible
 
-            bool divisible=sp.isDivisible();
-            string propertyName = sp.name;
-            string propertyCategory = sp.category;
-            string propertySubCategory = sp.subcategory;
-            string propertyData = sp.data;
-            string propertyURL = sp.url;
-
-            responseItem.push_back(Pair("propertyid", propertyId));
-            responseItem.push_back(Pair("name", propertyName));
-            responseItem.push_back(Pair("category", propertyCategory));
-            responseItem.push_back(Pair("subcategory", propertySubCategory));
-            responseItem.push_back(Pair("data", propertyData));
-            responseItem.push_back(Pair("url", propertyURL));
-            responseItem.push_back(Pair("divisible", divisible));
-
-            response.push_back(responseItem);
+            response.push_back(property_obj);
         }
     }
 return response;
