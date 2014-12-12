@@ -586,6 +586,11 @@ else
   AC_MSG_RESULT(no)
 fi
 
+dnl require enabled wallet for now
+if test x$enable_wallet != xyes; then
+  AC_MSG_ERROR(Master Core must be used with enabled wallet. Please do not use --without-wallet or --disable-wallet.)
+fi
+
 dnl enable upnp support
 AC_MSG_CHECKING([whether to build with support for UPnP])
 if test x$have_miniupnpc = xno; then
