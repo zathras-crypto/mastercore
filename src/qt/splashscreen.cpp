@@ -15,6 +15,9 @@
 #include <QApplication>
 #include <QPainter>
 
+#include <boost/lexical_cast.hpp>
+#include "mastercore_version.h"
+
 SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTestNet) :
     QSplashScreen(pixmap, f)
 {
@@ -30,8 +33,9 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     float fontFactor            = 1.0;
 
     // define text to place
+    string coreVersionStr = "Experimental UI 0.0." + boost::lexical_cast<string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE;
     QString titleText       = tr("Master Core");
-    QString versionText     = QString("Experimental UI Alpha 0.0002b"); //QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
+    QString versionText     = QString::fromStdString(coreVersionStr);
     QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers"));
     QString copyrightMSC    = QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Master Protocol developers"));
     QString testnetAddText  = QString(tr("[testnet]")); // define text to place as single text object

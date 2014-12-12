@@ -17,6 +17,8 @@
 
 #include <QLabel>
 #include <QVBoxLayout>
+#include <boost/lexical_cast.hpp>
+#include "mastercore_version.h"
 
 /** "About" dialog box */
 AboutDialog::AboutDialog(QWidget *parent) :
@@ -34,7 +36,7 @@ void AboutDialog::setModel(ClientModel *model)
 {
     if(model)
     {
-        QString version = "0.0.9"; //hardcoded for now
+        QString version = QString::fromStdString("0.0." + boost::lexical_cast<std::string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE);
         /* On x86 add a bit specifier to the version so that users can distinguish between
          * 32 and 64 bit builds. On other architectures, 32/64 bit may be more ambigious.
          */

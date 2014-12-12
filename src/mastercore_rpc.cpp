@@ -42,6 +42,7 @@ using namespace mastercore;
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
 #include "mastercore_rpc.h"
+#include "mastercore_version.h"
 
 void PropertyToJSON(const CMPSPInfo::Entry& sProperty, Object& property_obj)
 {
@@ -2021,7 +2022,6 @@ Value getsto_MP(const Array& params, bool fHelp)
         if (propertyId == 0) // something went wrong, couldn't decode property ID - bad packet?
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
 
-        bool divisible = isPropertyDivisible(propertyId);
         // make a request to new RPC populator function to populate a transaction object
         int populateResult = populateRPCTransactionObject(hash, &txobj);
         // check the response, throw any error codes if false
