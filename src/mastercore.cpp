@@ -119,6 +119,7 @@ int msc_debug_persistence = 0;
 int msc_debug_metadex = 1;
 int msc_debug_metadex2= 1;
 int msc_debug_metadex3= 0;  // enable this to see the orderbook before & after each TX
+int msc_debug_ui = 1;
 
 static int disable_Divs = 0;
 static int disableLevelDB = 0;

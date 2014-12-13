@@ -205,6 +205,8 @@ void TXHistoryDialog::UpdateHistory()
     int64_t nStartBlock = 0;
     int64_t nEndBlock = 999999;
 
+    int chainHeight = GetHeight();
+
     Array response; //prep an array to hold our output
 
     // STO has no inbound transaction, so we need to use an insert methodology here
@@ -214,12 +216,17 @@ void TXHistoryDialog::UpdateHistory()
     boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
     int64_t lastTXBlock = 999999;
 
-    // rewrite to use original listtransactions methodology from core
-    LOCK(wallet->cs_wallet);
+    // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
+    // avoid hang waiting for locks
+    TRY_LOCK(cs_main,lckMain);
+    if (!lckMain) return;
+    TRY_LOCK(wallet->cs_wallet, lckWallet);
+    if (!lckWallet) return;
+
     std::list<CAccountingEntry> acentries;
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
 
-    // iterate backwards 
+    // iterate backwards
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
@@ -269,7 +276,7 @@ void TXHistoryDialog::UpdateHistory()
                         uint64_t total = 0;
                         s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total); // get matching receipts
                         QIcon ic = QIcon(":/icons/transaction_0");
-                        int confirmations =  1 + GetHeight() - pBlkIdx->nHeight;
+                        int confirmations = 1 + chainHeight - pBlkIdx->nHeight;
                         switch(confirmations)
                         {
                             case 1: ic = QIcon(":/icons/transaction_1"); break;
@@ -428,7 +435,7 @@ void TXHistoryDialog::UpdateHistory()
                 }
                 // icon
                 QIcon ic = QIcon(":/icons/transaction_0");
-                int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
+                int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
                 switch(confirmations)
                 {
                      case 1: ic = QIcon(":/icons/transaction_1"); break;

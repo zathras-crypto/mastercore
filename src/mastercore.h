@@ -189,6 +189,7 @@ int64_t feeCheck(const string &address);
 const std::string ExodusAddress();
 
 extern int msc_debug_dex;
+extern int msc_debug_ui;
 
 extern CCriticalSection cs_tally;
 
