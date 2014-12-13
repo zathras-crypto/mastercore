@@ -352,6 +352,16 @@ void TXHistoryDialog::UpdateHistory()
                         {
                             propertyId = mp_obj.getProperty();
                             amount = mp_obj.getAmount();
+                            // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
+                            if (valid) // we only generate an ID for valid creates
+                            {
+                                if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
+                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
+                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL))
+                                    {
+                                        propertyId = _my_sps->findSPByTX(hash);
+                                    }
+                            }
                             divisible = isPropertyDivisible(propertyId);
                         }
                     }
@@ -406,7 +416,17 @@ void TXHistoryDialog::UpdateHistory()
                 txTime.setTime_t(nTime);
                 QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
                 if (IsMyAddress(senderAddress)) displayAmount = "-" + displayAmount;
-                //icon
+                // override/hide display amount for invalid creates, we can't display amount and property as no prop exists
+                if (!valid)
+                {
+                    if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
+                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
+                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL))
+                        {
+                            displayAmount = "N/A";
+                        }
+                }
+                // icon
                 QIcon ic = QIcon(":/icons/transaction_0");
                 int confirmations =  1 + GetHeight() - pBlockIndex->nHeight;
                 switch(confirmations)
