@@ -33,6 +33,7 @@ public:
     //void FullRefresh();
     explicit TXHistoryDialog(QWidget *parent = 0);
     void setModel(WalletModel *model);
+    void CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved);
     void accept();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */

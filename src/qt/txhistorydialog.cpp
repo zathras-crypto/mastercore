@@ -124,6 +124,50 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     UpdateHistory();
 }
 
+void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved)
+{
+    QIcon ic = QIcon(":/icons/transaction_0");
+    switch(confirmations)
+    {
+        case 1: ic = QIcon(":/icons/transaction_1"); break;
+        case 2: ic = QIcon(":/icons/transaction_2"); break;
+        case 3: ic = QIcon(":/icons/transaction_3"); break;
+        case 4: ic = QIcon(":/icons/transaction_4"); break;
+        case 5: ic = QIcon(":/icons/transaction_5"); break;
+    }
+    if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
+    if (!valid) ic = QIcon(":/icons/transaction_invalid");
+    ui->txHistoryTable->setRowCount(rowcount+1);
+    QTableWidgetItem *dateCell = new QTableWidgetItem(QString::fromStdString(txTimeStr));
+    QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
+    QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
+    QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount));
+    QTableWidgetItem *iconCell = new QTableWidgetItem;
+    QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txidStr));
+    iconCell->setIcon(ic);
+    addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+    addressCell->setForeground(QColor("#707070"));
+    amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+    amountCell->setForeground(QColor("#EE0000"));
+    if (bInbound) amountCell->setForeground(QColor("#00AA00"));
+    if (!fundsMoved) amountCell->setForeground(QColor("#404040"));
+    if (rowcount % 2)
+    {
+        amountCell->setBackground(QColor("#F0F0F0"));
+        addressCell->setBackground(QColor("#F0F0F0"));
+        dateCell->setBackground(QColor("#F0F0F0"));
+        typeCell->setBackground(QColor("#F0F0F0"));
+        txidCell->setBackground(QColor("#F0F0F0"));
+        iconCell->setBackground(QColor("#F0F0F0"));
+    }
+    ui->txHistoryTable->setItem(rowcount, 0, iconCell);
+    ui->txHistoryTable->setItem(rowcount, 1, dateCell);
+    ui->txHistoryTable->setItem(rowcount, 2, typeCell);
+    ui->txHistoryTable->setItem(rowcount, 3, addressCell);
+    ui->txHistoryTable->setItem(rowcount, 4, amountCell);
+    ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+}
+
 void TXHistoryDialog::UpdateHistory()
 {
     int rowcount = 0;
@@ -134,65 +178,32 @@ void TXHistoryDialog::UpdateHistory()
         CMPPending *p_pending = &(it->second);
         uint256 txid = it->first;
         string txidStr = txid.GetHex();
-        //p_pending->print(txid);
-
         string senderAddress = p_pending->src;
         uint64_t propertyId = p_pending->prop;
         bool divisible = isPropertyDivisible(propertyId);
         string displayAmount;
         int64_t amount = p_pending->amount;
-        string displayToken;
         string displayValid;
         string displayAddress = senderAddress;
         int64_t type = p_pending->type;
-
         if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-
         if (propertyId < 3)
         {
-            if(propertyId == 1) { displayToken = " MSC"; }
-            if(propertyId == 2) { displayToken = " TMSC"; }
+            if(propertyId == 1) { displayAmount += " MSC"; }
+            if(propertyId == 2) { displayAmount += " TMSC"; }
         }
         else
         {
             string s = to_string(propertyId);
-            displayToken = " SPT#" + s;
+            displayAmount += " SPT#" + s;
         }
         QString txTimeStr = "Unconfirmed";
         string displayType;
-        if (type == 0) displayType = "Send";
+        bool fundsMoved = false;
+        if (type == 0) { displayType = "Send"; fundsMoved = true; }
         if (type == 21) displayType = "MetaDEx Trade";
         displayAmount = "-" + displayAmount; //all pending are outbound
-        //icon
-        QIcon ic = QIcon(":/icons/transaction_0");
-        // add to history
-        ui->txHistoryTable->setRowCount(rowcount+1);
-        QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
-        QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
-        QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
-        QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
-        QTableWidgetItem *iconCell = new QTableWidgetItem;
-        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txidStr)); //hash.GetHex()));
-        iconCell->setIcon(ic);
-        addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
-        addressCell->setForeground(QColor("#707070"));
-        amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
-        amountCell->setForeground(QColor("#EE0000"));
-        if (rowcount % 2)
-        {
-            amountCell->setBackground(QColor("#F0F0F0"));
-            addressCell->setBackground(QColor("#F0F0F0"));
-            dateCell->setBackground(QColor("#F0F0F0"));
-            typeCell->setBackground(QColor("#F0F0F0"));
-            txidCell->setBackground(QColor("#F0F0F0"));
-            iconCell->setBackground(QColor("#F0F0F0"));
-        }
-        ui->txHistoryTable->setItem(rowcount, 0, iconCell);
-        ui->txHistoryTable->setItem(rowcount, 1, dateCell);
-        ui->txHistoryTable->setItem(rowcount, 2, typeCell);
-        ui->txHistoryTable->setItem(rowcount, 3, addressCell);
-        ui->txHistoryTable->setItem(rowcount, 4, amountCell);
-        ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+        CreateRow(rowcount, true, false, 0, "Unconfirmed", displayType, displayAddress, displayAmount, txidStr, fundsMoved);
         rowcount += 1;
     }
 
@@ -272,58 +283,19 @@ void TXHistoryDialog::UpdateHistory()
                         CBlockIndex* pBlkIdx = chainActive[atoi(svstr[1])];
                         txTime.setTime_t(pBlkIdx->GetBlockTime());
                         QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                        string displayAmount;
                         Array receiveArray;
                         uint64_t total = 0;
                         s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total); // get matching receipts
-                        QIcon ic = QIcon(":/icons/transaction_0");
                         int confirmations = 1 + chainHeight - pBlkIdx->nHeight;
-                        switch(confirmations)
-                        {
-                            case 1: ic = QIcon(":/icons/transaction_1"); break;
-                            case 2: ic = QIcon(":/icons/transaction_2"); break;
-                            case 3: ic = QIcon(":/icons/transaction_3"); break;
-                            case 4: ic = QIcon(":/icons/transaction_4"); break;
-                            case 5: ic = QIcon(":/icons/transaction_5"); break;
-                        }
-                        if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
-                        string displayAmount;
-                        string displayToken;
                         if (divisible) { displayAmount = FormatDivisibleShortMP(total); } else { displayAmount = FormatIndivisibleMP(total); }
                         if (propertyId < 3) {
-                            if(propertyId == 1) { displayToken = " MSC"; } else { displayToken = " TMSC"; }
+                            if(propertyId == 1) { displayAmount += " MSC"; } else { displayAmount += " TMSC"; }
                         } else {
                             string s = to_string(propertyId);
-                            displayToken = " SPT#" + s;
+                            displayAmount += " SPT#" + s;
                         }
-
-                        // add to history
-                        ui->txHistoryTable->setRowCount(rowcount+1);
-                        QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
-                        QTableWidgetItem *typeCell = new QTableWidgetItem("STO Receive");
-                        QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
-                        QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
-                        QTableWidgetItem *iconCell = new QTableWidgetItem;
-                        QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(hash.GetHex()));
-                        iconCell->setIcon(ic);
-                        addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
-                        addressCell->setForeground(QColor("#707070"));
-                        amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
-                        amountCell->setForeground(QColor("#00AA00"));
-                        if (rowcount % 2)
-                        {
-                            amountCell->setBackground(QColor("#F0F0F0"));
-                            addressCell->setBackground(QColor("#F0F0F0"));
-                            dateCell->setBackground(QColor("#F0F0F0"));
-                            typeCell->setBackground(QColor("#F0F0F0"));
-                            txidCell->setBackground(QColor("#F0F0F0"));
-                            iconCell->setBackground(QColor("#F0F0F0"));
-                        }
-                        ui->txHistoryTable->setItem(rowcount, 0, iconCell);
-                        ui->txHistoryTable->setItem(rowcount, 1, dateCell);
-                        ui->txHistoryTable->setItem(rowcount, 2, typeCell);
-                        ui->txHistoryTable->setItem(rowcount, 3, addressCell);
-                        ui->txHistoryTable->setItem(rowcount, 4, amountCell);
-                        ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+                        CreateRow(rowcount, true, true, confirmations, txTimeStr.toStdString(), "STO Receive", displayAddress, displayAmount, hash.GetHex(), true);
                         rowcount += 1;
                     }
                 }
@@ -343,7 +315,55 @@ void TXHistoryDialog::UpdateHistory()
 
                 CMPTransaction mp_obj;
                 int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
-                if (0 <= parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                string displayAmount;
+                string displayToken;
+                string displayValid;
+                string displayAddress;
+                string displayType;
+                if (0 < parseRC) //positive RC means payment
+                {
+                    string tmpBuyer;
+                    string tmpSeller;
+                    uint64_t total = 0;
+                    uint64_t tmpVout = 0;
+                    uint64_t tmpNValue = 0;
+                    uint64_t tmpPropertyId = 0;
+                    p_txlistdb->getPurchaseDetails(hash,1,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
+                    senderAddress = tmpBuyer;
+                    refAddress = tmpSeller;
+                    bool bIsBuy = IsMyAddress(senderAddress);
+                    if (!bIsBuy)
+                    {
+                        displayType = "DEx Sell";
+                        displayAddress = refAddress;
+                    }
+                    else
+                    {
+                        displayType = "DEx Buy";
+                        displayAddress = senderAddress;
+                    }
+                    // calculate total bought/sold
+                    int numberOfPurchases=p_txlistdb->getNumberOfPurchases(hash);
+                    if (0<numberOfPurchases)
+                    {
+                        for(int purchaseNumber = 1; purchaseNumber <= numberOfPurchases; purchaseNumber++)
+                        {
+                            p_txlistdb->getPurchaseDetails(hash,purchaseNumber,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
+                            total += tmpNValue;
+                        }
+                        displayAmount = FormatDivisibleShortMP(total);
+                        if(tmpPropertyId == 1) { displayAmount += " MSC"; }
+                        if(tmpPropertyId == 2) { displayAmount += " TMSC"; }
+                        QDateTime txTime;
+                        txTime.setTime_t(nTime);
+                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                        if (!bIsBuy) displayAmount = "-" + displayAmount;
+                        int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
+                        CreateRow(rowcount, true, bIsBuy, confirmations, txTimeStr.toStdString(), displayType, displayAddress, displayAmount, hash.GetHex(), true);
+                        rowcount += 1;
+                    }
+                }
+                if (0 == parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
                 {
                     if (0<=mp_obj.step1())
                     {
@@ -367,116 +387,78 @@ void TXHistoryDialog::UpdateHistory()
                                     (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL))
                                     {
                                         propertyId = _my_sps->findSPByTX(hash);
+                                        if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED)
+                                        { amount = getTotalTokens(propertyId); }
+                                        else
+                                        { amount = 0; }
                                     }
                             }
                             divisible = isPropertyDivisible(propertyId);
                         }
                     }
-                }
-                QListWidgetItem *qItem = new QListWidgetItem();
-                qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
-                // shrink tx type
-                string displayType = "Unknown";
-                switch (mp_obj.getType())
-                {
-                    case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
-                    case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;
-                    case MSC_TYPE_SEND_TO_OWNERS: displayType = "Send To Owners"; break;
-                    case MSC_TYPE_SAVINGS_MARK: displayType = "Mark Savings"; break;
-                    case MSC_TYPE_SAVINGS_COMPROMISED: ; displayType = "Lock Savings"; break;
-                    case MSC_TYPE_RATELIMITED_MARK: displayType = "Rate Limit"; break;
-                    case MSC_TYPE_AUTOMATIC_DISPENSARY: displayType = "Auto Dispense"; break; 
-                    case MSC_TYPE_TRADE_OFFER: displayType = "DEx Trade"; break;
-                    case MSC_TYPE_METADEX: displayType = "MetaDEx Trade"; break;
-                    case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; break;
-                    case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
-                    case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
-                    case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property";
-                    case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale";
-                    case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
-                    case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
-                    case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
-                    case MSC_TYPE_CHANGE_ISSUER_ADDRESS: displayType = "Change Issuer"; break;
-                }
+                    QListWidgetItem *qItem = new QListWidgetItem();
+                    qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
+                    bool fundsMoved = true;
+                    // shrink tx type
+                    string displayType = "Unknown";
+                    switch (mp_obj.getType())
+                    {
+                        case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
+                        case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;
+                        case MSC_TYPE_SEND_TO_OWNERS: displayType = "Send To Owners"; break;
+                        case MSC_TYPE_SAVINGS_MARK: displayType = "Mark Savings"; fundsMoved = false; break;
+                        case MSC_TYPE_SAVINGS_COMPROMISED: ; displayType = "Lock Savings"; break;
+                        case MSC_TYPE_RATELIMITED_MARK: displayType = "Rate Limit"; break;
+                        case MSC_TYPE_AUTOMATIC_DISPENSARY: displayType = "Auto Dispense"; break;
+                        case MSC_TYPE_TRADE_OFFER: displayType = "DEx Trade"; fundsMoved = false; break;
+                        case MSC_TYPE_METADEX: displayType = "MetaDEx Trade"; fundsMoved = false; break;
+                        case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; fundsMoved = false; break;
+                        case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
+                        case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
+                        case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property";
+                        case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale";
+                        case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
+                        case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
+                        case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
+                        case MSC_TYPE_CHANGE_ISSUER_ADDRESS: displayType = "Change Issuer"; fundsMoved = false; break;
+                    }
+                    if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
+                    if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
+                    if (propertyId < 3)
+                    {
+                        if(propertyId == 1) { displayAmount += " MSC"; }
+                        if(propertyId == 2) { displayAmount += " TMSC"; }
+                    }
+                    else
+                    {
+                        string s = to_string(propertyId);
+                        displayAmount += " SPT#" + s;
+                    }
+                    if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; }
 
-                string displayAmount;
-                string displayToken;
-                string displayValid;
-                string displayAddress;
-                if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
-                if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-                if (valid) { displayValid = "valid"; } else { displayValid = "invalid"; }
-                if (propertyId < 3)
-                {
-                    if(propertyId == 1) { displayToken = " MSC"; }
-                    if(propertyId == 2) { displayToken = " TMSC"; }
-                }
-                else
-                {
-                    string s = to_string(propertyId);
-                    displayToken = " SPT#" + s;
-                }
-                string displayDirection = "out";
-                if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; }
-
-                QDateTime txTime;
-                txTime.setTime_t(nTime);
-                QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                if (IsMyAddress(senderAddress)) displayAmount = "-" + displayAmount;
-                // override/hide display amount for invalid creates, we can't display amount and property as no prop exists
-                if (!valid)
-                {
+                    QDateTime txTime;
+                    txTime.setTime_t(nTime);
+                    QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
+                    bool inbound = true;
+                    if (!valid) fundsMoved = false; // funds never move in invalid txs
+                    // override/hide display amount for invalid creates and unknown transactions as we
+                    // can't display amount and property as no prop exists
                     if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
                         (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL))
+                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
+                        (displayType == "Unknown" ))
                         {
-                            displayAmount = "N/A";
+                            if (!valid) { displayAmount = "N/A"; }
                         }
+                    else
+                        {
+                            if ((fundsMoved) && (IsMyAddress(senderAddress)))
+                                { displayAmount = "-" + displayAmount; inbound = false; }
+                        }
+                    int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
+                    CreateRow(rowcount, valid, inbound, confirmations, txTimeStr.toStdString(), displayType, displayAddress, displayAmount, hash.GetHex(), fundsMoved);
+                    rowcount += 1;
                 }
-                // icon
-                QIcon ic = QIcon(":/icons/transaction_0");
-                int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
-                switch(confirmations)
-                {
-                     case 1: ic = QIcon(":/icons/transaction_1"); break;
-                     case 2: ic = QIcon(":/icons/transaction_2"); break;
-                     case 3: ic = QIcon(":/icons/transaction_3"); break;
-                     case 4: ic = QIcon(":/icons/transaction_4"); break;
-                     case 5: ic = QIcon(":/icons/transaction_5"); break;
-                }
-                if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
-                if (!valid) ic = QIcon(":/icons/transaction_invalid");
-
-                // add to history
-                ui->txHistoryTable->setRowCount(rowcount+1);
-                QTableWidgetItem *dateCell = new QTableWidgetItem(txTimeStr);
-                QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
-                QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
-                QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount + displayToken));
-                QTableWidgetItem *iconCell = new QTableWidgetItem;
-                QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(hash.GetHex()));
-                iconCell->setIcon(ic);
-                addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
-                addressCell->setForeground(QColor("#707070"));
-                amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
-                amountCell->setForeground(QColor("#00AA00"));
-                if (IsMyAddress(senderAddress)) amountCell->setForeground(QColor("#EE0000"));
-                if (rowcount % 2)
-                {
-                    amountCell->setBackground(QColor("#F0F0F0"));
-                    addressCell->setBackground(QColor("#F0F0F0"));
-                    dateCell->setBackground(QColor("#F0F0F0"));
-                    typeCell->setBackground(QColor("#F0F0F0"));
-                    txidCell->setBackground(QColor("#F0F0F0"));
-                    iconCell->setBackground(QColor("#F0F0F0"));
-                }
-                ui->txHistoryTable->setItem(rowcount, 0, iconCell);
-                ui->txHistoryTable->setItem(rowcount, 1, dateCell);
-                ui->txHistoryTable->setItem(rowcount, 2, typeCell);
-                ui->txHistoryTable->setItem(rowcount, 3, addressCell);
-                ui->txHistoryTable->setItem(rowcount, 4, amountCell);
-                ui->txHistoryTable->setItem(rowcount, 5, txidCell);
-                rowcount += 1;
             }
         }
     // don't burn time doing more work than we need to
