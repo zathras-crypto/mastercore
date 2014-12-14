@@ -407,7 +407,7 @@
                </widget>
               </item>
               <item row="3" column="0" colspan="2">
-               <widget class="Line" name="line">
+               <widget class="Line" name="addedLine">
                 <property name="orientation">
                  <enum>Qt::Horizontal</enum>
                 </property>
