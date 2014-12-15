@@ -97,7 +97,7 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
      // MAINNET
      (sender == "1Michael2Please3Add4Your5Address") || // Michael
      (sender == "1Faiz2Please3Add4Your5Address") || // Faiz
-     (sender == "1Craig2Please3Add4Your5Address") || // Craig
+     (sender == "16Zwbujf1h3v1DotKcn9XXt1m7FZn2o4mj") || // Craig
      (sender == "1zAtHRASgdHvZDfHs6xJquMghga4eG7gy") || // Zathras
      (sender == "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P") // Exodus
      //(sender=="1Anyone2Else3Who4Should5Be6Here") // Who else?  JR? David? DexX?
