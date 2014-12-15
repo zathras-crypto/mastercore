@@ -529,6 +529,31 @@ std::string mastercore::getMasterCoreAlertString()
     return global_alert_message;
 }
 
+bool mastercore::parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage)
+{
+    std::vector<std::string> vstr;
+    boost::split(vstr, rawAlertStr, boost::is_any_of(":"), token_compress_on);
+    if (5 == vstr.size())
+    {
+        try {
+            *alertType = boost::lexical_cast<int32_t>(vstr[0]);
+            *expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+            *typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+            *verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
+        } catch (const boost::bad_lexical_cast &e) {
+            file_log("DEBUG ALERT - error in converting values from global alert string\n");
+            return false; //(something went wrong)
+        }
+        *alertMessage = vstr[4];
+        if ((*alertType < 1) || (*alertType > 4) || (*expiryValue == 0)) {
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are not as expected.\n");
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 std::string mastercore::getMasterCoreAlertTextOnly()
 {
     std::vector<std::string> vstr;
