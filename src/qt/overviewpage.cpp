@@ -439,7 +439,6 @@ void OverviewPage::updateAlerts()
     // init variables
     bool showAlert = false;
     QString totalMessage;
-    std::vector<std::string> vstr;
     // override to check alert directly rather than passing in param as we won't always be calling from bitcoin in
     // the clientmodel emit for alertsChanged
     QString warnings = QString::fromStdString(GetWarnings("statusbar")); // get current bitcoin alert/warning directly
