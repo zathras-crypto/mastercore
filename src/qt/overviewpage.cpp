@@ -167,7 +167,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->labelTransactionsStatus->setText("(" + tr("out of sync") + ")");
     ui->proclabel->setText("(" + tr("processing") + ")"); //msc processing label
     ui->proclabel_2->setText("(" + tr("processing") + ")"); //smart property processing label
-
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 }
@@ -185,6 +184,10 @@ OverviewPage::~OverviewPage()
 
 void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
+    // Mastercore alerts come as block transactions and do not trip bitcoin alertsChanged() signal so let's check the
+    // alert status with the update balance signal that comes in after each block to see if it had any alerts in it
+    updateAlerts();
+
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     currentBalance = balance;
     currentUnconfirmedBalance = unconfirmedBalance;
@@ -384,8 +387,8 @@ void OverviewPage::setClientModel(ClientModel *model)
     if(model)
     {
         // Show warning if this is a prerelease version
-        connect(model, SIGNAL(alertsChanged(QString)), this, SLOT(updateAlerts(QString)));
-        updateAlerts(model->getStatusBarWarnings());
+        connect(model, SIGNAL(alertsChanged(QString)), this, SLOT(updateAlerts()));
+        updateAlerts();
     }
 }
 
@@ -431,8 +434,11 @@ void OverviewPage::updateDisplayUnit()
     }
 }
 
-void OverviewPage::updateAlerts(const QString &warnings)
+void OverviewPage::updateAlerts()
 {
+    // override to check alert directly rather than passing in param as we won't always be calling from bitcoin in
+    // the clientmodel emit for alertsChanged
+    QString warnings = QString::fromStdString(GetWarnings("statusbar")); // get current bitcoin alert/warning directly
     string alertMessage = getMasterCoreAlertString();
     // any BitcoinCore or MasterCore alerts to display?
     bool showAlert = false;
