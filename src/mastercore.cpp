@@ -529,6 +529,26 @@ std::string mastercore::getMasterCoreAlertString()
     return global_alert_message;
 }
 
+std::string mastercore::getMasterCoreAlertTextOnly()
+{
+    std::vector<std::string> vstr;
+    if(!global_alert_message.empty())
+    {
+        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
+        // make sure there are 5 tokens, 5th is text message
+        if (5 == vstr.size())
+        {
+            return vstr[4];
+        }
+        else
+        {
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 5 tokens\n");
+            return "";
+        }
+    }
+    return "";
+}
+
 bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
 {
     //expire any alerts that need expiring

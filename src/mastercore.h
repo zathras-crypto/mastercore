@@ -502,6 +502,7 @@ bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = N
 
 bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
 std::string getMasterCoreAlertString();
+std::string getMasterCoreAlertTextOnly();
 }
 
 #endif
