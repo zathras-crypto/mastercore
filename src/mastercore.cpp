@@ -2541,8 +2541,9 @@ int mastercore_init()
   }
 
   // collect the real Exodus balances available at the snapshot time
+  // redundant? do we need to show it both pre-parse and post-parse?  if so let's label the printfs accordingly
   exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
-  printf("Exodus balance: %lu\n", exodus_balance);
+  printf("[Snapshot] Exodus balance: %s\n", FormatDivisibleMP(exodus_balance).c_str());
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
   (void) p_txlistdb->setLastAlert(nWaterlineBlock);
@@ -2551,7 +2552,7 @@ int mastercore_init()
 
   // display Exodus balance
   exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
-  printf("Exodus balance: %lu\n", exodus_balance);
+  printf("[Initialized] Exodus balance: %s\n", FormatDivisibleMP(exodus_balance).c_str());
 
   return 0;
 }

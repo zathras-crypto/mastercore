@@ -96,6 +96,20 @@ void MetaDexObjectsToJSON(std::vector<CMPMetaDEx>& vMetaDexObjs, Array& response
     }
 }
 
+void BalanceToJSON(const std::string& address, uint32_t property, Object& balance_obj)
+{
+    // confirmed balance minus unconfirmed, spent amounts 
+    int64_t nAvailable = getUserAvailableMPbalance(address, property);
+
+    int64_t nReserved = 0;
+    nReserved += getMPbalance(address, property, ACCEPT_RESERVE);
+    nReserved += getMPbalance(address, property, METADEX_RESERVE);
+    nReserved += getMPbalance(address, property, SELLOFFER_RESERVE);
+
+    balance_obj.push_back(Pair("balance", FormatMP(property, nAvailable)));
+    balance_obj.push_back(Pair("reserved", FormatMP(property, nReserved)));
+}
+
 // display the tally map & the offer/accept list(s)
 Value mscrpc(const Array& params, bool fHelp)
 {
@@ -226,14 +240,8 @@ Value getbalance_MP(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
     }
 
-    int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
-    int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
-    int64_t tmpBalReservedAccept = 0;
-    if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
-
     Object balance_obj;
-    balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
-    balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
+    BalanceToJSON(address, propertyId, balance_obj);
 
     return balance_obj;
 }
@@ -442,15 +450,9 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
 
-        int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
-        int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
-        int64_t tmpBalReservedAccept = 0;
-        if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
-
         Object balance_obj;
         balance_obj.push_back(Pair("address", address));
-        balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
-        balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
+        BalanceToJSON(address, propertyId, balance_obj);
 
         response.push_back(balance_obj);
     }
@@ -495,17 +497,11 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     uint64_t propertyId; // avoid issues with json spirit at uint32
     while (0 != (propertyId = addressTally->next()))
     {
-            int64_t tmpBalAvailable = getUserAvailableMPbalance(address, propertyId);
-            int64_t tmpBalReservedSell = getMPbalance(address, propertyId, SELLOFFER_RESERVE);
-            int64_t tmpBalReservedAccept = 0;
-            if (propertyId<3) tmpBalReservedAccept = getMPbalance(address, propertyId, ACCEPT_RESERVE);
+        Object balance_obj;
+        balance_obj.push_back(Pair("propertyid", propertyId));
+        BalanceToJSON(address, propertyId, balance_obj);
 
-            Object balance_obj;
-            balance_obj.push_back(Pair("propertyid", propertyId));
-            balance_obj.push_back(Pair("balance", FormatMP(propertyId, tmpBalAvailable)));
-            balance_obj.push_back(Pair("reserved", FormatMP(propertyId, tmpBalReservedSell+tmpBalReservedAccept)));
-
-            response.push_back(balance_obj);
+        response.push_back(balance_obj);
     }
 
     return response;
