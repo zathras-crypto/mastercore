@@ -5,6 +5,7 @@
 #include "init.h"
 #include "util.h"
 #include "wallet.h"
+#include "alert.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -152,6 +153,8 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
           // copy the alert string into the global_alert_message and return a 0 rc
           string message(alertString);
           *new_global_alert_message=message;
+          // we have a new alert, fire a notify event if needed
+          CAlert::Notify(alertMessage, true);
           return 0;
       }
   }
