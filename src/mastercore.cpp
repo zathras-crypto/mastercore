@@ -98,30 +98,31 @@ static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
 
-int msc_debug_parser_data = 0;
-int msc_debug_parser= 0;
-int msc_debug_verbose=0;
-int msc_debug_verbose2=0;
-int msc_debug_verbose3=0;
-int msc_debug_vin   = 0;
-int msc_debug_script= 0;
-int msc_debug_dex   = 1;
-int msc_debug_send  = 1;
-int msc_debug_tokens= 0;
-int msc_debug_spec  = 1;
-int msc_debug_exo   = 0;
-int msc_debug_tally = 1;
-int msc_debug_sp    = 1;
-int msc_debug_sto   = 1;
-int msc_debug_txdb  = 0;
-int msc_debug_tradedb = 1;
-int msc_debug_persistence = 0;
-int msc_debug_metadex = 1;
-int msc_debug_metadex2= 1;
+const int msc_debug_parser_data = 0;
+const int msc_debug_parser= 0;
+const int msc_debug_verbose=0;
+const int msc_debug_verbose2=0;
+const int msc_debug_verbose3=0;
+const int msc_debug_vin   = 0;
+const int msc_debug_script= 0;
+const int msc_debug_dex   = 1;
+const int msc_debug_send  = 1;
+const int msc_debug_tokens= 0;
+const int msc_debug_spec  = 1;
+const int msc_debug_exo   = 0;
+const int msc_debug_tally = 1;
+const int msc_debug_sp    = 1;
+const int msc_debug_sto   = 1;
+const int msc_debug_txdb  = 0;
+const int msc_debug_tradedb = 1;
+const int msc_debug_persistence = 0;
+// disable all flags for metadex for the immediate tag, then turn back on 0 & 2 at least
+int msc_debug_metadex1= 0;
+int msc_debug_metadex2= 0;
 int msc_debug_metadex3= 0;  // enable this to see the orderbook before & after each TX
 
-static int disable_Divs = 0;
-static int disableLevelDB = 0;
+const static int disable_Divs = 0;
+const static int disableLevelDB = 0;
 
 static int mastercoreInitialized = 0;
 

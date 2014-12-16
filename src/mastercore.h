@@ -186,9 +186,9 @@ int64_t feeCheck(const string &address);
 
 const std::string ExodusAddress();
 
-extern int msc_debug_dex;
-
 extern CCriticalSection cs_tally;
+
+extern const int msc_debug_dex;
 
 enum TallyType { BALANCE = 0, SELLOFFER_RESERVE = 1, ACCEPT_RESERVE = 2, PENDING = 3, METADEX_RESERVE = 4, TALLY_TYPE_COUNT };
 
