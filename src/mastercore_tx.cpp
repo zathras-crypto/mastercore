@@ -90,12 +90,12 @@ int CMPTransaction::step2_Alert(std::string *new_global_alert_message)
   bool authorized = false;
   if (
      // TESTNET
-     (sender == "mMichaelsAddress") || // Michael
+     (sender == "mpDex4kSX4iscrmiEQ8fBiPoyeTH55z23j") || // Michael
      (sender == "mfaiZGBkY4mBqt3PHPD2qWgbaafGa7vR64") || // Faiz
      (sender == "mCraigAddress") || // Craig
      (sender == "mpZATHupfCLqet5N1YL48ByCM1ZBfddbGJ") || // Zathras
      // MAINNET
-     (sender == "1Michael2Please3Add4Your5Address") || // Michael
+     (sender == "1MicH2Vu4YVSvREvxW1zAx2XKo2GQomeXY") || // Michael
      (sender == "1Faiz2Please3Add4Your5Address") || // Faiz
      (sender == "16Zwbujf1h3v1DotKcn9XXt1m7FZn2o4mj") || // Craig
      (sender == "1zAtHRASgdHvZDfHs6xJquMghga4eG7gy") || // Zathras
