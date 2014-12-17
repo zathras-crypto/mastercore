@@ -41,6 +41,7 @@ using namespace mastercore;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
+#include "mastercore_version.h"
 
 void PropertyToJSON(const CMPSPInfo::Entry& sProperty, Object& property_obj)
 {
