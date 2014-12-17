@@ -3981,6 +3981,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
     t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
+    s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
