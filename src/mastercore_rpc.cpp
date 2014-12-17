@@ -40,6 +40,7 @@ using namespace mastercore;
 #include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
+#include "mastercore_rpc.h"
 #include "mastercore_errors.h"
 #include "mastercore_version.h"
 
