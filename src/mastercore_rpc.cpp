@@ -211,9 +211,7 @@ int extra2 = 0, extra3 = 0;
       s_stolistdb->printAll();
       s_stolistdb->printStats();
       break;
-   }
   }
-
   return GetHeight();
 }
 
