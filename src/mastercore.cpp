@@ -3458,6 +3458,60 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
+bool CMPSTOList::exists(string address)
+{
+  if (!sdb) return false;
+
+  string strValue;
+  Status status = sdb->Get(readoptions, address, &strValue);
+
+  if (!status.ok())
+  {
+    if (status.IsNotFound()) return false;
+  }
+
+  return true;
+}
+
+void CMPSTOList::recordSTOReceive(string address, const uint256 &txid, int nBlock, unsigned int propertyId, uint64_t amount)
+{
+  if (!sdb) return;
+
+  bool addressExists = s_stolistdb->exists(address);
+  if (addressExists)
+  {
+      //retrieve existing record
+      std::vector<std::string> vstr;
+      string strValue;
+      Status status = sdb->Get(readoptions, address, &strValue);
+      if (status.ok())
+      {
+          // add details to record
+          const string key = address;
+          const string newValue = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
+          strValue += newValue;
+          // write updated record
+          Status status;
+          if (sdb)
+          {
+              status = sdb->Put(writeoptions, key, strValue);
+              file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+          }
+      }
+      else
+      {
+          const string key = address;
+          const string value = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
+          Status status;
+          if (sdb)
+          {
+              status = sdb->Put(writeoptions, key, value);
+              file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+          }
+      }
+  }
+}
+
 void CMPSTOList::printAll()
 {
   int count = 0;

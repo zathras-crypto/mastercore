@@ -346,6 +346,8 @@ public:
     int deleteAboveBlock(int blockNum);
     void printStats();
     void printAll();
+    bool exists(string address);
+    void recordSTOReceive(std::string, const uint256&, int, unsigned int, uint64_t);
 };
 
 /* leveldb-based storage for trade history - trades will be listed here atomically with key txid1:txid2 */
