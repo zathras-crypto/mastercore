@@ -3498,16 +3498,16 @@ void CMPSTOList::recordSTOReceive(string address, const uint256 &txid, int nBloc
               file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
           }
       }
-      else
+  }
+  else
+  {
+      const string key = address;
+      const string value = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
+      Status status;
+      if (sdb)
       {
-          const string key = address;
-          const string value = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
-          Status status;
-          if (sdb)
-          {
-              status = sdb->Put(writeoptions, key, value);
-              file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
-          }
+          status = sdb->Put(writeoptions, key, value);
+          file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
       }
   }
 }
@@ -4517,6 +4517,9 @@ int rc = PKT_ERROR_STO -1000;
         }
 
         update_tally_map(address, property, will_really_receive, BALANCE);
+
+        // add to stodb
+        s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
 
         if (sent_so_far >= nValue)
         {
