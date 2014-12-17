@@ -43,6 +43,7 @@ BITCOIN_CORE_H = \
   mastercore_parse_string.h \
   mastercore_tx.h \
   mastercore_dex.h \
+  mastercore_rpc.h \
   mastercore_sp.h \
   mastercore_errors.h \
   mastercore_version.h \
