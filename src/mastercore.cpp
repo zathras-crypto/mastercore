@@ -153,6 +153,7 @@ static const int txRestrictionsRules[][3] = {
 
 CMPTxList *mastercore::p_txlistdb;
 CMPTradeList *mastercore::t_tradelistdb;
+CMPSTOList *mastercore::s_stolistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -2448,6 +2449,7 @@ int mastercore_init()
       }
   }
   t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
+  s_stolistdb = new CMPSTOList(GetDataDir() / "MP_stolist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2546,7 +2548,10 @@ int mastercore_shutdown()
   {
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
-
+  if (s_stolistdb)
+  {
+    delete s_stolistdb; s_stolistdb = NULL;
+  }
   file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
@@ -3446,6 +3451,82 @@ unsigned int n_found = 0;
   }
 
   printf("%s(%d, %d); n_found= %d\n", __FUNCTION__, starting_block, ending_block, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
+// MPSTOList here
+void CMPSTOList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = sdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
+void CMPSTOList::printStats()
+{
+  file_log("CMPSTOList stats: tWritten= %d , tRead= %d\n", sWritten, sRead);
+}
+
+// delete any STO receipts after blockNum
+int CMPSTOList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = sdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    string address = skey.ToString();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(","), token_compress_on);
+    string newValue = "";
+    bool needsUpdate = false;
+    for(uint32_t i = 0; i<vstr.size(); i++)
+    {
+        std::vector<std::string> svstr;
+        boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+        if(4 == svstr.size())
+        {
+            if(atoi(svstr[1]) <= blockNum) { newValue += vstr[i]; } else { needsUpdate = true; } // add back to new key
+        }
+    }
+
+    if(needsUpdate)
+    {
+        ++n_found;
+        const string key = address;
+        // write updated record
+        Status status;
+        if (sdb)
+        {
+            status = sdb->Put(writeoptions, key, newValue);
+            file_log("DEBUG STO - rewriting STO data after reorg\n");
+            file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+        }
+    }
+  }
+
+  printf("%s(%d); stodb n_found= %d\n", __FUNCTION__, blockNum, n_found);
 
   delete it;
 
