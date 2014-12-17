@@ -3599,6 +3599,10 @@ void CMPSTOList::recordSTOReceive(string address, const uint256 &txid, int nBloc
       if (status.ok())
       {
           // add details to record
+          // see if we are overwriting (check)
+          size_t txidMatch = strValue.find(txid.ToString());
+          if(txidMatch!=std::string::npos) file_log("STODEBUG : Duplicating entry for %s : %s\n",address,txid.ToString());
+
           const string key = address;
           const string newValue = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
           strValue += newValue;
