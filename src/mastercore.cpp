@@ -2423,6 +2423,30 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  // check for --startclean option and delete MP_ folders if present
+  if (GetBoolArg("-startclean", false))
+  {
+      try
+      {
+          boost::filesystem::path persistPath = GetDataDir() / "MP_persist";
+          boost::filesystem::path txlistPath = GetDataDir() / "MP_txlist";
+          boost::filesystem::path tradePath = GetDataDir() / "MP_tradelist";
+          boost::filesystem::path spPath = GetDataDir() / "MP_spinfo";
+          boost::filesystem::path stoPath = GetDataDir() / "MP_stolist";
+          boost::filesystem::path logFile = GetDataDir() / "mastercore.log";
+          if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
+          if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
+          if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
+          if (boost::filesystem::exists(spPath)) boost::filesystem::remove_all(spPath);
+          if (boost::filesystem::exists(stoPath)) boost::filesystem::remove_all(stoPath);
+          if (boost::filesystem::exists(logFile)) boost::filesystem::remove(logFile);
+      }
+      catch(boost::filesystem::filesystem_error const & e)
+      {
+          file_log("Exception deleting folders for --startclean option.\n");
+          printf("Exception deleting folders for --startclean option.\n");
+      }
+  }
   t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
