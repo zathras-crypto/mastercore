@@ -3735,12 +3735,12 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   string address;
                   string address1 = vstr[0];
                   string address2 = vstr[1];
-                  unsigned int prop1;
-                  unsigned int prop2;
-                  uint64_t uAmount1;
-                  uint64_t uAmount2;
-                  uint64_t nBought;
-                  uint64_t nSold;
+                  unsigned int prop1 = 0;
+                  unsigned int prop2 = 0;
+                  uint64_t uAmount1 = 0;
+                  uint64_t uAmount2 = 0;
+                  uint64_t nBought = 0;
+                  uint64_t nSold = 0;
                   string amountBought;
                   string amountSold;
                   string amount1;
