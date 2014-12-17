@@ -344,6 +344,7 @@ public:
     }
 
     void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible);
+    std::string getMySTOReceipts(string filterAddress);
     int deleteAboveBlock(int blockNum);
     void printStats();
     void printAll();

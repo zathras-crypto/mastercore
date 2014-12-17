@@ -3458,6 +3458,42 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
+std::string CMPSTOList::getMySTOReceipts(string filterAddress)
+{
+  if (!sdb) return "";
+  string mySTOReceipts = "";
+
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  Iterator* it = sdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      string recipientAddress = skey.ToString();
+      if(!IsMyAddress(recipientAddress)) continue; // not ours, not interested
+      if((!filterAddress.empty()) && (filterAddress != recipientAddress)) continue; // not the filtered address
+      // ours, get info
+      svalue = it->value();
+      string strValue = svalue.ToString();
+      // break into individual receipts
+      std::vector<std::string> vstr;
+      boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
+      for(uint32_t i = 0; i<vstr.size(); i++)
+      {
+          // add to array
+          std::vector<std::string> svstr;
+          boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+          if(4 == svstr.size())
+          {
+              size_t txidMatch = strValue.find(svstr[0]);
+              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
+          }
+      }
+  }
+  delete it;
+  return mySTOReceipts;
+}
+
 void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible)
 {
   if (!sdb) return;
