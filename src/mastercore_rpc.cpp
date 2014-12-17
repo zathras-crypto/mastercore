@@ -1981,7 +1981,6 @@ Value getsto_MP(const Array& params, bool fHelp)
         if (propertyId == 0) // something went wrong, couldn't decode property ID - bad packet?
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a Master Protocol transaction");
 
-        bool divisible = isPropertyDivisible(propertyId);
         // make a request to new RPC populator function to populate a transaction object
         int populateResult = populateRPCTransactionObject(hash, &txobj);
         // check the response, throw any error codes if false
@@ -2007,7 +2006,8 @@ Value getsto_MP(const Array& params, bool fHelp)
         }
         // create array of recipients
         Array receiveArray;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, divisible);
+        uint64_t tmpAmount = 0;
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount);
         // add matches array to object
         txobj.push_back(Pair("recipients", receiveArray));
     }
