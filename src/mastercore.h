@@ -343,6 +343,7 @@ public:
       sdb = NULL;
     }
 
+    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible);
     int deleteAboveBlock(int blockNum);
     void printStats();
     void printAll();
