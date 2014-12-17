@@ -3495,7 +3495,7 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
   return mySTOReceipts;
 }
 
-void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, bool divisible)
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total)
 {
   if (!sdb) return;
 
@@ -3539,9 +3539,11 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
                   {
                       //add data to array
                       uint64_t amount = 0;
+                      uint64_t propertyId = 0;
                       try
                       {
                           amount = boost::lexical_cast<uint64_t>(svstr[3]);
+                          propertyId = boost::lexical_cast<uint64_t>(svstr[2]);
                       } catch (const boost::bad_lexical_cast &e)
                       {
                           file_log("DEBUG STO - error in converting values from leveldb\n");
@@ -3550,7 +3552,7 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
                       }
                       Object recipient;
                       recipient.push_back(Pair("address", recipientAddress));
-                      if(divisible)
+                      if(isPropertyDivisible(propertyId))
                       {
                          recipient.push_back(Pair("amount", FormatDivisibleMP(amount)));
                       }
@@ -3558,6 +3560,7 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
                       {
                          recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
                       }
+                      *total += amount;
                       recipientArray->push_back(recipient);
                       ++count;
                   }
