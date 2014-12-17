@@ -309,6 +309,45 @@ public:
   }
 };
 
+/* leveldb-based storage for sto recipients */
+class CMPSTOList
+{
+    protected:
+    // datebase options reused from MPTxList
+    leveldb::Options options;
+    leveldb::ReadOptions readoptions;
+    leveldb::ReadOptions iteroptions;
+    leveldb::WriteOptions writeoptions;
+    leveldb::WriteOptions syncoptions;
+    leveldb::DB *sdb;
+    // statistics
+    unsigned int sWritten;
+    unsigned int sRead;
+
+public:
+    CMPSTOList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):sWritten(0),sRead(0)
+    {
+      options.paranoid_checks = true;
+      options.create_if_missing = true;
+      readoptions.verify_checksums = true;
+      iteroptions.verify_checksums = true;
+      iteroptions.fill_cache = false;
+      syncoptions.sync = true;
+      leveldb::Status status = leveldb::DB::Open(options, path.string(), &sdb);
+      printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    }
+
+    ~CMPSTOList()
+    {
+      delete sdb;
+      sdb = NULL;
+    }
+
+    int deleteAboveBlock(int blockNum);
+    void printStats();
+    void printAll();
+};
+
 /* leveldb-based storage for trade history - trades will be listed here atomically with key txid1:txid2 */
 class CMPTradeList
 {
@@ -465,6 +504,7 @@ namespace mastercore
 extern std::map<string, CMPTally> mp_tally_map;
 extern CMPTxList *p_txlistdb;
 extern CMPTradeList *t_tradelistdb;
+extern CMPSTOList *s_stolistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
 
