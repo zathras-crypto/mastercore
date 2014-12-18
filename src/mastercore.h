@@ -21,10 +21,6 @@ int const MAX_STATE_HISTORY = 50;
 
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
 
-// define the version for alert messages
-#define OMNICORE_VERSION_BASE 90 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
-#define OMNICORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
-
 // could probably also use: int64_t maxInt64 = std::numeric_limits<int64_t>::max();
 // maximum numeric values from the spec:
 #define MAX_INT_8_BYTES (9223372036854775807UL)
@@ -309,6 +305,49 @@ public:
   }
 };
 
+/* leveldb-based storage for sto recipients */
+class CMPSTOList
+{
+    protected:
+    // datebase options reused from MPTxList
+    leveldb::Options options;
+    leveldb::ReadOptions readoptions;
+    leveldb::ReadOptions iteroptions;
+    leveldb::WriteOptions writeoptions;
+    leveldb::WriteOptions syncoptions;
+    leveldb::DB *sdb;
+    // statistics
+    unsigned int sWritten;
+    unsigned int sRead;
+
+public:
+    CMPSTOList(const boost::filesystem::path &path, size_t nCacheSize, bool fMemory, bool fWipe):sWritten(0),sRead(0)
+    {
+      options.paranoid_checks = true;
+      options.create_if_missing = true;
+      readoptions.verify_checksums = true;
+      iteroptions.verify_checksums = true;
+      iteroptions.fill_cache = false;
+      syncoptions.sync = true;
+      leveldb::Status status = leveldb::DB::Open(options, path.string(), &sdb);
+      printf("%s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+    }
+
+    ~CMPSTOList()
+    {
+      delete sdb;
+      sdb = NULL;
+    }
+
+    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total);
+    std::string getMySTOReceipts(string filterAddress);
+    int deleteAboveBlock(int blockNum);
+    void printStats();
+    void printAll();
+    bool exists(string address);
+    void recordSTOReceive(std::string, const uint256&, int, unsigned int, uint64_t);
+};
+
 /* leveldb-based storage for trade history - trades will be listed here atomically with key txid1:txid2 */
 class CMPTradeList
 {
@@ -465,6 +504,7 @@ namespace mastercore
 extern std::map<string, CMPTally> mp_tally_map;
 extern CMPTxList *p_txlistdb;
 extern CMPTradeList *t_tradelistdb;
+extern CMPSTOList *s_stolistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
 
