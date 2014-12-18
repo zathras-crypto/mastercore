@@ -1,0 +1,4 @@
+
+#define OMNICORE_VERSION_BASE 1
+#define OMNICORE_VERSION_TYPE "2"
+
