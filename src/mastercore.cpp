@@ -77,6 +77,7 @@ using namespace mastercore;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_errors.h"
+#include "mastercore_version.h"
 
 // part of 'breakout' feature
 static const int nBlockTop = 0;
@@ -153,6 +154,7 @@ static const int txRestrictionsRules[][3] = {
 
 CMPTxList *mastercore::p_txlistdb;
 CMPTradeList *mastercore::t_tradelistdb;
+CMPSTOList *mastercore::s_stolistdb;
 
 // a copy from main.cpp -- unfortunately that one is in a private namespace
 int mastercore::GetHeight()
@@ -2423,7 +2425,32 @@ int mastercore_init()
     exodus_address = exodus_testnet;
   }*/
 
+  // check for --startclean option and delete MP_ folders if present
+  if (GetBoolArg("-startclean", false))
+  {
+      try
+      {
+          boost::filesystem::path persistPath = GetDataDir() / "MP_persist";
+          boost::filesystem::path txlistPath = GetDataDir() / "MP_txlist";
+          boost::filesystem::path tradePath = GetDataDir() / "MP_tradelist";
+          boost::filesystem::path spPath = GetDataDir() / "MP_spinfo";
+          boost::filesystem::path stoPath = GetDataDir() / "MP_stolist";
+          boost::filesystem::path logFile = GetDataDir() / "mastercore.log";
+          if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
+          if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
+          if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
+          if (boost::filesystem::exists(spPath)) boost::filesystem::remove_all(spPath);
+          if (boost::filesystem::exists(stoPath)) boost::filesystem::remove_all(stoPath);
+          if (boost::filesystem::exists(logFile)) boost::filesystem::remove(logFile);
+      }
+      catch(boost::filesystem::filesystem_error const & e)
+      {
+          file_log("Exception deleting folders for --startclean option.\n");
+          printf("Exception deleting folders for --startclean option.\n");
+      }
+  }
   t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
+  s_stolistdb = new CMPSTOList(GetDataDir() / "MP_stolist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
   _my_sps = new CMPSPInfo(GetDataDir() / "MP_spinfo");
   MPPersistencePath = GetDataDir() / "MP_persist";
@@ -2522,7 +2549,10 @@ int mastercore_shutdown()
   {
     delete t_tradelistdb; t_tradelistdb = NULL;
   }
-
+  if (s_stolistdb)
+  {
+    delete s_stolistdb; s_stolistdb = NULL;
+  }
   file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
@@ -3428,6 +3458,254 @@ unsigned int n_found = 0;
   return (n_found);
 }
 
+// MPSTOList here
+std::string CMPSTOList::getMySTOReceipts(string filterAddress)
+{
+  if (!sdb) return "";
+  string mySTOReceipts = "";
+
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  Iterator* it = sdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      string recipientAddress = skey.ToString();
+      if(!IsMyAddress(recipientAddress)) continue; // not ours, not interested
+      if((!filterAddress.empty()) && (filterAddress != recipientAddress)) continue; // not the filtered address
+      // ours, get info
+      svalue = it->value();
+      string strValue = svalue.ToString();
+      // break into individual receipts
+      std::vector<std::string> vstr;
+      boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
+      for(uint32_t i = 0; i<vstr.size(); i++)
+      {
+          // add to array
+          std::vector<std::string> svstr;
+          boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+          if(4 == svstr.size())
+          {
+              size_t txidMatch = strValue.find(svstr[0]);
+              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
+          }
+      }
+  }
+  delete it;
+  return mySTOReceipts;
+}
+
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total)
+{
+  if (!sdb) return;
+
+  bool filter = true; //default
+  bool filterByWallet = true; //default
+  bool filterByAddress = false; //default
+
+  if (filterAddress == "*") filter = false;
+  if ((filterAddress != "") && (filterAddress != "*")) { filterByWallet = false; filterByAddress = true; }
+
+  // iterate through SDB, dropping all records where key is not filterAddress (if filtering)
+  int count = 0;
+  Slice skey, svalue;
+  readoptions.fill_cache = false;
+  Iterator* it = sdb->NewIterator(readoptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+      skey = it->key();
+      string recipientAddress = skey.ToString();
+      if(filter)
+      {
+          if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
+          { } else { continue; } // move on if no filter match
+      }
+      svalue = it->value();
+      string strValue = svalue.ToString();
+      // see if txid is in the data
+      size_t txidMatch = strValue.find(txid.ToString());
+      if(txidMatch!=std::string::npos)
+      {
+          // the txid exists inside the data, this address was a recipient of this STO, add the details
+          std::vector<std::string> vstr;
+          boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
+          for(uint32_t i = 0; i<vstr.size(); i++)
+          {
+              std::vector<std::string> svstr;
+              boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+              if(4 == svstr.size())
+              {
+                  if(svstr[0] == txid.ToString())
+                  {
+                      //add data to array
+                      uint64_t amount = 0;
+                      uint64_t propertyId = 0;
+                      try
+                      {
+                          amount = boost::lexical_cast<uint64_t>(svstr[3]);
+                          propertyId = boost::lexical_cast<uint64_t>(svstr[2]);
+                      } catch (const boost::bad_lexical_cast &e)
+                      {
+                          file_log("DEBUG STO - error in converting values from leveldb\n");
+                          delete it;
+                          return; //(something went wrong)
+                      }
+                      Object recipient;
+                      recipient.push_back(Pair("address", recipientAddress));
+                      if(isPropertyDivisible(propertyId))
+                      {
+                         recipient.push_back(Pair("amount", FormatDivisibleMP(amount)));
+                      }
+                      else
+                      {
+                         recipient.push_back(Pair("amount", FormatIndivisibleMP(amount)));
+                      }
+                      *total += amount;
+                      recipientArray->push_back(recipient);
+                      ++count;
+                  }
+              }
+          }
+      }
+  }
+
+  delete it;
+  return;
+}
+
+bool CMPSTOList::exists(string address)
+{
+  if (!sdb) return false;
+
+  string strValue;
+  Status status = sdb->Get(readoptions, address, &strValue);
+
+  if (!status.ok())
+  {
+    if (status.IsNotFound()) return false;
+  }
+
+  return true;
+}
+
+void CMPSTOList::recordSTOReceive(string address, const uint256 &txid, int nBlock, unsigned int propertyId, uint64_t amount)
+{
+  if (!sdb) return;
+
+  bool addressExists = s_stolistdb->exists(address);
+  if (addressExists)
+  {
+      //retrieve existing record
+      std::vector<std::string> vstr;
+      string strValue;
+      Status status = sdb->Get(readoptions, address, &strValue);
+      if (status.ok())
+      {
+          // add details to record
+          // see if we are overwriting (check)
+          size_t txidMatch = strValue.find(txid.ToString());
+          if(txidMatch!=std::string::npos) file_log("STODEBUG : Duplicating entry for %s : %s\n",address,txid.ToString());
+
+          const string key = address;
+          const string newValue = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
+          strValue += newValue;
+          // write updated record
+          Status status;
+          if (sdb)
+          {
+              status = sdb->Put(writeoptions, key, strValue);
+              file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+          }
+      }
+  }
+  else
+  {
+      const string key = address;
+      const string value = strprintf("%s:%d:%u:%lu,", txid.ToString(), nBlock, propertyId, amount);
+      Status status;
+      if (sdb)
+      {
+          status = sdb->Put(writeoptions, key, value);
+          file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+      }
+  }
+}
+
+void CMPSTOList::printAll()
+{
+  int count = 0;
+  Slice skey, svalue;
+
+  readoptions.fill_cache = false;
+
+  Iterator* it = sdb->NewIterator(readoptions);
+
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    svalue = it->value();
+    ++count;
+    printf("entry #%8d= %s:%s\n", count, skey.ToString().c_str(), svalue.ToString().c_str());
+  }
+
+  delete it;
+}
+
+void CMPSTOList::printStats()
+{
+  file_log("CMPSTOList stats: tWritten= %d , tRead= %d\n", sWritten, sRead);
+}
+
+// delete any STO receipts after blockNum
+int CMPSTOList::deleteAboveBlock(int blockNum)
+{
+  leveldb::Slice skey, svalue;
+  unsigned int count = 0;
+  std::vector<std::string> vstr;
+  unsigned int n_found = 0;
+  leveldb::Iterator* it = sdb->NewIterator(iteroptions);
+  for(it->SeekToFirst(); it->Valid(); it->Next())
+  {
+    skey = it->key();
+    string address = skey.ToString();
+    svalue = it->value();
+    ++count;
+    string strvalue = it->value().ToString();
+    boost::split(vstr, strvalue, boost::is_any_of(","), token_compress_on);
+    string newValue = "";
+    bool needsUpdate = false;
+    for(uint32_t i = 0; i<vstr.size(); i++)
+    {
+        std::vector<std::string> svstr;
+        boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
+        if(4 == svstr.size())
+        {
+            if(atoi(svstr[1]) <= blockNum) { newValue += vstr[i]; } else { needsUpdate = true; } // add back to new key
+        }
+    }
+
+    if(needsUpdate)
+    {
+        ++n_found;
+        const string key = address;
+        // write updated record
+        Status status;
+        if (sdb)
+        {
+            status = sdb->Put(writeoptions, key, newValue);
+            file_log("DEBUG STO - rewriting STO data after reorg\n");
+            file_log("STODBDEBUG : %s(): %s, line %d, file: %s\n", __FUNCTION__, status.ToString().c_str(), __LINE__, __FILE__);
+        }
+    }
+  }
+
+  printf("%s(%d); stodb n_found= %d\n", __FUNCTION__, blockNum, n_found);
+
+  delete it;
+
+  return (n_found);
+}
+
 // MPTradeList here
 bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId, Array *tradeArray, uint64_t *totalSold, uint64_t *totalBought)
 {
@@ -3460,12 +3738,12 @@ bool CMPTradeList::getMatchingTrades(const uint256 txid, unsigned int propertyId
                   string address;
                   string address1 = vstr[0];
                   string address2 = vstr[1];
-                  unsigned int prop1;
-                  unsigned int prop2;
-                  uint64_t uAmount1;
-                  uint64_t uAmount2;
-                  uint64_t nBought;
-                  uint64_t nSold;
+                  unsigned int prop1 = 0;
+                  unsigned int prop2 = 0;
+                  uint64_t uAmount1 = 0;
+                  uint64_t uAmount2 = 0;
+                  uint64_t nBought = 0;
+                  uint64_t nSold = 0;
                   string amountBought;
                   string amountSold;
                   string amount1;
@@ -3710,6 +3988,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     if(!readPersistence()) clear_all_state();
     p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true);
     t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight);
+    s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight);
     reorgRecoveryMaxHeight = 0;
 
 
@@ -4358,6 +4637,9 @@ int rc = PKT_ERROR_STO -1000;
         }
 
         update_tally_map(address, property, will_really_receive, BALANCE);
+
+        // add to stodb
+        s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
 
         if (sent_so_far >= nValue)
         {

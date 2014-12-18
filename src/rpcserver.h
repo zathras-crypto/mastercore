@@ -211,4 +211,5 @@ extern json_spirit::Value gettradehistory_MP(const json_spirit::Array& params, b
 extern json_spirit::Value listtransactions_MP(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listblocktransactions_MP(const json_spirit::Array& params, bool fHelp); // in mastercore.cpp
 extern json_spirit::Value getinfo_MP(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getsto_MP(const json_spirit::Array& params, bool fHelp);
 #endif
