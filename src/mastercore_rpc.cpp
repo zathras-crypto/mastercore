@@ -1806,6 +1806,13 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
     Array response; //prep an array to hold our output
 
+    // STO has no inbound transaction, so we need to use an insert methodology here
+    // get STO receipts affecting me
+    string mySTOReceipts = s_stolistdb->getMySTOReceipts(addressParam);
+    std::vector<std::string> vecReceipts;
+    boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
+    int64_t lastTXBlock = 999999;
+
     // rewrite to use original listtransactions methodology from core
     LOCK(wallet->cs_wallet);
     std::list<CAccountingEntry> acentries;
@@ -1825,6 +1832,35 @@ Value listtransactions_MP(const Array& params, bool fHelp)
             int blockHeight = pBlockIndex->nHeight;
             if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue; // ignore it if not within our range
 
+            // look for an STO receipt to see if we need to insert it
+            for(uint32_t i = 0; i<vecReceipts.size(); i++)
+            {
+                std::vector<std::string> svstr;
+                boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), token_compress_on);
+                if(4 == svstr.size()) // make sure expected num items
+                {
+                    if((atoi(svstr[1]) < lastTXBlock) && (atoi(svstr[1]) > blockHeight))
+                    {
+                        // STO receipt insert here - add STO receipt to response array
+                        uint256 hash;
+                        hash.SetHex(svstr[0]);
+                        Object txobj;
+                        int populateResult = -1;
+                        populateResult = populateRPCTransactionObject(hash, &txobj);
+                        if (0 == populateResult)
+                        {
+                            Array receiveArray;
+                            uint64_t tmpAmount = 0;
+                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount); // get matching receipts
+                            txobj.push_back(Pair("recipients", receiveArray));
+                            response.push_back(txobj); // add the transaction object to the response array
+                        }
+                        // don't burn time doing more work than we need to
+                        if ((int)response.size() >= (nCount+nFrom)) break;
+                    }
+                }
+            }
+
             // populateRPCTransactionObject will throw us a non-0 rc if this isn't a MP transaction, speeds up search by orders of magnitude
             uint256 hash = pwtx->GetHash();
             Object txobj;
@@ -1840,6 +1876,7 @@ Value listtransactions_MP(const Array& params, bool fHelp)
                 populateResult = populateRPCTransactionObject(hash, &txobj); // no address filter
             }
             if (0 == populateResult) response.push_back(txobj); // add the transaction object to the response array if we get a 0 rc
+            lastTXBlock = blockHeight;
 
             // don't burn time doing more work than we need to
             if ((int)response.size() >= (nCount+nFrom)) break;
