@@ -3486,8 +3486,8 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
           boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
           if(4 == svstr.size())
           {
-              size_t txidMatch = strValue.find(svstr[0]);
-              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
+              size_t txidMatch = mySTOReceipts.find(svstr[0]);
+              if(txidMatch==std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
           }
       }
   }
