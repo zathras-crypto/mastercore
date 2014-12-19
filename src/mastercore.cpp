@@ -3495,7 +3495,7 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
   return mySTOReceipts;
 }
 
-void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total)
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total, uint64_t *stoFee)
 {
   if (!sdb) return;
 
@@ -3508,6 +3508,11 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
 
   // iterate through SDB, dropping all records where key is not filterAddress (if filtering)
   int count = 0;
+
+  // ugly way to do this, really we should store the fee used but for now since we know it is
+  // always num_addresses * 0.00000001 MSC we can recalculate it on the fly
+  *stoFee = 0;
+
   Slice skey, svalue;
   readoptions.fill_cache = false;
   Iterator* it = sdb->NewIterator(readoptions);
@@ -3515,18 +3520,19 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
   {
       skey = it->key();
       string recipientAddress = skey.ToString();
-      if(filter)
-      {
-          if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
-          { } else { continue; } // move on if no filter match
-      }
       svalue = it->value();
       string strValue = svalue.ToString();
       // see if txid is in the data
       size_t txidMatch = strValue.find(txid.ToString());
       if(txidMatch!=std::string::npos)
       {
-          // the txid exists inside the data, this address was a recipient of this STO, add the details
+          ++*stoFee;
+          // the txid exists inside the data, this address was a recipient of this STO, check filter and add the details
+          if(filter)
+          {
+              if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
+              { } else { continue; } // move on if no filter match (but counter still increased for fee)
+          }
           std::vector<std::string> vstr;
           boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
           for(uint32_t i = 0; i<vstr.size(); i++)

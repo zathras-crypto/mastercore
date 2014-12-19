@@ -339,7 +339,7 @@ public:
       sdb = NULL;
     }
 
-    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total);
+    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total, uint64_t *stoFee);
     std::string getMySTOReceipts(string filterAddress);
     int deleteAboveBlock(int blockNum);
     void printStats();
