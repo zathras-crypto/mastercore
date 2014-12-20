@@ -1076,7 +1076,7 @@ vector<string>script_data;
 vector<string>address_data;
 // vector<uint64_t>value_data;
 vector<int64_t>value_data;
-int64_t ExodusValues[MAX_BTC_OUTPUTS];
+int64_t ExodusValues[MAX_BTC_OUTPUTS]= { 0 };
 int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
