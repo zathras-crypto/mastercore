@@ -1851,7 +1851,10 @@ Value listtransactions_MP(const Array& params, bool fHelp)
                         {
                             Array receiveArray;
                             uint64_t tmpAmount = 0;
-                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount); // get matching receipts
+                            uint64_t stoFee = 0;
+                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount, &stoFee);
+                            // add matches array and stofee to object
+                            txobj.push_back(Pair("totalstofee", FormatDivisibleMP(stoFee))); // fee always MSC so always divisible
                             txobj.push_back(Pair("recipients", receiveArray));
                             response.push_back(txobj); // add the transaction object to the response array
                         }
@@ -2044,8 +2047,10 @@ Value getsto_MP(const Array& params, bool fHelp)
         // create array of recipients
         Array receiveArray;
         uint64_t tmpAmount = 0;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount);
-        // add matches array to object
+        uint64_t stoFee = 0;
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount, &stoFee);
+        // add matches array and stofee to object
+        txobj.push_back(Pair("totalstofee", FormatDivisibleMP(stoFee))); // fee always MSC so always divisible
         txobj.push_back(Pair("recipients", receiveArray));
     }
     // return object
