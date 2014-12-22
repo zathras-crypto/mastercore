@@ -2428,6 +2428,7 @@ int mastercore_init()
   // check for --startclean option and delete MP_ folders if present
   if (GetBoolArg("-startclean", false))
   {
+      file_log("Process was started with --startclean option, attempting to clear persistence files...");
       try
       {
           boost::filesystem::path persistPath = GetDataDir() / "MP_persist";
@@ -2435,13 +2436,12 @@ int mastercore_init()
           boost::filesystem::path tradePath = GetDataDir() / "MP_tradelist";
           boost::filesystem::path spPath = GetDataDir() / "MP_spinfo";
           boost::filesystem::path stoPath = GetDataDir() / "MP_stolist";
-          boost::filesystem::path logFile = GetDataDir() / "mastercore.log";
           if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
           if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
           if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
           if (boost::filesystem::exists(spPath)) boost::filesystem::remove_all(spPath);
           if (boost::filesystem::exists(stoPath)) boost::filesystem::remove_all(stoPath);
-          if (boost::filesystem::exists(logFile)) boost::filesystem::remove(logFile);
+          file_log("Success clearing persistence files (did not raise any exceptions).");
       }
       catch(boost::filesystem::filesystem_error const & e)
       {
