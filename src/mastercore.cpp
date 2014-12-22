@@ -4566,6 +4566,9 @@ int rc = PKT_ERROR_STO -1000;
         n_owners++;
       }
 
+      // exclude the sender
+      --n_owners;
+
       file_log("\t          Owners: %lu\n", n_owners);
 
       // make sure we found some owners
