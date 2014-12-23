@@ -642,7 +642,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
 }
 
 // get total tokens for a property
-// optionally counters the number of addresses who own that property: n_owners_total
+// optionally counts the number of addresses who own that property: n_owners_total
 int64_t mastercore::getTotalTokens(unsigned int propertyId, int64_t *n_owners_total)
 {
 int64_t prev = 0, owners = 0;
@@ -4530,7 +4530,6 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       totalTokens = 0;
-      int64_t n_owners = 0;
 
       typedef std::set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
       OwnerAddrType OwnerAddrSet;
@@ -4560,59 +4559,19 @@ int rc = PKT_ERROR_STO -1000;
 
       file_log("  Excluding Sender: %s\n", FormatMP(property, totalTokens).c_str());
 
-      // loop #1 -- count the actual number of owners to receive the payment
-      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
-        n_owners++;
-      }
-
-      // exclude the sender
-      --n_owners;
-
-      file_log("\t          Owners: %lu\n", n_owners);
-
-      // make sure we found some owners
-      if (0 >= n_owners)
-      {
-        return (PKT_ERROR_STO -4);
-      }
-
-      int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
-
       // determine which property the fee will be paid in
       const unsigned int feeProperty = isTestEcosystemProperty(property) ? OMNI_PROPERTY_TMSC : OMNI_PROPERTY_MSC;
 
-      file_log("\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
+    uint64_t n_owners = 0;
+    rc = 0; // almost good, the for-loop will set the error code if any
 
-      // enough coins to pay the fee?
-      if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
-      {
-        return (PKT_ERROR_STO -5);
-      }
-
-      // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
-      if (feeProperty == property)
-      {
-        if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
-        {
-          return (PKT_ERROR_STO -55);
-        }
-      }
-
-      // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
-      {
-        // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
-        return (PKT_ERROR_STO -500);
-      }
-
-      // loop #2
+    for (unsigned int itern=0;itern<=1;itern++)  // iteration number, loop executes twice - first time the dry run to collect n_owners
+    { // two-iteration loop START
       // split up what was taken and distribute between all holders
       uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
       double percentage, piece;
-      rc = 0; // almost good, the for-loop will set the error code
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
+      { // owners loop
       const string address = my_it->second;
 
         owns = my_it->first;
@@ -4632,38 +4591,83 @@ int rc = PKT_ERROR_STO -1000;
 
         sent_so_far += will_really_receive;
 
-        if (msc_debug_sto)
-         file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
-          owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
-
-        // record the detailed info as needed
-//        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
-
-        if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
+        if (itern)
         {
-          return (PKT_ERROR_STO -1);
+        // real execution of the loop
+          if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
+          {
+            return (PKT_ERROR_STO -1);
+          }
+
+          update_tally_map(address, property, will_really_receive, BALANCE);
+
+          // add to stodb
+          s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
+
+          if (sent_so_far >= nValue)
+          {
+            file_log("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
+            break; // done here, everybody who could get paid got paid
+          }
+        }
+        else
+        {
+          // dry run code
+          ++n_owners;
+
+          if (msc_debug_sto)
+           file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+            owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+
+          // record the detailed info as needed
+          if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
+        }
+      } // owners loop
+
+      if (!itern) // first dummy iteration
+      { //  if first ITERATION BEGIN
+        // make sure we found some owners
+        if (0 >= n_owners)
+        {
+          return (PKT_ERROR_STO -4);
         }
 
-        update_tally_map(address, property, will_really_receive, BALANCE);
+        file_log("\t          Owners: %lu\n", n_owners);
 
-        // add to stodb
-        s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
+        const int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
+        file_log("\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
-        if (sent_so_far >= nValue)
+        // enough coins to pay the fee?
+        if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
         {
-          file_log("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
-          break; // done here, everybody who could get paid got paid
+          return (PKT_ERROR_STO -5);
         }
-      }
+
+        // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
+        if (feeProperty == property)
+        {
+          if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
+          {
+            return (PKT_ERROR_STO -55);
+          }
+        }
+
+        // burn MSC or TMSC here: take the transfer fee away from the sender
+        if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
+        {
+          // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
+          return (PKT_ERROR_STO -500);
+        }
+      } //  if first ITERATION END
 
       // sent_so_far must equal nValue here
       if (sent_so_far != nValue)
       {
-        file_log("send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n", sent_so_far, nValue, n_owners);
+        file_log("sent_so_far= %14lu, nValue= %14lu, n_owners= %lu\n", sent_so_far, nValue, n_owners);
 
         // rc = ???
       }
+    } // two-iteration loop END
 
     return rc;
 }
