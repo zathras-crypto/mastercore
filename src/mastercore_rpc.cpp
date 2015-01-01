@@ -107,8 +107,8 @@ void BalanceToJSON(const std::string& address, uint32_t property, Object& balanc
     nReserved += getMPbalance(address, property, SELLOFFER_RESERVE);
 
     if (divisible) {
-        balance_obj.push_back(Pair("balance", FormatDivisibleMP(property, nAvailable)));
-        balance_obj.push_back(Pair("reserved", FormatDivisibleMP(property, nReserved)));
+        balance_obj.push_back(Pair("balance", FormatDivisibleMP(nAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatDivisibleMP(nReserved)));
     } else {
         balance_obj.push_back(Pair("balance", FormatIndivisibleMP(nAvailable)));
         balance_obj.push_back(Pair("reserved", FormatIndivisibleMP(nReserved)));
