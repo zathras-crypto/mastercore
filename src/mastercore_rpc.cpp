@@ -96,9 +96,9 @@ void MetaDexObjectsToJSON(std::vector<CMPMetaDEx>& vMetaDexObjs, Array& response
     }
 }
 
-void BalanceToJSON(const std::string& address, uint32_t property, Object& balance_obj)
+void BalanceToJSON(const std::string& address, uint32_t property, Object& balance_obj, bool divisible)
 {
-    // confirmed balance minus unconfirmed, spent amounts 
+    // confirmed balance minus unconfirmed, spent amounts
     int64_t nAvailable = getUserAvailableMPbalance(address, property);
 
     int64_t nReserved = 0;
@@ -106,8 +106,13 @@ void BalanceToJSON(const std::string& address, uint32_t property, Object& balanc
     nReserved += getMPbalance(address, property, METADEX_RESERVE);
     nReserved += getMPbalance(address, property, SELLOFFER_RESERVE);
 
-    balance_obj.push_back(Pair("balance", FormatMP(property, nAvailable)));
-    balance_obj.push_back(Pair("reserved", FormatMP(property, nReserved)));
+    if (divisible) {
+        balance_obj.push_back(Pair("balance", FormatDivisibleMP(property, nAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatDivisibleMP(property, nReserved)));
+    } else {
+        balance_obj.push_back(Pair("balance", FormatIndivisibleMP(nAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatIndivisibleMP(nReserved)));
+    }
 }
 
 // display the tally map & the offer/accept list(s)
@@ -241,7 +246,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     }
 
     Object balance_obj;
-    BalanceToJSON(address, propertyId, balance_obj);
+    BalanceToJSON(address, propertyId, balance_obj, isPropertyDivisible(propertyId));
 
     return balance_obj;
 }
@@ -436,6 +441,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
     }
 
     Array response;
+    bool divisible = isPropertyDivisible(propertyId); // we want to check this BEFORE the loop
 
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
@@ -452,7 +458,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         Object balance_obj;
         balance_obj.push_back(Pair("address", address));
-        BalanceToJSON(address, propertyId, balance_obj);
+        BalanceToJSON(address, propertyId, balance_obj, divisible);
 
         response.push_back(balance_obj);
     }
@@ -499,7 +505,7 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     {
         Object balance_obj;
         balance_obj.push_back(Pair("propertyid", propertyId));
-        BalanceToJSON(address, propertyId, balance_obj);
+        BalanceToJSON(address, propertyId, balance_obj, isPropertyDivisible(propertyId));
 
         response.push_back(balance_obj);
     }
