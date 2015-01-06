@@ -4613,7 +4613,7 @@ int rc = PKT_ERROR_STO -1000;
         else
         {
           // dry run code
-          ++n_owners;
+          if (will_really_receive > 0) ++n_owners;
 
           if (msc_debug_sto)
            file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
