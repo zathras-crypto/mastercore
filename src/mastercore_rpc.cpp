@@ -1940,31 +1940,14 @@ Value getinfo_MP(const Array& params, bool fHelp)
     uint64_t expiryValue = 0;
     uint32_t typeCheck = 0;
     uint32_t verCheck = 0;
-    std::vector<std::string> vstr;
+    string alertTypeStr;
     string alertMessage;
 
-    //split the global message string if it's not empty
     if(!global_alert_message.empty())
     {
-        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 5 tokens and they convert ok
-        if (5 == vstr.size())
+        bool parseSuccess = parseAlertMessage(global_alert_message, &alertType, &expiryValue, &typeCheck, &verCheck, &alertMessage);
+        if (parseSuccess)
         {
-            try
-            {
-                alertType = boost::lexical_cast<int32_t>(vstr[0]);
-                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
-                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
-                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
-                alertMessage = vstr[4];
-            } catch (const boost::bad_lexical_cast &e)
-              {
-                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
-                  alertType = 0;
-                  expiryValue = 0;
-                  alertMessage = "error";
-              }
-            string alertTypeStr;
             switch (alertType)
             {
                 case 0: alertTypeStr = "error"; break;
@@ -1977,11 +1960,6 @@ Value getinfo_MP(const Array& params, bool fHelp)
             alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
             if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
             alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
-        }
-        else
-        {
-            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
         }
     }
     infoResponse.push_back(Pair("alert", alertResponse));
