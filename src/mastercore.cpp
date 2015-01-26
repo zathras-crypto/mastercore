@@ -4590,16 +4590,17 @@ int rc = PKT_ERROR_STO -1000;
     for (unsigned int itern=0;itern<=1;itern++)  // iteration number, loop executes twice - first time the dry run to collect n_owners
     { // two-iteration loop START
       // split up what was taken and distribute between all holders
-      uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
-      double percentage, piece;
+      uint64_t sent_so_far = 0;
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
       { // owners loop
       const string address = my_it->second;
 
-        owns = my_it->first;
-        percentage = (double) owns / (double) totalTokens;
-        piece = percentage * nValue;
-        should_receive = ceil(piece);
+        int128_t owns = my_it->first;
+        int128_t temp = owns * int128_t(nValue);
+        int128_t piece = 1 + ((temp - 1) / int128_t(totalTokens));
+
+        uint64_t will_really_receive = 0;
+        uint64_t should_receive = piece.convert_to<uint64_t>();
 
         // ensure that much is still available
         if ((nValue - sent_so_far) < should_receive)
@@ -4638,8 +4639,8 @@ int rc = PKT_ERROR_STO -1000;
           if (will_really_receive > 0) ++n_owners;
 
           if (msc_debug_sto)
-           file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
-            owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
+            file_log("%14lu = %s, temp= %38s, should_get= %19lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+            owns, address.c_str(), temp.str(), should_receive, will_really_receive, sent_so_far);
 
           // record the detailed info as needed
           if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
