@@ -40,8 +40,8 @@ using namespace mastercore;
 #include "mastercore_parse_string.h"
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
-#include "mastercore_errors.h"
 #include "mastercore_rpc.h"
+#include "mastercore_errors.h"
 #include "mastercore_version.h"
 
 void PropertyToJSON(const CMPSPInfo::Entry& sProperty, Object& property_obj)
@@ -96,9 +96,9 @@ void MetaDexObjectsToJSON(std::vector<CMPMetaDEx>& vMetaDexObjs, Array& response
     }
 }
 
-void BalanceToJSON(const std::string& address, uint32_t property, Object& balance_obj)
+void BalanceToJSON(const std::string& address, uint32_t property, Object& balance_obj, bool divisible)
 {
-    // confirmed balance minus unconfirmed, spent amounts 
+    // confirmed balance minus unconfirmed, spent amounts
     int64_t nAvailable = getUserAvailableMPbalance(address, property);
 
     int64_t nReserved = 0;
@@ -106,8 +106,13 @@ void BalanceToJSON(const std::string& address, uint32_t property, Object& balanc
     nReserved += getMPbalance(address, property, METADEX_RESERVE);
     nReserved += getMPbalance(address, property, SELLOFFER_RESERVE);
 
-    balance_obj.push_back(Pair("balance", FormatMP(property, nAvailable)));
-    balance_obj.push_back(Pair("reserved", FormatMP(property, nReserved)));
+    if (divisible) {
+        balance_obj.push_back(Pair("balance", FormatDivisibleMP(nAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatDivisibleMP(nReserved)));
+    } else {
+        balance_obj.push_back(Pair("balance", FormatIndivisibleMP(nAvailable)));
+        balance_obj.push_back(Pair("reserved", FormatIndivisibleMP(nReserved)));
+    }
 }
 
 // display the tally map & the offer/accept list(s)
@@ -212,8 +217,8 @@ int extra2 = 0, extra3 = 0;
       // display the STO receive list
       s_stolistdb->printAll();
       s_stolistdb->printStats();
+      break;
   }
-
   return GetHeight();
 }
 
@@ -241,7 +246,7 @@ Value getbalance_MP(const Array& params, bool fHelp)
     }
 
     Object balance_obj;
-    BalanceToJSON(address, propertyId, balance_obj);
+    BalanceToJSON(address, propertyId, balance_obj, isPropertyDivisible(propertyId));
 
     return balance_obj;
 }
@@ -436,6 +441,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
     }
 
     Array response;
+    bool divisible = isPropertyDivisible(propertyId); // we want to check this BEFORE the loop
 
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
@@ -452,7 +458,7 @@ Value getallbalancesforid_MP(const Array& params, bool fHelp)
 
         Object balance_obj;
         balance_obj.push_back(Pair("address", address));
-        BalanceToJSON(address, propertyId, balance_obj);
+        BalanceToJSON(address, propertyId, balance_obj, divisible);
 
         response.push_back(balance_obj);
     }
@@ -499,7 +505,7 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
     {
         Object balance_obj;
         balance_obj.push_back(Pair("propertyid", propertyId));
-        BalanceToJSON(address, propertyId, balance_obj);
+        BalanceToJSON(address, propertyId, balance_obj, isPropertyDivisible(propertyId));
 
         response.push_back(balance_obj);
     }
@@ -1851,7 +1857,10 @@ Value listtransactions_MP(const Array& params, bool fHelp)
                         {
                             Array receiveArray;
                             uint64_t tmpAmount = 0;
-                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount); // get matching receipts
+                            uint64_t stoFee = 0;
+                            s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &tmpAmount, &stoFee);
+                            // add matches array and stofee to object
+                            txobj.push_back(Pair("totalstofee", FormatDivisibleMP(stoFee))); // fee always MSC so always divisible
                             txobj.push_back(Pair("recipients", receiveArray));
                             response.push_back(txobj); // add the transaction object to the response array
                         }
@@ -1931,31 +1940,14 @@ Value getinfo_MP(const Array& params, bool fHelp)
     uint64_t expiryValue = 0;
     uint32_t typeCheck = 0;
     uint32_t verCheck = 0;
-    std::vector<std::string> vstr;
+    string alertTypeStr;
     string alertMessage;
 
-    //split the global message string if it's not empty
     if(!global_alert_message.empty())
     {
-        boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 5 tokens and they convert ok
-        if (5 == vstr.size())
+        bool parseSuccess = parseAlertMessage(global_alert_message, &alertType, &expiryValue, &typeCheck, &verCheck, &alertMessage);
+        if (parseSuccess)
         {
-            try
-            {
-                alertType = boost::lexical_cast<int32_t>(vstr[0]);
-                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
-                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
-                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
-                alertMessage = vstr[4];
-            } catch (const boost::bad_lexical_cast &e)
-              {
-                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
-                  alertType = 0;
-                  expiryValue = 0;
-                  alertMessage = "error";
-              }
-            string alertTypeStr;
             switch (alertType)
             {
                 case 0: alertTypeStr = "error"; break;
@@ -1968,11 +1960,6 @@ Value getinfo_MP(const Array& params, bool fHelp)
             alertResponse.push_back(Pair("expiryvalue", FormatIndivisibleMP(expiryValue)));
             if (alertType == 4) { alertResponse.push_back(Pair("typecheck",  FormatIndivisibleMP(typeCheck))); alertResponse.push_back(Pair("vercheck",  FormatIndivisibleMP(verCheck))); }
             alertResponse.push_back(Pair("alertmessage", alertMessage.c_str()));
-        }
-        else
-        {
-            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string.\n");
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Debug Alert Error - Something went wrong decoding the global alert string."); //better RPC error code
         }
     }
     infoResponse.push_back(Pair("alert", alertResponse));
@@ -2044,11 +2031,12 @@ Value getsto_MP(const Array& params, bool fHelp)
         // create array of recipients
         Array receiveArray;
         uint64_t tmpAmount = 0;
-        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount);
-        // add matches array to object
+        uint64_t stoFee = 0;
+        s_stolistdb->getRecipients(hash, filterAddress, &receiveArray, &tmpAmount, &stoFee);
+        // add matches array and stofee to object
+        txobj.push_back(Pair("totalstofee", FormatDivisibleMP(stoFee))); // fee always MSC so always divisible
         txobj.push_back(Pair("recipients", receiveArray));
     }
-
     // return object
     return txobj;
 }

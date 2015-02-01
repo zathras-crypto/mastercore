@@ -554,108 +554,130 @@ std::string mastercore::getMasterCoreAlertString()
     return global_alert_message;
 }
 
-bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
+bool mastercore::parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage)
 {
-    //expire any alerts that need expiring
-    int32_t alertType;
-    uint64_t expiryValue;
-    uint32_t typeCheck;
-    uint32_t verCheck;
     std::vector<std::string> vstr;
+    boost::split(vstr, rawAlertStr, boost::is_any_of(":"), token_compress_on);
+    if (5 == vstr.size())
+    {
+        try {
+            *alertType = boost::lexical_cast<int32_t>(vstr[0]);
+            *expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
+            *typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
+            *verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
+        } catch (const boost::bad_lexical_cast &e) {
+            file_log("DEBUG ALERT - error in converting values from global alert string\n");
+            return false; //(something went wrong)
+        }
+        *alertMessage = vstr[4];
+        if ((*alertType < 1) || (*alertType > 4) || (*expiryValue == 0)) {
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are not as expected.\n");
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
 
-    //split the global message string if it's not empty
+std::string mastercore::getMasterCoreAlertTextOnly()
+{
+    std::vector<std::string> vstr;
     if(!global_alert_message.empty())
     {
         boost::split(vstr, global_alert_message, boost::is_any_of(":"), token_compress_on);
-        // make sure there are 5 tokens and they convert ok
+        // make sure there are 5 tokens, 5th is text message
         if (5 == vstr.size())
         {
-            try
-            {
-                alertType = boost::lexical_cast<int32_t>(vstr[0]);
-                expiryValue = boost::lexical_cast<uint64_t>(vstr[1]);
-                typeCheck = boost::lexical_cast<uint32_t>(vstr[2]);
-                verCheck = boost::lexical_cast<uint32_t>(vstr[3]);
-            } catch (const boost::bad_lexical_cast &e)
-              {
-                  file_log("DEBUG ALERT - error in converting values from global alert string\n");
-                  return false; //(something went wrong)
-              }
+            return vstr[4];
         }
         else
         {
-             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 5 tokens\n");
-             return false;
+            file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, there are not 5 tokens\n");
+            return "";
         }
-        if ((alertType < 1) || (alertType > 4) || (expiryValue == 0))
+    }
+    return "";
+}
+
+bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
+{
+    //expire any alerts that need expiring
+    int32_t alertType = 0;
+    uint64_t expiryValue = 0;
+    uint32_t typeCheck = 0;
+    uint32_t verCheck = 0;
+    string alertMessage;
+    if(!global_alert_message.empty())
+    {
+        bool parseSuccess = parseAlertMessage(global_alert_message, &alertType, &expiryValue, &typeCheck, &verCheck, &alertMessage);
+        if (parseSuccess)
         {
-             file_log("DEBUG ALERT ERROR - Something went wrong decoding the global alert string, values are not as expected.\n");
-             return false;
-        }
-        switch (alertType)
-        {
-             case 1: //Text based alert only expiring by block number, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (curBlock > expiryValue)
-                 {
-                     //the alert has expired, clear the global alert string
-                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
-                     global_alert_message = "";
-                     return true;
-                 }
-             break;
-             case 2: //Text based alert only expiring by block time, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (curTime > expiryValue)
-                 {
-                     //the alert has expired, clear the global alert string
-                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
-                     global_alert_message = "";
-                     return true;
-                 }
-             break;
-             case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                 if (OMNICORE_VERSION_BASE > expiryValue)
-                 {
-                     //the alert has expired, clear the global alert string
-                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
-                     global_alert_message = "";
-                     return true;
-                 }
-             break;
-             case 4: //Update alert, show upgrade alert in UI and getalert_MP call + use isTransactionTypeAllowed to verify client support and shutdown if not present
-                 //check of the new tx type is supported at live block
-                 bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
+            switch (alertType)
+            {
+                 case 1: //Text based alert only expiring by block number, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                     if (curBlock > expiryValue)
+                     {
+                         //the alert has expired, clear the global alert string
+                         file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                         global_alert_message = "";
+                         return true;
+                     }
+                 break;
+                 case 2: //Text based alert only expiring by block time, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                     if (curTime > expiryValue)
+                     {
+                         //the alert has expired, clear the global alert string
+                         file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                         global_alert_message = "";
+                         return true;
+                     }
+                 break;
+                 case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
+                     if (OMNICORE_VERSION_BASE > expiryValue)
+                     {
+                         //the alert has expired, clear the global alert string
+                         file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                         global_alert_message = "";
+                         return true;
+                     }
+                 break;
+                 case 4: //Update alert, show upgrade alert in UI and getalert_MP call + use isTransactionTypeAllowed to verify client support and shutdown if not present
+                     //check of the new tx type is supported at live block
+                     bool txSupported = isTransactionTypeAllowed(expiryValue+1, OMNI_PROPERTY_MSC, typeCheck, verCheck);
 
-                 //check if we are at/past the live blockheight
-                 bool txLive = (chainActive.Height()>(int64_t)expiryValue);
+                     //check if we are at/past the live blockheight
+                     bool txLive = (chainActive.Height()>(int64_t)expiryValue);
 
-                 //testnet allows all types of transactions, so override this here for testing
-                 //txSupported = false; //testing
-                 //txLive = true; //testing
+                     //testnet allows all types of transactions, so override this here for testing
+                     //txSupported = false; //testing
+                     //txLive = true; //testing
 
-                 if ((!txSupported) && (txLive))
-                 {
-                     // we know we have transactions live we don't understand
-                     // can't be trusted to provide valid data, shutdown
-                     file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
-                     printf("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str()); //echo to screen
-                     if (!GetBoolArg("-overrideforcedshutdown", false)) StartShutdown();
-                     return false;
-                 }
+                     if ((!txSupported) && (txLive))
+                     {
+                         // we know we have transactions live we don't understand
+                         // can't be trusted to provide valid data, shutdown
+                         file_log("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str());
+                         printf("DEBUG ALERT - Shutting down due to unsupported live TX - alert string %s\n",global_alert_message.c_str()); //echo to screen
+                         if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to alert: " + getMasterCoreAlertTextOnly());
+                         return false;
+                     }
 
-                 if ((!txSupported) && (!txLive))
-                 {
-                     // warn the user this version does not support the new coming TX and they will need to update
-                     // we don't actually need to take any action here, we leave the alert string in place and simply don't expire it
-                 }
+                     if ((!txSupported) && (!txLive))
+                     {
+                         // warn the user this version does not support the new coming TX and they will need to update
+                         // we don't actually need to take any action here, we leave the alert string in place and simply don't expire it
+                     }
 
-                 if (txSupported)
-                 {
-                     // we can simply expire this update as this version supports the new coming TX
-                     file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
-                     global_alert_message = "";
-                     return true;
-                 }
-             break;
+                     if (txSupported)
+                     {
+                         // we can simply expire this update as this version supports the new coming TX
+                         file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
+                         global_alert_message = "";
+                         return true;
+                     }
+                 break;
+            }
+            return false;
         }
         return false;
     }
@@ -664,7 +686,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
 }
 
 // get total tokens for a property
-// optionally counters the number of addresses who own that property: n_owners_total
+// optionally counts the number of addresses who own that property: n_owners_total
 int64_t mastercore::getTotalTokens(unsigned int propertyId, int64_t *n_owners_total)
 {
 int64_t prev = 0, owners = 0;
@@ -1098,7 +1120,7 @@ vector<string>script_data;
 vector<string>address_data;
 // vector<uint64_t>value_data;
 vector<int64_t>value_data;
-int64_t ExodusValues[MAX_BTC_OUTPUTS];
+int64_t ExodusValues[MAX_BTC_OUTPUTS]= { 0 };
 int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
 string strReference;
 unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
@@ -2450,6 +2472,7 @@ int mastercore_init()
   // check for --startclean option and delete MP_ folders if present
   if (GetBoolArg("-startclean", false))
   {
+      file_log("Process was started with --startclean option, attempting to clear persistence files...");
       try
       {
           boost::filesystem::path persistPath = GetDataDir() / "MP_persist";
@@ -2462,6 +2485,7 @@ int mastercore_init()
           if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
           if (boost::filesystem::exists(spPath)) boost::filesystem::remove_all(spPath);
           if (boost::filesystem::exists(stoPath)) boost::filesystem::remove_all(stoPath);
+          file_log("Success clearing persistence files (did not raise any exceptions).");
       }
       catch(boost::filesystem::filesystem_error const & e)
       {
@@ -2574,7 +2598,6 @@ int mastercore_shutdown()
   {
     delete s_stolistdb; s_stolistdb = NULL;
   }
-
   file_log("\n%s OMNICORE SHUTDOWN, build date: " __DATE__ " " __TIME__ "\n\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
 
   if (_my_sps)
@@ -3124,7 +3147,7 @@ int CMPTxList::setLastAlert(int blockHeight)
         {
             file_log("DEBUG ALERT Unable to load lastAlertTxid, transaction not found\n");
         }
-        else
+        else // note reparsing here is unavoidable because we've only loaded a txid and have no other alert info stored
         {
             CMPTransaction mp_obj;
             int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
@@ -3552,8 +3575,8 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
           boost::split(svstr, vstr[i], boost::is_any_of(":"), token_compress_on);
           if(4 == svstr.size())
           {
-              size_t txidMatch = strValue.find(svstr[0]);
-              if(txidMatch!=std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
+              size_t txidMatch = mySTOReceipts.find(svstr[0]);
+              if(txidMatch==std::string::npos) mySTOReceipts += svstr[0]+":"+svstr[1]+":"+recipientAddress+":"+svstr[2]+",";
           }
       }
   }
@@ -3561,7 +3584,7 @@ std::string CMPSTOList::getMySTOReceipts(string filterAddress)
   return mySTOReceipts;
 }
 
-void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total)
+void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total, uint64_t *stoFee)
 {
   if (!sdb) return;
 
@@ -3574,6 +3597,11 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
 
   // iterate through SDB, dropping all records where key is not filterAddress (if filtering)
   int count = 0;
+
+  // ugly way to do this, really we should store the fee used but for now since we know it is
+  // always num_addresses * 0.00000001 MSC we can recalculate it on the fly
+  *stoFee = 0;
+
   Slice skey, svalue;
   readoptions.fill_cache = false;
   Iterator* it = sdb->NewIterator(readoptions);
@@ -3581,18 +3609,19 @@ void CMPSTOList::getRecipients(const uint256 txid, string filterAddress, Array *
   {
       skey = it->key();
       string recipientAddress = skey.ToString();
-      if(filter)
-      {
-          if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
-          { } else { continue; } // move on if no filter match
-      }
       svalue = it->value();
       string strValue = svalue.ToString();
       // see if txid is in the data
       size_t txidMatch = strValue.find(txid.ToString());
       if(txidMatch!=std::string::npos)
       {
-          // the txid exists inside the data, this address was a recipient of this STO, add the details
+          ++*stoFee;
+          // the txid exists inside the data, this address was a recipient of this STO, check filter and add the details
+          if(filter)
+          {
+              if( ( (filterByAddress) && (filterAddress == recipientAddress) ) || ( (filterByWallet) && (IsMyAddress(recipientAddress)) ) )
+              { } else { continue; } // move on if no filter match (but counter still increased for fee)
+          }
           std::vector<std::string> vstr;
           boost::split(vstr, strValue, boost::is_any_of(","), token_compress_on);
           for(uint32_t i = 0; i<vstr.size(); i++)
@@ -3643,8 +3672,8 @@ bool CMPSTOList::exists(string address)
 {
   if (!sdb) return false;
 
-string strValue;
-Status status = sdb->Get(readoptions, address, &strValue);
+  string strValue;
+  Status status = sdb->Get(readoptions, address, &strValue);
 
   if (!status.ok())
   {
@@ -4589,7 +4618,6 @@ int rc = PKT_ERROR_STO -1000;
       }
 
       totalTokens = 0;
-      int64_t n_owners = 0;
 
       typedef std::set<pair<int64_t, string>, SendToOwners_compare> OwnerAddrType;
       OwnerAddrType OwnerAddrSet;
@@ -4619,62 +4647,26 @@ int rc = PKT_ERROR_STO -1000;
 
       file_log("  Excluding Sender: %s\n", FormatMP(property, totalTokens).c_str());
 
-      // loop #1 -- count the actual number of owners to receive the payment
-      for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
-        n_owners++;
-      }
-
-      file_log("\t          Owners: %lu\n", n_owners);
-
-      // make sure we found some owners
-      if (0 >= n_owners)
-      {
-        return (PKT_ERROR_STO -4);
-      }
-
-      int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
-
       // determine which property the fee will be paid in
       const unsigned int feeProperty = isTestEcosystemProperty(property) ? OMNI_PROPERTY_TMSC : OMNI_PROPERTY_MSC;
 
-      file_log("\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
+    uint64_t n_owners = 0;
+    rc = 0; // almost good, the for-loop will set the error code if any
 
-      // enough coins to pay the fee?
-      if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
-      {
-        return (PKT_ERROR_STO -5);
-      }
-
-      // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
-      if (feeProperty == property)
-      {
-        if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
-        {
-          return (PKT_ERROR_STO -55);
-        }
-      }
-
-      // burn MSC or TMSC here: take the transfer fee away from the sender
-      if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
-      {
-        // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
-        return (PKT_ERROR_STO -500);
-      }
-
-      // loop #2
+    for (unsigned int itern=0;itern<=1;itern++)  // iteration number, loop executes twice - first time the dry run to collect n_owners
+    { // two-iteration loop START
       // split up what was taken and distribute between all holders
-      uint64_t owns, should_receive, will_really_receive, sent_so_far = 0;
-      double percentage, piece;
-      rc = 0; // almost good, the for-loop will set the error code
+      uint64_t sent_so_far = 0;
       for(OwnerAddrType::reverse_iterator my_it = OwnerAddrSet.rbegin(); my_it != OwnerAddrSet.rend(); ++my_it)
-      {
+      { // owners loop
       const string address = my_it->second;
 
-        owns = my_it->first;
-        percentage = (double) owns / (double) totalTokens;
-        piece = percentage * nValue;
-        should_receive = ceil(piece);
+        int128_t owns = my_it->first;
+        int128_t temp = owns * int128_t(nValue);
+        int128_t piece = 1 + ((temp - 1) / int128_t(totalTokens));
+
+        uint64_t will_really_receive = 0;
+        uint64_t should_receive = piece.convert_to<uint64_t>();
 
         // ensure that much is still available
         if ((nValue - sent_so_far) < should_receive)
@@ -4688,38 +4680,83 @@ int rc = PKT_ERROR_STO -1000;
 
         sent_so_far += will_really_receive;
 
-        if (msc_debug_sto)
-         file_log("%14lu = %s, perc= %20.10lf, piece= %20.10lf, should_get= %14lu, will_really_get= %14lu, sent_so_far= %14lu\n",
-          owns, address.c_str(), percentage, piece, should_receive, will_really_receive, sent_so_far);
-
-        // record the detailed info as needed
-//        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), bDivisible ?  FormatDivisibleMP(will_really_receive).c_str() : FormatIndivisibleMP(will_really_receive).c_str());
-        if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
-
-        if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
+        if (itern)
         {
-          return (PKT_ERROR_STO -1);
+        // real execution of the loop
+          if (!update_tally_map(sender, property, - will_really_receive, BALANCE))
+          {
+            return (PKT_ERROR_STO -1);
+          }
+
+          update_tally_map(address, property, will_really_receive, BALANCE);
+
+          // add to stodb
+          s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
+
+          if (sent_so_far >= nValue)
+          {
+            file_log("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
+            break; // done here, everybody who could get paid got paid
+          }
+        }
+        else
+        {
+          // dry run code
+          if (will_really_receive > 0) ++n_owners;
+
+          if (msc_debug_sto)
+            file_log("%14lu = %s, temp= %38s, should_get= %19lu, will_really_get= %14lu, sent_so_far= %14lu\n",
+            owns, address.c_str(), temp.str(), should_receive, will_really_receive, sent_so_far);
+
+          // record the detailed info as needed
+          if (fhandle) fprintf(fhandle, "%s = %s\n", address.c_str(), FormatMP(property, will_really_receive).c_str());
+        }
+      } // owners loop
+
+      if (!itern) // first dummy iteration
+      { //  if first ITERATION BEGIN
+        // make sure we found some owners
+        if (0 >= n_owners)
+        {
+          return (PKT_ERROR_STO -4);
         }
 
-        update_tally_map(address, property, will_really_receive, BALANCE);
+        file_log("\t          Owners: %lu\n", n_owners);
 
-        // add to stodb
-        s_stolistdb->recordSTOReceive(address, txid, block, property, will_really_receive);
+        const int64_t nXferFee = TRANSFER_FEE_PER_OWNER * n_owners;
+        file_log("\t    Transfer fee: %lu.%08lu %s\n", nXferFee/COIN, nXferFee%COIN, strMPProperty(feeProperty).c_str());
 
-        if (sent_so_far >= nValue)
+        // enough coins to pay the fee?
+        if (getMPbalance(sender, feeProperty, BALANCE) < nXferFee)
         {
-          file_log("SendToOwners: DONE HERE : those who could get paid got paid, SOME DID NOT, but that's ok\n");
-          break; // done here, everybody who could get paid got paid
+          return (PKT_ERROR_STO -5);
         }
-      }
+
+        // special case check, only if distributing MSC or TMSC -- the property the fee will be paid in
+        if (feeProperty == property)
+        {
+          if (getMPbalance(sender, feeProperty, BALANCE) < (int64_t)(nValue + nXferFee))
+          {
+            return (PKT_ERROR_STO -55);
+          }
+        }
+
+        // burn MSC or TMSC here: take the transfer fee away from the sender
+        if (!update_tally_map(sender, feeProperty, - nXferFee, BALANCE))
+        {
+          // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
+          return (PKT_ERROR_STO -500);
+        }
+      } //  if first ITERATION END
 
       // sent_so_far must equal nValue here
       if (sent_so_far != nValue)
       {
-        file_log("send_so_far= %14lu, nValue= %14lu, n_owners= %lu\n", sent_so_far, nValue, n_owners);
+        file_log("sent_so_far= %14lu, nValue= %14lu, n_owners= %lu\n", sent_so_far, nValue, n_owners);
 
         // rc = ???
       }
+    } // two-iteration loop END
 
     return rc;
 }

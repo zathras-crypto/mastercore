@@ -94,7 +94,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
   MSC_SP_BLOCK      = 297110,
   GENESIS_BLOCK     = 249498,
   LAST_EXODUS_BLOCK = 255365,
-  MSC_STO_BLOCK     = 999999,
+  MSC_STO_BLOCK     = 342650,
   MSC_METADEX_BLOCK = 999999,
   MSC_BET_BLOCK     = 999999,
   MSC_MANUALSP_BLOCK= 323230,
@@ -346,12 +346,13 @@ public:
       delete sdb;
       sdb = NULL;
     }
+
+    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total, uint64_t *stoFee);
     std::string getMySTOReceipts(string filterAddress);
-    void getRecipients(const uint256 txid, string filterAddress, Array *recipientArray, uint64_t *total);
     int deleteAboveBlock(int blockNum);
-    bool exists(string address);
     void printStats();
     void printAll();
+    bool exists(string address);
     void recordSTOReceive(std::string, const uint256&, int, unsigned int, uint64_t);
 };
 
@@ -551,6 +552,8 @@ bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = N
 
 bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
 std::string getMasterCoreAlertString();
+std::string getMasterCoreAlertTextOnly();
+bool parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage);
 }
 
 #endif
