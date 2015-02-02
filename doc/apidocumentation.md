@@ -12,6 +12,38 @@ As all existing Bitcoin Core functionality is inherent to Master Core, the RPC p
 
 In addition to this change, 0.0.6 "reserved" amounts are no longer split into two reserved fields, accept and sell, but into one complete "reserved" field, in 0.0.7. 
 
+###Obtaining the state of the client
+The **getinfo_MP** call provides information about the current state of the client.
+
+*Note, it is important to periodically poll the getinfo_MP call to check there is no current alert.  The OmniCore alert system is seperate to the Bitcoin alert system and has been coded to also trigger the existing alertnotify script if specified at startup, however this has had very limited testing as of current so a periodical poll is suggested at this time.
+
+**Required Parameters**
+- There are no required parameters for this call.
+
+**Additional Optional Parameters**
+- There are currently no supported optional parameters for this call.
+
+**Examples**
+```
+$src/mastercored getinfo_MP
+{
+    "mastercoreversion" : "0.0.9-dev",
+    "bitcoincoreversion" : "0.903",
+    "commitinfo" : "2b1010f",
+    "block" : 341613,
+    "blocktime" : 1422872445,
+    "blocktransactions" : 0,
+    "totaltrades" : 0,
+    "totaltransactions" : 19762,
+    "alert" : {
+    }
+}
+```
+```
+{"jsonrpc":"1.0","id":"1","method":"getinfo_MP","params":[]}
+{"result":{"mastercoreversion":"0.0.9-dev","bitcoincoreversion":"0.903","commitinfo":"2b1010f","block":341613,"blocktime":1422872445,"blocktransactions":0,"totaltrades":0,"totaltransactions":19762,"alert":{}},"error":null,"id":"1"}
+```
+
 ###Broadcasting a Simple Send transaction
 Simple send allows a Master Protocol currency to be transferred from address to address in a one-to-one transaction.  Simple send transactions are exposed via the **send_MP** RPC call.
 
