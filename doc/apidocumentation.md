@@ -439,6 +439,42 @@ $src/mastercored sendtoowners_MP "1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb" 2147483668
 ```
 *Please note, the private key for the requested sender address must be available in the wallet.*
 
+###Retrieving details for a Master Protocol Send To Owners transaction
+The **getsto_MP** call allows for retrieval of details for a Send To Owners transaction including the recipients and their respective amounts.
+
+**Required Parameters**
+- **_transaction ID (string):_** A valid Master Protocol Send To Owners transaction ID
+
+**Additional Optional Parameters**
+- There are currently no supported optional parameters for this call.
+
+**Examples**
+```
+$src/mastercored getsto_MP 61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62
+{
+    "txid" : "61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62",
+    "sendingaddress" : "1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n",
+    "ismine" : false,
+    "confirmations" : 29534,
+    "fee" : 0.00010000,
+    "blocktime" : 1406079768,
+    "version" : 0,
+    "type_int" : 3,
+    "type" : "Send To Owners",
+    "propertyid" : 2,
+    "divisible" : true,
+    "amount" : "1.00000000",
+    "valid" : true,
+    "totalstofee" : "0.00001291",
+    "recipients" : [
+    ]
+}
+```
+```
+{"jsonrpc":"1.0","id":"1","method":"getsto_MP","params":["61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62"]}
+{"result":{"txid":"61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62","sendingaddress":"1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n","ismine":false,"confirmations":29535,"fee":0.00010000,"blocktime":1406079768,"version":0,"type_int":3,"type":"Send To Owners","propertyid":2,"divisible":true,"amount":"1.00000000","valid":true,"totalstofee":"0.00001291","recipients":[]},"error":null,"id":"1"}
+```
+
 ###Listing currently active DeX sell offers
 The **getactivedexsells_MP** call allows for listing all currently active Master Protocol DeX sell offers.
 
