@@ -439,14 +439,14 @@ $src/mastercored sendtoowners_MP "1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb" 2147483668
 ```
 *Please note, the private key for the requested sender address must be available in the wallet.*
 
-###Retrieving details for a Master Protocol Send To Owners transaction
-The **getsto_MP** call allows for retrieval of details for a Send To Owners transaction including the recipients and their respective amounts.
+###Retrieving details for a Send To Owners transaction
+The **getsto_MP** call allows for retrieval of details for a Send To Owners transaction including the recipients and their respective amounts.  Please note, by default the call will only list recipients in the wallet.  To list all recipients you may use the filter ```"*"```.
 
 **Required Parameters**
 - **_transaction ID (string):_** A valid Master Protocol Send To Owners transaction ID
 
 **Additional Optional Parameters**
-- There are currently no supported optional parameters for this call.
+- **_address (string):_** A valid bitcoin address to filter returned recipients on or * for all recipients
 
 **Examples**
 ```
