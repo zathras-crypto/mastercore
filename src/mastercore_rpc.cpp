@@ -1515,6 +1515,14 @@ int populateRPCTransactionObject(uint256 txid, Object *txobj, string filterAddre
                              }
 
                         break;
+                        case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
+                             if (0 == mp_obj.step2_Value())
+                             {
+                                showReference = true;
+                                propertyId = mp_obj.getProperty();
+                                amount = mp_obj.getAmount();
+                             }
+                        break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
                              if (0 == mp_obj.step2_Value())
                              {
