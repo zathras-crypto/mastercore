@@ -12,6 +12,38 @@ As all existing Bitcoin Core functionality is inherent to Master Core, the RPC p
 
 In addition to this change, 0.0.6 "reserved" amounts are no longer split into two reserved fields, accept and sell, but into one complete "reserved" field, in 0.0.7. 
 
+###Obtaining the state of the client
+The **getinfo_MP** call provides information about the current state of the client.
+
+*Note, it is important to periodically poll the getinfo_MP call to check there is no current alert.  The OmniCore alert system is seperate to the Bitcoin alert system and has been coded to also trigger the existing alertnotify script if specified at startup, however this has had very limited testing as of current so a periodical poll is suggested at this time.
+
+**Required Parameters**
+- There are no required parameters for this call.
+
+**Additional Optional Parameters**
+- There are currently no supported optional parameters for this call.
+
+**Examples**
+```
+$src/mastercored getinfo_MP
+{
+    "mastercoreversion" : "0.0.9-dev",
+    "bitcoincoreversion" : "0.903",
+    "commitinfo" : "2b1010f",
+    "block" : 341613,
+    "blocktime" : 1422872445,
+    "blocktransactions" : 0,
+    "totaltrades" : 0,
+    "totaltransactions" : 19762,
+    "alert" : {
+    }
+}
+```
+```
+{"jsonrpc":"1.0","id":"1","method":"getinfo_MP","params":[]}
+{"result":{"mastercoreversion":"0.0.9-dev","bitcoincoreversion":"0.903","commitinfo":"2b1010f","block":341613,"blocktime":1422872445,"blocktransactions":0,"totaltrades":0,"totaltransactions":19762,"alert":{}},"error":null,"id":"1"}
+```
+
 ###Broadcasting a Simple Send transaction
 Simple send allows a Master Protocol currency to be transferred from address to address in a one-to-one transaction.  Simple send transactions are exposed via the **send_MP** RPC call.
 
@@ -438,6 +470,42 @@ $src/mastercored sendtoowners_MP "1MCHESTxYkPSLoJ57WBQot7vz3xkNahkcb" 2147483668
 {"result":"3fba3995f679f764efbdfc800331a8dc333211cf50291072c3c2dfcb1569c3d8","error":null,"id":"1"}
 ```
 *Please note, the private key for the requested sender address must be available in the wallet.*
+
+###Retrieving details for a Send To Owners transaction
+The **getsto_MP** call allows for retrieval of details for a Send To Owners transaction including the recipients and their respective amounts.  Please note, by default the call will only list recipients in the wallet.  To list all recipients you may use the filter ```"*"```.
+
+**Required Parameters**
+- **_transaction ID (string):_** A valid Master Protocol Send To Owners transaction ID
+
+**Additional Optional Parameters**
+- **_address (string):_** A valid bitcoin address to filter returned recipients on or * for all recipients
+
+**Examples**
+```
+$src/mastercored getsto_MP 61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62
+{
+    "txid" : "61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62",
+    "sendingaddress" : "1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n",
+    "ismine" : false,
+    "confirmations" : 29534,
+    "fee" : 0.00010000,
+    "blocktime" : 1406079768,
+    "version" : 0,
+    "type_int" : 3,
+    "type" : "Send To Owners",
+    "propertyid" : 2,
+    "divisible" : true,
+    "amount" : "1.00000000",
+    "valid" : true,
+    "totalstofee" : "0.00001291",
+    "recipients" : [
+    ]
+}
+```
+```
+{"jsonrpc":"1.0","id":"1","method":"getsto_MP","params":["61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62"]}
+{"result":{"txid":"61f161023f11dae651d739bded05805356ed2f6dc136398dc3878b425ef73c62","sendingaddress":"1PVWtK1ATnvbRaRceLRH5xj8XV1LxUBu7n","ismine":false,"confirmations":29535,"fee":0.00010000,"blocktime":1406079768,"version":0,"type_int":3,"type":"Send To Owners","propertyid":2,"divisible":true,"amount":"1.00000000","valid":true,"totalstofee":"0.00001291","recipients":[]},"error":null,"id":"1"}
+```
 
 ###Listing currently active DeX sell offers
 The **getactivedexsells_MP** call allows for listing all currently active Master Protocol DeX sell offers.
