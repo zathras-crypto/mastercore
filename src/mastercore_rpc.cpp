@@ -1922,7 +1922,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
     // other bits of info we want to report should be included here
 
     // provide the mastercore and bitcoin version and if available commit id
-    infoResponse.push_back(Pair("mastercoreversion", "0.0." + boost::lexical_cast<string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE ));
+    infoResponse.push_back(Pair("mastercoreversion", "0.0." + strprintf("%.1f",(double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE ));
     infoResponse.push_back(Pair("bitcoincoreversion", "0." + boost::lexical_cast<string>((int)CLIENT_VERSION/100)));
     infoResponse.push_back(Pair("commitinfo", COMMIT_INFO));
 
