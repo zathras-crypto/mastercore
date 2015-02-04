@@ -286,7 +286,8 @@ void TXHistoryDialog::UpdateHistory()
                         string displayAmount;
                         Array receiveArray;
                         uint64_t total = 0;
-                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total); // get matching receipts
+                        uint64_t stoFee = 0;
+                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total, &stoFee); // get matching receipts
                         int confirmations = 1 + chainHeight - pBlkIdx->nHeight;
                         if (divisible) { displayAmount = FormatDivisibleShortMP(total); } else { displayAmount = FormatIndivisibleMP(total); }
                         if (propertyId < 3) {
@@ -522,7 +523,8 @@ void TXHistoryDialog::showDetails()
             if (pos!=std::string::npos) {
                 Array receiveArray;
                 uint64_t tmpAmount = 0;
-                s_stolistdb->getRecipients(txid, "", &receiveArray, &tmpAmount);
+                uint64_t tmpSTOFee = 0;
+                s_stolistdb->getRecipients(txid, "", &receiveArray, &tmpAmount, &tmpSTOFee);
                 txobj.push_back(Pair("recipients", receiveArray));
                 //rewrite string
                 strTXText = write_string(Value(txobj), false) + "\n";
