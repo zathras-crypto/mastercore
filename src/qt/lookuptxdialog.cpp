@@ -159,7 +159,7 @@ void LookupTXDialog::searchTX()
     else
     {
         // show error message
-        string strText = "The transaction ID entered was not valid.";
+        string strText = "The transaction ID entered is either not valid Omni transaction or has not yet been confirmed.";
         QString strQText = QString::fromStdString(strText);
         QMessageBox errorDialog;
         errorDialog.setIcon(QMessageBox::Critical);
