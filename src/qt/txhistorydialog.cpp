@@ -416,8 +416,8 @@ void TXHistoryDialog::UpdateHistory()
                         case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; fundsMoved = false; break;
                         case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
                         case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
-                        case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property";
-                        case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale";
+                        case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property"; break;
+                        case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale"; break;
                         case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
                         case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
                         case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
