@@ -87,7 +87,7 @@ WalletView::WalletView(QWidget *parent):
     transactionsPage = new QWidget(this);
     QVBoxLayout *txvbox = new QVBoxLayout();
     QTabWidget *txTabHolder = new QTabWidget();
-    txTabHolder->addTab(mpTXTab,tr("Master Protocol"));
+    txTabHolder->addTab(mpTXTab,tr("Omni Protocol"));
     txTabHolder->addTab(bitcoinTXTab,tr("Bitcoin"));
     txvbox->addWidget(txTabHolder);
     transactionsPage->setLayout(txvbox);
@@ -101,7 +101,7 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsTab = new SendCoinsDialog();
     sendMPTab = new SendMPDialog();
     QTabWidget *tabHolder = new QTabWidget();
-    tabHolder->addTab(sendMPTab,tr("Master Protocol"));
+    tabHolder->addTab(sendMPTab,tr("Omni Protocol"));
     tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);

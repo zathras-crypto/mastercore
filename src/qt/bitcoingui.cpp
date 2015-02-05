@@ -72,7 +72,7 @@ BitcoinGUI::BitcoinGUI(bool fIsTestnet, QWidget *parent) :
 {
     GUIUtil::restoreWindowGeometry("nWindow", QSize(680, 650), this);
 
-    QString windowTitle = tr("Master Core") + " - ";
+    QString windowTitle = tr("Omni Core") + " - ";
 #ifdef ENABLE_WALLET
     /* if compiled with wallet support, -disablewallet can still disable the wallet */
     bool enableWallet = !GetBoolArg("-disablewallet", false);
@@ -227,14 +227,14 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     tabGroup->addAction(overviewAction);
 
     balancesAction = new QAction(QIcon(":/icons/balances"), tr("&Balances"), this);
-    balancesAction->setStatusTip(tr("Show Master Protocol balances"));
+    balancesAction->setStatusTip(tr("Show Omni Protocol balances"));
     balancesAction->setToolTip(balancesAction->statusTip());
     balancesAction->setCheckable(true);
     balancesAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
     tabGroup->addAction(balancesAction);
 
     sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
-    sendCoinsAction->setStatusTip(tr("Send Master Protocol and Bitcoin transactions"));
+    sendCoinsAction->setStatusTip(tr("Send Omni Protocol and Bitcoin transactions"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
@@ -255,7 +255,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
 //    tabGroup->addAction(exchangeAction);
 
     smartPropertyAction = new QAction(QIcon(":/icons/smartproperty"), tr("Smart &Property"), this);
-    smartPropertyAction->setStatusTip(tr("Lookup and interact with Master Protocol Smart Properties"));
+    smartPropertyAction->setStatusTip(tr("Lookup and interact with Omni Protocol Smart Properties"));
     smartPropertyAction->setToolTip(smartPropertyAction->statusTip());
     smartPropertyAction->setCheckable(true);
     smartPropertyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
@@ -269,7 +269,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     tabGroup->addAction(historyAction);
 
     toolboxAction = new QAction(QIcon(":/icons/toolbox"), tr("&Toolbox"), this);
-    toolboxAction->setStatusTip(tr("Tools to obtain varions Master Protocol information and transaction information"));
+    toolboxAction->setStatusTip(tr("Tools to obtain varions Omni Protocol information and transaction information"));
     toolboxAction->setToolTip(toolboxAction->statusTip());
     toolboxAction->setCheckable(true);
     toolboxAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_8));
@@ -299,10 +299,10 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     quitAction->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q));
     quitAction->setMenuRole(QAction::QuitRole);
     if (!fIsTestnet)
-        aboutAction = new QAction(QIcon(":/icons/bitcoin"), tr("&About Master Core"), this);
+        aboutAction = new QAction(QIcon(":/icons/bitcoin"), tr("&About Omni Core"), this);
     else
-        aboutAction = new QAction(QIcon(":/icons/bitcoin_testnet"), tr("&About Master Core"), this);
-    aboutAction->setStatusTip(tr("Show information about Master Core"));
+        aboutAction = new QAction(QIcon(":/icons/bitcoin_testnet"), tr("&About Omni Core"), this);
+    aboutAction->setStatusTip(tr("Show information about Omni Core"));
     aboutAction->setMenuRole(QAction::AboutRole);
 #if QT_VERSION < 0x050000
     aboutQtAction = new QAction(QIcon(":/trolltech/qmessagebox/images/qtlogo-64.png"), tr("About &Qt"), this);
@@ -511,12 +511,12 @@ void BitcoinGUI::createTrayIcon(bool fIsTestnet)
 
     if (!fIsTestnet)
     {
-        trayIcon->setToolTip(tr("Mastercore client"));
+        trayIcon->setToolTip(tr("Omnicore client"));
         trayIcon->setIcon(QIcon(":/icons/toolbar"));
     }
     else
     {
-        trayIcon->setToolTip(tr("Mastercore client") + " " + tr("[testnet]"));
+        trayIcon->setToolTip(tr("Omnicore client") + " " + tr("[testnet]"));
         trayIcon->setIcon(QIcon(":/icons/toolbar_testnet"));
     }
 
