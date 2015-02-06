@@ -120,7 +120,6 @@ const int msc_debug_persistence = 0;
 int msc_debug_metadex1= 0;
 int msc_debug_metadex2= 0;
 int msc_debug_metadex3= 0;  // enable this to see the orderbook before & after each TX
-int msc_debug_ui = 1;
 
 const static int disable_Divs = 0;
 const static int disableLevelDB = 0;
