@@ -281,11 +281,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
             balText += tokenLabel;
             ui->SPbal1->setText(balText.c_str());
         }
+        ui->SPname1->setVisible(true);
+        ui->SPbal1->setVisible(true);
     }
     else
     {
-        ui->SPname1->setText("N/A");
-        ui->SPbal1->setText("N/A");
         ui->SPname1->setVisible(false);
         ui->SPbal1->setVisible(false);
     }
@@ -302,11 +302,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
             balText += " SPT";
             ui->SPbal2->setText(balText.c_str());
         }
+        ui->SPname2->setVisible(true);
+        ui->SPbal2->setVisible(true);
     }
     else
     {
-        ui->SPname2->setText("N/A");
-        ui->SPbal2->setText("N/A");
         ui->SPname2->setVisible(false);
         ui->SPbal2->setVisible(false);
     }
@@ -323,11 +323,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
             balText += " SPT";
             ui->SPbal3->setText(balText.c_str());
         }
+        ui->SPname3->setVisible(true);
+        ui->SPbal3->setVisible(true);
     }
     else
     {
-        ui->SPname3->setText("N/A");
-        ui->SPbal3->setText("N/A");
         ui->SPname3->setVisible(false);
         ui->SPbal3->setVisible(false);
     }
@@ -344,11 +344,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
             balText += " SPT";
             ui->SPbal4->setText(balText.c_str());
         }
+        ui->SPname4->setVisible(true);
+        ui->SPbal4->setVisible(true);
     }
     else
     {
-        ui->SPname4->setText("N/A");
-        ui->SPbal4->setText("N/A");
         ui->SPname4->setVisible(false);
         ui->SPbal4->setVisible(false);
     }
@@ -365,11 +365,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
             balText += " SPT";
             ui->SPbal5->setText(balText.c_str());
         }
+        ui->SPname5->setVisible(true);
+        ui->SPbal5->setVisible(true);
     }
     else
     {
-        ui->SPname5->setText("N/A");
-        ui->SPbal5->setText("N/A");
         ui->SPname5->setVisible(false);
         ui->SPbal5->setVisible(false);
     }
