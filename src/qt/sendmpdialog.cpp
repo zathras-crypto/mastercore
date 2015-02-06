@@ -89,9 +89,7 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     connect(ui->sendButton, SIGNAL(clicked()), this, SLOT(sendButtonClicked()));
 
     // initial update
-    updatePropSelector();
-    updateProperty();
-    updateFrom();
+    balancesUpdated();
 }
 
 void SendMPDialog::setModel(WalletModel *model)
@@ -102,7 +100,6 @@ void SendMPDialog::setModel(WalletModel *model)
 
 void SendMPDialog::updatePropSelector()
 {
-    //printf("sendmpdialog::updatePropSelector()\n");
     QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
     ui->propertyComboBox->clear();
     for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
@@ -143,10 +140,6 @@ void SendMPDialog::clearFields()
 
 void SendMPDialog::updateFrom()
 {
-    // update wallet balances
-    set_wallet_totals();
-    updateBalances();
-
     // check if this from address has sufficient fees for a send, if not light up warning label
     QString selectedFromAddress = ui->sendFromComboBox->currentText();
     int64_t inputTotal = feeCheck(selectedFromAddress.toStdString());
@@ -164,9 +157,6 @@ void SendMPDialog::updateFrom()
 
 void SendMPDialog::updateProperty()
 {
-    // update wallet balances
-    set_wallet_totals();
-
     // get currently selected from address
     QString currentSetFromAddress = ui->sendFromComboBox->currentText();
 
@@ -206,7 +196,6 @@ void SendMPDialog::updateProperty()
     {
         ui->amountLineEdit->setPlaceholderText("Enter Indivisible Amount");
     }
-    updateBalances();
 }
 
 void SendMPDialog::updateBalances()
@@ -433,12 +422,15 @@ void SendMPDialog::sendMPTransaction()
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
 {
+    updateBalances();
     updateFrom();
 }
 
 void SendMPDialog::propertyComboBoxChanged(int idx)
 {
     updateProperty();
+    updateBalances();
+    updateFrom();
 }
 
 void SendMPDialog::clearButtonClicked()
@@ -453,6 +445,10 @@ void SendMPDialog::sendButtonClicked()
 
 void SendMPDialog::balancesUpdated()
 {
+    set_wallet_totals();
+
     updatePropSelector();
+    updateProperty();
     updateBalances();
+    updateFrom();
 }
