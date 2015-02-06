@@ -254,7 +254,7 @@ void LookupSPDialog::updateDisplayedProperty()
     // populate the fields
     bool divisible=sp.isDivisible();
     if (divisible) { ui->divisibleLabel->setText("Yes"); } else { ui->divisibleLabel->setText("No"); }
-    if (propertyId>2147483647) { ui->ecosystemLabel->setText("Test"); } else { ui->ecosystemLabel->setText("Production"); }
+    if (isTestEcosystemProperty(propertyId)) { ui->ecosystemLabel->setText("Test"); } else { ui->ecosystemLabel->setText("Production"); }
     ui->propertyIDLabel->setText(QString::fromStdString(FormatIndivisibleMP(propertyId)));
     ui->nameLabel->setText(QString::fromStdString(sp.name));
     ui->categoryLabel->setText(QString::fromStdString(sp.category + " > " + sp.subcategory));
