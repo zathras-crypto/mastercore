@@ -14,10 +14,6 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QPainter>
-#include <boost/lexical_cast.hpp>
-#include "mastercore_version.h"
-
-#include <boost/lexical_cast.hpp>
 #include "mastercore_version.h"
 
 SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTestNet) :
