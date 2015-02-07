@@ -78,8 +78,10 @@ LookupTXDialog::LookupTXDialog(QWidget *parent) :
     ui->setupUi(this);
     this->model = model;
 
+#if QT_VERSION >= 0x040700
     // populate placeholder text
     ui->searchLineEdit->setPlaceholderText("Search transaction");
+#endif
 
     // connect actions
     connect(ui->searchButton, SIGNAL(clicked()), this, SLOT(searchButtonClicked()));
