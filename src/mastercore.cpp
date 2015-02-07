@@ -2714,7 +2714,7 @@ static int64_t selectCoins(const string &FromAddress, CCoinControl &coinControl,
   // if referenceamount is set it is needed to be accounted for here too
   if (0 < additional) n_max += additional;
 
-  LOCK(wallet->cs_wallet);
+  LOCK2(cs_main, wallet->cs_wallet);
 
     string sAddress = "";
 
