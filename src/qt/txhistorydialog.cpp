@@ -80,13 +80,18 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Type"));
     ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Address"));
     ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Amount"));
+#if QT_VERSION < 0x050000
+    ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);    
+//  ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+#else
+    ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);    
+//  ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+#endif
+//  ui->txHistoryTable->setShowGrid(false);
     ui->txHistoryTable->verticalHeader()->setVisible(false);
-//    ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
-//    ui->txHistoryTable->setShowGrid(false);
     ui->txHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->txHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->txHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);
     ui->txHistoryTable->setColumnWidth(0, 23);
     ui->txHistoryTable->setColumnWidth(1, 150);
     ui->txHistoryTable->setColumnWidth(2, 130);
