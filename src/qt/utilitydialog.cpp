@@ -29,7 +29,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
 
     // Set current copyright year
     ui->copyrightLabel->setText(tr("Copyright") + QString(" (C) 2009-%1 ").arg(COPYRIGHT_YEAR) + tr("The Bitcoin Core developers"));
-    ui->copyrightLabel_MC->setText(tr("Copyright") + QString(" (C) 2013-%1 ").arg(COPYRIGHT_YEAR) + tr("The Master Core developers"));
+    ui->copyrightLabel_MC->setText(tr("Copyright") + QString(" (C) 2013-%1 ").arg(COPYRIGHT_YEAR) + tr("The Omni Core developers"));
 }
 
 void AboutDialog::setModel(ClientModel *model)
@@ -67,7 +67,7 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent) :
     ui->setupUi(this);
     GUIUtil::restoreWindowGeometry("nHelpMessageDialogWindow", this->size(), this);
 
-    header = tr("Master Core") + " " + tr("version") + " " +
+    header = tr("Omni Core") + " " + tr("version") + " " +
         QString::fromStdString(FormatFullVersion()) + "\n\n" +
         tr("Usage:") + "\n" +
         "  bitcoin-qt [" + tr("command-line options") + "]                     " + "\n";
@@ -127,7 +127,7 @@ void ShutdownWindow::showShutdownWindow(BitcoinGUI *window)
     QWidget *shutdownWindow = new QWidget();
     QVBoxLayout *layout = new QVBoxLayout();
     layout->addWidget(new QLabel(
-        tr("Master Core is shutting down...") + "<br /><br />" +
+        tr("Omni Core is shutting down...") + "<br /><br />" +
         tr("Do not shut down the computer until this window disappears.")));
     shutdownWindow->setLayout(layout);
 

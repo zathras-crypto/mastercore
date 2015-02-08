@@ -17,7 +17,7 @@
 #include "ui_interface.h"
 #include "wallet.h"
 #include "walletdb.h" // for BackupWallet
-
+#include <boost/timer.hpp>
 #include <stdint.h>
 
 #include <QDebug>

@@ -71,18 +71,38 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     model(0)
 {
     ui->setupUi(this);
-    this->model = model;
+//    this->model = model;
 
 #ifdef Q_OS_MAC // Icons on push buttons are very uncommon on Mac
     ui->clearButton->setIcon(QIcon());
     ui->sendButton->setIcon(QIcon());
 #endif
-
+#if QT_VERSION >= 0x040700
     // populate placeholder text
-    ui->sendToLineEdit->setPlaceholderText("Enter a Master Protocol address (e.g. 1MaSTeRPRotocolADDreSShef77z6A5S4P)");
+    ui->sendToLineEdit->setPlaceholderText("Enter a Omni Protocol address (e.g. 1oMn1PRotocolADDreSShef77z6A5S4P)");
     ui->amountLineEdit->setPlaceholderText("Enter Amount");
+#endif
 
-    // populate property selector
+    // connect actions
+    connect(ui->propertyComboBox, SIGNAL(activated(int)), this, SLOT(propertyComboBoxChanged(int)));
+    connect(ui->sendFromComboBox, SIGNAL(activated(int)), this, SLOT(sendFromComboBoxChanged(int)));
+    connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clearButtonClicked()));
+    connect(ui->sendButton, SIGNAL(clicked()), this, SLOT(sendButtonClicked()));
+
+    // initial update
+    balancesUpdated();
+}
+
+void SendMPDialog::setModel(WalletModel *model)
+{
+    this->model = model;
+    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+}
+
+void SendMPDialog::updatePropSelector()
+{
+    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
+    ui->propertyComboBox->clear();
     for (unsigned int propertyId = 1; propertyId<100000; propertyId++)
     {
         if ((global_balance_money_maineco[propertyId] > 0) || (global_balance_reserved_maineco[propertyId] > 0))
@@ -109,22 +129,8 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
             ui->propertyComboBox->addItem(spName.c_str(),spId.c_str());
         }
     }
-
-    // connect actions
-    connect(ui->propertyComboBox, SIGNAL(activated(int)), this, SLOT(propertyComboBoxChanged(int)));
-    connect(ui->sendFromComboBox, SIGNAL(activated(int)), this, SLOT(sendFromComboBoxChanged(int)));
-    connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clearButtonClicked()));
-    connect(ui->sendButton, SIGNAL(clicked()), this, SLOT(sendButtonClicked()));
-    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
-
-    // initial update
-    updateProperty();
-    updateFrom();
-}
-
-void SendMPDialog::setModel(WalletModel *model)
-{
-    this->model = model;
+    int propIdx = ui->propertyComboBox->findData(spId);
+    if (propIdx != -1) { ui->propertyComboBox->setCurrentIndex(propIdx); }
 }
 
 void SendMPDialog::clearFields()
@@ -135,10 +141,6 @@ void SendMPDialog::clearFields()
 
 void SendMPDialog::updateFrom()
 {
-    // update wallet balances
-    set_wallet_totals();
-    updateBalances();
-
     // check if this from address has sufficient fees for a send, if not light up warning label
     QString selectedFromAddress = ui->sendFromComboBox->currentText();
     int64_t inputTotal = feeCheck(selectedFromAddress.toStdString());
@@ -156,9 +158,6 @@ void SendMPDialog::updateFrom()
 
 void SendMPDialog::updateProperty()
 {
-    // update wallet balances
-    set_wallet_totals();
-
     // get currently selected from address
     QString currentSetFromAddress = ui->sendFromComboBox->currentText();
 
@@ -181,6 +180,7 @@ void SendMPDialog::updateProperty()
         }
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
+        if ((address.substr(0,1)=="2") || (address.substr(0,3)=="3")) continue; //quick hack to not show P2SH addresses in from selector (can't be sent from UI)
         ui->sendFromComboBox->addItem((my_it->first).c_str());
     }
 
@@ -188,16 +188,14 @@ void SendMPDialog::updateProperty()
     int fromIdx = ui->sendFromComboBox->findText(currentSetFromAddress);
     if (fromIdx != -1) { ui->sendFromComboBox->setCurrentIndex(fromIdx); } // -1 means the currently set from address doesn't have a balance in the newly selected property
 
+#if QT_VERSION >= 0x040700
     // update placeholder text
-    if (isPropertyDivisible(propertyId))
-    {
+    if (isPropertyDivisible(propertyId)) {
         ui->amountLineEdit->setPlaceholderText("Enter Divisible Amount");
-    }
-    else
-    {
+    } else {
         ui->amountLineEdit->setPlaceholderText("Enter Indivisible Amount");
     }
-    updateBalances();
+#endif
 }
 
 void SendMPDialog::updateBalances()
@@ -277,7 +275,7 @@ void SendMPDialog::sendMPTransaction()
             string tmpStrAmount = strAmount.substr(0,pos);
             string strMsgText = "The amount entered contains a decimal however the property being sent is indivisible.\n\nThe amount entered will be truncated as follows:\n";
             strMsgText += "Original amount entered: " + strAmount + "\nAmount that will be sent: " + tmpStrAmount + "\n\n";
-            strMsgText += "Do you still wish to process with the transaction?";
+            strMsgText += "Do you still wish to proceed with the transaction?";
             QString msgText = QString::fromStdString(strMsgText);
             QMessageBox::StandardButton responseClick;
             responseClick = QMessageBox::question(this, "Amount truncation warning", msgText, QMessageBox::Yes|QMessageBox::No);
@@ -402,7 +400,7 @@ void SendMPDialog::sendMPTransaction()
         updateBalances();
 
         // display the result
-        string strSentText = "Your Master Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
+        string strSentText = "Your Omni Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
         strSentText += sendTXID.GetHex() + "\n\n";
         QString sentText = QString::fromStdString(strSentText);
         QMessageBox sentDialog;
@@ -424,12 +422,15 @@ void SendMPDialog::sendMPTransaction()
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
 {
+    updateBalances();
     updateFrom();
 }
 
 void SendMPDialog::propertyComboBoxChanged(int idx)
 {
     updateProperty();
+    updateBalances();
+    updateFrom();
 }
 
 void SendMPDialog::clearButtonClicked()
@@ -444,5 +445,10 @@ void SendMPDialog::sendButtonClicked()
 
 void SendMPDialog::balancesUpdated()
 {
+    set_wallet_totals();
+
+    updatePropSelector();
+    updateProperty();
     updateBalances();
+    updateFrom();
 }

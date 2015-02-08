@@ -13,8 +13,15 @@ class OverviewPage;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
 class SendMPDialog;
+class OrderHistoryDialog;
+class LookupSPDialog;
+class LookupTXDialog;
+class LookupAddressDialog;
+//class MetaDExDialog;
+//class MetaDExCancelDialog;
 class SendCoinsRecipient;
 class TransactionView;
+class TXHistoryDialog;
 class BalancesView;
 class WalletModel;
 
@@ -59,16 +66,25 @@ private:
     OverviewPage *overviewPage;
     QWidget *transactionsPage;
     QWidget *balancesPage;
+    QWidget *exchangePage;
+    QWidget *smartPropertyPage;
+    QWidget *toolboxPage;
 
     ReceiveCoinsDialog *receiveCoinsPage;
 //    SendCoinsDialog *sendCoinsPage;
     QWidget *sendCoinsPage;
     SendCoinsDialog *sendCoinsTab;
     SendMPDialog *sendMPTab;
-
+    LookupSPDialog *spLookupTab;
+    LookupTXDialog *txLookupTab;
+    LookupAddressDialog *addressLookupTab;
+    OrderHistoryDialog *orderHistoryTab;
+//    MetaDExDialog *metaDExTab;
+//    MetaDExCancelDialog *cancelTab;
     TransactionView *transactionView;
     BalancesView *balancesView;
-
+    TXHistoryDialog *mpTXTab;
+    QWidget *bitcoinTXTab;
     QProgressDialog *progressDialog;
 
 public slots:
@@ -76,13 +92,18 @@ public slots:
     void gotoOverviewPage();
     /** Switch to balances page */
     void gotoBalancesPage();
+    /** Switch to exchange page */
+    void gotoExchangePage();
+    /** Switch to smart property page */
+    void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
-
+    /** Switch to utility page */
+    void gotoToolboxPage();
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */

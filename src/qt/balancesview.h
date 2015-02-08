@@ -34,7 +34,8 @@ public:
     explicit BalancesView(QWidget *parent = 0);
 
     void setModel(WalletModel *model);
-
+    void UpdateBalances();
+    void UpdatePropSelector();
     // Date ranges for filter
     enum DateEnum
     {
@@ -102,6 +103,7 @@ public slots:
     void balancesCopyAddress();
     void balancesCopyLabel();
     void balancesCopyAmount();
+    void balancesUpdated();
 };
 
 #endif // BALANCESVIEW_H

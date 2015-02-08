@@ -14,7 +14,6 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QPainter>
-#include <boost/lexical_cast.hpp>
 #include "mastercore_version.h"
 
 SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTestNet) :
@@ -23,20 +22,17 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     setAutoFillBackground(true);
 
     // set reference point, paddings
-    int paddingRight            = 50;
-    int paddingTop              = 50;
-    int titleVersionVSpace      = 17;
-    int titleCopyrightVSpace    = 40;
-    int titleCopyrightMSCVSpace = 17;
+    int paddingTop              = 200;
+    int titleVersionVSpace      = 40;
+    int titleCopyrightVSpace    = 60;
 
     float fontFactor            = 1.0;
 
     // define text to place
-    string coreVersionStr = "Experimental UI 0.0." + boost::lexical_cast<string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE;
-    QString titleText       = tr("Master Core");
+    string coreVersionStr = "Experimental UI 0.0." + strprintf("%.1f",(double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE;
+    QString titleText       = tr("Omni Core");
     QString versionText     = QString::fromStdString(coreVersionStr);
-    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers"));
-    QString copyrightMSC    = QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Master Protocol developers"));
+    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers, ")) + QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Omni Protocol developers"));
     QString testnetAddText  = QString(tr("[testnet]")); // define text to place as single text object
 
     QString font            = "Arial";
@@ -62,26 +58,17 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
         fontFactor = 0.75;
     }
 
-    pixPaint.setFont(QFont(font, 33*fontFactor));
-    fm = pixPaint.fontMetrics();
-    titleTextWidth  = fm.width(titleText);
-    pixPaint.drawText(newPixmap.width()-titleTextWidth-paddingRight,paddingTop,titleText);
-
-    pixPaint.setFont(QFont(font, 15*fontFactor));
-
-    // if the version string is to long, reduce size
+    // draw version
+    pixPaint.setFont(QFont(font, 20*fontFactor));
     fm = pixPaint.fontMetrics();
     int versionTextWidth  = fm.width(versionText);
-    if(versionTextWidth > titleTextWidth+paddingRight-10) {
-        pixPaint.setFont(QFont(font, 10*fontFactor));
-        titleVersionVSpace -= 5;
-    }
-    pixPaint.drawText(newPixmap.width()-titleTextWidth-paddingRight+2,paddingTop+titleVersionVSpace,versionText);
+    pixPaint.drawText((newPixmap.width()-versionTextWidth)/2,paddingTop+titleVersionVSpace,versionText);
 
     // draw copyright stuff
     pixPaint.setFont(QFont(font, 10*fontFactor));
-    pixPaint.drawText(newPixmap.width()-titleTextWidth-paddingRight+2,paddingTop+titleCopyrightVSpace,copyrightText);
-    pixPaint.drawText(newPixmap.width()-titleTextWidth-paddingRight+2,paddingTop+titleCopyrightVSpace+titleCopyrightMSCVSpace,copyrightMSC);
+    fm = pixPaint.fontMetrics();
+    int copyrightTextWidth = fm.width(copyrightText);
+    pixPaint.drawText((newPixmap.width()-copyrightTextWidth)/2,paddingTop+titleCopyrightVSpace,copyrightText);
 
     // draw testnet string if testnet is on
     if(isTestNet) {

@@ -211,6 +211,7 @@ private:
     int cachedNumBlocks;
 
     QTimer *pollTimer;
+    QTimer *updateTimer;
 
     void subscribeToCoreSignals();
     void unsubscribeFromCoreSignals();

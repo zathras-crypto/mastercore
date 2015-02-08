@@ -101,6 +101,10 @@ QT_FORMS_UI = \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
   forms/sendmpdialog.ui \
+  forms/txhistorydialog.ui \
+  forms/lookupspdialog.ui \
+  forms/lookupaddressdialog.ui \
+  forms/lookuptxdialog.ui \
   forms/signverifymessagedialog.ui \
   forms/transactiondescdialog.ui 
 
@@ -137,6 +141,10 @@ QT_MOC_CPP = \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
   moc_sendmpdialog.cpp \
+  moc_txhistorydialog.cpp \
+  moc_lookupspdialog.cpp \
+  moc_lookupaddressdialog.cpp \
+  moc_lookuptxdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
   moc_trafficgraphwidget.cpp \
@@ -203,6 +211,10 @@ BITCOIN_QT_H = \
   sendcoinsdialog.h \
   sendcoinsentry.h \
   sendmpdialog.h \
+  txhistorydialog.h \
+  lookupspdialog.h \
+  lookupaddressdialog.h \
+  lookuptxdialog.h \
   signverifymessagedialog.h \
   splashscreen.h \
   trafficgraphwidget.h \
@@ -221,11 +233,21 @@ BITCOIN_QT_H = \
   winshutdownmonitor.h
 
 RES_ICONS = \
+  res/icons/transaction_invalid.png \
+  res/icons/mp_exchange.png \
+  res/icons/mp_toolbox.png \
+  res/icons/mp_sp.png \
   res/icons/mp_balances.png \
   res/icons/mp_history.png \
   res/icons/mp_home.png \
   res/icons/mp_receive.png \
   res/icons/mp_send.png \
+  res/icons/mp_meta_cancelled.png \
+  res/icons/mp_meta_filled.png \
+  res/icons/mp_meta_open.png \
+  res/icons/mp_meta_partialclosed.png \
+  res/icons/mp_meta_partial.png \
+  res/icons/mp_meta_pending.png \
   res/icons/add.png \
   res/icons/address-book.png \
   res/icons/bitcoin.ico \
@@ -310,6 +332,10 @@ BITCOIN_QT_CPP += \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
   sendmpdialog.cpp \
+  txhistorydialog.cpp \
+  lookupspdialog.cpp \
+  lookupaddressdialog.cpp \
+  lookuptxdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
   transactiondescdialog.cpp \

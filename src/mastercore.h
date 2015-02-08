@@ -130,6 +130,10 @@ enum FILETYPES {
 #define OMNI_PROPERTY_MSC   1
 #define OMNI_PROPERTY_TMSC  2
 
+#include <boost/multiprecision/cpp_dec_float.hpp>
+using boost::multiprecision::cpp_dec_float_100;
+typedef cpp_dec_float_100 XDOUBLE;
+
 int mp_LogPrintStr(const std::string &str);
 
 /* When we switch to C++11, this can be switched to variadic templates instead
@@ -175,12 +179,16 @@ TINYFORMAT_FOREACH_ARGNUM(MP_MAKE_ERROR_AND_LOG_FUNC)
 //--- CUT HERE ---
 
 // forward declarations
+std::string FormatPriceMP(double n);
 std::string FormatDivisibleMP(int64_t n, bool fSign = false);
+std::string FormatDivisibleShortMP(int64_t);
 std::string FormatMP(unsigned int, int64_t n, bool fSign = false);
 uint256 send_MP(const string &FromAddress, const string &ToAddress, const string &RedeemAddress, unsigned int PropertyID, uint64_t Amount);
 int64_t feeCheck(const string &address);
 
 const std::string ExodusAddress();
+
+extern int msc_debug_ui;
 
 extern CCriticalSection cs_tally;
 
@@ -468,17 +476,19 @@ public:
   string src; // the FromAddress
   unsigned int prop;
   int64_t amount;
+  int64_t type;
+  string desc; // the description
 
   void print(uint256 txid) const
   {
-    printf("%s : %s %d %ld\n", txid.GetHex().c_str(), src.c_str(), prop, amount);
+    printf("%s : %s %d %ld %ld %s\n", txid.GetHex().c_str(), src.c_str(), prop, amount, type, desc.c_str());
   }
+ 
 };
 
-extern uint64_t global_MSC_total;
-extern uint64_t global_MSC_RESERVED_total;
 //temp - only supporting 100,000 properties per eco here, research best way to expand array
 //these 4 arrays use about 3MB total memory with 100K properties limit (100000*8*4 bytes)
+extern uint64_t global_metadex_market;
 extern uint64_t global_balance_money_maineco[100000];
 extern uint64_t global_balance_reserved_maineco[100000];
 extern uint64_t global_balance_money_testeco[100000];
@@ -507,7 +517,7 @@ extern CMPTradeList *t_tradelistdb;
 extern CMPSTOList *s_stolistdb;
 
 typedef std::map<uint256, CMPPending> PendingMap;
-
+extern PendingMap my_pending;
 string strMPProperty(unsigned int i);
 
 int GetHeight(void);

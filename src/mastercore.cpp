@@ -85,8 +85,7 @@ static const int nBlockTop = 0;
 
 static int nWaterlineBlock = 0;  //
 
-uint64_t global_MSC_total = 0;
-uint64_t global_MSC_RESERVED_total = 0;
+uint64_t global_metadex_market;
 uint64_t global_balance_money_maineco[100000];
 uint64_t global_balance_reserved_maineco[100000];
 uint64_t global_balance_money_testeco[100000];
@@ -321,6 +320,27 @@ bool isNonMainNet()
   return (TestNet() || RegTest());
 }
 
+string FormatPriceMP(double n)
+{
+  string str = strprintf("%lf", n);
+  // clean up trailing zeros - good for RPC not so much for UI
+  str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+  if (str.length() > 0) { std::string::iterator it = str.end() - 1; if (*it == '.') { str.erase(it); } } //get rid of trailing dot if non decimal
+return str;
+}
+
+string FormatDivisibleShortMP(int64_t n)
+{
+int64_t n_abs = (n > 0 ? n : -n);
+int64_t quotient = n_abs/COIN;
+int64_t remainder = n_abs%COIN;
+string str = strprintf("%d.%08d", quotient, remainder);
+// clean up trailing zeros - good for RPC not so much for UI
+str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+if (str.length() > 0) { std::string::iterator it = str.end() - 1; if (*it == '.') { str.erase(it); } } //get rid of trailing dot if non decimal
+return str;
+}
+
 // mostly taken from Bitcoin's FormatMoney()
 string FormatDivisibleMP(int64_t n, bool fSign)
 {
@@ -362,7 +382,7 @@ AcceptMap mastercore::my_accepts;
 CMPSPInfo *mastercore::_my_sps;
 CrowdMap mastercore::my_crowds;
 
-static PendingMap my_pending;
+PendingMap mastercore::my_pending;
 
 static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
 {
@@ -399,11 +419,11 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
   return (CMPPending *) NULL;
 }
 
-static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned int propId, int64_t Amount)
+static int pendingAdd(const uint256 &txid, const string &FromAddress, unsigned int propId, int64_t Amount, int64_t type, const string &txDesc)
 {
 CMPPending pending;
 
-  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, __LINE__, __FILE__);
+  if (msc_debug_verbose3) file_log("%s(%s,%s,%u,%ld,%d, %s), line %d, file: %s\n", __FUNCTION__, txid.GetHex().c_str(), FromAddress.c_str(), propId, Amount, type, txDesc,__LINE__, __FILE__);
 
   // support for pending, 0-confirm
   if (update_tally_map(FromAddress, propId, -Amount, PENDING))
@@ -411,7 +431,8 @@ CMPPending pending;
     pending.src = FromAddress;
     pending.amount = Amount;
     pending.prop = propId;
-
+    pending.desc = txDesc;
+    pending.type = type;
     pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
   }
@@ -2471,6 +2492,7 @@ int mastercore_init()
           printf("Exception deleting folders for --startclean option.\n");
       }
   }
+
   t_tradelistdb = new CMPTradeList(GetDataDir() / "MP_tradelist", 1<<20, false, fReindex);
   s_stolistdb = new CMPSTOList(GetDataDir() / "MP_stolist", 1<<20, false, fReindex);
   p_txlistdb = new CMPTxList(GetDataDir() / "MP_txlist", 1<<20, false, fReindex);
@@ -2692,7 +2714,7 @@ static int64_t selectCoins(const string &FromAddress, CCoinControl &coinControl,
   // if referenceamount is set it is needed to be accounted for here too
   if (0 < additional) n_max += additional;
 
-  LOCK(wallet->cs_wallet);
+  LOCK2(cs_main, wallet->cs_wallet);
 
     string sAddress = "";
 
@@ -2988,6 +3010,11 @@ const unsigned int prop = PropertyID;
     return 0;
   }
 
+  int64_t rawTransactionType = TransactionType;
+  int64_t rawPropertyID = PropertyID;
+  int64_t rawPropertyID_2 = PropertyID_2;
+  int64_t rawAmount = Amount;
+  int64_t rawAmount_2 = Amount_2;
   vector<unsigned char> data;
   swapByteOrder32(TransactionType);
   swapByteOrder32(PropertyID);
@@ -3019,7 +3046,46 @@ const unsigned int prop = PropertyID;
 
   if (0 == rc)
   {
-    (void) pendingAdd(txid, FromAddress, prop, amount);
+      // only simple sends and metadex pending needed at moment
+      Object txobj;
+      txobj.push_back(Pair("txid", txid.GetHex()));
+      txobj.push_back(Pair("sendingaddress", FromAddress));
+      if (rawTransactionType == MSC_TYPE_SIMPLE_SEND) txobj.push_back(Pair("referenceaddress", ToAddress));
+      txobj.push_back(Pair("confirmations", 0));
+      // txobj->push_back(Pair("fee", ValueFromAmount(nFee)));
+      txobj.push_back(Pair("version", (int64_t)0)); //we only send v0 currently so all pending v0
+      txobj.push_back(Pair("type_int", (int64_t)rawTransactionType));
+      bool divisible = false;
+      bool desiredDivisible = false;
+      string amountStr;
+      string amountDStr;
+      switch (rawTransactionType)
+      {
+          case 0: //simple send
+              txobj.push_back(Pair("type", "Simple send"));
+              txobj.push_back(Pair("propertyid", rawPropertyID));
+              divisible = isPropertyDivisible(rawPropertyID);
+              txobj.push_back(Pair("divisible", divisible));
+              if (divisible) { amountStr = FormatDivisibleMP(rawAmount); } else { amountStr = FormatIndivisibleMP(rawAmount); }
+              txobj.push_back(Pair("amount", amountStr));
+          break;
+          case 21: //metadex sell
+              txobj.push_back(Pair("type", "MetaDEx token trade"));
+              divisible = isPropertyDivisible(rawPropertyID);
+              desiredDivisible = isPropertyDivisible(rawPropertyID_2);
+              if (divisible) { amountStr = FormatDivisibleMP(rawAmount); } else { amountStr = FormatIndivisibleMP(rawAmount); }
+              if (desiredDivisible) { amountDStr = FormatDivisibleMP(rawAmount_2); } else { amountDStr = FormatIndivisibleMP(rawAmount_2); }
+              txobj.push_back(Pair("amountoffered", amountStr));
+              txobj.push_back(Pair("propertyoffered", rawPropertyID));
+              txobj.push_back(Pair("propertyofferedisdivisible", divisible));
+              txobj.push_back(Pair("amountdesired", amountDStr));
+              txobj.push_back(Pair("propertydesired", rawPropertyID_2));
+              txobj.push_back(Pair("propertydesiredisdivisible", desiredDivisible));
+              txobj.push_back(Pair("action", additional));
+          break;
+      }
+      string txDesc = write_string(Value(txobj), false);
+      (void) pendingAdd(txid, FromAddress, prop, amount, rawTransactionType, txDesc);
   }
 
   return txid;
@@ -4413,7 +4479,6 @@ std::string new_global_alert_message;
       break;
 
     default:
-
       return (PKT_ERROR -100);
   }
 

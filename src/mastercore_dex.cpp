@@ -297,6 +297,7 @@ const XDOUBLE desprice = (1/buyersprice); // inverse, to be matched against that
 
         if (msc_debug_metadex1) file_log("==== TRADED !!! %u=%s\n", NewReturn, getTradeReturnType(NewReturn));
 
+        // record the trade in MPTradeList
         t_tradelistdb->recordTrade(p_older->getHash(), newo->getHash(),
          p_older->getAddr(), newo->getAddr(), p_older->getDesProperty(), newo->getDesProperty(), seller_amountGot, buyer_amountGot, newo->getBlock());
 
