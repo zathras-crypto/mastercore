@@ -86,12 +86,11 @@ WalletView::WalletView(QWidget *parent):
     mpTXTab = new TXHistoryDialog;
     transactionsPage = new QWidget(this);
     QVBoxLayout *txvbox = new QVBoxLayout();
-    QTabWidget *txTabHolder = new QTabWidget();
+    txTabHolder = new QTabWidget();
     txTabHolder->addTab(mpTXTab,tr("Omni Protocol"));
     txTabHolder->addTab(bitcoinTXTab,tr("Bitcoin"));
     txvbox->addWidget(txTabHolder);
     transactionsPage->setLayout(txvbox);
-
     // receive page
     receiveCoinsPage = new ReceiveCoinsDialog();
 
@@ -180,8 +179,8 @@ void WalletView::setBitcoinGUI(BitcoinGUI *gui)
 {
     if (gui)
     {
-        // Clicking on a transaction on the overview page simply sends you to transaction history page
-        connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), gui, SLOT(gotoHistoryPage()));
+        // Clicking on a transaction on the overview page simply sends you to bitcoin history tab
+        connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), gui, SLOT(gotoBitcoinHistoryTab()));
 
         // Receive and report messages
         connect(this, SIGNAL(message(QString,QString,unsigned int)), gui, SLOT(message(QString,QString,unsigned int)));
@@ -267,6 +266,12 @@ void WalletView::gotoBalancesPage()
 void WalletView::gotoHistoryPage()
 {
     setCurrentWidget(transactionsPage);
+}
+
+void WalletView::gotoBitcoinHistoryTab()
+{
+    setCurrentWidget(transactionsPage);
+    txTabHolder->setCurrentIndex(1);
 }
 
 void WalletView::gotoReceiveCoinsPage()

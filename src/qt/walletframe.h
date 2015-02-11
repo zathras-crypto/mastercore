@@ -58,6 +58,8 @@ public slots:
     void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch directory to bitcoin tx history tab */
+    void gotoBitcoinHistoryTab();
     /** Switch to utility page */
     void gotoToolboxPage();
     /** Switch to receive coins page */
