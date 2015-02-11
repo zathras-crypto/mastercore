@@ -4152,6 +4152,12 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   // check the alert status, do we need to do anything else here?
   (void) checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
 
+  // force an update of the UI once per processed block containing Omni transactions
+  if (countMP > 0)  // there were Omni transactions in this block
+  {
+    uiInterface.OmniStateChanged();
+  }
+
   // save out the state after this block
   if (writePersistence(nBlockNow))
     mastercore_save_state(pBlockIndex);

@@ -241,6 +241,9 @@ signals:
     // Show progress dialog e.g. for rescan
     void showProgress(const QString &title, int nProgress);
 
+    // Refresh Omni state
+//    void refreshOmniState();
+
 public slots:
     /* Wallet status might have changed */
     void updateStatus();

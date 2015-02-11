@@ -94,6 +94,9 @@ public:
 
     /** A wallet has been loaded. */
     boost::signals2::signal<void (CWallet* wallet)> LoadWallet;
+
+    /** Omni balances have been updated. */
+    boost::signals2::signal<void ()> OmniStateChanged;
 };
 
 extern CClientUIInterface uiInterface;

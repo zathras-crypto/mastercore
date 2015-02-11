@@ -169,6 +169,8 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->proclabel_2->setText("(" + tr("processing") + ")"); //smart property processing label
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
+    // show the Omni state as at startup
+    updateOmni();
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
@@ -182,27 +184,8 @@ OverviewPage::~OverviewPage()
     delete ui;
 }
 
-void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)
+void OverviewPage::updateOmni()
 {
-    // Mastercore alerts come as block transactions and do not trip bitcoin alertsChanged() signal so let's check the
-    // alert status with the update balance signal that comes in after each block to see if it had any alerts in it
-    updateAlerts();
-
-    int unit = walletModel->getOptionsModel()->getDisplayUnit();
-    currentBalance = balance;
-    currentUnconfirmedBalance = unconfirmedBalance;
-    currentImmatureBalance = immatureBalance;
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance));
-    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, unconfirmedBalance));
-    ui->labelImmature->setText(BitcoinUnits::formatWithUnit(unit, immatureBalance));
-    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balance + unconfirmedBalance + immatureBalance));
-
-    // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
-    // for the non-mining users
-    bool showImmature = immatureBalance != 0;
-    ui->labelImmature->setVisible(showImmature);
-    ui->labelImmatureText->setVisible(showImmature);
-
     // mastercoin balances - force refresh first
     set_wallet_totals();
     ui->MSClabelavailable->setText(BitcoinUnits::format(0, global_balance_money_maineco[1]).append(" MSC"));
@@ -376,6 +359,28 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     if (spFound[6]) { ui->notifyMoreSPLabel->setVisible(true); } else { ui->notifyMoreSPLabel->setVisible(false); }
 }
 
+void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)
+{
+    // Mastercore alerts come as block transactions and do not trip bitcoin alertsChanged() signal so let's check the
+    // alert status with the update balance signal that comes in after each block to see if it had any alerts in it
+    updateAlerts();
+
+    int unit = walletModel->getOptionsModel()->getDisplayUnit();
+    currentBalance = balance;
+    currentUnconfirmedBalance = unconfirmedBalance;
+    currentImmatureBalance = immatureBalance;
+    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance));
+    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, unconfirmedBalance));
+    ui->labelImmature->setText(BitcoinUnits::formatWithUnit(unit, immatureBalance));
+    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balance + unconfirmedBalance + immatureBalance));
+
+    // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
+    // for the non-mining users
+    bool showImmature = immatureBalance != 0;
+    ui->labelImmature->setVisible(showImmature);
+    ui->labelImmatureText->setVisible(showImmature);
+}
+
 void OverviewPage::switchToBalancesPage()
 {
 printf("switch to balances clicked\n");
@@ -390,6 +395,9 @@ void OverviewPage::setClientModel(ClientModel *model)
         // Show warning if this is a prerelease version
         connect(model, SIGNAL(alertsChanged(QString)), this, SLOT(updateAlerts()));
         updateAlerts();
+
+        // Refresh Omni info if there have been Omni layer transactions
+        connect(model, SIGNAL(refreshOmniState()), this, SLOT(updateOmni()));
     }
 }
 
