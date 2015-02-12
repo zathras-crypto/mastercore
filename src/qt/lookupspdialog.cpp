@@ -121,6 +121,11 @@ void LookupSPDialog::searchSP()
         if (address.IsValid()) searchParamType = 2; // search by address;
     }
 
+    // next if we have a "*" only, we'll assume the user wants to request all properties
+    // Znote - unsure about this, adding for now but may be removed in future when number of properties is
+    //         higher because it will get out of hand to add 100,000 properties to a single combo unfiltered
+    if ((searchParamType == 0) && (searchText == "*")) { searchParamType = 4; }
+
     // if we still don't have a param we'll search against free text in the name
     if (searchParamType == 0) searchParamType = 3; // search by free text
 
@@ -215,6 +220,20 @@ void LookupSPDialog::searchSP()
                        addSPToMatchingResults(tmpPropertyId);
                    }
                }
+           }
+        break;
+        case 4: // grab everything
+           nextSPID = _my_sps->peekNextSPID(1);
+           for (tmpPropertyId = 1; tmpPropertyId<nextSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp)) { addSPToMatchingResults(tmpPropertyId); }
+           }
+           nextTestSPID = _my_sps->peekNextSPID(2);
+           for (tmpPropertyId = TEST_ECO_PROPERTY_1; tmpPropertyId<nextTestSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp)) { addSPToMatchingResults(tmpPropertyId); }
            }
         break;
     }
