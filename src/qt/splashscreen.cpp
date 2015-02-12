@@ -22,9 +22,10 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     setAutoFillBackground(true);
 
     // set reference point, paddings
-    int paddingTop              = 200;
+    int paddingLeft             = 33;
+    int paddingTop              = 245;
     int titleVersionVSpace      = 40;
-    int titleCopyrightVSpace    = 60;
+    int titleCopyrightVSpace    = 58;
 
     float fontFactor            = 1.0;
 
@@ -62,13 +63,13 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     pixPaint.setFont(QFont(font, 20*fontFactor));
     fm = pixPaint.fontMetrics();
     int versionTextWidth  = fm.width(versionText);
-    pixPaint.drawText((newPixmap.width()-versionTextWidth)/2,paddingTop+titleVersionVSpace,versionText);
+    pixPaint.drawText(paddingLeft,paddingTop+titleVersionVSpace,versionText);
 
     // draw copyright stuff
     pixPaint.setFont(QFont(font, 10*fontFactor));
     fm = pixPaint.fontMetrics();
     int copyrightTextWidth = fm.width(copyrightText);
-    pixPaint.drawText((newPixmap.width()-copyrightTextWidth)/2,paddingTop+titleCopyrightVSpace,copyrightText);
+    pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace,copyrightText);
 
     // draw testnet string if testnet is on
     if(isTestNet) {
@@ -101,9 +102,10 @@ static void InitMessage(SplashScreen *splash, const std::string &message)
 {
     QMetaObject::invokeMethod(splash, "showMessage",
         Qt::QueuedConnection,
-        Q_ARG(QString, QString::fromStdString(message)),
-        Q_ARG(int, Qt::AlignBottom|Qt::AlignHCenter),
-        Q_ARG(QColor, QColor(55,55,55)));
+        //hacky, pixel alignment not available with showMessage, perhaps override painter?
+        Q_ARG(QString, QString::fromStdString("          " + message + "\n\n\n\n\n\n")),
+        Q_ARG(int, Qt::AlignBottom|Qt::AlignLeft),
+        Q_ARG(QColor, QColor(100,100,100)));
 }
 
 static void ShowProgress(SplashScreen *splash, const std::string &title, int nProgress)
