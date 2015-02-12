@@ -62,13 +62,11 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     // draw version
     pixPaint.setFont(QFont(font, 20*fontFactor));
     fm = pixPaint.fontMetrics();
-    int versionTextWidth  = fm.width(versionText);
     pixPaint.drawText(paddingLeft,paddingTop+titleVersionVSpace,versionText);
 
     // draw copyright stuff
     pixPaint.setFont(QFont(font, 10*fontFactor));
     fm = pixPaint.fontMetrics();
-    int copyrightTextWidth = fm.width(copyrightText);
     pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace,copyrightText);
 
     // draw testnet string if testnet is on
@@ -102,9 +100,8 @@ static void InitMessage(SplashScreen *splash, const std::string &message)
 {
     QMetaObject::invokeMethod(splash, "showMessage",
         Qt::QueuedConnection,
-        //hacky, pixel alignment not available with showMessage, perhaps override painter?
-        Q_ARG(QString, QString::fromStdString("          " + message + "\n\n\n\n\n\n")),
-        Q_ARG(int, Qt::AlignBottom|Qt::AlignLeft),
+        Q_ARG(QString, QString::fromStdString("\n\n" + message)), // shift down a little from absolute center
+        Q_ARG(int, Qt::AlignCenter),
         Q_ARG(QColor, QColor(100,100,100)));
 }
 
