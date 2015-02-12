@@ -142,15 +142,21 @@ void SendMPDialog::clearFields()
 void SendMPDialog::updateFrom()
 {
     // check if this from address has sufficient fees for a send, if not light up warning label
-    QString selectedFromAddress = ui->sendFromComboBox->currentText();
-    int64_t inputTotal = feeCheck(selectedFromAddress.toStdString());
-    if (inputTotal>=50000)
+    std::string currentSetFromAddress = ui->sendFromComboBox->currentText().toStdString();
+    size_t spacer = currentSetFromAddress.find(" ");
+    if (spacer!=std::string::npos) {
+        currentSetFromAddress = currentSetFromAddress.substr(0,spacer);
+    } else {
+        currentSetFromAddress = "";
+    }
+    int64_t inputTotal = feeCheck(currentSetFromAddress);
+    if (inputTotal>=22000)
     {
        ui->feeWarningLabel->setVisible(false);
     }
     else
     {
-       string feeWarning = "Only " + FormatDivisibleMP(inputTotal) + " BTC are available at the sending address for fees, you can attempt to send the transaction anyway but this *may* not be sufficient.";
+       string feeWarning = "WARNING: You will not be able to send this transaction.  The sending address does not have enough BTC to cover transaction fees.";
        ui->feeWarningLabel->setText(QString::fromStdString(feeWarning));
        ui->feeWarningLabel->setVisible(true);
     }
@@ -159,7 +165,13 @@ void SendMPDialog::updateFrom()
 void SendMPDialog::updateProperty()
 {
     // get currently selected from address
-    QString currentSetFromAddress = ui->sendFromComboBox->currentText();
+    std::string currentSetFromAddress = ui->sendFromComboBox->currentText().toStdString();
+    size_t spacer = currentSetFromAddress.find(" ");
+    if (spacer!=std::string::npos) {
+        currentSetFromAddress = currentSetFromAddress.substr(0,spacer);
+    } else {
+        currentSetFromAddress = "";
+    }
 
     // clear address selector
     ui->sendFromComboBox->clear();
@@ -167,10 +179,16 @@ void SendMPDialog::updateProperty()
     // populate from address selector
     QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
+    bool divisible = isPropertyDivisible(propertyId);
+    std::string tokenLabel;
+    if (propertyId==1) tokenLabel = " MSC";
+    if (propertyId==2) tokenLabel = " TMSC";
+    if (propertyId>2) tokenLabel = " SPT";
     LOCK(cs_tally);
     for(map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it)
     {
         string address = (my_it->first).c_str();
+        string balance = "";
         unsigned int id;
         bool includeAddress=false;
         (my_it->second).init();
@@ -181,12 +199,34 @@ void SendMPDialog::updateProperty()
         if (!includeAddress) continue; //ignore this address, has never transacted in this propertyId
         if (!IsMyAddress(address)) continue; //ignore this address, it's not ours
         if ((address.substr(0,1)=="2") || (address.substr(0,3)=="3")) continue; //quick hack to not show P2SH addresses in from selector (can't be sent from UI)
-        ui->sendFromComboBox->addItem((my_it->first).c_str());
+        int64_t balanceAvailable = getUserAvailableMPbalance(address, propertyId);
+        if (divisible)
+        {
+          balance = " (Available: " + FormatDivisibleMP(balanceAvailable) + tokenLabel + ")";
+        }
+        else {
+          balance = " (Available: " + FormatIndivisibleMP(balanceAvailable) + tokenLabel + ")";
+        }
+        ui->sendFromComboBox->addItem(((my_it->first)+balance).c_str());
     }
 
     // attempt to set from address back to what was originally in there before update
-    int fromIdx = ui->sendFromComboBox->findText(currentSetFromAddress);
+    int fromIdx = ui->sendFromComboBox->findText(QString::fromStdString(currentSetFromAddress), Qt::MatchContains);
     if (fromIdx != -1) { ui->sendFromComboBox->setCurrentIndex(fromIdx); } // -1 means the currently set from address doesn't have a balance in the newly selected property
+
+    // populate balance for global wallet
+    int64_t globalAvailable = 0;
+    if (propertyId<2147483648) { globalAvailable = global_balance_money_maineco[propertyId]; } else { globalAvailable = global_balance_money_testeco[propertyId-2147483647]; }
+    QString globalLabel;
+    if (divisible)
+    {
+        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatDivisibleMP(globalAvailable) + tokenLabel);
+    }
+    else
+    {
+        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatIndivisibleMP(globalAvailable) + tokenLabel);
+    }
+    ui->globalBalanceLabel->setText(globalLabel);
 
 #if QT_VERSION >= 0x040700
     // update placeholder text
@@ -196,36 +236,6 @@ void SendMPDialog::updateProperty()
         ui->amountLineEdit->setPlaceholderText("Enter Indivisible Amount");
     }
 #endif
-}
-
-void SendMPDialog::updateBalances()
-{
-    // populate balance for currently selected address and global wallet balance
-    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
-    unsigned int propertyId = spId.toUInt();
-    QString selectedFromAddress = ui->sendFromComboBox->currentText();
-    std::string stdSelectedFromAddress = selectedFromAddress.toStdString();
-    int64_t balanceAvailable = getUserAvailableMPbalance(stdSelectedFromAddress, propertyId);
-    int64_t globalAvailable = 0;
-    if (propertyId<2147483648) { globalAvailable = global_balance_money_maineco[propertyId]; } else { globalAvailable = global_balance_money_testeco[propertyId-2147483647]; }
-    QString balanceLabel;
-    QString globalLabel;
-    std::string tokenLabel;
-    if (propertyId==1) tokenLabel = " MSC";
-    if (propertyId==2) tokenLabel = " TMSC";
-    if (propertyId>2) tokenLabel = " SPT";
-    if (isPropertyDivisible(propertyId))
-    {
-        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatDivisibleMP(balanceAvailable) + tokenLabel);
-        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatDivisibleMP(globalAvailable) + tokenLabel);
-    }
-    else
-    {
-        balanceLabel = QString::fromStdString("Address Balance (Available): " + FormatIndivisibleMP(balanceAvailable) + tokenLabel);
-        globalLabel = QString::fromStdString("Wallet Balance (Available): " + FormatIndivisibleMP(globalAvailable) + tokenLabel);
-    }
-    ui->addressBalanceLabel->setText(balanceLabel);
-    ui->globalBalanceLabel->setText(globalLabel);
 }
 
 void SendMPDialog::sendMPTransaction()
@@ -243,6 +253,13 @@ void SendMPDialog::sendMPTransaction()
 
     // obtain the selected sender address
     string strFromAddress = ui->sendFromComboBox->currentText().toStdString();
+    size_t spacer = strFromAddress.find(" ");
+    if (spacer!=std::string::npos) {
+        strFromAddress = strFromAddress.substr(0,spacer);
+    } else {
+        strFromAddress = "";
+    }
+
     // push recipient address into a CBitcoinAddress type and check validity
     CBitcoinAddress fromAddress;
     if (false == strFromAddress.empty()) { fromAddress.SetString(strFromAddress); }
@@ -250,6 +267,15 @@ void SendMPDialog::sendMPTransaction()
     {
         QMessageBox::critical( this, "Unable to send transaction",
         "The sender address selected is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+        return;
+    }
+
+    // check if there are enough BTC for fees
+    int64_t inputTotal = feeCheck(strFromAddress);
+    if (inputTotal<22000)
+    {
+        QMessageBox::critical( this, "Unable to send transaction",
+        "The sending address does not have enough Bitcoin to cover transaction fees.\n\nPlease forward a small amount of BTC to the sending address in order to send Omni transactions from this address." );
         return;
     }
 
@@ -397,7 +423,8 @@ void SendMPDialog::sendMPTransaction()
     {
         // call an update of the balances
         set_wallet_totals();
-        updateBalances();
+        updateProperty();
+        updateFrom();
 
         // display the result
         string strSentText = "Your Omni Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
@@ -422,14 +449,12 @@ void SendMPDialog::sendMPTransaction()
 
 void SendMPDialog::sendFromComboBoxChanged(int idx)
 {
-    updateBalances();
     updateFrom();
 }
 
 void SendMPDialog::propertyComboBoxChanged(int idx)
 {
     updateProperty();
-    updateBalances();
     updateFrom();
 }
 
@@ -449,6 +474,5 @@ void SendMPDialog::balancesUpdated()
 
     updatePropSelector();
     updateProperty();
-    updateBalances();
     updateFrom();
 }
