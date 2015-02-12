@@ -100,7 +100,7 @@ static void InitMessage(SplashScreen *splash, const std::string &message)
 {
     QMetaObject::invokeMethod(splash, "showMessage",
         Qt::QueuedConnection,
-        Q_ARG(QString, QString::fromStdString("\n\n" + message)), // shift down a little from absolute center
+        Q_ARG(QString, QString::fromStdString("\n\n\n\n" + message)), // shift down a little from absolute center
         Q_ARG(int, Qt::AlignCenter),
         Q_ARG(QColor, QColor(100,100,100)));
 }
