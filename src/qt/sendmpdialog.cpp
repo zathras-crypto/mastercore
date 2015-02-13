@@ -146,6 +146,10 @@ void SendMPDialog::updateFrom()
     size_t spacer = currentSetFromAddress.find(" ");
     if (spacer!=std::string::npos) {
         currentSetFromAddress = currentSetFromAddress.substr(0,spacer);
+        ui->sendFromComboBox->setEditable(true);
+        QLineEdit *comboDisplay = ui->sendFromComboBox->lineEdit();
+        comboDisplay->setText(QString::fromStdString(currentSetFromAddress));
+        comboDisplay->setReadOnly(true);
     } else {
         currentSetFromAddress = "";
     }
@@ -160,18 +164,26 @@ void SendMPDialog::updateFrom()
        ui->feeWarningLabel->setText(QString::fromStdString(feeWarning));
        ui->feeWarningLabel->setVisible(true);
     }
+    QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
+    unsigned int propertyId = spId.toUInt();
+    if (propertyId > 0) {
+        std::string tokenLabel;
+        if (propertyId==1) tokenLabel = " MSC";
+        if (propertyId==2) tokenLabel = " TMSC";
+        if (propertyId>2) tokenLabel = " SPT";
+        int64_t balanceAvailable = getUserAvailableMPbalance(currentSetFromAddress, propertyId);
+        if (isPropertyDivisible(propertyId)) {
+            ui->balanceLabel->setText(QString::fromStdString("Address Balance: " + FormatDivisibleMP(balanceAvailable) + tokenLabel));
+        } else {
+            ui->balanceLabel->setText(QString::fromStdString("Address Balance: " + FormatIndivisibleMP(balanceAvailable) + tokenLabel));
+        }
+    }
 }
 
 void SendMPDialog::updateProperty()
 {
     // get currently selected from address
     std::string currentSetFromAddress = ui->sendFromComboBox->currentText().toStdString();
-    size_t spacer = currentSetFromAddress.find(" ");
-    if (spacer!=std::string::npos) {
-        currentSetFromAddress = currentSetFromAddress.substr(0,spacer);
-    } else {
-        currentSetFromAddress = "";
-    }
 
     // clear address selector
     ui->sendFromComboBox->clear();
@@ -202,10 +214,10 @@ void SendMPDialog::updateProperty()
         int64_t balanceAvailable = getUserAvailableMPbalance(address, propertyId);
         if (divisible)
         {
-          balance = " (Available: " + FormatDivisibleMP(balanceAvailable) + tokenLabel + ")";
+          balance = " \t(Available: " + FormatDivisibleMP(balanceAvailable) + tokenLabel + ")";
         }
         else {
-          balance = " (Available: " + FormatIndivisibleMP(balanceAvailable) + tokenLabel + ")";
+          balance = " \t(Available: " + FormatIndivisibleMP(balanceAvailable) + tokenLabel + ")";
         }
         ui->sendFromComboBox->addItem(((my_it->first)+balance).c_str());
     }
@@ -253,12 +265,6 @@ void SendMPDialog::sendMPTransaction()
 
     // obtain the selected sender address
     string strFromAddress = ui->sendFromComboBox->currentText().toStdString();
-    size_t spacer = strFromAddress.find(" ");
-    if (spacer!=std::string::npos) {
-        strFromAddress = strFromAddress.substr(0,spacer);
-    } else {
-        strFromAddress = "";
-    }
 
     // push recipient address into a CBitcoinAddress type and check validity
     CBitcoinAddress fromAddress;

@@ -91,6 +91,16 @@
           </widget>
          </item>
          <item>
+          <widget class="QLabel" name="balanceLabel">
+           <property name="text">
+            <string>Available: 0.00000000 MSC</string>
+           </property>
+           <property name="margin">
+            <number>8</number>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="horizontalSpacer_2">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
