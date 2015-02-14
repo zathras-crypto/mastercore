@@ -214,10 +214,10 @@ void SendMPDialog::updateProperty()
         int64_t balanceAvailable = getUserAvailableMPbalance(address, propertyId);
         if (divisible)
         {
-          balance = " \t(Available: " + FormatDivisibleMP(balanceAvailable) + tokenLabel + ")";
+          balance = " \t" + FormatDivisibleMP(balanceAvailable) + tokenLabel;
         }
         else {
-          balance = " \t(Available: " + FormatIndivisibleMP(balanceAvailable) + tokenLabel + ")";
+          balance = " \t" + FormatIndivisibleMP(balanceAvailable) + tokenLabel;
         }
         ui->sendFromComboBox->addItem(((my_it->first)+balance).c_str());
     }
