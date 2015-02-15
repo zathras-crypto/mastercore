@@ -154,15 +154,17 @@ void SendMPDialog::updateFrom()
         currentSetFromAddress = "";
     }
     int64_t inputTotal = feeCheck(currentSetFromAddress);
-    if (inputTotal>=22000)
+    int64_t minWarn = (nTransactionFee * 2) + 2000; // warn when fees are not sufficient to cover a 2KB simple send
+    if (inputTotal>=minWarn)
     {
-       ui->feeWarningLabel->setVisible(false);
+        ui->feeWarningLabel->setVisible(false);
     }
     else
     {
-       string feeWarning = "WARNING: You will not be able to send this transaction.  The sending address does not have enough BTC to cover transaction fees.";
-       ui->feeWarningLabel->setText(QString::fromStdString(feeWarning));
-       ui->feeWarningLabel->setVisible(true);
+        std::string feeWarning = "WARNING: The sending address is low on BTC for transaction fees. "
+                     "Please topup the BTC balance for the sending address to send Omni Layer transactions.";
+        ui->feeWarningLabel->setText(QString::fromStdString(feeWarning));
+        ui->feeWarningLabel->setVisible(true);
     }
     QString spId = ui->propertyComboBox->itemData(ui->propertyComboBox->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
@@ -273,15 +275,6 @@ void SendMPDialog::sendMPTransaction()
     {
         QMessageBox::critical( this, "Unable to send transaction",
         "The sender address selected is not valid.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
-        return;
-    }
-
-    // check if there are enough BTC for fees
-    int64_t inputTotal = feeCheck(strFromAddress);
-    if (inputTotal<22000)
-    {
-        QMessageBox::critical( this, "Unable to send transaction",
-        "The sending address does not have enough Bitcoin to cover transaction fees.\n\nPlease forward a small amount of BTC to the sending address in order to send Omni transactions from this address." );
         return;
     }
 
