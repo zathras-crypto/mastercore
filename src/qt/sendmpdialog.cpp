@@ -154,8 +154,9 @@ void SendMPDialog::updateFrom()
         currentSetFromAddress = "";
     }
     int64_t inputTotal = feeCheck(currentSetFromAddress);
-    int64_t minWarn = (nTransactionFee * 2) + 2000; // warn when fees are not sufficient to cover a 2KB simple send
-    if (inputTotal>=minWarn)
+    int64_t minWarn = 3 * CTransaction::nMinRelayTxFee + 2 * nTransactionFee;
+    // warn when fees are not sufficient to cover a 2 KB simple send
+    if (inputTotal >= minWarn)
     {
         ui->feeWarningLabel->setVisible(false);
     }
