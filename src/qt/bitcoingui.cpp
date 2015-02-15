@@ -227,14 +227,14 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     tabGroup->addAction(overviewAction);
 
     balancesAction = new QAction(QIcon(":/icons/balances"), tr("&Balances"), this);
-    balancesAction->setStatusTip(tr("Show Omni Protocol balances"));
+    balancesAction->setStatusTip(tr("Show Omni Layer balances"));
     balancesAction->setToolTip(balancesAction->statusTip());
     balancesAction->setCheckable(true);
     balancesAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
     tabGroup->addAction(balancesAction);
 
     sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
-    sendCoinsAction->setStatusTip(tr("Send Omni Protocol and Bitcoin transactions"));
+    sendCoinsAction->setStatusTip(tr("Send Omni Layer and Bitcoin transactions"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
@@ -255,7 +255,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
 //    tabGroup->addAction(exchangeAction);
 
     smartPropertyAction = new QAction(QIcon(":/icons/smartproperty"), tr("Smart &Property"), this);
-    smartPropertyAction->setStatusTip(tr("Lookup and interact with Omni Protocol Smart Properties"));
+    smartPropertyAction->setStatusTip(tr("Lookup and interact with Omni Layer Smart Properties"));
     smartPropertyAction->setToolTip(smartPropertyAction->statusTip());
     smartPropertyAction->setCheckable(true);
     smartPropertyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
@@ -269,7 +269,7 @@ void BitcoinGUI::createActions(bool fIsTestnet)
     tabGroup->addAction(historyAction);
 
     toolboxAction = new QAction(QIcon(":/icons/toolbox"), tr("&Toolbox"), this);
-    toolboxAction->setStatusTip(tr("Tools to obtain varions Omni Protocol information and transaction information"));
+    toolboxAction->setStatusTip(tr("Tools to obtain varions Omni Layer information and transaction information"));
     toolboxAction->setToolTip(toolboxAction->statusTip());
     toolboxAction->setCheckable(true);
     toolboxAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_8));

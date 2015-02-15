@@ -79,7 +79,7 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
 #endif
 #if QT_VERSION >= 0x040700
     // populate placeholder text
-    ui->sendToLineEdit->setPlaceholderText("Enter a Omni Protocol address (e.g. 1oMn1PRotocolADDreSShef77z6A5S4P)");
+    ui->sendToLineEdit->setPlaceholderText("Enter a Omni Layer address (e.g. 1oMn1LaYeRADDreSShef77z6A5S4P)");
     ui->amountLineEdit->setPlaceholderText("Enter Amount");
 #endif
 
@@ -426,7 +426,7 @@ void SendMPDialog::sendMPTransaction()
         updateFrom();
 
         // display the result
-        string strSentText = "Your Omni Protocol transaction has been sent.\n\nThe transaction ID is:\n\n";
+        string strSentText = "Your Omni Layer transaction has been sent.\n\nThe transaction ID is:\n\n";
         strSentText += sendTXID.GetHex() + "\n\n";
         QString sentText = QString::fromStdString(strSentText);
         QMessageBox sentDialog;
