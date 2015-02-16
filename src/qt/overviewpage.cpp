@@ -365,6 +365,9 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     // alert status with the update balance signal that comes in after each block to see if it had any alerts in it
     updateAlerts();
 
+    // Update Omni balances also when we catch this
+    updateOmni();
+
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     currentBalance = balance;
     currentUnconfirmedBalance = unconfirmedBalance;
