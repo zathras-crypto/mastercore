@@ -261,6 +261,8 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
 
 void LookupSPDialog::updateDisplayedProperty()
 {
+    uint64_t maxLabelWidth=75; // fairly safe value for now, next version consider wrapping
+                               // instead of truncation and evaluate effects on vertical layout
     QString strId = ui->matchingComboBox->itemData(ui->matchingComboBox->currentIndex()).toString();
     // protect against an empty matchedComboBox
     if (strId.toStdString().empty()) return;
@@ -275,9 +277,37 @@ void LookupSPDialog::updateDisplayedProperty()
     if (divisible) { ui->divisibleLabel->setText("Yes"); } else { ui->divisibleLabel->setText("No"); }
     if (isTestEcosystemProperty(propertyId)) { ui->ecosystemLabel->setText("Test"); } else { ui->ecosystemLabel->setText("Production"); }
     ui->propertyIDLabel->setText(QString::fromStdString(FormatIndivisibleMP(propertyId)));
-    ui->nameLabel->setText(QString::fromStdString(sp.name));
-    ui->categoryLabel->setText(QString::fromStdString(sp.category + " > " + sp.subcategory));
-    ui->dataLabel->setText(QString::fromStdString(sp.data));
+    if(sp.name.size()>maxLabelWidth) {
+        ui->nameLabel->setText(QString::fromStdString(sp.name.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->nameLabel->setText(QString::fromStdString(sp.name));
+    }
+    std::string dispCat;
+    dispCat = sp.category + " > " + sp.subcategory;
+    if(dispCat.size()>maxLabelWidth) {
+        if(sp.category.size()>maxLabelWidth/2) {
+            dispCat = sp.category.substr(0,maxLabelWidth/2)+"...";
+        } else {
+            dispCat = sp.category;
+        }
+        dispCat += " > ";
+        if(sp.subcategory.size()>maxLabelWidth/2) {
+            dispCat += sp.subcategory.substr(0,maxLabelWidth/2)+"...";
+        } else {
+            dispCat += sp.subcategory;
+        }
+    }
+    ui->categoryLabel->setText(QString::fromStdString(dispCat));
+    if(sp.data.size()>maxLabelWidth) {
+        ui->dataLabel->setText(QString::fromStdString(sp.data.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->dataLabel->setText(QString::fromStdString(sp.data));
+    }
+    if(sp.url.size()>maxLabelWidth) {
+        ui->urlLabel->setText(QString::fromStdString(sp.url.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->urlLabel->setText(QString::fromStdString(sp.url));
+    }
     ui->urlLabel->setText(QString::fromStdString(sp.url));
     string strTotalTokens;
     string strWalletTokens;
