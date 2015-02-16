@@ -269,16 +269,16 @@ public:
     implied_msc.category = "N/A";
     implied_msc.subcategory = "N/A";
     implied_msc.name = "MasterCoin";
-    implied_msc.url = "www.mastercoin.org";
-    implied_msc.data = "***data***";
+    implied_msc.url = "http://www.mastercoin.org";
+    implied_msc.data = "MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer";
     implied_tmsc.issuer = ExodusAddress();
     implied_tmsc.prop_type = MSC_PROPERTY_TYPE_DIVISIBLE;
     implied_tmsc.num_tokens = 700000;
     implied_tmsc.category = "N/A";
     implied_tmsc.subcategory = "N/A";
     implied_tmsc.name = "Test MasterCoin";
-    implied_tmsc.url = "www.mastercoin.org";
-    implied_tmsc.data = "***data***";
+    implied_tmsc.url = "http://www.mastercoin.org";
+    implied_tmsc.data = "Test MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer";
 
     init();
   }
