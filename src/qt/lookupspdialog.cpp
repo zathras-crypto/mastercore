@@ -308,6 +308,16 @@ void LookupSPDialog::updateDisplayedProperty()
     } else {
         ui->urlLabel->setText(QString::fromStdString(sp.url));
     }
+    // overrides for MSC and TMSC - temporary code can be removed when metadata is modified
+    if(propertyId==1) {
+        ui->dataLabel->setText(QString::fromStdString("MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer"));
+        ui->urlLabel->setText(QString::fromStdString("http://www.omnilayer.org"));
+    }
+    if(propertyId==2) {
+        ui->dataLabel->setText(QString::fromStdString("Test MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer"));
+        ui->urlLabel->setText(QString::fromStdString("http://www.omnilayer.org"));
+    }
+
     string strTotalTokens;
     string strWalletTokens;
     int64_t totalTokens = getTotalTokens(propertyId);
