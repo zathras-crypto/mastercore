@@ -75,28 +75,32 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
 
     // setup
     ui->txHistoryTable->setColumnCount(6);
-    ui->txHistoryTable->setHorizontalHeaderItem(0, new QTableWidgetItem(" "));
-    ui->txHistoryTable->setHorizontalHeaderItem(1, new QTableWidgetItem("Date"));
-    ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Type"));
-    ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Address"));
-    ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Amount"));
-#if QT_VERSION < 0x050000
-    ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);    
-//  ui->txHistoryTable->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
-#else
-    ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);    
-//  ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-#endif
-//  ui->txHistoryTable->setShowGrid(false);
+    ui->txHistoryTable->setHorizontalHeaderItem(1, new QTableWidgetItem(" "));
+    ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem("Date"));
+    ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Type"));
+    ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Address"));
+    ui->txHistoryTable->setHorizontalHeaderItem(5, new QTableWidgetItem("Amount"));
+    // borrow ColumnResizingFixer again
+    borrowedColumnResizingFixer = new GUIUtil::TableViewLastColumnResizingFixer(ui->txHistoryTable,100,100);
+    // allow user to adjust - go interactive then manually set widths
+    #if QT_VERSION < 0x050000
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(1, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(2, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(4, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(5, QHeaderView::Interactive);
+   #else
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+    #endif
+    ui->txHistoryTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->txHistoryTable->verticalHeader()->setVisible(false);
     ui->txHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->txHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->txHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    ui->txHistoryTable->setColumnWidth(0, 23);
-    ui->txHistoryTable->setColumnWidth(1, 150);
-    ui->txHistoryTable->setColumnWidth(2, 130);
-    ui->txHistoryTable->setColumnWidth(4, 200);
-    ui->txHistoryTable->setColumnWidth(5, 0);
 
     // Always show scroll bar
     //ui->txHistoryTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -125,8 +129,25 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
     connect(showDetailsAction, SIGNAL(triggered()), this, SLOT(showDetails()));
 
-
     UpdateHistory();
+
+    // since there is no model we can't do this before we add some data, so now let's do the resizing 
+    // *after* we've populated the initial content for the table
+    // we'll use some hardcoded initial here because we don't have a model behind this view and as such
+    // when initializing the table there is no data to use resizetocontents
+printf("ztempdebug: manually setting column 1 to 23px\n");
+    ui->txHistoryTable->setColumnWidth(1, 23);
+printf("ztempdebug: manually setting column 2 to content width\n");
+    ui->txHistoryTable->resizeColumnToContents(2);
+printf("ztempdebug: manually setting column 3 to content width\n");
+    ui->txHistoryTable->resizeColumnToContents(3);
+printf("ztempdebug: manually setting column 5 to content width\n");
+    ui->txHistoryTable->resizeColumnToContents(5);
+printf("ztempdebug: manually setting column 0 to hidden\n");
+    ui->txHistoryTable->setColumnHidden(0, true);
+printf("ztempdebug: calling stretch on column 4\n");
+    borrowedColumnResizingFixer->stretchColumnWidth(4);
+
 }
 
 void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved)
@@ -165,12 +186,12 @@ void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int con
         txidCell->setBackground(QColor("#F0F0F0"));
         iconCell->setBackground(QColor("#F0F0F0"));
     }
-    ui->txHistoryTable->setItem(rowcount, 0, iconCell);
-    ui->txHistoryTable->setItem(rowcount, 1, dateCell);
-    ui->txHistoryTable->setItem(rowcount, 2, typeCell);
-    ui->txHistoryTable->setItem(rowcount, 3, addressCell);
-    ui->txHistoryTable->setItem(rowcount, 4, amountCell);
-    ui->txHistoryTable->setItem(rowcount, 5, txidCell);
+    ui->txHistoryTable->setItem(rowcount, 0, txidCell);
+    ui->txHistoryTable->setItem(rowcount, 1, iconCell);
+    ui->txHistoryTable->setItem(rowcount, 2, dateCell);
+    ui->txHistoryTable->setItem(rowcount, 3, typeCell);
+    ui->txHistoryTable->setItem(rowcount, 4, addressCell);
+    ui->txHistoryTable->setItem(rowcount, 5, amountCell);
 }
 
 void TXHistoryDialog::UpdateHistory()
@@ -506,7 +527,7 @@ void TXHistoryDialog::showDetails()
 {
     Object txobj;
     uint256 txid;
-    txid.SetHex(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text().toStdString());
+    txid.SetHex(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),0)->text().toStdString());
     std::string strTXText;
 
     // first of all check if the TX is a pending tx, if so grab details from pending map
@@ -607,3 +628,10 @@ void TXHistoryDialog::accept()
 {
 
 }
+
+void TXHistoryDialog::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    borrowedColumnResizingFixer->stretchColumnWidth(4);
+}
+

@@ -6,6 +6,7 @@
 #define TXHISTORYDIALOG_H
 
 #include "walletmodel.h"
+#include "guiutil.h"
 
 #include <QDialog>
 #include <QString>
@@ -49,6 +50,10 @@ public:
     QTextEdit *dlgTextEdit;
     QDialogButtonBox *buttonBox;
     QPushButton *closeButton;
+
+    GUIUtil::TableViewLastColumnResizingFixer *borrowedColumnResizingFixer;
+
+    virtual void resizeEvent(QResizeEvent* event);
 
 public slots:
     //void switchButtonClicked();

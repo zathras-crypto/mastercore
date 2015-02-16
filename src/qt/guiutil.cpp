@@ -443,12 +443,27 @@ void TableViewLastColumnResizingFixer::setViewHeaderResizeMode(int logicalIndex,
 
 void TableViewLastColumnResizingFixer::resizeColumn(int nColumnIndex, int width)
 {
+printf("ztempdebug: resizeColumn against column %d with width %d\n",nColumnIndex,width);
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     tableView->setColumnWidth(nColumnIndex, width);
     tableView->horizontalHeader()->resizeSection(nColumnIndex, width);
 }
 
 int TableViewLastColumnResizingFixer::getColumnsWidth()
 {
+printf("ztempdebug: getColumnsWidth\n");
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
+
     int nColumnsWidthSum = 0;
     for (int i = 0; i < columnCount; i++)
     {
@@ -459,6 +474,13 @@ int TableViewLastColumnResizingFixer::getColumnsWidth()
 
 int TableViewLastColumnResizingFixer::getAvailableWidthForColumn(int column)
 {
+printf("ztempdebug: getAvailableWidthForColumn against column %d\n",column);
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     int nResult = lastColumnMinimumWidth;
     int nTableWidth = tableView->horizontalHeader()->width();
 
@@ -474,6 +496,13 @@ int TableViewLastColumnResizingFixer::getAvailableWidthForColumn(int column)
 // Make sure we don't make the columns wider than the tables viewport width.
 void TableViewLastColumnResizingFixer::adjustTableColumnsWidth()
 {
+printf("ztempdebug: adjustTableColumnsWidth()\n");
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     disconnectViewHeadersSignals();
     resizeColumn(lastColumnIndex, getAvailableWidthForColumn(lastColumnIndex));
     connectViewHeadersSignals();
@@ -489,6 +518,13 @@ void TableViewLastColumnResizingFixer::adjustTableColumnsWidth()
 // Make column use all the space available, useful during window resizing.
 void TableViewLastColumnResizingFixer::stretchColumnWidth(int column)
 {
+printf("ztempdebug: stretchColumnWidth against column %d\n",column);
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     disconnectViewHeadersSignals();
     resizeColumn(column, getAvailableWidthForColumn(column));
     connectViewHeadersSignals();
@@ -498,6 +534,13 @@ void TableViewLastColumnResizingFixer::stretchColumnWidth(int column)
 // When a section is resized this is a slot-proxy for ajustAmountColumnWidth().
 void TableViewLastColumnResizingFixer::on_sectionResized(int logicalIndex, int oldSize, int newSize)
 {
+printf("ztempdebug: onsectionResized on index %d with oldsize %d and newsize %d\n",logicalIndex,oldSize,newSize);
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     adjustTableColumnsWidth();
     int remainingWidth = getAvailableWidthForColumn(logicalIndex);
     if (newSize > remainingWidth)
@@ -512,20 +555,37 @@ void TableViewLastColumnResizingFixer::on_sectionResized(int logicalIndex, int o
 // watch for this action and override it for Omni tables to avoid making a mess of the wrong column widths.
 void TableViewLastColumnResizingFixer::on_geometriesChanged()
 {
+printf("ztempdebug: onGeometriesChanged()\n");
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
+
     if ((getColumnsWidth() - this->tableView->horizontalHeader()->width()) != 0)
     {
         disconnectViewHeadersSignals(); // must disconnect signalling here
         // evaluate whether this is an Omni layout
         QAbstractItemModel* abstractModel = this->tableView->model();
-        bool omniLayout = false;
+        bool omniBalanceLayout = false;
+        bool omniHistoryLayout = false;
+        if (abstractModel->columnCount() == 6) { // the only 6 column form we have is the omni history (for now)
+            omniHistoryLayout = true;
+        }
         if (abstractModel->columnCount() > 3) { // ensure the columns are there before we try to reference them
             if ((abstractModel->headerData(0, Qt::Horizontal).toString()=="Property ID") || // is it an omni header?
-                (abstractModel->headerData(2, Qt::Horizontal).toString()=="Reserved")) { omniLayout = true; }
+                (abstractModel->headerData(2, Qt::Horizontal).toString()=="Reserved")) { omniBalanceLayout = true; }
         }
-        if (omniLayout) { // this is an Omni balance layout, override column resize
-            resizeColumn(omniOverrideColumnIndex, getAvailableWidthForColumn(omniOverrideColumnIndex));
+        if (omniBalanceLayout) { // this is an Omni balance layout, override column resize
+            resizeColumn(omniBalanceOverrideColumnIndex, getAvailableWidthForColumn(omniBalanceOverrideColumnIndex));
+printf("ztempdebug: resizebalance\n");
+//        } else if (omniHistoryLayout) { // this is an Omni history layout, override column resize
+//            resizeColumn(omniHistoryOverrideColumnIndex, getAvailableWidthForColumn(omniHistoryOverrideColumnIndex));
+//printf("resizehistory\n");
         } else { // else it's an original Bitcoin layout, leave as is
             resizeColumn(secondToLastColumnIndex, getAvailableWidthForColumn(secondToLastColumnIndex));
+printf("ztempdebug: resizebitcoin\n");
         }
         connectViewHeadersSignals();
     }
@@ -540,10 +600,18 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
     lastColumnMinimumWidth(lastColMinimumWidth),
     allColumnsMinimumWidth(allColsMinimumWidth)
 {
+printf("ztempdebug: tableinit\n");
+printf("ztempdebug: widths col1:%dpx col2:%dpx col3:%dpx col4:%dpx col5:%dpx\n",
+        tableView->horizontalHeader()->sectionSize(1),
+        tableView->horizontalHeader()->sectionSize(2),
+        tableView->horizontalHeader()->sectionSize(3),
+        tableView->horizontalHeader()->sectionSize(4),
+        tableView->horizontalHeader()->sectionSize(5));
     columnCount = tableView->horizontalHeader()->count();
     lastColumnIndex = columnCount - 1;
     secondToLastColumnIndex = columnCount - 2;
-    omniOverrideColumnIndex = 1; // we can safely hardcode this for now
+    omniBalanceOverrideColumnIndex = 1; // we can safely hardcode this for now
+    omniHistoryOverrideColumnIndex = 4; // same
     tableView->horizontalHeader()->setMinimumSectionSize(allColumnsMinimumWidth);
     setViewHeaderResizeMode(secondToLastColumnIndex, QHeaderView::Interactive);
     setViewHeaderResizeMode(lastColumnIndex, QHeaderView::Interactive);
