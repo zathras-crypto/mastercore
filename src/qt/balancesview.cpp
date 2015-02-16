@@ -6,6 +6,7 @@
 
 #include "addresstablemodel.h"
 #include "bitcoinunits.h"
+#include "clientmodel.h"
 #include "csvmodelwriter.h"
 #include "editaddressdialog.h"
 #include "guiutil.h"
@@ -79,7 +80,7 @@ using namespace leveldb;
 #include <QVBoxLayout>
 
 BalancesView::BalancesView(QWidget *parent) :
-    QWidget(parent), model(0), balancesView(0)
+    QWidget(parent), clientModel(0), walletModel(0), balancesView(0)
 {
     // Build filter row
     setContentsMargins(0,0,0,0);
@@ -187,9 +188,24 @@ BalancesView::BalancesView(QWidget *parent) :
     UpdatePropSelector();
 }
 
+void BalancesView::setClientModel(ClientModel *model)
+{
+    if (model != NULL) {
+        this->clientModel = model;
+        connect(model, SIGNAL(refreshOmniState()), this, SLOT(balancesUpdated()));
+    }
+}
+
+void BalancesView::setWalletModel(WalletModel *model)
+{
+    if (model != NULL) {
+        this->walletModel = model;
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+    }
+}
+
 void BalancesView::UpdatePropSelector()
 {
-    //printf("balancesview::propselectorupdatecalled\n");
     QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
     propSelectorWidget->clear();
     propSelectorWidget->addItem("Wallet Totals (Summary)","2147483646"); //use last possible ID for summary for now
@@ -224,22 +240,14 @@ void BalancesView::UpdatePropSelector()
     if (propIdx != -1) { propSelectorWidget->setCurrentIndex(propIdx); }
 }
 
-void BalancesView::setModel(WalletModel *model)
-{
-    this->model = model;
-    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
-}
-
 void BalancesView::UpdateBalances()
 {
-    //printf("balancesview::updatebalances()\n");
     propSelectorChanged(0);
     UpdatePropSelector();
 }
 
 void BalancesView::propSelectorChanged(int idx)
 {
-    //printf("balancesview::propselectorchanged()\n");
     QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
     //repopulate with new selected balances

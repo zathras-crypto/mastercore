@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QString>
 
+class ClientModel;
 class OptionsModel;
 class SendMPEntry;
 class SendCoinsRecipient;
@@ -29,8 +30,9 @@ class SendMPDialog : public QDialog
 
 public:
     explicit SendMPDialog(QWidget *parent = 0);
+    void setClientModel(ClientModel *model);
+    void setWalletModel(WalletModel *model);
 
-    void setModel(WalletModel *model);
     void clearFields();
     void sendMPTransaction();
     void updateFrom();
@@ -54,7 +56,8 @@ public slots:
 
 private:
     Ui::SendMPDialog *ui;
-    WalletModel *model;
+    ClientModel *clientModel;
+    WalletModel *walletModel;
     bool fNewRecipientAllowed;
 
     // Process WalletModel::SendCoinsReturn and generate a pair consisting
