@@ -248,7 +248,7 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
     {
         string spName;
         spName = getPropertyName(propertyId).c_str();
-        if(spName.size()>50) spName=spName.substr(0,50)+"...";
+        if(spName.size()>40) spName=spName.substr(0,40)+"...";
         string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
         spName += " (#" + spId + ")";
         ui->matchingComboBox->addItem(spName.c_str(),spId.c_str());
@@ -261,7 +261,7 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
 
 void LookupSPDialog::updateDisplayedProperty()
 {
-    uint64_t maxLabelWidth=76; // fairly safe value for now, next version consider wrapping
+    uint64_t maxLabelWidth=70; // fairly safe value for now, next version consider wrapping
                                // instead of truncation and evaluate effects on vertical layout
     QString strId = ui->matchingComboBox->itemData(ui->matchingComboBox->currentIndex()).toString();
     // protect against an empty matchedComboBox
@@ -308,7 +308,6 @@ void LookupSPDialog::updateDisplayedProperty()
     } else {
         ui->urlLabel->setText(QString::fromStdString(sp.url));
     }
-    ui->urlLabel->setText(QString::fromStdString(sp.url));
     string strTotalTokens;
     string strWalletTokens;
     int64_t totalTokens = getTotalTokens(propertyId);
