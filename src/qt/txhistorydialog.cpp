@@ -133,21 +133,12 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
 
     // since there is no model we can't do this before we add some data, so now let's do the resizing 
     // *after* we've populated the initial content for the table
-    // we'll use some hardcoded initial here because we don't have a model behind this view and as such
-    // when initializing the table there is no data to use resizetocontents
-printf("ztempdebug: manually setting column 1 to 23px\n");
     ui->txHistoryTable->setColumnWidth(1, 23);
-printf("ztempdebug: manually setting column 2 to content width\n");
     ui->txHistoryTable->resizeColumnToContents(2);
-printf("ztempdebug: manually setting column 3 to content width\n");
     ui->txHistoryTable->resizeColumnToContents(3);
-printf("ztempdebug: manually setting column 5 to content width\n");
     ui->txHistoryTable->resizeColumnToContents(5);
-printf("ztempdebug: manually setting column 0 to hidden\n");
     ui->txHistoryTable->setColumnHidden(0, true);
-printf("ztempdebug: calling stretch on column 4\n");
     borrowedColumnResizingFixer->stretchColumnWidth(4);
-
 }
 
 void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved)

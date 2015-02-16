@@ -150,7 +150,6 @@ namespace GUIUtil
             int columnCount;
             int secondToLastColumnIndex;
             int omniBalanceOverrideColumnIndex;
-            int omniHistoryOverrideColumnIndex;
 
             void adjustTableColumnsWidth();
             int getAvailableWidthForColumn(int column);
