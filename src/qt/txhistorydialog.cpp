@@ -466,7 +466,9 @@ void TXHistoryDialog::UpdateHistory()
                         (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
                         (displayType == "Unknown" ))
                         {
-                            if (!valid) { displayAmount = "N/A"; }
+                            // alerts are valid and thus display a wacky value as when attempting to decode amount
+                            // whilst no users should ever see this, be clean and N/A the wacky value
+                            if ((!valid) || (displayType == "Unknown")) { displayAmount = "N/A"; }
                         }
                     else
                         {
