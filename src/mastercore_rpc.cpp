@@ -298,7 +298,6 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   additional = StrToInt64(strAdditional, true);
 
   int n = params.size();
-  printf("#: %d, additional= %ld\n", n, additional);
 
   if ((0.01 * COIN) < additional)
    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid reference amount");

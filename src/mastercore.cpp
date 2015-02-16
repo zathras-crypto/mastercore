@@ -433,7 +433,6 @@ CMPPending pending;
     pending.prop = propId;
     pending.desc = txDesc;
     pending.type = type;
-    pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
   }
 
