@@ -306,21 +306,7 @@ void TXHistoryDialog::UpdateHistory()
                         uint64_t stoFee = 0;
                         s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total, &stoFee); // get matching receipts
                         // override display address if more than one address in the wallet received a cut of this STO
-                        if (sizeof(receiveArray)>1) {
-                            int numberOfMyAddresses = 0;
-                            BOOST_FOREACH(Value & arrayVal, receiveArray) {
-                                std::string valStr = write_string(arrayVal,false);
-                                // find the first colon and comma
-                                size_t delimPos = valStr.find(':');
-                                size_t commaPos = valStr.find(',');
-                                if ((delimPos != valStr.npos) && (commaPos != valStr.npos)) {
-                                    // trim the address
-                                    std::string trimmedAddress = valStr.substr(delimPos+2,(commaPos-1)-(delimPos+2));
-                                    if (IsMyAddress(trimmedAddress)) numberOfMyAddresses++;
-                                }
-                            }
-                            if (numberOfMyAddresses > 1) displayAddress = "Multiple addresses";
-                        }
+                        if (receiveArray.size()>1) displayAddress = "Multiple addresses";
                         int confirmations = 1 + chainHeight - pBlkIdx->nHeight;
                         if (divisible) { displayAmount = FormatDivisibleShortMP(total); } else { displayAmount = FormatIndivisibleMP(total); }
                         if (propertyId < 3) {
