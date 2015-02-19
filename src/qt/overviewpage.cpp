@@ -365,9 +365,6 @@ void OverviewPage::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 
     // alert status with the update balance signal that comes in after each block to see if it had any alerts in it
     updateAlerts();
 
-    // Update Omni balances also when we catch this
-    updateOmni();
-
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     currentBalance = balance;
     currentUnconfirmedBalance = unconfirmedBalance;
@@ -424,6 +421,9 @@ void OverviewPage::setWalletModel(WalletModel *model)
         // Keep up to date with wallet
         setBalance(model->getBalance(), model->getUnconfirmedBalance(), model->getImmatureBalance());
         connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64)));
+
+        // Refresh Omni information in case this was an internal Omni transaction
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(updateOmni()));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }

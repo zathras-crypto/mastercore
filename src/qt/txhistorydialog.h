@@ -5,7 +5,6 @@
 #ifndef TXHISTORYDIALOG_H
 #define TXHISTORYDIALOG_H
 
-#include "walletmodel.h"
 #include "guiutil.h"
 
 #include <QDialog>
@@ -15,7 +14,9 @@
 #include <QDialogButtonBox>
 #include <QPushButton>
 
+class ClientModel;
 class OptionsModel;
+class WalletModel;
 
 QT_BEGIN_NAMESPACE
 class QUrl;
@@ -33,7 +34,9 @@ class TXHistoryDialog : public QDialog
 public:
     //void FullRefresh();
     explicit TXHistoryDialog(QWidget *parent = 0);
-    void setModel(WalletModel *model);
+    void setClientModel(ClientModel *model);
+    void setWalletModel(WalletModel *model);
+
     void CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved);
     void accept();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
@@ -60,7 +63,8 @@ public slots:
 
 private:
     Ui::txHistoryDialog *ui;
-    WalletModel *model;
+    ClientModel *clientModel;
+    WalletModel *walletModel;
     QMenu *contextMenu;
 
 private slots:
@@ -77,4 +81,4 @@ signals:
     void message(const QString &title, const QString &message, unsigned int style);
 };
 
-#endif // ORDERHISTORYDIALOG_H
+#endif // TXHISTORYDIALOG_H
