@@ -959,6 +959,10 @@ bool AppInit2(boost::thread_group& threadGroup)
     }
 
      if (!fTxIndex) return InitError(_("Master Core: Please use -txindex option at the command line or add txindex=1 to bitcoin.conf file !!!\n"));  // mastercore check
+     uiInterface.InitMessage(_("Performing out of order block detection..."));
+     bool UnsupportedBlockChainDetected = CheckForOutOfOrderBlockStorage();
+     if (UnsupportedBlockChainDetected) return InitError(_("Omni Core Startup Error:\nBitcoin 0.10 blockchain detected.\n\nOmni Core does not currently support Bitcoin 0.10 due to the use of headers first and out of order block storage\n\nAborting startup !!!\n"));
+
      uiInterface.InitMessage(_("Parsing Master Protocol Transactions..."));
      (void) mastercore_init();
 
