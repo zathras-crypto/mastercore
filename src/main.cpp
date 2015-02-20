@@ -3069,6 +3069,8 @@ bool CheckForOutOfOrderBlockStorage()
             unsupportedBlockChain = true;
             break; // don't bother doing more work than we need to
         }
+        prevBlockFile = blockFile;
+        prevBlockPos = blockPos;
         // put the main time-chain first
         vector<CBlockIndex*>& vNext = mapNext[pindex];
         for (unsigned int i = 0; i < vNext.size(); i++)
