@@ -7,6 +7,7 @@
 
 #include "addresstablemodel.h"
 #include "bitcoinunits.h"
+#include "clientmodel.h"
 #include "coincontroldialog.h"
 #include "guiutil.h"
 #include "optionsmodel.h"
@@ -15,6 +16,7 @@
 #include "base58.h"
 #include "coincontrol.h"
 #include "ui_interface.h"
+#include "walletmodel.h"
 
 #include <boost/filesystem.hpp>
 
@@ -68,7 +70,8 @@ using namespace leveldb;
 SendMPDialog::SendMPDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::SendMPDialog),
-    model(0)
+    clientModel(0),
+    walletModel(0)
 {
     ui->setupUi(this);
 //    this->model = model;
@@ -93,10 +96,20 @@ SendMPDialog::SendMPDialog(QWidget *parent) :
     balancesUpdated();
 }
 
-void SendMPDialog::setModel(WalletModel *model)
+void SendMPDialog::setClientModel(ClientModel *model)
 {
-    this->model = model;
-    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+    if (model != NULL) {
+        this->clientModel = model;
+        connect(model, SIGNAL(refreshOmniState()), this, SLOT(balancesUpdated()));
+    }
+}
+
+void SendMPDialog::setWalletModel(WalletModel *model)
+{
+    if (model != NULL) {
+        this->walletModel = model;
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+    }
 }
 
 void SendMPDialog::updatePropSelector()
@@ -365,7 +378,7 @@ void SendMPDialog::sendMPTransaction()
     }
 
     // unlock the wallet
-    WalletModel::UnlockContext ctx(model->requestUnlock());
+    WalletModel::UnlockContext ctx(walletModel->requestUnlock());
     if(!ctx.isValid())
     {
         // Unlock wallet was cancelled/failed

@@ -5,12 +5,14 @@
 #include "txhistorydialog.h"
 #include "ui_txhistorydialog.h"
 
+#include "clientmodel.h"
 #include "guiutil.h"
 #include "optionsmodel.h"
 #include "walletmodel.h"
 #include "wallet.h"
 #include "base58.h"
 #include "ui_interface.h"
+#include "walletmodel.h"
 
 #include <boost/filesystem.hpp>
 
@@ -68,10 +70,11 @@ using namespace leveldb;
 TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::txHistoryDialog),
-    model(0)
+    clientModel(0),
+    walletModel(0)
 {
     ui->setupUi(this);
-    this->model = model;
+    this->walletModel = walletModel;
 
     // setup
     ui->txHistoryTable->setColumnCount(6);
@@ -139,6 +142,22 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->resizeColumnToContents(5);
     ui->txHistoryTable->setColumnHidden(0, true);
     borrowedColumnResizingFixer->stretchColumnWidth(4);
+}
+
+void TXHistoryDialog::setClientModel(ClientModel *model)
+{
+    if (model != NULL) {
+        this->clientModel = model;
+        connect(model, SIGNAL(refreshOmniState()), this, SLOT(UpdateHistory()));
+    }
+}
+
+void TXHistoryDialog::setWalletModel(WalletModel *model)
+{
+    if (model != NULL) {
+        this->walletModel = model;
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(UpdateHistory()));
+    }
 }
 
 void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved)
@@ -486,12 +505,6 @@ void TXHistoryDialog::UpdateHistory()
     // don't burn time doing more work than we need to
     if (rowcount > nCount) break;
     }
-}
-
-void TXHistoryDialog::setModel(WalletModel *model)
-{
-    this->model = model;
-    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(UpdateHistory()));
 }
 
 void TXHistoryDialog::contextualMenu(const QPoint &point)
