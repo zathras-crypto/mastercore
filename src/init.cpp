@@ -958,13 +958,42 @@ bool AppInit2(boost::thread_group& threadGroup)
         return false;
     }
 
-     if (!fTxIndex) return InitError(_("Master Core: Please use -txindex option at the command line or add txindex=1 to bitcoin.conf file !!!\n"));  // mastercore check
-     uiInterface.InitMessage(_("Performing out of order block detection..."));
-     bool UnsupportedBlockChainDetected = CheckForOutOfOrderBlockStorage();
-     if (UnsupportedBlockChainDetected) return InitError(_("Omni Core Startup Error:\nBitcoin 0.10 blockchain detected.\n\nOmni Core does not currently support Bitcoin 0.10 due to the use of headers first and out of order block storage\n\nAborting startup !!!\n"));
+    // ********************************************************* Step 7.5: load omni core
 
-     uiInterface.InitMessage(_("Parsing Master Protocol Transactions..."));
-     (void) mastercore_init();
+    uiInterface.InitMessage(_("Performing out of order block detection..."));
+
+    bool fUnsupportedBlockStorage = CheckForOutOfOrderBlockStorage();
+    if (fUnsupportedBlockStorage) {
+        return InitError(_(
+                "Out of order stored blocks detected.\n\n"
+                "This indicates the use of a Bitcoin Core 0.10 blockchain "
+                "with headers first synchronization, which may result in "
+                "unexpected side effects.\n\n"
+                "As precaution this feature is currently not supported."
+            ));
+    }
+
+    if (fDisableWallet) {
+        return InitError(_(
+                "Disabled wallet detected.\n\n"
+                "Omni Core requires an enabled wallet. Please start your client "
+                "without the \"-disablewallet\" option to enable the wallet."
+            ));
+    }
+
+    if (!fTxIndex) {
+        return InitError(_(
+                "Disabled transaction index detected.\n\n"
+                "Omni Core requires an enabled transaction index. To enable "
+                "transaction indexing, please use the \"-txindex\" option as "
+                "command line argument or add \"txindex=1\" to your client "
+                "configuration file."
+            ));
+    }
+
+    uiInterface.InitMessage(_("Parsing Omni Layer transactions..."));
+
+    mastercore_init();
 
     // ********************************************************* Step 8: load wallet
 #ifdef ENABLE_WALLET
