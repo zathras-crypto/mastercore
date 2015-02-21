@@ -3040,52 +3040,41 @@ bool InitBlockIndex() {
 
 bool CheckForOutOfOrderBlockStorage()
 {
-    bool unsupportedBlockChain = false;
     AssertLockHeld(cs_main);
-    map<CBlockIndex*, vector<CBlockIndex*> > mapNext;
-    for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
-    {
-        CBlockIndex* pindex = (*mi).second;
-        mapNext[pindex->pprev].push_back(pindex);
-    }
-    vector<pair<int, CBlockIndex*> > vStack;
-    vStack.push_back(make_pair(0, chainActive.Genesis()));
-    uint64_t prevBlockFile = 0;
-    uint64_t prevBlockPos = 0;
-    while (!vStack.empty())
-    {
-        int nCol = vStack.back().first;
-        CBlockIndex* pindex = vStack.back().second;
-        vStack.pop_back();
-        // obtain the block file this is in, and the location in the file
-        uint64_t blockFile = pindex->GetBlockPos().nFile;
-        uint64_t blockPos = pindex->GetBlockPos().nPos;
-        uint64_t blockHeight = pindex->nHeight;
-        printf("block %lu    blockFile %lu    blockPos %lu\n", blockHeight, blockFile, blockPos); // debug, remove when satisfied
-        // compare against previous block
-        if (blockFile > prevBlockFile) prevBlockPos = 0; // moving onto a new blk?????.dat
-        if (blockPos <= prevBlockPos) {
-            // seems like we've found a block stored out of order - this indicates a 0.10 blockchain
-            unsupportedBlockChain = true;
-            break; // don't bother doing more work than we need to
+
+    int nHeight = 0;
+    int nFilePrev = 0;
+    unsigned int nPosPrev = 0;
+
+    int nHeightChain = chainActive.Height();
+    CBlockIndex* pindex = chainActive.Genesis();
+
+    while (pindex) {
+        int nFile = pindex->GetBlockPos().nFile;
+        unsigned int nPos = pindex->GetBlockPos().nPos;
+        nHeight = pindex->nHeight;
+
+        if (nFile > nFilePrev) {
+            // moving onto a new blk?????.dat
+            nPosPrev = 0;
         }
-        prevBlockFile = blockFile;
-        prevBlockPos = blockPos;
-        // put the main time-chain first
-        vector<CBlockIndex*>& vNext = mapNext[pindex];
-        for (unsigned int i = 0; i < vNext.size(); i++)
-        {
-            if (chainActive.Next(vNext[i]))
-            {
-                swap(vNext[0], vNext[i]);
-                break;
-            }
+
+        if (nPos <= nPosPrev) {
+            // found a blocks stored out of order
+            return true;
         }
-        // iterate children
-        for (unsigned int i = 0; i < vNext.size(); i++)
-            vStack.push_back(make_pair(nCol+i, vNext[i]));
+
+        nFilePrev = nFile;
+        nPosPrev = nPos;
+        pindex = chainActive.Next(pindex);
     }
-    return unsupportedBlockChain;
+
+    if (nHeight < nHeightChain) {
+        // blocks appear to be missing and have no successor
+        return true;
+    }
+
+    return false;
 }
 
 void PrintBlockTree()
