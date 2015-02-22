@@ -967,9 +967,9 @@ bool AppInit2(boost::thread_group& threadGroup)
         return InitError(_(
                 "Out of order stored blocks detected.\n\n"
                 "This indicates the use of a Bitcoin Core 0.10 blockchain "
-                "with headers first synchronization, which may result in "
+                "with headers first synchronization which may result in "
                 "unexpected side effects.\n\n"
-                "As precaution this feature is currently not supported."
+                "As a precaution Bitcoin Core 0.10 is currently not supported."
             ));
     }
 
@@ -981,12 +981,12 @@ bool AppInit2(boost::thread_group& threadGroup)
             ));
     }
 
-    if (!fTxIndex) {
+    if (!fTxIndex) { // we flip txindex default to true, so should only see this if user actually specifies txindex=0
         return InitError(_(
                 "Disabled transaction index detected.\n\n"
                 "Omni Core requires an enabled transaction index. To enable "
-                "transaction indexing, please use the \"-txindex\" option as "
-                "command line argument or add \"txindex=1\" to your client "
+                "transaction indexing, please remove any txindex command line "
+                "arguments and/or remove \"txindex=0\" from your client "
                 "configuration file."
             ));
     }
