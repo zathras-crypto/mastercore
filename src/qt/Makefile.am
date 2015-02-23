@@ -196,6 +196,7 @@ BITCOIN_QT_H = \
   macnotificationhandler.h \
   monitoreddatamapper.h \
   notificator.h \
+  omnicore_init.h \
   openuridialog.h \
   optionsdialog.h \
   optionsmodel.h \
@@ -304,6 +305,7 @@ BITCOIN_QT_CPP = \
   intro.cpp \
   monitoreddatamapper.cpp \
   notificator.cpp \
+  omnicore_init.cpp \
   optionsdialog.cpp \
   optionsmodel.cpp \
   qvalidatedlineedit.cpp \
