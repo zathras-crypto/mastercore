@@ -104,26 +104,18 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->txHistoryTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->txHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    // Always show scroll bar
-    //ui->txHistoryTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     ui->txHistoryTable->setTabKeyNavigation(false);
-    //view->setContextMenuPolicy(Qt::CustomContextMenu);
-
     ui->txHistoryTable->setContextMenuPolicy(Qt::CustomContextMenu);
-
     // Actions
     QAction *copyAddressAction = new QAction(tr("Copy address"), this);
     QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
     QAction *copyTxIDAction = new QAction(tr("Copy transaction ID"), this);
     QAction *showDetailsAction = new QAction(tr("Show transaction details"), this);
-
     contextMenu = new QMenu();
     contextMenu->addAction(copyAddressAction);
     contextMenu->addAction(copyAmountAction);
     contextMenu->addAction(copyTxIDAction);
     contextMenu->addAction(showDetailsAction);
-
     // Connect actions
     connect(ui->txHistoryTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
     connect(ui->txHistoryTable, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(showDetails()));
@@ -131,10 +123,9 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     connect(copyAmountAction, SIGNAL(triggered()), this, SLOT(copyAmount()));
     connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
     connect(showDetailsAction, SIGNAL(triggered()), this, SLOT(showDetails()));
-
+    // Perform initial population and update of history table
     UpdateHistory();
-
-    // since there is no model we can't do this before we add some data, so now let's do the resizing 
+    // since there is no model we can't do this before we add some data, so now let's do the resizing
     // *after* we've populated the initial content for the table
     ui->txHistoryTable->setColumnWidth(1, 23);
     ui->txHistoryTable->resizeColumnToContents(2);
@@ -204,98 +195,69 @@ void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int con
     ui->txHistoryTable->setItem(rowcount, 5, amountCell);
 }
 
-void TXHistoryDialog::UpdateHistory()
+void TXHistoryDialog::PopulateHistoryMap()
 {
-    int rowcount = 0;
-
-    // handle pending transactions first
+    // ### START PENDING TRANSACTIONS PROCESSING ###
     for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
     {
-        CMPPending *p_pending = &(it->second);
+        // grab txid
         uint256 txid = it->first;
-        string txidStr = txid.GetHex();
+        // check historyMap, if this tx exists don't waste resources doing anymore work on it
+        HistoryMap::iterator hIter = txHistoryMap.find(txid);
+        if (hIter != txHistoryMap.end()) continue;
+        // grab pending object & extract details
+        CMPPending *p_pending = &(it->second);
         string senderAddress = p_pending->src;
         uint64_t propertyId = p_pending->prop;
-        bool divisible = isPropertyDivisible(propertyId);
-        string displayAmount;
         int64_t amount = p_pending->amount;
-        string displayValid;
-        string displayAddress = senderAddress;
-        int64_t type = p_pending->type;
-        if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-        if (propertyId < 3)
-        {
-            if(propertyId == 1) { displayAmount += " MSC"; }
-            if(propertyId == 2) { displayAmount += " TMSC"; }
-        }
-        else
-        {
-            string s = to_string(propertyId);
-            displayAmount += " SPT#" + s;
-        }
-        QString txTimeStr = "Unconfirmed";
-        string displayType;
-        bool fundsMoved = false;
-        if (type == 0) { displayType = "Send"; fundsMoved = true; }
-        if (type == 21) displayType = "MetaDEx Trade";
-        displayAmount = "-" + displayAmount; //all pending are outbound
-        CreateRow(rowcount, true, false, 0, "Unconfirmed", displayType, displayAddress, displayAmount, txidStr, fundsMoved);
-        rowcount += 1;
+        // create a HistoryTXObject and add to map
+        HistoryTXObject htxo;
+        htxo.blockHeight = 0;  // how are we gonna order pending txs????
+        htxo.blockByteOffset = 0;
+        if (p_pending->type == 0) htxo.txType = "Send"; // we don't have a CMPTransaction class here so manually set the type for now
+        if (p_pending->type == 21) htxo.txType = "MetaDEx Trade"; // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
+        htxo.address = senderAddress; // always sender, all pending are outbound
+        if(isPropertyDivisible(propertyId)) {htxo.amount = "-"+FormatDivisibleShortMP(amount)+getTokenLabel(propertyId);} else {htxo.amount="-"+FormatIndivisibleMP(amount)+getTokenLabel(propertyId);} // pending always outbound
+        txHistoryMap.insert(std::make_pair(txid, htxo));
     }
+    // ### END PENDING TRANSACTIONS PROCESSING ###
 
-    // wallet transactions
+    // ### START WALLET TRANSACTIONS PROCESSING ###
     CWallet *wallet = pwalletMain;
-    string sAddress = "";
-    string addressParam = "";
-
-    int64_t nCount = 100; //don't display more than 100 historical transactions at the moment until we can move to a cached model
-    int64_t nStartBlock = 0;
-    int64_t nEndBlock = 999999;
-
-    int chainHeight = GetHeight();
-
-    Array response; //prep an array to hold our output
-
-    // STO has no inbound transaction, so we need to use an insert methodology here
-    // get STO receipts affecting me
-    string mySTOReceipts = s_stolistdb->getMySTOReceipts(addressParam);
+    int64_t nCount = 500; // increasing this along with adding caching via txHistoryMap
+    int64_t nProcessed = 0; // counter for how many transactions we've added to history
+    // STO has no inbound transaction, so we need to use an insert methodology here - get STO receipts affecting me
+    string mySTOReceipts = s_stolistdb->getMySTOReceipts("");
     std::vector<std::string> vecReceipts;
     boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
-    int64_t lastTXBlock = 999999;
-
+    int64_t lastTXBlock = 999999; // set artificially high initially until first wallet tx is processed
     // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
-    // avoid hang waiting for locks
     TRY_LOCK(cs_main,lckMain);
     if (!lckMain) return;
     TRY_LOCK(wallet->cs_wallet, lckWallet);
     if (!lckWallet) return;
-
+    // iterate through wallet entries backwards
     std::list<CAccountingEntry> acentries;
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
-
-    // iterate backwards
-    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
-    {
+    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
         CWalletTx *const pwtx = (*it).second.first;
-        if (pwtx != 0)
-        {
+        if (pwtx != 0) {
             uint256 hash = pwtx->GetHash();
+            // check historyMap, if this tx exists don't waste resources doing anymore work on it
+            HistoryMap::iterator hIter = txHistoryMap.find(hash);
+            if (hIter != txHistoryMap.end()) continue;
+            // tx not in historyMap, retrieve the transaction object
             CTransaction wtx;
             uint256 blockHash = 0;
             if (!GetTransaction(hash, wtx, blockHash, true)) continue;
-            // get the time of the tx
-            int64_t nTime = pwtx->GetTxTime();
-            // get the height of the transaction and check it's within the chosen parameters
             blockHash = pwtx->hashBlock;
             if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) continue;
             CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
             if (NULL == pBlockIndex) continue;
-            int blockHeight = pBlockIndex->nHeight;
-            if ((blockHeight < nStartBlock) || (blockHeight > nEndBlock)) continue; // ignore it if not within our range
+            int blockHeight = pBlockIndex->nHeight; // get the height of the transaction
 
-            // look for an STO receipt to see if we need to insert it
-            for(uint32_t i = 0; i<vecReceipts.size(); i++)
-            {
+            // ### START STO INSERTION CHECK ###
+            for(uint32_t i = 0; i<vecReceipts.size(); i++) {
                 std::vector<std::string> svstr;
                 boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), token_compress_on);
                 if(4 == svstr.size()) // make sure expected num items
@@ -303,46 +265,38 @@ void TXHistoryDialog::UpdateHistory()
                     if((atoi(svstr[1]) < lastTXBlock) && (atoi(svstr[1]) > blockHeight))
                     {
                         // STO receipt insert here - add STO receipt to response array
-                        uint256 hash;
-                        hash.SetHex(svstr[0]);
-                        string displayAddress = svstr[2];
-                        Object txobj;
+                        uint256 stoHash;
+                        stoHash.SetHex(svstr[0]);
+                        // check historyMap, if this STO exists don't waste resources doing anymore work on it
+                        HistoryMap::iterator hIterator = txHistoryMap.find(stoHash);
+                        if (hIterator != txHistoryMap.end()) continue;
+                        // STO not in historyMap, get details
                         uint64_t propertyId = 0;
-                        try {
-                            propertyId = boost::lexical_cast<uint64_t>(svstr[3]);
-                        } catch (const boost::bad_lexical_cast &e) {
-                            file_log("DEBUG STO - error in converting values from leveldb\n");
-                            continue; //(something went wrong)
-                        }
-                        bool divisible = isPropertyDivisible(propertyId);
-                        QDateTime txTime;
-                        CBlockIndex* pBlkIdx = chainActive[atoi(svstr[1])];
-                        txTime.setTime_t(pBlkIdx->GetBlockTime());
-                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                        string displayAmount;
+                        try { propertyId = boost::lexical_cast<uint64_t>(svstr[3]); } // attempt to extract propertyId
+                          catch (const boost::bad_lexical_cast &e) { file_log("DEBUG STO - error in converting values from leveldb\n"); continue; } //(something went wrong)
                         Array receiveArray;
                         uint64_t total = 0;
                         uint64_t stoFee = 0;
-                        s_stolistdb->getRecipients(hash, addressParam, &receiveArray, &total, &stoFee); // get matching receipts
-                        // override display address if more than one address in the wallet received a cut of this STO
-                        if (receiveArray.size()>1) displayAddress = "Multiple addresses";
-                        int confirmations = 1 + chainHeight - pBlkIdx->nHeight;
-                        if (divisible) { displayAmount = FormatDivisibleShortMP(total); } else { displayAmount = FormatIndivisibleMP(total); }
-                        if (propertyId < 3) {
-                            if(propertyId == 1) { displayAmount += " MSC"; } else { displayAmount += " TMSC"; }
-                        } else {
-                            string s = to_string(propertyId);
-                            displayAmount += " SPT#" + s;
-                        }
-                        CreateRow(rowcount, true, true, confirmations, txTimeStr.toStdString(), "STO Receive", displayAddress, displayAmount, hash.GetHex(), true);
-                        rowcount += 1;
+                        s_stolistdb->getRecipients(stoHash, "", &receiveArray, &total, &stoFee); // get matching receipts
+                        // create a HistoryTXObject and add to map
+                        HistoryTXObject htxo;
+                        htxo.blockHeight = atoi(svstr[1]);
+                        /* CDiskTxPos position;
+                        if (pblocktree->ReadTxIndex(stoHash, position)) { */ // forward dec issues here, investigate
+                        htxo.blockByteOffset = 0;
+                        htxo.txType = "STO Receive";
+                        htxo.address = svstr[2];
+                        if(receiveArray.size()>1) htxo.address = "Multiple addresses"; // override display address if more than one address in the wallet received a cut of this STO
+                        if(isPropertyDivisible(propertyId)) {htxo.amount=FormatDivisibleShortMP(total)+getTokenLabel(propertyId);} else {htxo.amount=FormatIndivisibleMP(total)+getTokenLabel(propertyId);}
+                        txHistoryMap.insert(std::make_pair(stoHash, htxo));
                     }
                 }
             }
             lastTXBlock = blockHeight;
-            // check if the transaction exists in txlist
-            if (p_txlistdb->exists(hash))
-            {
+            // ### END STO INSERTION CHECK ###
+
+            // continuing with wallet tx, check if the transaction exists in txlist (and thus is Omni tx)
+            if (p_txlistdb->exists(hash)) {
                 string statusText;
                 unsigned int propertyId = 0;
                 uint64_t amount = 0;
@@ -351,7 +305,6 @@ void TXHistoryDialog::UpdateHistory()
                 bool divisible = false;
                 bool valid = false;
                 string MPTxType;
-
                 CMPTransaction mp_obj;
                 int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
                 string displayAmount;
@@ -359,8 +312,8 @@ void TXHistoryDialog::UpdateHistory()
                 string displayValid;
                 string displayAddress;
                 string displayType;
-                if (0 < parseRC) //positive RC means payment
-                {
+                if (0 < parseRC) { //positive RC means payment
+                    // ### START HANDLE DEX PURCHASE TRANSACTION ###
                     string tmpBuyer;
                     string tmpSeller;
                     uint64_t total = 0;
@@ -368,44 +321,28 @@ void TXHistoryDialog::UpdateHistory()
                     uint64_t tmpNValue = 0;
                     uint64_t tmpPropertyId = 0;
                     p_txlistdb->getPurchaseDetails(hash,1,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
-                    senderAddress = tmpBuyer;
-                    refAddress = tmpSeller;
-                    bool bIsBuy = IsMyAddress(senderAddress);
-                    if (!bIsBuy)
-                    {
-                        displayType = "DEx Sell";
-                        displayAddress = refAddress;
-                    }
-                    else
-                    {
-                        displayType = "DEx Buy";
-                        displayAddress = senderAddress;
-                    }
-                    // calculate total bought/sold
+                    bool bIsBuy = IsMyAddress(tmpBuyer);
                     int numberOfPurchases=p_txlistdb->getNumberOfPurchases(hash);
-                    if (0<numberOfPurchases)
+                    if (0<numberOfPurchases) // calculate total bought/sold
                     {
                         for(int purchaseNumber = 1; purchaseNumber <= numberOfPurchases; purchaseNumber++)
                         {
                             p_txlistdb->getPurchaseDetails(hash,purchaseNumber,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
                             total += tmpNValue;
                         }
-                        displayAmount = FormatDivisibleShortMP(total);
-                        if(tmpPropertyId == 1) { displayAmount += " MSC"; }
-                        if(tmpPropertyId == 2) { displayAmount += " TMSC"; }
-                        QDateTime txTime;
-                        txTime.setTime_t(nTime);
-                        QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                        if (!bIsBuy) displayAmount = "-" + displayAmount;
-                        int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
-                        CreateRow(rowcount, true, bIsBuy, confirmations, txTimeStr.toStdString(), displayType, displayAddress, displayAmount, hash.GetHex(), true);
-                        rowcount += 1;
+                        // create a HistoryTXObject and add to map
+                        HistoryTXObject htxo;
+                        htxo.blockHeight = blockHeight;
+                        htxo.blockByteOffset = 0; // needs further investigation
+                        if (!bIsBuy) { htxo.txType = "DEx Sell"; htxo.address = tmpSeller; } else { htxo.txType = "DEx Buy"; htxo.address = tmpBuyer; }
+                        htxo.amount=(!bIsBuy ? "-" : "") + FormatDivisibleShortMP(total)+getTokenLabel(tmpPropertyId);
+                        txHistoryMap.insert(std::make_pair(hash, htxo));
                     }
+                    // ### END HANDLE DEX PURCHASE TRANSACTION ###
                 }
-                if (0 == parseRC) //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
-                {
-                    if (0<=mp_obj.step1())
-                    {
+                if (0 == parseRC) { //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                    // ### START HANDLE OMNI TRANSACTION ###
+                    if (0<=mp_obj.step1()) {
                         MPTxType = mp_obj.getTypeString();
                         senderAddress = mp_obj.getSender();
                         refAddress = mp_obj.getReceiver();
@@ -413,98 +350,74 @@ void TXHistoryDialog::UpdateHistory()
                         uint32_t tmptype=0;
                         uint64_t amountNew=0;
                         valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
-
-                        if (0 == mp_obj.step2_Value())
-                        {
+                        if (0 == mp_obj.step2_Value()) {
                             propertyId = mp_obj.getProperty();
                             amount = mp_obj.getAmount();
                             // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
-                            if (valid) // we only generate an ID for valid creates
-                            {
+                            if (valid) { // we only generate an ID for valid creates
                                 if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
                                     (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL))
-                                    {
+                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
                                         propertyId = _my_sps->findSPByTX(hash);
-                                        if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED)
-                                        { amount = getTotalTokens(propertyId); }
-                                        else
-                                        { amount = 0; }
+                                        if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) { amount = getTotalTokens(propertyId); } else { amount = 0; }
                                     }
                             }
                             divisible = isPropertyDivisible(propertyId);
                         }
                     }
-                    QListWidgetItem *qItem = new QListWidgetItem();
-                    qItem->setData(Qt::DisplayRole, QString::fromStdString(hash.GetHex()));
                     bool fundsMoved = true;
-                    // shrink tx type
-                    string displayType = "Unknown";
-                    switch (mp_obj.getType())
-                    {
-                        case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
-                        case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;
-                        case MSC_TYPE_SEND_TO_OWNERS: displayType = "Send To Owners"; break;
-                        case MSC_TYPE_SAVINGS_MARK: displayType = "Mark Savings"; fundsMoved = false; break;
-                        case MSC_TYPE_SAVINGS_COMPROMISED: ; displayType = "Lock Savings"; break;
-                        case MSC_TYPE_RATELIMITED_MARK: displayType = "Rate Limit"; break;
-                        case MSC_TYPE_AUTOMATIC_DISPENSARY: displayType = "Auto Dispense"; break;
-                        case MSC_TYPE_TRADE_OFFER: displayType = "DEx Trade"; fundsMoved = false; break;
-                        case MSC_TYPE_METADEX: displayType = "MetaDEx Trade"; fundsMoved = false; break;
-                        case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; fundsMoved = false; break;
-                        case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
-                        case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
-                        case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property"; break;
-                        case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale"; break;
-                        case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
-                        case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
-                        case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
-                        case MSC_TYPE_CHANGE_ISSUER_ADDRESS: displayType = "Change Issuer"; fundsMoved = false; break;
-                    }
+                    displayType = shrinkTxType(mp_obj.getType(), &fundsMoved); // shrink tx type to better fit in column
                     if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
-                    if (divisible) { displayAmount = FormatDivisibleShortMP(amount); } else { displayAmount = FormatIndivisibleMP(amount); }
-                    if (propertyId < 3)
-                    {
-                        if(propertyId == 1) { displayAmount += " MSC"; }
-                        if(propertyId == 2) { displayAmount += " TMSC"; }
-                    }
-                    else
-                    {
-                        string s = to_string(propertyId);
-                        displayAmount += " SPT#" + s;
-                    }
-                    if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; }
-
-                    QDateTime txTime;
-                    txTime.setTime_t(nTime);
-                    QString txTimeStr = txTime.toString(Qt::SystemLocaleShortDate);
-                    bool inbound = true;
+                    if (divisible) { displayAmount = FormatDivisibleShortMP(amount)+getTokenLabel(propertyId); } else { displayAmount = FormatIndivisibleMP(amount)+getTokenLabel(propertyId); }
+                    if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; } // still a send transaction, but avoid confusion for end users
                     if (!valid) fundsMoved = false; // funds never move in invalid txs
-                    // override/hide display amount for invalid creates and unknown transactions as we
-                    // can't display amount and property as no prop exists
+                    // override/hide display amount for invalid creates and unknown transactions as we can't display amount/property as no prop exists
                     if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
                         (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
-                        (displayType == "Unknown" ))
-                        {
-                            // alerts are valid and thus display a wacky value as when attempting to decode amount
-                            // whilst no users should ever see this, be clean and N/A the wacky value
+                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
+                            // alerts are valid and thus display a wacky value attempting to decode amount - whilst no users should ever see this, be clean and N/A the wacky value
                             if ((!valid) || (displayType == "Unknown")) { displayAmount = "N/A"; }
-                        }
-                    else
-                        {
-                            if ((fundsMoved) && (IsMyAddress(senderAddress)))
-                                { displayAmount = "-" + displayAmount; inbound = false; }
-                        }
-                    int confirmations = 1 + chainHeight - pBlockIndex->nHeight;
-                    CreateRow(rowcount, valid, inbound, confirmations, txTimeStr.toStdString(), displayType, displayAddress, displayAmount, hash.GetHex(), fundsMoved);
-                    rowcount += 1;
+                    } else { if ((fundsMoved) && (IsMyAddress(senderAddress))) { displayAmount = "-" + displayAmount; } }
+                    // create a HistoryTXObject and add to map
+                    HistoryTXObject htxo;
+                    htxo.blockHeight = blockHeight;
+                    htxo.blockByteOffset = 0; // needs further investigation
+                    htxo.txType = displayType;
+                    htxo.address = displayAddress;
+                    htxo.amount = displayAmount;
+                    txHistoryMap.insert(std::make_pair(hash, htxo));
+                    nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
+                    // ### END HANDLE OMNI TRANSACTION ###
                 }
             }
         }
     // don't burn time doing more work than we need to
-    if (rowcount > nCount) break;
+    if (nProcessed > nCount) break;
     }
+    // ### END WALLET TRANSACTIONS PROCESSING ###
+}
+
+void TXHistoryDialog::UpdateHistoryMap()
+{
+
+}
+
+void TXHistoryDialog::RefreshHistoryTab()
+{
+
+}
+
+void TXHistoryDialog::UpdateHistory()
+{
+    // now moved to a new methodology where historical transactions are stored in a map stored in memory (effectively a cache) so we can refresh the table without reparsing all our transactions
+    // for now a refresh of the table is still required to make sure we update the confirmations, but in future we can optimize this also
+
+    // first things first, call PopulateHistoryMap to add in any missing (ie new) transactions
+    PopulateHistoryMap();
+
+    // refresh the table with the contents of the cache
+    // 
+
 }
 
 void TXHistoryDialog::contextualMenu(const QPoint &point)
@@ -643,3 +556,28 @@ void TXHistoryDialog::resizeEvent(QResizeEvent* event)
     borrowedColumnResizingFixer->stretchColumnWidth(4);
 }
 
+std::string TXHistoryDialog::shrinkTxType(int txType, bool *fundsMoved)
+{
+    string displayType = "Unknwon";
+    switch (txType) {
+        case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
+        case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;
+        case MSC_TYPE_SEND_TO_OWNERS: displayType = "Send To Owners"; break;
+        case MSC_TYPE_SAVINGS_MARK: displayType = "Mark Savings"; *fundsMoved = false; break;
+        case MSC_TYPE_SAVINGS_COMPROMISED: ; displayType = "Lock Savings"; break;
+        case MSC_TYPE_RATELIMITED_MARK: displayType = "Rate Limit"; break;
+        case MSC_TYPE_AUTOMATIC_DISPENSARY: displayType = "Auto Dispense"; break;
+        case MSC_TYPE_TRADE_OFFER: displayType = "DEx Trade"; *fundsMoved = false; break;
+        case MSC_TYPE_METADEX: displayType = "MetaDEx Trade"; *fundsMoved = false; break;
+        case MSC_TYPE_ACCEPT_OFFER_BTC: displayType = "DEx Accept"; *fundsMoved = false; break;
+        case MSC_TYPE_CREATE_PROPERTY_FIXED: displayType = "Create Property"; break;
+        case MSC_TYPE_CREATE_PROPERTY_VARIABLE: displayType = "Create Property"; break;
+        case MSC_TYPE_PROMOTE_PROPERTY: displayType = "Promo Property"; break;
+        case MSC_TYPE_CLOSE_CROWDSALE: displayType = "Close Crowdsale"; break;
+        case MSC_TYPE_CREATE_PROPERTY_MANUAL: displayType = "Create Property"; break;
+        case MSC_TYPE_GRANT_PROPERTY_TOKENS: displayType = "Grant Tokens"; break;
+        case MSC_TYPE_REVOKE_PROPERTY_TOKENS: displayType = "Revoke Tokens"; break;
+        case MSC_TYPE_CHANGE_ISSUER_ADDRESS: displayType = "Change Issuer"; *fundsMoved = false; break;
+    }
+    return displayType;
+}

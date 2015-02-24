@@ -552,6 +552,17 @@ std::string mastercore::getMasterCoreAlertString()
     return global_alert_message;
 }
 
+std::string mastercore::getTokenLabel(unsigned int propertyId)
+{
+    std::string tokenStr;
+    if (propertyId < 3) {
+        if(propertyId == 1) { tokenStr = " MSC"; } else { tokenStr = " TMSC"; }
+    } else {
+        tokenStr = " SPT#" + to_string(propertyId);
+    }
+    return tokenStr;
+}
+
 bool mastercore::parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage)
 {
     std::vector<std::string> vstr;

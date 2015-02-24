@@ -6,6 +6,7 @@
 #define TXHISTORYDIALOG_H
 
 #include "guiutil.h"
+#include "uint256.h"
 
 #include <QDialog>
 #include <QString>
@@ -25,6 +26,20 @@ QT_END_NAMESPACE
 namespace Ui {
     class txHistoryDialog;
 }
+
+class HistoryTXObject
+{
+
+public:
+  int blockHeight; // block transaction was mined in
+  int blockByteOffset; // byte offset the tx is stored in the block (used for ordering multiple txs same block)
+  std::string txType; // human readable string containing type
+  std::string address; // the address to be displayed (usually sender or recipient)
+  std::string amount; // string containing formatted amount
+
+};
+
+typedef std::map<uint256, HistoryTXObject> HistoryMap;
 
 /** Dialog for looking up Master Protocol tokens */
 class TXHistoryDialog : public QDialog
@@ -58,6 +73,9 @@ public:
 
     virtual void resizeEvent(QResizeEvent* event);
 
+    HistoryMap txHistoryMap;
+    std::string shrinkTxType(int txType, bool *fundsMoved);
+
 public slots:
     //void switchButtonClicked();
 
@@ -74,6 +92,9 @@ private slots:
     void copyAmount();
     void copyTxID();
     void UpdateHistory();
+    void PopulateHistoryMap();
+    void UpdateHistoryMap();
+    void RefreshHistoryTab();
 
 signals:
     void doubleClicked(const QModelIndex&);
