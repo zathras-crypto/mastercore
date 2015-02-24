@@ -31,7 +31,7 @@ static bool getDisclaimerDialogResult()
     "own risk. Neither the Omni Foundation nor the Omni Core developers assumes "
     "any responsibility for funds misplaced, mishandled, lost, or misallocated.\n\n"
     "Further, please note that this installation of Omni Core should be viewed as "
-    "EXPERIMENTAL. Your wallet data, bitcoins and/or Omni Layer tokens may be lost, "
+    "EXPERIMENTAL. Your wallet data, bitcoins and Omni Layer tokens may be lost, "
     "deleted, or corrupted, with or without warning due to bugs or glitches. "
     "Please take caution.\n\n"
     "This software is provided open-source at no cost. You are responsible for "
