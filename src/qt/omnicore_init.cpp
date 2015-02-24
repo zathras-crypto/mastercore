@@ -23,19 +23,22 @@ static bool getDisclaimerDialogResult()
     "This software is EXPERIMENTAL software. USE ON MAINNET AT YOUR OWN RISK.");
 
     QString qstrInformativeText(
+    "By default this software will use your existing Bitcoin wallet, including spending "
+    "bitcoins contained therein (for example for transaction fees or trading).\n\n"
     "The protocol and transaction processing rules for Mastercoin are still under "
     "active development and are subject to change in future.\n\n"
     "Omni Core should be considered an alpha-level product, and you use it at your "
     "own risk. Neither the Omni Foundation nor the Omni Core developers assumes "
     "any responsibility for funds misplaced, mishandled, lost, or misallocated.\n\n"
     "Further, please note that this installation of Omni Core should be viewed as "
-    "EXPERIMENTAL. Your wallet data may be lost, deleted, or corrupted, with or "
-    "without warning due to bugs or glitches. Please take caution.\n\n"
+    "EXPERIMENTAL. Your wallet data, bitcoins and/or Omni Layer tokens may be lost, "
+    "deleted, or corrupted, with or without warning due to bugs or glitches. "
+    "Please take caution.\n\n"
     "This software is provided open-source at no cost. You are responsible for "
     "knowing the law in your country and determining if your use of this software "
     "contravenes any local laws.\n\n"
-    "DO NOT use wallet(s) with any significant amount of any property or currency "
-    "while testing!");
+    "DO NOT use wallet(s) with any significant amount of bitcoin or any Omni Layer "
+    "property or currency while testing!");
 
     QMessageBox msgBoxDisclaimer;
     msgBoxDisclaimer.setIcon(QMessageBox::Warning);
