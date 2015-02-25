@@ -204,9 +204,18 @@ int TXHistoryDialog::PopulateHistoryMap()
         CWalletTx *const pwtx = (*it).second.first;
         if (pwtx != 0) {
             uint256 hash = pwtx->GetHash();
+            // check txlistdb, if not there it's not a confirmed Omni transaction so move to next transaction
+            if (!p_txlistdb->exists(hash)) continue;
             // check historyMap, if this tx exists don't waste resources doing anymore work on it
             HistoryMap::iterator hIter = txHistoryMap.find(hash);
-            if (hIter != txHistoryMap.end()) continue;
+            if (hIter != txHistoryMap.end()) { // the tx is in historyMap, check if it has a blockheight of 0 (means a pending has confirmed)
+                HistoryTXObject *temphtxo = &(hIter->second);
+                if (temphtxo->blockHeight == 0) { // pending has confirmed, delete the pending transaction from the map and have it parsed
+                    txHistoryMap.erase(hIter);
+                } else {
+                    continue; // the tx is in historyMap with a blockheight > 0, move on to next transaction
+                }
+            }
             // tx not in historyMap, retrieve the transaction object
             CTransaction wtx;
             uint256 blockHash = 0;
@@ -259,109 +268,107 @@ int TXHistoryDialog::PopulateHistoryMap()
             lastTXBlock = blockHeight;
             // ### END STO INSERTION CHECK ###
 
-            // continuing with wallet tx, check if the transaction exists in txlist (and thus is Omni tx)
-            if (p_txlistdb->exists(hash)) {
-                string statusText;
-                unsigned int propertyId = 0;
-                uint64_t amount = 0;
-                string senderAddress;
-                string refAddress;
-                bool divisible = false;
-                bool valid = false;
-                string MPTxType;
-                CMPTransaction mp_obj;
-                int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
-                string displayAmount;
-                string displayToken;
-                string displayValid;
-                string displayAddress;
-                string displayType;
-                if (0 < parseRC) { //positive RC means payment
-                    // ### START HANDLE DEX PURCHASE TRANSACTION ###
-                    string tmpBuyer;
-                    string tmpSeller;
-                    uint64_t total = 0;
-                    uint64_t tmpVout = 0;
-                    uint64_t tmpNValue = 0;
-                    uint64_t tmpPropertyId = 0;
-                    p_txlistdb->getPurchaseDetails(hash,1,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
-                    bool bIsBuy = IsMyAddress(tmpBuyer);
-                    int numberOfPurchases=p_txlistdb->getNumberOfPurchases(hash);
-                    if (0<numberOfPurchases) // calculate total bought/sold
+            // continuing with wallet tx, we've already confirmed earlier on that it's in txlistdb
+            string statusText;
+            unsigned int propertyId = 0;
+            uint64_t amount = 0;
+            string senderAddress;
+            string refAddress;
+            bool divisible = false;
+            bool valid = false;
+            string MPTxType;
+            CMPTransaction mp_obj;
+            int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+            string displayAmount;
+            string displayToken;
+            string displayValid;
+            string displayAddress;
+            string displayType;
+            if (0 < parseRC) { //positive RC means payment
+                // ### START HANDLE DEX PURCHASE TRANSACTION ###
+                string tmpBuyer;
+                string tmpSeller;
+                uint64_t total = 0;
+                uint64_t tmpVout = 0;
+                uint64_t tmpNValue = 0;
+                uint64_t tmpPropertyId = 0;
+                p_txlistdb->getPurchaseDetails(hash,1,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
+                bool bIsBuy = IsMyAddress(tmpBuyer);
+                int numberOfPurchases=p_txlistdb->getNumberOfPurchases(hash);
+                if (0<numberOfPurchases) // calculate total bought/sold
+                {
+                    for(int purchaseNumber = 1; purchaseNumber <= numberOfPurchases; purchaseNumber++)
                     {
-                        for(int purchaseNumber = 1; purchaseNumber <= numberOfPurchases; purchaseNumber++)
-                        {
-                            p_txlistdb->getPurchaseDetails(hash,purchaseNumber,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
-                            total += tmpNValue;
-                        }
-                        // create a HistoryTXObject and add to map
-                        HistoryTXObject htxo;
-                        htxo.blockHeight = blockHeight;
-                        htxo.blockByteOffset = 0; // needs further investigation
-                        if (!bIsBuy) { htxo.txType = "DEx Sell"; htxo.address = tmpSeller; } else { htxo.txType = "DEx Buy"; htxo.address = tmpBuyer; }
-                        htxo.amount=(!bIsBuy ? "-" : "") + FormatDivisibleShortMP(total)+getTokenLabel(tmpPropertyId);
-                        htxo.fundsMoved=true;
-                        txHistoryMap.insert(std::make_pair(hash, htxo));
-                        nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
+                        p_txlistdb->getPurchaseDetails(hash,purchaseNumber,&tmpBuyer,&tmpSeller,&tmpVout,&tmpPropertyId,&tmpNValue);
+                        total += tmpNValue;
                     }
-                    // ### END HANDLE DEX PURCHASE TRANSACTION ###
-                }
-                if (0 == parseRC) { //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
-                    // ### START HANDLE OMNI TRANSACTION ###
-                    if (0<=mp_obj.step1()) {
-                        MPTxType = mp_obj.getTypeString();
-                        senderAddress = mp_obj.getSender();
-                        refAddress = mp_obj.getReceiver();
-                        int tmpblock=0;
-                        uint32_t tmptype=0;
-                        uint64_t amountNew=0;
-                        valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
-                        if (0 == mp_obj.step2_Value()) {
-                            propertyId = mp_obj.getProperty();
-                            amount = mp_obj.getAmount();
-                            // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
-                            if (valid) { // we only generate an ID for valid creates
-                                if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
-                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
-                                        propertyId = _my_sps->findSPByTX(hash);
-                                        if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) { amount = getTotalTokens(propertyId); } else { amount = 0; }
-                                    }
-                            }
-                            divisible = isPropertyDivisible(propertyId);
-                        }
-                    }
-                    bool fundsMoved = true;
-                    displayType = shrinkTxType(mp_obj.getType(), &fundsMoved); // shrink tx type to better fit in column
-                    if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
-                    if (divisible) { displayAmount = FormatDivisibleShortMP(amount)+getTokenLabel(propertyId); } else { displayAmount = FormatIndivisibleMP(amount)+getTokenLabel(propertyId); }
-                    if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; } // still a send transaction, but avoid confusion for end users
-                    if (!valid) fundsMoved = false; // funds never move in invalid txs
-                    // override/hide display amount for invalid creates and unknown transactions as we can't display amount/property as no prop exists
-                    if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
-                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
-                        (displayType == "Unknown")) {
-                            // alerts are valid and thus display a wacky value attempting to decode amount - whilst no users should ever see this, be clean and N/A the wacky value
-                            if ((!valid) || (displayType == "Unknown")) { displayAmount = "N/A"; }
-                    } else { if ((fundsMoved) && (IsMyAddress(senderAddress))) { displayAmount = "-" + displayAmount; } }
                     // create a HistoryTXObject and add to map
                     HistoryTXObject htxo;
                     htxo.blockHeight = blockHeight;
                     htxo.blockByteOffset = 0; // needs further investigation
-                    htxo.txType = displayType;
-                    htxo.address = displayAddress;
-                    htxo.valid = valid; // bool valid contains result from getValidMPTX
-                    htxo.fundsMoved = fundsMoved;
-                    htxo.amount = displayAmount;
+                    if (!bIsBuy) { htxo.txType = "DEx Sell"; htxo.address = tmpSeller; } else { htxo.txType = "DEx Buy"; htxo.address = tmpBuyer; }
+                    htxo.amount=(!bIsBuy ? "-" : "") + FormatDivisibleShortMP(total)+getTokenLabel(tmpPropertyId);
+                    htxo.fundsMoved=true;
                     txHistoryMap.insert(std::make_pair(hash, htxo));
                     nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
-                    // ### END HANDLE OMNI TRANSACTION ###
                 }
+                // ### END HANDLE DEX PURCHASE TRANSACTION ###
+            }
+            if (0 == parseRC) { //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
+                // ### START HANDLE OMNI TRANSACTION ###
+                if (0<=mp_obj.step1()) {
+                    MPTxType = mp_obj.getTypeString();
+                    senderAddress = mp_obj.getSender();
+                    refAddress = mp_obj.getReceiver();
+                    int tmpblock=0;
+                    uint32_t tmptype=0;
+                    uint64_t amountNew=0;
+                    valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
+                    if (0 == mp_obj.step2_Value()) {
+                        propertyId = mp_obj.getProperty();
+                        amount = mp_obj.getAmount();
+                        // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
+                        if (valid) { // we only generate an ID for valid creates
+                            if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
+                                (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
+                                (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
+                                    propertyId = _my_sps->findSPByTX(hash);
+                                    if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) { amount = getTotalTokens(propertyId); } else { amount = 0; }
+                                }
+                        }
+                        divisible = isPropertyDivisible(propertyId);
+                    }
+                }
+                bool fundsMoved = true;
+                displayType = shrinkTxType(mp_obj.getType(), &fundsMoved); // shrink tx type to better fit in column
+                if (IsMyAddress(senderAddress)) { displayAddress = senderAddress; } else { displayAddress = refAddress; }
+                if (divisible) { displayAmount = FormatDivisibleShortMP(amount)+getTokenLabel(propertyId); } else { displayAmount = FormatIndivisibleMP(amount)+getTokenLabel(propertyId); }
+                if ((displayType == "Send") && (!IsMyAddress(senderAddress))) { displayType = "Receive"; } // still a send transaction, but avoid confusion for end users
+                if (!valid) fundsMoved = false; // funds never move in invalid txs
+                // override/hide display amount for invalid creates and unknown transactions as we can't display amount/property as no prop exists
+                if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
+                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
+                    (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
+                    (displayType == "Unknown")) {
+                        // alerts are valid and thus display a wacky value attempting to decode amount - whilst no users should ever see this, be clean and N/A the wacky value
+                        if ((!valid) || (displayType == "Unknown")) { displayAmount = "N/A"; }
+                } else { if ((fundsMoved) && (IsMyAddress(senderAddress))) { displayAmount = "-" + displayAmount; } }
+                // create a HistoryTXObject and add to map
+                HistoryTXObject htxo;
+                htxo.blockHeight = blockHeight;
+                htxo.blockByteOffset = 0; // needs further investigation
+                htxo.txType = displayType;
+                htxo.address = displayAddress;
+                htxo.valid = valid; // bool valid contains result from getValidMPTX
+                htxo.fundsMoved = fundsMoved;
+                htxo.amount = displayAmount;
+                txHistoryMap.insert(std::make_pair(hash, htxo));
+                nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
+                // ### END HANDLE OMNI TRANSACTION ###
             }
         }
-    // don't burn time doing more work than we need to
-    if (nProcessed > nCount) break;
+        // don't burn time doing more work than we need to
+        if (nProcessed > nCount) break;
     }
     // ### END WALLET TRANSACTIONS PROCESSING ###
     return nProcessed;
