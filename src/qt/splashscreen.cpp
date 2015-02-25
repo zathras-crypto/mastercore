@@ -11,10 +11,11 @@
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #endif
-#include <QMessageBox>
+
+#include "mastercore_version.h"
+
 #include <QApplication>
 #include <QPainter>
-#include "mastercore_version.h"
 
 SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTestNet) :
     QSplashScreen(pixmap, f)
@@ -30,10 +31,11 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     float fontFactor            = 1.0;
 
     // define text to place
-    string coreVersionStr = "Experimental UI 0.0." + strprintf("%.1f",(double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE;
     QString titleText       = tr("Omni Core");
-    QString versionText     = QString::fromStdString(coreVersionStr);
-    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers, ")) + QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Omni Layer developers"));
+    QString versionText     = QString("Experimental UI %1").arg(QString::fromStdString(OmniCoreVersion()));
+    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers"));
+    copyrightText          += QString(", ");
+    copyrightText          += QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Omni Core developers"));
     QString testnetAddText  = QString(tr("[testnet]")); // define text to place as single text object
 
     QString font            = "Arial";

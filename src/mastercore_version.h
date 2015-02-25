@@ -3,9 +3,6 @@
 
 #include <string>
 
-// To be depreciated!
-#define OMNICORE_VERSION_BASE    91 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
-
 // Increase with every consensus affecting change
 #define OMNICORE_VERSION_MAJOR   9
 
