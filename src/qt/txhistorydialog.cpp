@@ -66,6 +66,7 @@ using namespace leveldb;
 #include <QListWidget>
 #include <QMenu>
 #include <QTextEdit>
+#include <QSortFilterProxyModel>
 
 TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     QDialog(parent),
@@ -133,6 +134,8 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->resizeColumnToContents(5);
     ui->txHistoryTable->setColumnHidden(0, true);
     borrowedColumnResizingFixer->stretchColumnWidth(4);
+    ui->txHistoryTable->setSortingEnabled(true);
+    ui->txHistoryTable->horizontalHeader()->setSortIndicator(2, Qt::DescendingOrder); // sort by date for now
 }
 
 void TXHistoryDialog::setClientModel(ClientModel *model)
@@ -151,52 +154,9 @@ void TXHistoryDialog::setWalletModel(WalletModel *model)
     }
 }
 
-void TXHistoryDialog::CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved)
+int TXHistoryDialog::PopulateHistoryMap()
 {
-    QIcon ic = QIcon(":/icons/transaction_0");
-    switch(confirmations)
-    {
-        case 1: ic = QIcon(":/icons/transaction_1"); break;
-        case 2: ic = QIcon(":/icons/transaction_2"); break;
-        case 3: ic = QIcon(":/icons/transaction_3"); break;
-        case 4: ic = QIcon(":/icons/transaction_4"); break;
-        case 5: ic = QIcon(":/icons/transaction_5"); break;
-    }
-    if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
-    if (!valid) ic = QIcon(":/icons/transaction_invalid");
-    ui->txHistoryTable->setRowCount(rowcount+1);
-    QTableWidgetItem *dateCell = new QTableWidgetItem(QString::fromStdString(txTimeStr));
-    QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(displayType));
-    QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(displayAddress));
-    QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(displayAmount));
-    QTableWidgetItem *iconCell = new QTableWidgetItem;
-    QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txidStr));
-    iconCell->setIcon(ic);
-    addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
-    addressCell->setForeground(QColor("#707070"));
-    amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
-    amountCell->setForeground(QColor("#EE0000"));
-    if (bInbound) amountCell->setForeground(QColor("#00AA00"));
-    if (!fundsMoved) amountCell->setForeground(QColor("#404040"));
-    if (rowcount % 2)
-    {
-        amountCell->setBackground(QColor("#F0F0F0"));
-        addressCell->setBackground(QColor("#F0F0F0"));
-        dateCell->setBackground(QColor("#F0F0F0"));
-        typeCell->setBackground(QColor("#F0F0F0"));
-        txidCell->setBackground(QColor("#F0F0F0"));
-        iconCell->setBackground(QColor("#F0F0F0"));
-    }
-    ui->txHistoryTable->setItem(rowcount, 0, txidCell);
-    ui->txHistoryTable->setItem(rowcount, 1, iconCell);
-    ui->txHistoryTable->setItem(rowcount, 2, dateCell);
-    ui->txHistoryTable->setItem(rowcount, 3, typeCell);
-    ui->txHistoryTable->setItem(rowcount, 4, addressCell);
-    ui->txHistoryTable->setItem(rowcount, 5, amountCell);
-}
-
-void TXHistoryDialog::PopulateHistoryMap()
-{
+    int64_t nProcessed = 0; // counter for how many transactions we've added to history this time
     // ### START PENDING TRANSACTIONS PROCESSING ###
     for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
     {
@@ -214,18 +174,19 @@ void TXHistoryDialog::PopulateHistoryMap()
         HistoryTXObject htxo;
         htxo.blockHeight = 0;  // how are we gonna order pending txs????
         htxo.blockByteOffset = 0;
-        if (p_pending->type == 0) htxo.txType = "Send"; // we don't have a CMPTransaction class here so manually set the type for now
-        if (p_pending->type == 21) htxo.txType = "MetaDEx Trade"; // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
+        htxo.valid = true; // all pending transactions are assumed to be valid while awaiting confirmation since all pending are outbound and we wouldn't let them be sent if invalid
+        if (p_pending->type == 0) { htxo.txType = "Send"; htxo.fundsMoved = true; } // we don't have a CMPTransaction class here so manually set the type for now
+        if (p_pending->type == 21) { htxo.txType = "MetaDEx Trade"; htxo.fundsMoved = false; } // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
         htxo.address = senderAddress; // always sender, all pending are outbound
         if(isPropertyDivisible(propertyId)) {htxo.amount = "-"+FormatDivisibleShortMP(amount)+getTokenLabel(propertyId);} else {htxo.amount="-"+FormatIndivisibleMP(amount)+getTokenLabel(propertyId);} // pending always outbound
         txHistoryMap.insert(std::make_pair(txid, htxo));
+        nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
     }
     // ### END PENDING TRANSACTIONS PROCESSING ###
 
     // ### START WALLET TRANSACTIONS PROCESSING ###
     CWallet *wallet = pwalletMain;
     int64_t nCount = 500; // increasing this along with adding caching via txHistoryMap
-    int64_t nProcessed = 0; // counter for how many transactions we've added to history
     // STO has no inbound transaction, so we need to use an insert methodology here - get STO receipts affecting me
     string mySTOReceipts = s_stolistdb->getMySTOReceipts("");
     std::vector<std::string> vecReceipts;
@@ -233,9 +194,9 @@ void TXHistoryDialog::PopulateHistoryMap()
     int64_t lastTXBlock = 999999; // set artificially high initially until first wallet tx is processed
     // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
     TRY_LOCK(cs_main,lckMain);
-    if (!lckMain) return;
+    if (!lckMain) return 0;
     TRY_LOCK(wallet->cs_wallet, lckWallet);
-    if (!lckWallet) return;
+    if (!lckWallet) return 0;
     // iterate through wallet entries backwards
     std::list<CAccountingEntry> acentries;
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
@@ -285,10 +246,13 @@ void TXHistoryDialog::PopulateHistoryMap()
                         if (pblocktree->ReadTxIndex(stoHash, position)) { */ // forward dec issues here, investigate
                         htxo.blockByteOffset = 0;
                         htxo.txType = "STO Receive";
+                        htxo.valid = true; // STO receipts are always valid (STO sends not necessarily so, but this section only handles receipts)
                         htxo.address = svstr[2];
+                        htxo.fundsMoved = true; // receiving tokens means tokens moved
                         if(receiveArray.size()>1) htxo.address = "Multiple addresses"; // override display address if more than one address in the wallet received a cut of this STO
                         if(isPropertyDivisible(propertyId)) {htxo.amount=FormatDivisibleShortMP(total)+getTokenLabel(propertyId);} else {htxo.amount=FormatIndivisibleMP(total)+getTokenLabel(propertyId);}
                         txHistoryMap.insert(std::make_pair(stoHash, htxo));
+                        nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
                     }
                 }
             }
@@ -336,7 +300,9 @@ void TXHistoryDialog::PopulateHistoryMap()
                         htxo.blockByteOffset = 0; // needs further investigation
                         if (!bIsBuy) { htxo.txType = "DEx Sell"; htxo.address = tmpSeller; } else { htxo.txType = "DEx Buy"; htxo.address = tmpBuyer; }
                         htxo.amount=(!bIsBuy ? "-" : "") + FormatDivisibleShortMP(total)+getTokenLabel(tmpPropertyId);
+                        htxo.fundsMoved=true;
                         txHistoryMap.insert(std::make_pair(hash, htxo));
+                        nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
                     }
                     // ### END HANDLE DEX PURCHASE TRANSACTION ###
                 }
@@ -374,7 +340,8 @@ void TXHistoryDialog::PopulateHistoryMap()
                     // override/hide display amount for invalid creates and unknown transactions as we can't display amount/property as no prop exists
                     if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
                         (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
+                        (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL) ||
+                        (displayType == "Unknown")) {
                             // alerts are valid and thus display a wacky value attempting to decode amount - whilst no users should ever see this, be clean and N/A the wacky value
                             if ((!valid) || (displayType == "Unknown")) { displayAmount = "N/A"; }
                     } else { if ((fundsMoved) && (IsMyAddress(senderAddress))) { displayAmount = "-" + displayAmount; } }
@@ -384,6 +351,8 @@ void TXHistoryDialog::PopulateHistoryMap()
                     htxo.blockByteOffset = 0; // needs further investigation
                     htxo.txType = displayType;
                     htxo.address = displayAddress;
+                    htxo.valid = valid; // bool valid contains result from getValidMPTX
+                    htxo.fundsMoved = fundsMoved;
                     htxo.amount = displayAmount;
                     txHistoryMap.insert(std::make_pair(hash, htxo));
                     nProcessed += 1; // increase our counter so we don't go crazy on a wallet with too many transactions and lock up UI
@@ -395,29 +364,102 @@ void TXHistoryDialog::PopulateHistoryMap()
     if (nProcessed > nCount) break;
     }
     // ### END WALLET TRANSACTIONS PROCESSING ###
-}
-
-void TXHistoryDialog::UpdateHistoryMap()
-{
-
-}
-
-void TXHistoryDialog::RefreshHistoryTab()
-{
-
+    return nProcessed;
 }
 
 void TXHistoryDialog::UpdateHistory()
 {
-    // now moved to a new methodology where historical transactions are stored in a map stored in memory (effectively a cache) so we can refresh the table without reparsing all our transactions
-    // for now a refresh of the table is still required to make sure we update the confirmations, but in future we can optimize this also
+    // now moved to a new methodology where historical transactions are stored in a map in memory (effectively a cache) so we can compare our
+    // history table against the cache.  This allows us to avoid reparsing transactions repeatedly and provides a diff to modify the table without
+    // repopuplating all the rows top to bottom each refresh.
 
     // first things first, call PopulateHistoryMap to add in any missing (ie new) transactions
-    PopulateHistoryMap();
+    int newTXCount = PopulateHistoryMap();
+    int chainHeight = chainActive.Height(); // get the chain height
+    // were any transactions added?
+    if(newTXCount > 0) { // there are new transactions (or a pending shifted to confirmed), refresh the table adding any that are in the map but not in the table
+        ui->txHistoryTable->setSortingEnabled(false); // disable sorting temporarily while we update the table (leaving enabled gives unexpected results)
+        QAbstractItemModel* historyAbstractModel = ui->txHistoryTable->model(); // get a model to work with
+        for(HistoryMap::iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
+            uint256 txid = it->first; // grab txid
+            // search the history table for this transaction, here we're going to use a filter proxy because it's a little quicker
+            QSortFilterProxyModel historyProxy;
+            historyProxy.setSourceModel(historyAbstractModel);
+            historyProxy.setFilterKeyColumn(0);
+            historyProxy.setFilterFixedString(QString::fromStdString(txid.GetHex()));
+            QModelIndex rowIndex = historyProxy.mapToSource(historyProxy.index(0,0));
+            if(!rowIndex.isValid()) { // this transaction doesn't exist in the history table, add it
+                HistoryTXObject htxo = it->second; // grab the tranaaction
+                int workingRow = ui->txHistoryTable->rowCount();
+                ui->txHistoryTable->insertRow(workingRow); // append a new row (sorting will take care of ordering)
+                QDateTime txTime;
+                QTableWidgetItem *dateCell = new QTableWidgetItem;
+                if (htxo.blockHeight>0) {
+                    CBlockIndex* pBlkIdx = chainActive[htxo.blockHeight];
+                    if (NULL != pBlkIdx) txTime.setTime_t(pBlkIdx->GetBlockTime());
+                    dateCell->setData(Qt::DisplayRole, txTime);
+                } else {
+                    dateCell->setData(Qt::DisplayRole, QString::fromStdString("Unconfirmed"));
+                }
+                QTableWidgetItem *typeCell = new QTableWidgetItem(QString::fromStdString(htxo.txType));
+                QTableWidgetItem *addressCell = new QTableWidgetItem(QString::fromStdString(htxo.address));
+                QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(htxo.amount));
+                QTableWidgetItem *iconCell = new QTableWidgetItem;
+                QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txid.GetHex()));
+                addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
+                addressCell->setForeground(QColor("#707070"));
+                amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
+                amountCell->setForeground(QColor("#EE0000"));
+                if (htxo.amount.length() > 0) { // protect against an empty value
+                    if (htxo.amount.substr(0,1) == "-") amountCell->setForeground(QColor("#00AA00")); // outbound
+                }
+                if (!htxo.fundsMoved) amountCell->setForeground(QColor("#404040"));
+                if (workingRow % 2) { // add shading to alternate rows
+                    amountCell->setBackground(QColor("#F0F0F0"));
+                    addressCell->setBackground(QColor("#F0F0F0"));
+                    dateCell->setBackground(QColor("#F0F0F0"));
+                    typeCell->setBackground(QColor("#F0F0F0"));
+                    txidCell->setBackground(QColor("#F0F0F0"));
+                    iconCell->setBackground(QColor("#F0F0F0"));
+                }
+                ui->txHistoryTable->setItem(workingRow, 0, txidCell);
+                ui->txHistoryTable->setItem(workingRow, 1, iconCell);
+                ui->txHistoryTable->setItem(workingRow, 2, dateCell);
+                ui->txHistoryTable->setItem(workingRow, 3, typeCell);
+                ui->txHistoryTable->setItem(workingRow, 4, addressCell);
+                ui->txHistoryTable->setItem(workingRow, 5, amountCell);
+            }
+        }
+        ui->txHistoryTable->setSortingEnabled(true); // re-enable sorting
+    }
 
-    // refresh the table with the contents of the cache
-    // 
-
+    // loop over txHistoryMap and update the confirmations icon for each transaction
+    for(HistoryMap::iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
+        uint256 txid = it->first; // grab txid
+        HistoryTXObject htxo = it->second; // grab the tranaaction
+        int confirmations = 0;
+        if (htxo.blockHeight>0) confirmations = (chainHeight+1) - htxo.blockHeight;
+        // setup the appropriate icon
+        QIcon ic = QIcon(":/icons/transaction_0");
+        switch(confirmations) {
+            case 1: ic = QIcon(":/icons/transaction_1"); break;
+            case 2: ic = QIcon(":/icons/transaction_2"); break;
+            case 3: ic = QIcon(":/icons/transaction_3"); break;
+            case 4: ic = QIcon(":/icons/transaction_4"); break;
+            case 5: ic = QIcon(":/icons/transaction_5"); break;
+        }
+        if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
+        if (!htxo.valid) ic = QIcon(":/icons/transaction_invalid");
+        // now we want to locate this transaction in the history table, and update its icon - here we're going to iterate rows to make sure we get the right one
+        int rowCount = ui->txHistoryTable->rowCount();
+        for (int row = 0; row < rowCount; row++) {
+            if(ui->txHistoryTable->item(row, 0)->text() == QString::fromStdString(txid.GetHex())) { // found the transaction, update icon
+                QTableWidgetItem *iconCell = new QTableWidgetItem;
+                iconCell->setIcon(ic);
+                ui->txHistoryTable->setItem(row, 1, iconCell);
+            }
+        }
+    }
 }
 
 void TXHistoryDialog::contextualMenu(const QPoint &point)
@@ -431,17 +473,17 @@ void TXHistoryDialog::contextualMenu(const QPoint &point)
 
 void TXHistoryDialog::copyAddress()
 {
-    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),3)->text());
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),4)->text());
 }
 
 void TXHistoryDialog::copyAmount()
 {
-    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),4)->text());
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text());
 }
 
 void TXHistoryDialog::copyTxID()
 {
-    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text());
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),0)->text());
 }
 
 void TXHistoryDialog::showDetails()
@@ -558,7 +600,7 @@ void TXHistoryDialog::resizeEvent(QResizeEvent* event)
 
 std::string TXHistoryDialog::shrinkTxType(int txType, bool *fundsMoved)
 {
-    string displayType = "Unknwon";
+    string displayType = "Unknown";
     switch (txType) {
         case MSC_TYPE_SIMPLE_SEND: displayType = "Send"; break;
         case MSC_TYPE_RESTRICTED_SEND: displayType = "Rest. Send"; break;

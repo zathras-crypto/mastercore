@@ -33,6 +33,8 @@ class HistoryTXObject
 public:
   int blockHeight; // block transaction was mined in
   int blockByteOffset; // byte offset the tx is stored in the block (used for ordering multiple txs same block)
+  bool valid; // whether the transaction is valid from an Omni perspective
+  bool fundsMoved; // whether tokens actually moved in this transaction
   std::string txType; // human readable string containing type
   std::string address; // the address to be displayed (usually sender or recipient)
   std::string amount; // string containing formatted amount
@@ -52,7 +54,6 @@ public:
     void setClientModel(ClientModel *model);
     void setWalletModel(WalletModel *model);
 
-    void CreateRow(int rowcount, bool valid, bool bInbound, int confirmations, std::string txTimeStr, std::string displayType, std::string displayAddress, std::string displayAmount, std::string txidStr, bool fundsMoved);
     void accept();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
@@ -92,9 +93,7 @@ private slots:
     void copyAmount();
     void copyTxID();
     void UpdateHistory();
-    void PopulateHistoryMap();
-    void UpdateHistoryMap();
-    void RefreshHistoryTab();
+    int PopulateHistoryMap();
 
 signals:
     void doubleClicked(const QModelIndex&);
