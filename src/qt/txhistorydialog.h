@@ -65,6 +65,8 @@ public:
     QTableWidgetItem *amountCell;
     QTableWidgetItem *addressCell;
     QTableWidgetItem *txidCell;
+    QTableWidgetItem *blockHeightCell;
+    QTableWidgetItem *blockPosCell;
     QLayout *dlgLayout;
     QTextEdit *dlgTextEdit;
     QDialogButtonBox *buttonBox;
