@@ -96,6 +96,7 @@ private slots:
     void UpdateHistory();
     int PopulateHistoryMap();
     void UpdateConfirmations();
+    void checkSort(int column);
 
 signals:
     void doubleClicked(const QModelIndex&);

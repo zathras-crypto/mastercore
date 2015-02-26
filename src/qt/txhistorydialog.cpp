@@ -123,6 +123,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     // Connect actions
     connect(ui->txHistoryTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
     connect(ui->txHistoryTable, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(showDetails()));
+    connect(ui->txHistoryTable->horizontalHeader(), SIGNAL(sectionClicked(int)), this, SLOT(checkSort(int)));
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
     connect(copyAmountAction, SIGNAL(triggered()), this, SLOT(copyAmount()));
     connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
@@ -139,7 +140,7 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->setColumnHidden(1, true); // hideen sort key
     borrowedColumnResizingFixer->stretchColumnWidth(5);
     ui->txHistoryTable->setSortingEnabled(true);
-    ui->txHistoryTable->horizontalHeader()->setSortIndicator(3, Qt::DescendingOrder); // sort by date for now
+    ui->txHistoryTable->horizontalHeader()->setSortIndicator(1, Qt::DescendingOrder); // sort by hidden sort key
 }
 
 void TXHistoryDialog::setClientModel(ClientModel *model)
@@ -511,6 +512,16 @@ void TXHistoryDialog::copyAmount()
 void TXHistoryDialog::copyTxID()
 {
     GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),0)->text());
+}
+
+void TXHistoryDialog::checkSort(int column)
+{
+    // a header has been clicked on the tx history table, see if it's the status column and override the sort if necessary
+    // we may wish to be a bit smarter about this longer term, so we can spoof a sort indicator display and perhaps allow both
+    // directions, but for now will provide the core functionality needed
+    if (column == 2) { // ignore any other column sorts and allow them to progress normally
+        ui->txHistoryTable->horizontalHeader()->setSortIndicator(1, Qt::DescendingOrder);
+    }
 }
 
 void TXHistoryDialog::showDetails()
