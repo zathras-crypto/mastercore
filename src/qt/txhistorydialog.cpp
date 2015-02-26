@@ -376,7 +376,6 @@ int TXHistoryDialog::PopulateHistoryMap()
                 if (pblocktree->ReadTxIndex(hash, position)) {
                     htxo.blockByteOffset = position.nTxOffset;
                 }
-                htxo.blockByteOffset = 0; // needs further investigation
                 htxo.txType = displayType;
                 htxo.address = displayAddress;
                 htxo.valid = valid; // bool valid contains result from getValidMPTX
@@ -467,7 +466,6 @@ void TXHistoryDialog::UpdateHistory()
                 QTableWidgetItem *iconCell = new QTableWidgetItem;
                 QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txid.GetHex()));
                 std::string sortKey = strprintf("%06d%010d",htxo.blockHeight,htxo.blockByteOffset);
-                printf("sort key is: %s\n", sortKey.c_str());
                 QTableWidgetItem *sortKeyCell = new QTableWidgetItem(QString::fromStdString(sortKey));
                 addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
                 addressCell->setForeground(QColor("#707070"));
