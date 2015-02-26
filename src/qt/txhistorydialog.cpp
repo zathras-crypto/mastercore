@@ -9,6 +9,7 @@
 #include "guiutil.h"
 #include "optionsmodel.h"
 #include "walletmodel.h"
+#include "txdb.h"
 #include "wallet.h"
 #include "base58.h"
 #include "ui_interface.h"
@@ -78,27 +79,27 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     this->walletModel = walletModel;
 
     // setup
-    ui->txHistoryTable->setColumnCount(8);
-    ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem(" "));
-    ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Date"));
-    ui->txHistoryTable->setHorizontalHeaderItem(5, new QTableWidgetItem("Type"));
-    ui->txHistoryTable->setHorizontalHeaderItem(6, new QTableWidgetItem("Address"));
-    ui->txHistoryTable->setHorizontalHeaderItem(7, new QTableWidgetItem("Amount"));
+    ui->txHistoryTable->setColumnCount(7);
+    ui->txHistoryTable->setHorizontalHeaderItem(2, new QTableWidgetItem(" "));
+    ui->txHistoryTable->setHorizontalHeaderItem(3, new QTableWidgetItem("Date"));
+    ui->txHistoryTable->setHorizontalHeaderItem(4, new QTableWidgetItem("Type"));
+    ui->txHistoryTable->setHorizontalHeaderItem(5, new QTableWidgetItem("Address"));
+    ui->txHistoryTable->setHorizontalHeaderItem(6, new QTableWidgetItem("Amount"));
     // borrow ColumnResizingFixer again
     borrowedColumnResizingFixer = new GUIUtil::TableViewLastColumnResizingFixer(ui->txHistoryTable,100,100);
     // allow user to adjust - go interactive then manually set widths
     #if QT_VERSION < 0x050000
-       ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(2, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setResizeMode(3, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setResizeMode(4, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setResizeMode(5, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setResizeMode(6, QHeaderView::Interactive);
-       ui->txHistoryTable->horizontalHeader()->setResizeMode(7, QHeaderView::Interactive);
    #else
-       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
        ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Interactive);
-       ui->txHistoryTable->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Interactive);
     #endif
     ui->txHistoryTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->txHistoryTable->verticalHeader()->setVisible(false);
@@ -130,16 +131,15 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     UpdateHistory();
     // since there is no model we can't do this before we add some data, so now let's do the resizing
     // *after* we've populated the initial content for the table
-    ui->txHistoryTable->setColumnWidth(3, 23);
+    ui->txHistoryTable->setColumnWidth(2, 23);
+    ui->txHistoryTable->resizeColumnToContents(3);
     ui->txHistoryTable->resizeColumnToContents(4);
-    ui->txHistoryTable->resizeColumnToContents(5);
-    ui->txHistoryTable->resizeColumnToContents(7);
+    ui->txHistoryTable->resizeColumnToContents(6);
     ui->txHistoryTable->setColumnHidden(0, true); // hidden txid for displaying transaction details
-    ui->txHistoryTable->setColumnHidden(1, true); // hideen block height to be used with new [block][position] sort
-    ui->txHistoryTable->setColumnHidden(2, true); // hidden block positiont to be used with new [block][position] sort
-    borrowedColumnResizingFixer->stretchColumnWidth(6);
+    ui->txHistoryTable->setColumnHidden(1, true); // hideen sort key
+    borrowedColumnResizingFixer->stretchColumnWidth(5);
     ui->txHistoryTable->setSortingEnabled(true);
-    ui->txHistoryTable->horizontalHeader()->setSortIndicator(4, Qt::DescendingOrder); // sort by date for now
+    ui->txHistoryTable->horizontalHeader()->setSortIndicator(3, Qt::DescendingOrder); // sort by date for now
 }
 
 void TXHistoryDialog::setClientModel(ClientModel *model)
@@ -264,9 +264,11 @@ int TXHistoryDialog::PopulateHistoryMap()
                         // create a HistoryTXObject and add to map
                         HistoryTXObject htxo;
                         htxo.blockHeight = atoi(svstr[1]);
-                        /* CDiskTxPos position;
-                        if (pblocktree->ReadTxIndex(stoHash, position)) { */ // forward dec issues here, investigate
                         htxo.blockByteOffset = 0;
+                        CDiskTxPos position;
+                        if (pblocktree->ReadTxIndex(stoHash, position)) {
+                            htxo.blockByteOffset = position.nTxOffset;
+                        }
                         htxo.txType = "STO Receive";
                         htxo.valid = true; // STO receipts are always valid (STO sends not necessarily so, but this section only handles receipts)
                         htxo.address = svstr[2];
@@ -369,6 +371,11 @@ int TXHistoryDialog::PopulateHistoryMap()
                 // create a HistoryTXObject and add to map
                 HistoryTXObject htxo;
                 htxo.blockHeight = blockHeight;
+                htxo.blockByteOffset = 0;
+                CDiskTxPos position;
+                if (pblocktree->ReadTxIndex(hash, position)) {
+                    htxo.blockByteOffset = position.nTxOffset;
+                }
                 htxo.blockByteOffset = 0; // needs further investigation
                 htxo.txType = displayType;
                 htxo.address = displayAddress;
@@ -417,7 +424,7 @@ void TXHistoryDialog::UpdateConfirmations()
         if (!valid) ic = QIcon(":/icons/transaction_invalid");
         QTableWidgetItem *iconCell = new QTableWidgetItem;
         iconCell->setIcon(ic);
-        ui->txHistoryTable->setItem(row, 3, iconCell);
+        ui->txHistoryTable->setItem(row, 2, iconCell);
     }
 }
 
@@ -459,10 +466,9 @@ void TXHistoryDialog::UpdateHistory()
                 QTableWidgetItem *amountCell = new QTableWidgetItem(QString::fromStdString(htxo.amount));
                 QTableWidgetItem *iconCell = new QTableWidgetItem;
                 QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txid.GetHex()));
-                QTableWidgetItem *blockHeightCell = new QTableWidgetItem;
-                QTableWidgetItem *blockPosCell = new QTableWidgetItem;
-                blockHeightCell->setData(Qt::DisplayRole, htxo.blockHeight);
-                blockPosCell->setData(Qt::DisplayRole, htxo.blockByteOffset);
+                std::string sortKey = strprintf("%06d%010d",htxo.blockHeight,htxo.blockByteOffset);
+                printf("sort key is: %s\n", sortKey.c_str());
+                QTableWidgetItem *sortKeyCell = new QTableWidgetItem(QString::fromStdString(sortKey));
                 addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
                 addressCell->setForeground(QColor("#707070"));
                 amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
@@ -472,13 +478,12 @@ void TXHistoryDialog::UpdateHistory()
                 }
                 if (!htxo.fundsMoved) amountCell->setForeground(QColor("#404040"));
                 ui->txHistoryTable->setItem(workingRow, 0, txidCell);
-                ui->txHistoryTable->setItem(workingRow, 1, blockHeightCell);
-                ui->txHistoryTable->setItem(workingRow, 2, blockPosCell);
-                ui->txHistoryTable->setItem(workingRow, 3, iconCell);
-                ui->txHistoryTable->setItem(workingRow, 4, dateCell);
-                ui->txHistoryTable->setItem(workingRow, 5, typeCell);
-                ui->txHistoryTable->setItem(workingRow, 6, addressCell);
-                ui->txHistoryTable->setItem(workingRow, 7, amountCell);
+                ui->txHistoryTable->setItem(workingRow, 1, sortKeyCell);
+                ui->txHistoryTable->setItem(workingRow, 2, iconCell);
+                ui->txHistoryTable->setItem(workingRow, 3, dateCell);
+                ui->txHistoryTable->setItem(workingRow, 4, typeCell);
+                ui->txHistoryTable->setItem(workingRow, 5, addressCell);
+                ui->txHistoryTable->setItem(workingRow, 6, amountCell);
             }
         }
         ui->txHistoryTable->setSortingEnabled(true); // re-enable sorting
@@ -497,12 +502,12 @@ void TXHistoryDialog::contextualMenu(const QPoint &point)
 
 void TXHistoryDialog::copyAddress()
 {
-    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),6)->text());
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),5)->text());
 }
 
 void TXHistoryDialog::copyAmount()
 {
-    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),7)->text());
+    GUIUtil::setClipboard(ui->txHistoryTable->item(ui->txHistoryTable->currentRow(),6)->text());
 }
 
 void TXHistoryDialog::copyTxID()
@@ -619,7 +624,7 @@ void TXHistoryDialog::accept()
 void TXHistoryDialog::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
-    borrowedColumnResizingFixer->stretchColumnWidth(6);
+    borrowedColumnResizingFixer->stretchColumnWidth(5);
 }
 
 std::string TXHistoryDialog::shrinkTxType(int txType, bool *fundsMoved)
