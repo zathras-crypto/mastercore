@@ -94,6 +94,7 @@ private slots:
     void copyTxID();
     void UpdateHistory();
     int PopulateHistoryMap();
+    void UpdateConfirmations();
 
 signals:
     void doubleClicked(const QModelIndex&);

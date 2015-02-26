@@ -107,6 +107,8 @@ TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     ui->txHistoryTable->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->txHistoryTable->setTabKeyNavigation(false);
     ui->txHistoryTable->setContextMenuPolicy(Qt::CustomContextMenu);
+    // set alternating row colors via styling instead of manually
+    ui->txHistoryTable->setAlternatingRowColors(true);
     // Actions
     QAction *copyAddressAction = new QAction(tr("Copy address"), this);
     QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
@@ -143,6 +145,7 @@ void TXHistoryDialog::setClientModel(ClientModel *model)
     if (model != NULL) {
         this->clientModel = model;
         connect(model, SIGNAL(refreshOmniState()), this, SLOT(UpdateHistory()));
+        connect(model, SIGNAL(numBlocksChanged(int)), this, SLOT(UpdateConfirmations()));
     }
 }
 
@@ -210,8 +213,17 @@ int TXHistoryDialog::PopulateHistoryMap()
             HistoryMap::iterator hIter = txHistoryMap.find(hash);
             if (hIter != txHistoryMap.end()) { // the tx is in historyMap, check if it has a blockheight of 0 (means a pending has confirmed)
                 HistoryTXObject *temphtxo = &(hIter->second);
-                if (temphtxo->blockHeight == 0) { // pending has confirmed, delete the pending transaction from the map and have it parsed
+                if (temphtxo->blockHeight == 0) { // pending has confirmed, delete the pending transaction from the map/table and have it parsed/readded properly
                     txHistoryMap.erase(hIter);
+                    ui->txHistoryTable->setSortingEnabled(false); // disable sorting temporarily while we update the table (leaving enabled gives unexpected results)
+                    QAbstractItemModel* historyAbstractModel = ui->txHistoryTable->model(); // get a model to work with
+                    QSortFilterProxyModel historyProxy;
+                    historyProxy.setSourceModel(historyAbstractModel);
+                    historyProxy.setFilterKeyColumn(0);
+                    historyProxy.setFilterFixedString(QString::fromStdString(hash.GetHex()));
+                    QModelIndex rowIndex = historyProxy.mapToSource(historyProxy.index(0,0)); // map to the row in the actual table
+                    if(rowIndex.isValid()) ui->txHistoryTable->removeRow(rowIndex.row()); // delete the pending tx row, it'll be readded as a proper confirmed transaction
+                    ui->txHistoryTable->setSortingEnabled(true); // re-enable sorting
                 } else {
                     continue; // the tx is in historyMap with a blockheight > 0, move on to next transaction
                 }
@@ -374,6 +386,38 @@ int TXHistoryDialog::PopulateHistoryMap()
     return nProcessed;
 }
 
+void TXHistoryDialog::UpdateConfirmations()
+{
+    int chainHeight = chainActive.Height(); // get the chain height
+    // loop over txHistoryMap and update the confirmations icon for each transaction
+    for(HistoryMap::iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
+        uint256 txid = it->first; // grab txid
+        HistoryTXObject htxo = it->second; // grab the tranaaction
+        int confirmations = 0;
+        if (htxo.blockHeight>0) confirmations = (chainHeight+1) - htxo.blockHeight;
+        // setup the appropriate icon
+        QIcon ic = QIcon(":/icons/transaction_0");
+        switch(confirmations) {
+            case 1: ic = QIcon(":/icons/transaction_1"); break;
+            case 2: ic = QIcon(":/icons/transaction_2"); break;
+            case 3: ic = QIcon(":/icons/transaction_3"); break;
+            case 4: ic = QIcon(":/icons/transaction_4"); break;
+            case 5: ic = QIcon(":/icons/transaction_5"); break;
+        }
+        if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
+        if (!htxo.valid) ic = QIcon(":/icons/transaction_invalid");
+        // now we want to locate this transaction in the history table, and update its icon - here we're going to iterate rows to make sure we get the right one
+        int rowCount = ui->txHistoryTable->rowCount();
+        for (int row = 0; row < rowCount; row++) {
+            if(ui->txHistoryTable->item(row, 0)->text() == QString::fromStdString(txid.GetHex())) { // found the transaction, update icon
+                QTableWidgetItem *iconCell = new QTableWidgetItem;
+                iconCell->setIcon(ic);
+                ui->txHistoryTable->setItem(row, 1, iconCell);
+            }
+        }
+    }
+}
+
 void TXHistoryDialog::UpdateHistory()
 {
     // now moved to a new methodology where historical transactions are stored in a map in memory (effectively a cache) so we can compare our
@@ -382,7 +426,6 @@ void TXHistoryDialog::UpdateHistory()
 
     // first things first, call PopulateHistoryMap to add in any missing (ie new) transactions
     int newTXCount = PopulateHistoryMap();
-    int chainHeight = chainActive.Height(); // get the chain height
     // were any transactions added?
     if(newTXCount > 0) { // there are new transactions (or a pending shifted to confirmed), refresh the table adding any that are in the map but not in the table
         ui->txHistoryTable->setSortingEnabled(false); // disable sorting temporarily while we update the table (leaving enabled gives unexpected results)
@@ -421,14 +464,6 @@ void TXHistoryDialog::UpdateHistory()
                     if (htxo.amount.substr(0,1) == "-") amountCell->setForeground(QColor("#00AA00")); // outbound
                 }
                 if (!htxo.fundsMoved) amountCell->setForeground(QColor("#404040"));
-                if (workingRow % 2) { // add shading to alternate rows
-                    amountCell->setBackground(QColor("#F0F0F0"));
-                    addressCell->setBackground(QColor("#F0F0F0"));
-                    dateCell->setBackground(QColor("#F0F0F0"));
-                    typeCell->setBackground(QColor("#F0F0F0"));
-                    txidCell->setBackground(QColor("#F0F0F0"));
-                    iconCell->setBackground(QColor("#F0F0F0"));
-                }
                 ui->txHistoryTable->setItem(workingRow, 0, txidCell);
                 ui->txHistoryTable->setItem(workingRow, 1, iconCell);
                 ui->txHistoryTable->setItem(workingRow, 2, dateCell);
@@ -439,34 +474,7 @@ void TXHistoryDialog::UpdateHistory()
         }
         ui->txHistoryTable->setSortingEnabled(true); // re-enable sorting
     }
-
-    // loop over txHistoryMap and update the confirmations icon for each transaction
-    for(HistoryMap::iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
-        uint256 txid = it->first; // grab txid
-        HistoryTXObject htxo = it->second; // grab the tranaaction
-        int confirmations = 0;
-        if (htxo.blockHeight>0) confirmations = (chainHeight+1) - htxo.blockHeight;
-        // setup the appropriate icon
-        QIcon ic = QIcon(":/icons/transaction_0");
-        switch(confirmations) {
-            case 1: ic = QIcon(":/icons/transaction_1"); break;
-            case 2: ic = QIcon(":/icons/transaction_2"); break;
-            case 3: ic = QIcon(":/icons/transaction_3"); break;
-            case 4: ic = QIcon(":/icons/transaction_4"); break;
-            case 5: ic = QIcon(":/icons/transaction_5"); break;
-        }
-        if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
-        if (!htxo.valid) ic = QIcon(":/icons/transaction_invalid");
-        // now we want to locate this transaction in the history table, and update its icon - here we're going to iterate rows to make sure we get the right one
-        int rowCount = ui->txHistoryTable->rowCount();
-        for (int row = 0; row < rowCount; row++) {
-            if(ui->txHistoryTable->item(row, 0)->text() == QString::fromStdString(txid.GetHex())) { // found the transaction, update icon
-                QTableWidgetItem *iconCell = new QTableWidgetItem;
-                iconCell->setIcon(ic);
-                ui->txHistoryTable->setItem(row, 1, iconCell);
-            }
-        }
-    }
+    UpdateConfirmations();
 }
 
 void TXHistoryDialog::contextualMenu(const QPoint &point)
