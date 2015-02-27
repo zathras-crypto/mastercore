@@ -827,23 +827,6 @@ bool AppInit2(boost::thread_group& threadGroup)
         }
     }
 
-    // ********************************************************* Step 7.1: storage guard
-
-    uiInterface.InitMessage(_("Performing out of order block detection..."));
-
-    bool fUnsupportedBlockStorage = CheckForOutOfOrderBlockStorage();
-    if (fUnsupportedBlockStorage) {
-        return InitError(_(
-                "Out of order stored blocks detected.\n\n"
-                "This indicates the use of a Bitcoin Core 0.10 blockchain "
-                "with headers first synchronization which may result in "
-                "unexpected side effects.\n\n"
-                "As a precaution Bitcoin Core 0.10 is currently not supported."
-            ));
-    }
-
-    // ********************************************************* Step 7.2: continue loading chain
-
     // cache size calculations
     size_t nTotalCache = (GetArg("-dbcache", nDefaultDbCache) << 20);
     if (nTotalCache < (nMinDbCache << 20))
@@ -975,7 +958,20 @@ bool AppInit2(boost::thread_group& threadGroup)
         return false;
     }
 
-    // ********************************************************* Step 7.3: load omni core
+    // ********************************************************* Step 7.5: load omni core
+
+    uiInterface.InitMessage(_("Performing out of order block detection..."));
+
+    bool fUnsupportedBlockStorage = CheckForOutOfOrderBlockStorage();
+    if (fUnsupportedBlockStorage) {
+        return InitError(_(
+                "Out of order stored blocks detected.\n\n"
+                "This indicates the use of a Bitcoin Core 0.10 blockchain "
+                "with headers first synchronization which may result in "
+                "unexpected side effects.\n\n"
+                "As a precaution Bitcoin Core 0.10 is currently not supported."
+            ));
+    }
 
     if (fDisableWallet) {
         return InitError(_(
