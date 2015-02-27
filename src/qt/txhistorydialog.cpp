@@ -478,9 +478,9 @@ void TXHistoryDialog::UpdateHistory()
                 addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
                 addressCell->setForeground(QColor("#707070"));
                 amountCell->setTextAlignment(Qt::AlignRight + Qt::AlignVCenter);
-                amountCell->setForeground(QColor("#EE0000"));
+                amountCell->setForeground(QColor("#00AA00"));
                 if (htxo.amount.length() > 0) { // protect against an empty value
-                    if (htxo.amount.substr(0,1) == "-") amountCell->setForeground(QColor("#00AA00")); // outbound
+                    if (htxo.amount.substr(0,1) == "-") amountCell->setForeground(QColor("#EE0000")); // outbound
                 }
                 if (!htxo.fundsMoved) amountCell->setForeground(QColor("#404040"));
                 ui->txHistoryTable->setItem(workingRow, 0, txidCell);
