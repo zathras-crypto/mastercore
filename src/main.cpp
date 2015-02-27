@@ -3060,7 +3060,7 @@ bool CheckForOutOfOrderBlockStorage()
         }
 
         if (nPos <= nPosPrev) {
-            // found a blocks stored out of order
+            // found a block stored out of order
             return true;
         }
 
