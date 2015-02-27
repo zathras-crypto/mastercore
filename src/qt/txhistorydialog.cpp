@@ -186,8 +186,7 @@ int TXHistoryDialog::PopulateHistoryMap()
         int64_t amount = pending.amount;
         // create a HistoryTXObject and add to map
         HistoryTXObject htxo;
-        htxo.blockHeight = 0; // how are we gonna order pending txs????
-        htxo.blockByteOffset = 0; // attempt to use the position of the transaction in the wallet to provide a sortkey for pending
+        // attempt to use the position of the transaction in the wallet to provide a sortkey for pending
         const CWalletTx* pendingWTx = wallet->GetWalletTx(txid);
         if (NULL != pendingWTx) {
             htxo.blockByteOffset = pendingWTx->nOrderPos;
@@ -267,7 +266,6 @@ int TXHistoryDialog::PopulateHistoryMap()
                         // create a HistoryTXObject and add to map
                         HistoryTXObject htxo;
                         htxo.blockHeight = atoi(svstr[1]);
-                        htxo.blockByteOffset = 0;
                         CDiskTxPos position;
                         if (pblocktree->ReadTxIndex(stoHash, position)) {
                             htxo.blockByteOffset = position.nTxOffset;
@@ -320,7 +318,6 @@ int TXHistoryDialog::PopulateHistoryMap()
                     // create a HistoryTXObject and add to map
                     HistoryTXObject htxo;
                     htxo.blockHeight = blockHeight;
-                    htxo.blockByteOffset = 0; // needs further investigation
                     if (!bIsBuy) { htxo.txType = "DEx Sell"; htxo.address = tmpSeller; } else { htxo.txType = "DEx Buy"; htxo.address = tmpBuyer; }
                     htxo.amount=(!bIsBuy ? "-" : "") + FormatDivisibleShortMP(total)+getTokenLabel(tmpPropertyId);
                     htxo.fundsMoved=true;
@@ -371,7 +368,6 @@ int TXHistoryDialog::PopulateHistoryMap()
                 // create a HistoryTXObject and add to map
                 HistoryTXObject htxo;
                 htxo.blockHeight = blockHeight;
-                htxo.blockByteOffset = 0;
                 CDiskTxPos position;
                 if (pblocktree->ReadTxIndex(hash, position)) {
                     htxo.blockByteOffset = position.nTxOffset;
