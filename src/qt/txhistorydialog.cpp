@@ -162,6 +162,13 @@ void TXHistoryDialog::setWalletModel(WalletModel *model)
 
 int TXHistoryDialog::PopulateHistoryMap()
 {
+    CWallet *wallet = pwalletMain;
+    // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
+    TRY_LOCK(cs_main,lckMain);
+    if (!lckMain) return 0;
+    TRY_LOCK(wallet->cs_wallet, lckWallet);
+    if (!lckWallet) return 0;
+
     int64_t nProcessed = 0; // counter for how many transactions we've added to history this time
     // ### START PENDING TRANSACTIONS PROCESSING ###
     for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
@@ -178,8 +185,13 @@ int TXHistoryDialog::PopulateHistoryMap()
         int64_t amount = p_pending->amount;
         // create a HistoryTXObject and add to map
         HistoryTXObject htxo;
-        htxo.blockHeight = 0;  // how are we gonna order pending txs????
-        htxo.blockByteOffset = 0;
+        htxo.blockHeight = 0; // how are we gonna order pending txs????
+        htxo.blockByteOffset = 0; // attempt to use the position of the transaction in the wallet to provide a sortkey for pending
+        std::map<uint256, CWalletTx>::const_iterator walletIt = wallet->mapWallet.find(txid);
+        if (walletIt != wallet->mapWallet.end()) {
+            const CWalletTx* pendingWTx = &(*walletIt).second;
+            htxo.blockByteOffset = pendingWTx->nOrderPos;
+        }
         htxo.valid = true; // all pending transactions are assumed to be valid while awaiting confirmation since all pending are outbound and we wouldn't let them be sent if invalid
         if (p_pending->type == 0) { htxo.txType = "Send"; htxo.fundsMoved = true; } // we don't have a CMPTransaction class here so manually set the type for now
         if (p_pending->type == 21) { htxo.txType = "MetaDEx Trade"; htxo.fundsMoved = false; } // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
@@ -191,17 +203,11 @@ int TXHistoryDialog::PopulateHistoryMap()
     // ### END PENDING TRANSACTIONS PROCESSING ###
 
     // ### START WALLET TRANSACTIONS PROCESSING ###
-    CWallet *wallet = pwalletMain;
     // STO has no inbound transaction, so we need to use an insert methodology here - get STO receipts affecting me
     string mySTOReceipts = s_stolistdb->getMySTOReceipts("");
     std::vector<std::string> vecReceipts;
     boost::split(vecReceipts, mySTOReceipts, boost::is_any_of(","), token_compress_on);
     int64_t lastTXBlock = 999999; // set artificially high initially until first wallet tx is processed
-    // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
-    TRY_LOCK(cs_main,lckMain);
-    if (!lckMain) return 0;
-    TRY_LOCK(wallet->cs_wallet, lckWallet);
-    if (!lckWallet) return 0;
     // iterate through wallet entries backwards
     std::list<CAccountingEntry> acentries;
     CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, "*");
@@ -467,6 +473,7 @@ void TXHistoryDialog::UpdateHistory()
                 QTableWidgetItem *iconCell = new QTableWidgetItem;
                 QTableWidgetItem *txidCell = new QTableWidgetItem(QString::fromStdString(txid.GetHex()));
                 std::string sortKey = strprintf("%06d%010d",htxo.blockHeight,htxo.blockByteOffset);
+                if(htxo.blockHeight == 0) sortKey = strprintf("%06d%010D",999999,htxo.blockByteOffset); // spoof the hidden value to ensure pending txs are sorted top
                 QTableWidgetItem *sortKeyCell = new QTableWidgetItem(QString::fromStdString(sortKey));
                 addressCell->setTextAlignment(Qt::AlignLeft + Qt::AlignVCenter);
                 addressCell->setForeground(QColor("#707070"));
