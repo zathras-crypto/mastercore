@@ -171,18 +171,18 @@ int TXHistoryDialog::PopulateHistoryMap()
 
     int64_t nProcessed = 0; // counter for how many transactions we've added to history this time
     // ### START PENDING TRANSACTIONS PROCESSING ###
-    for(PendingMap::iterator it = my_pending.begin(); it != my_pending.end(); ++it)
+    for (PendingMap::const_iterator it = my_pending.begin(); it != my_pending.end(); ++it)
     {
         // grab txid
-        uint256 txid = it->first;
+        const uint256& txid = it->first;
         // check historyMap, if this tx exists don't waste resources doing anymore work on it
         HistoryMap::iterator hIter = txHistoryMap.find(txid);
         if (hIter != txHistoryMap.end()) continue;
         // grab pending object & extract details
-        CMPPending *p_pending = &(it->second);
-        string senderAddress = p_pending->src;
-        uint64_t propertyId = p_pending->prop;
-        int64_t amount = p_pending->amount;
+        const CMPPending& pending = it->second;
+        std::string senderAddress = pending.src;
+        uint64_t propertyId = pending.prop;
+        int64_t amount = pending.amount;
         // create a HistoryTXObject and add to map
         HistoryTXObject htxo;
         htxo.blockHeight = 0; // how are we gonna order pending txs????
@@ -193,8 +193,8 @@ int TXHistoryDialog::PopulateHistoryMap()
             htxo.blockByteOffset = pendingWTx->nOrderPos;
         }
         htxo.valid = true; // all pending transactions are assumed to be valid while awaiting confirmation since all pending are outbound and we wouldn't let them be sent if invalid
-        if (p_pending->type == 0) { htxo.txType = "Send"; htxo.fundsMoved = true; } // we don't have a CMPTransaction class here so manually set the type for now
-        if (p_pending->type == 21) { htxo.txType = "MetaDEx Trade"; htxo.fundsMoved = false; } // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
+        if (pending.type == 0) { htxo.txType = "Send"; htxo.fundsMoved = true; } // we don't have a CMPTransaction class here so manually set the type for now
+        if (pending.type == 21) { htxo.txType = "MetaDEx Trade"; htxo.fundsMoved = false; } // send and metadex trades are the only supported outbound txs (thus only possible pending) for now
         htxo.address = senderAddress; // always sender, all pending are outbound
         if(isPropertyDivisible(propertyId)) {htxo.amount = "-"+FormatDivisibleShortMP(amount)+getTokenLabel(propertyId);} else {htxo.amount="-"+FormatIndivisibleMP(amount)+getTokenLabel(propertyId);} // pending always outbound
         txHistoryMap.insert(std::make_pair(txid, htxo));
@@ -214,14 +214,14 @@ int TXHistoryDialog::PopulateHistoryMap()
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
         CWalletTx *const pwtx = (*it).second.first;
         if (pwtx != 0) {
-            uint256 hash = pwtx->GetHash();
+            const uint256& hash = pwtx->GetHash();
             // check txlistdb, if not there it's not a confirmed Omni transaction so move to next transaction
             if (!p_txlistdb->exists(hash)) continue;
             // check historyMap, if this tx exists don't waste resources doing anymore work on it
             HistoryMap::iterator hIter = txHistoryMap.find(hash);
             if (hIter != txHistoryMap.end()) { // the tx is in historyMap, check if it has a blockheight of 0 (means a pending has confirmed)
-                HistoryTXObject *temphtxo = &(hIter->second);
-                if (temphtxo->blockHeight == 0) { // pending has confirmed, delete the pending transaction from the map/table and have it parsed/readded properly
+                const HistoryTXObject& temphtxo = hIter->second;
+                if (temphtxo.blockHeight == 0) { // pending has confirmed, delete the pending transaction from the map/table and have it parsed/readded properly
                     txHistoryMap.erase(hIter);
                     ui->txHistoryTable->setSortingEnabled(false); // disable sorting temporarily while we update the table (leaving enabled gives unexpected results)
                     QAbstractItemModel* historyAbstractModel = ui->txHistoryTable->model(); // get a model to work with
@@ -409,11 +409,11 @@ void TXHistoryDialog::UpdateConfirmations()
         uint256 txid;
         txid.SetHex(ui->txHistoryTable->item(row,0)->text().toStdString());
         // lookup transaction in the map and grab validity and blockheight details
-        HistoryMap::iterator hIter = txHistoryMap.find(txid);
+        HistoryMap::const_iterator hIter = txHistoryMap.find(txid);
         if (hIter != txHistoryMap.end()) {
-            HistoryTXObject *temphtxo = &(hIter->second);
-            if (temphtxo->blockHeight>0) confirmations = (chainHeight+1) - temphtxo->blockHeight;
-            valid = temphtxo->valid;
+            const HistoryTXObject& temphtxo = hIter->second;
+            if (temphtxo.blockHeight > 0) confirmations = (chainHeight + 1) - temphtxo.blockHeight;
+            valid = temphtxo.valid;
         }
         int txBlockHeight = ui->txHistoryTable->item(row,1)->text().toInt();
         if (txBlockHeight>0) confirmations = (chainHeight+1) - txBlockHeight;
@@ -446,8 +446,8 @@ void TXHistoryDialog::UpdateHistory()
     if(newTXCount > 0) { // there are new transactions (or a pending shifted to confirmed), refresh the table adding any that are in the map but not in the table
         ui->txHistoryTable->setSortingEnabled(false); // disable sorting temporarily while we update the table (leaving enabled gives unexpected results)
         QAbstractItemModel* historyAbstractModel = ui->txHistoryTable->model(); // get a model to work with
-        for(HistoryMap::iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
-            uint256 txid = it->first; // grab txid
+        for (HistoryMap::const_iterator it = txHistoryMap.begin(); it != txHistoryMap.end(); ++it) {
+            const uint256& txid = it->first; // grab txid
             // search the history table for this transaction, here we're going to use a filter proxy because it's a little quicker
             QSortFilterProxyModel historyProxy;
             historyProxy.setSourceModel(historyAbstractModel);
@@ -455,7 +455,7 @@ void TXHistoryDialog::UpdateHistory()
             historyProxy.setFilterFixedString(QString::fromStdString(txid.GetHex()));
             QModelIndex rowIndex = historyProxy.mapToSource(historyProxy.index(0,0));
             if(!rowIndex.isValid()) { // this transaction doesn't exist in the history table, add it
-                HistoryTXObject htxo = it->second; // grab the tranaaction
+                const HistoryTXObject& htxo = it->second; // grab the transaction
                 int workingRow = ui->txHistoryTable->rowCount();
                 ui->txHistoryTable->insertRow(workingRow); // append a new row (sorting will take care of ordering)
                 QDateTime txTime;
