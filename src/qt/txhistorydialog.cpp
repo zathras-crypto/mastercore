@@ -415,9 +415,9 @@ void TXHistoryDialog::UpdateConfirmations()
         }
         if (confirmations > 5) ic = QIcon(":/icons/transaction_confirmed");
         if (!valid) ic = QIcon(":/icons/transaction_invalid");
-        QTableWidgetItem *iconCell = new QTableWidgetItem;
+        QTableWidgetItem *iconCell = ui->txHistoryTable->item(row, 2);
+        if (NULL == iconCell) continue; // fail safe
         iconCell->setIcon(ic);
-        ui->txHistoryTable->setItem(row, 2, iconCell);
     }
 }
 
