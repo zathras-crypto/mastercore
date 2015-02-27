@@ -395,8 +395,6 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
     // display
     CMPPending *p_pending = &(it->second);
 
-    p_pending->print(txid);
-
     int64_t src_amount = getMPbalance(p_pending->src, p_pending->prop, PENDING);
 
     if (msc_debug_verbose3) file_log("%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
@@ -2643,8 +2641,6 @@ int interp_ret = -555555, pop_ret;
 
     interp_ret = mp_obj.interpretPacket();
     if (interp_ret) file_log("!!! interpretPacket() returned %d !!!\n", interp_ret);
-
-    mp_obj.print();
 
     // of course only MP-related TXs get recorded
     if (!disableLevelDB)
