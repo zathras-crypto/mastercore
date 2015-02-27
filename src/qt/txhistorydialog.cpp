@@ -176,8 +176,7 @@ int TXHistoryDialog::PopulateHistoryMap()
         // grab txid
         const uint256& txid = it->first;
         // check historyMap, if this tx exists don't waste resources doing anymore work on it
-        HistoryMap::iterator hIter = txHistoryMap.find(txid);
-        if (hIter != txHistoryMap.end()) continue;
+        if (txHistoryMap.find(txid) != txHistoryMap.end()) continue;
         // grab pending object & extract details
         const CMPPending& pending = it->second;
         std::string senderAddress = pending.src;
@@ -247,7 +246,7 @@ int TXHistoryDialog::PopulateHistoryMap()
             int blockHeight = pBlockIndex->nHeight; // get the height of the transaction
 
             // ### START STO INSERTION CHECK ###
-            for(uint32_t i = 0; i<vecReceipts.size(); i++) {
+            for (size_t i = 0; i < vecReceipts.size(); ++i) {
                 std::vector<std::string> svstr;
                 boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), token_compress_on);
                 if(4 == svstr.size()) // make sure expected num items
@@ -258,8 +257,7 @@ int TXHistoryDialog::PopulateHistoryMap()
                         uint256 stoHash;
                         stoHash.SetHex(svstr[0]);
                         // check historyMap, if this STO exists don't waste resources doing anymore work on it
-                        HistoryMap::iterator hIterator = txHistoryMap.find(stoHash);
-                        if (hIterator != txHistoryMap.end()) continue;
+                        if (txHistoryMap.find(stoHash) != txHistoryMap.end()) continue;
                         // STO not in historyMap, get details
                         uint64_t propertyId = 0;
                         try { propertyId = boost::lexical_cast<uint64_t>(svstr[3]); } // attempt to extract propertyId
@@ -291,7 +289,6 @@ int TXHistoryDialog::PopulateHistoryMap()
             // ### END STO INSERTION CHECK ###
 
             // continuing with wallet tx, we've already confirmed earlier on that it's in txlistdb
-            string statusText;
             unsigned int propertyId = 0;
             uint64_t amount = 0;
             string senderAddress;
@@ -302,8 +299,6 @@ int TXHistoryDialog::PopulateHistoryMap()
             CMPTransaction mp_obj;
             int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
             string displayAmount;
-            string displayToken;
-            string displayValid;
             string displayAddress;
             string displayType;
             if (0 < parseRC) { //positive RC means payment
@@ -415,8 +410,6 @@ void TXHistoryDialog::UpdateConfirmations()
             if (temphtxo.blockHeight > 0) confirmations = (chainHeight + 1) - temphtxo.blockHeight;
             valid = temphtxo.valid;
         }
-        int txBlockHeight = ui->txHistoryTable->item(row,1)->text().toInt();
-        if (txBlockHeight>0) confirmations = (chainHeight+1) - txBlockHeight;
         // setup the appropriate icon
         QIcon ic = QIcon(":/icons/transaction_0");
         switch(confirmations) {
@@ -458,9 +451,9 @@ void TXHistoryDialog::UpdateHistory()
                 const HistoryTXObject& htxo = it->second; // grab the transaction
                 int workingRow = ui->txHistoryTable->rowCount();
                 ui->txHistoryTable->insertRow(workingRow); // append a new row (sorting will take care of ordering)
-                QDateTime txTime;
                 QTableWidgetItem *dateCell = new QTableWidgetItem;
-                if (htxo.blockHeight>0) {
+                if (htxo.blockHeight > 0) {
+                    QDateTime txTime;
                     CBlockIndex* pBlkIdx = chainActive[htxo.blockHeight];
                     if (NULL != pBlkIdx) txTime.setTime_t(pBlkIdx->GetBlockTime());
                     dateCell->setData(Qt::DisplayRole, txTime);
