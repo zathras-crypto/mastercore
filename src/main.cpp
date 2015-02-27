@@ -3040,7 +3040,7 @@ bool InitBlockIndex() {
 
 bool CheckForOutOfOrderBlockStorage()
 {
-    AssertLockHeld(cs_main);
+    LOCK(cs_main);
 
     int nHeight = 0;
     int nFilePrev = 0;
