@@ -163,6 +163,8 @@ void TXHistoryDialog::setWalletModel(WalletModel *model)
 int TXHistoryDialog::PopulateHistoryMap()
 {
     CWallet *wallet = pwalletMain;
+    if (NULL == wallet) return 1;
+
     // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
     TRY_LOCK(cs_main,lckMain);
     if (!lckMain) return 0;
@@ -186,9 +188,8 @@ int TXHistoryDialog::PopulateHistoryMap()
         HistoryTXObject htxo;
         htxo.blockHeight = 0; // how are we gonna order pending txs????
         htxo.blockByteOffset = 0; // attempt to use the position of the transaction in the wallet to provide a sortkey for pending
-        std::map<uint256, CWalletTx>::const_iterator walletIt = wallet->mapWallet.find(txid);
-        if (walletIt != wallet->mapWallet.end()) {
-            const CWalletTx* pendingWTx = &(*walletIt).second;
+        const CWalletTx* pendingWTx = wallet->GetWalletTx(txid);
+        if (NULL != pendingWTx) {
             htxo.blockByteOffset = pendingWTx->nOrderPos;
         }
         htxo.valid = true; // all pending transactions are assumed to be valid while awaiting confirmation since all pending are outbound and we wouldn't let them be sent if invalid
@@ -236,11 +237,8 @@ int TXHistoryDialog::PopulateHistoryMap()
                 }
             }
             // tx not in historyMap, retrieve the transaction object
-            CTransaction wtx;
-            uint256 blockHash = 0;
-            if (!GetTransaction(hash, wtx, blockHash, true)) continue;
-            blockHash = pwtx->hashBlock;
-            if ((0 == blockHash) || (NULL == mapBlockIndex[blockHash])) continue;
+            const uint256& blockHash = pwtx->hashBlock;
+            if (0 == blockHash) continue;
             CBlockIndex* pBlockIndex = mapBlockIndex[blockHash];
             if (NULL == pBlockIndex) continue;
             int blockHeight = pBlockIndex->nHeight; // get the height of the transaction
@@ -297,7 +295,7 @@ int TXHistoryDialog::PopulateHistoryMap()
             bool valid = false;
             string MPTxType;
             CMPTransaction mp_obj;
-            int parseRC = parseTransaction(true, wtx, blockHeight, 0, &mp_obj);
+            int parseRC = parseTransaction(true, *pwtx, blockHeight, 0, &mp_obj);
             string displayAmount;
             string displayAddress;
             string displayType;
