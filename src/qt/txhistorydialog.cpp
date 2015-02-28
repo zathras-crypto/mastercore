@@ -523,11 +523,14 @@ void TXHistoryDialog::copyTxID()
 
 void TXHistoryDialog::checkSort(int column)
 {
-    // a header has been clicked on the tx history table, see if it's the status column and override the sort if necessary
-    // we may wish to be a bit smarter about this longer term, so we can spoof a sort indicator display and perhaps allow both
-    // directions, but for now will provide the core functionality needed
+    // a header has been clicked on the tx history table, see if it's the status column and
+    // override the sort, if necessary, then trigger sorting of the actual column, which is
+    // not sortable, to create the impression this column was indeed sorted
+
     if (column == 2) { // ignore any other column sorts and allow them to progress normally
-        ui->txHistoryTable->horizontalHeader()->setSortIndicator(1, Qt::DescendingOrder);
+        Qt::SortOrder order = ui->txHistoryTable->horizontalHeader()->sortIndicatorOrder();
+        ui->txHistoryTable->horizontalHeader()->setSortIndicator(1, order);
+        ui->txHistoryTable->horizontalHeader()->setSortIndicator(2, order);
     }
 }
 
