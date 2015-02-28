@@ -214,7 +214,7 @@ std::string HelpMessage(HelpMessageMode hmm)
     strUsage += "  -par=<n>               " + strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"), -(int)boost::thread::hardware_concurrency(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS) + "\n";
     strUsage += "  -pid=<file>            " + _("Specify pid file (default: bitcoind.pid)") + "\n";
     strUsage += "  -reindex               " + _("Rebuild block chain index from current blk000??.dat files") + " " + _("on startup") + "\n";
-    strUsage += "  -txindex               " + _("Maintain a full transaction index (default: 1)") + "\n";
+    strUsage += "  -txindex               " + _("Maintain a full transaction index (default: 0)") + "\n";
 
     strUsage += "\n" + _("Connection options:") + "\n";
     strUsage += "  -addnode=<ip>          " + _("Add a node to connect to and attempt to keep the connection open") + "\n";
@@ -834,7 +834,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     else if (nTotalCache > (nMaxDbCache << 20))
         nTotalCache = (nMaxDbCache << 20); // total cache cannot be greater than nMaxDbCache
     size_t nBlockTreeDBCache = nTotalCache / 8;
-    if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", true))
+    if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false))
         nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
     nTotalCache -= nBlockTreeDBCache;
     size_t nCoinDBCache = nTotalCache / 2; // use half of the remaining cache for coindb cache
@@ -880,7 +880,7 @@ bool AppInit2(boost::thread_group& threadGroup)
                 }
 
                 // Check for changed -txindex state
-                if (fTxIndex != GetBoolArg("-txindex", true)) {
+                if (fTxIndex != GetBoolArg("-txindex", false)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -txindex");
                     break;
                 }
@@ -985,8 +985,8 @@ bool AppInit2(boost::thread_group& threadGroup)
         return InitError(_(
                 "Disabled transaction index detected.\n\n"
                 "Omni Core requires an enabled transaction index. To enable "
-                "transaction indexing, please remove any txindex command line "
-                "arguments and/or remove \"txindex=0\" from your client "
+                "transaction indexing, please use the \"-txindex\" option as "
+                "command line argument or add \"txindex=1\" to your client "
                 "configuration file."
             ));
     }
