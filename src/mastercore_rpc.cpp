@@ -409,20 +409,22 @@ if (fHelp || params.size() < 2 || params.size() > 5)
 
 Value getallbalancesforid_MP(const Array& params, bool fHelp)
 {
-   if (fHelp || params.size() != 1)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
             "getallbalancesforid_MP propertyid\n"
-            "\nGet a list of balances for a given currency or property identifier.\n"
+            "\nReturns a list of token balances for a given currency or property identifier.\n"
             "\nArguments:\n"
-            "1. propertyid    (int, required) The property identifier\n"
+            "1. propertyid        (number, required) The property identifier\n"
             "\nResult:\n"
-            "{\n"
-            "  \"address\" : \"1Address\",  (string) The address\n"
-            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
-            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
-            "}\n"
-
-            "\nbExamples\n"
+            "[                             (array of JSON objects)\n"
+            "  {\n"
+            "    \"address\" : \"address\",      (string) The address\n"
+            "    \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "    \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
             + HelpExampleCli("getallbalancesforid_MP", "1")
             + HelpExampleRpc("getallbalancesforid_MP", "1")
         );
