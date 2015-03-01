@@ -468,22 +468,24 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 {
    string address;
 
-   if (fHelp || params.size() != 1)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
             "getallbalancesforaddress_MP \"address\"\n"
-            "\nGet a list of all balances for a given address.\n"
+            "\nReturns a list of all token balances for a given address.\n"
             "\nArguments:\n"
-            "1. address    (string, required) The address\n"
+            "1. address           (string, required) The address\n"
             "\nResult:\n"
-            "{\n"
-            "  \"propertyid\" : x,        (numeric) the property id\n"
-            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
-            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
-            "}\n"
-
-            "\nbExamples\n"
-            + HelpExampleCli("getallbalancesforaddress_MP", "address")
-            + HelpExampleRpc("getallbalancesforaddress_MP", "address")
+            "[                             (array of JSON objects)\n"
+            "  {\n"
+            "    \"propertyid\" : x,           (number) The property identifier\n"
+            "    \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "    \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getallbalancesforaddress_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P")
+            + HelpExampleRpc("getallbalancesforaddress_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P")
         );
 
     address = params[0].get_str();
