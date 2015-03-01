@@ -15,10 +15,10 @@
 #include "init.h"
 #include "util.h"
 
+#include "mastercore_version.h"
+
 #include <QLabel>
 #include <QVBoxLayout>
-#include <boost/lexical_cast.hpp>
-#include "mastercore_version.h"
 
 /** "About" dialog box */
 AboutDialog::AboutDialog(QWidget *parent) :
@@ -36,7 +36,7 @@ void AboutDialog::setModel(ClientModel *model)
 {
     if(model)
     {
-        QString version = QString::fromStdString("0.0." + boost::lexical_cast<std::string>((double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE);
+        QString version = QString::fromStdString(OmniCoreVersion());
         /* On x86 add a bit specifier to the version so that users can distinguish between
          * 32 and 64 bit builds. On other architectures, 32/64 bit may be more ambigious.
          */
@@ -67,10 +67,10 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent) :
     ui->setupUi(this);
     GUIUtil::restoreWindowGeometry("nHelpMessageDialogWindow", this->size(), this);
 
-    header = tr("Omni Core") + " " + tr("version") + " " +
-        QString::fromStdString(FormatFullVersion()) + "\n\n" +
+    header = tr("Omni Core") + " v" + QString::fromStdString(OmniCoreVersion()) + "\n" +
+        tr("Bitcoin Core") + " " + QString::fromStdString(FormatFullVersion()) + "\n\n" +
         tr("Usage:") + "\n" +
-        "  bitcoin-qt [" + tr("command-line options") + "]                     " + "\n";
+        "  mastercore-qt [" + tr("command-line options") + "]" + "\n";
 
     coreOptions = QString::fromStdString(HelpMessage(HMM_BITCOIN_QT));
 

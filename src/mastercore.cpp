@@ -640,7 +640,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                      }
                  break;
                  case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                     if (OMNICORE_VERSION_BASE > expiryValue)
+                     if (OMNICORE_VERSION > expiryValue)
                      {
                          //the alert has expired, clear the global alert string
                          file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
