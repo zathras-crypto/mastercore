@@ -220,12 +220,20 @@ Value getbalance_MP(const Array& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "getbalance_MP \"address\" propertyid\n"
-            "\nReturns the Master Protocol balance for a given address and currency/property.\n"
+            "\nReturns the token balance for a given address and property.\n"
+            "\nArguments:\n"
+            "1. address           (string, required) The address\n"
+            "2. propertyid        (number, required) The property identifier\n"
             "\nResult:\n"
-            "n    (numeric) The applicable balance for address:currency/propertyID pair\n"
+            "{\n"
+            "  \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "  \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "}\n"
             "\nExamples:\n"
-            ">mastercored getbalance_MP 1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1\n"
+            + HelpExampleCli("getbalance_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1")
+            + HelpExampleRpc("getbalance_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P, 1")
         );
+
     std::string address = params[0].get_str();
     int64_t tmpPropertyId = params[1].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
