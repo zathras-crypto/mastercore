@@ -122,15 +122,7 @@ int extra = 0;
 int extra2 = 0, extra3 = 0;
 
     if (fHelp || params.size() > 3)
-        throw runtime_error(
-            "mscrpc\n"
-            "\nReturns the number of blocks in the longest block chain.\n"
-            "\nResult:\n"
-            "n    (numeric) The current block count\n"
-            "\nExamples:\n"
-            + HelpExampleCli("mscrpc", "")
-            + HelpExampleRpc("mscrpc", "")
-        );
+        return ""; // hack to hide "mscrpc" from "mastercore-cli help"
 
   if (0 < params.size()) extra = atoi(params[0].get_str());
   if (1 < params.size()) extra2 = atoi(params[1].get_str());
