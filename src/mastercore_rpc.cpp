@@ -1921,6 +1921,30 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
 Value getinfo_MP(const Array& params, bool fHelp)
 {
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getinfo_MP\n"
+            "Returns various state information of the client and protocol.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"mastercoreversion\" : \"x.x.x.x-xxx\",   (string) Client version\n"
+            "  \"bitcoincoreversion\" : \"x.x.x\",        (string) Bitcoin Core version\n"
+            "  \"commitinfo\" : \"xxxxxxx\",              (string) Build commit identifier\n"
+            "  \"block\" : x,                           (number) Number of blocks processed\n"
+            "  \"blocktime\" : xxxxxxxxxx,              (number) Timestamp of the last processed block\n"
+            "  \"blocktransactions\" : x,               (number) Meta transactions found in the last processed block\n"
+            "  \"totaltransactions\" : x,               (number) Meta transactions processed in total\n"
+            "  \"alert\" : {                            (object) Any active protocol alert\n"
+            "    \"alerttype\" : \"xxx\"                    (string) Alert type\n"
+            "    \"expiryvalue\" : \"x\"                    (string) Block until the alert is active\n"
+            "    \"alertmessage\" : \"xxx\"                 (string) Information about the alert event\n"
+            "  }\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getinfo", "")
+            + HelpExampleRpc("getinfo", "")
+        );
+
     Object infoResponse;
     // other bits of info we want to report should be included here
 
@@ -1947,7 +1971,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
     // handle alerts
     Object alertResponse;
     string global_alert_message = getMasterCoreAlertString();
-    int32_t alertType = 0;
+    int32_t alertType = 0;  
     uint64_t expiryValue = 0;
     uint32_t typeCheck = 0;
     uint32_t verCheck = 0;
