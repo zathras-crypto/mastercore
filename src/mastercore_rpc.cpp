@@ -314,19 +314,20 @@ Value send_MP(const Array& params, bool fHelp)
 // send a MP transaction via RPC - simple send
 Value sendtoowners_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 3 || params.size() > 4)
+    if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(
             "sendtoowners_MP \"fromaddress\" propertyid \"amount\" ( \"redeemaddress\" )\n"
-            "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
-            "\nParameters:\n"
-            "FromAddress   : the address to send from\n"
-            "PropertyID    : the id of the smart property to send\n"
-            "Amount (string): the amount to send\n"
-            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "\nCreates and broadcasts a \"send to owners\" transaction.\n"
+            "\nArguments:\n"
+            "1. fromaddress       (string, required) The address to spent from\n"
+            "2. propertyid        (number, required) The identifier of the property to send\n"
+            "3. amount            (string, required) The amount to send\n"
+            "4. redeemaddress     (string, optional) An address that can spent the transaction dust (sender by default)\n"
             "\nResult:\n"
-            "txid    (string) The transaction ID of the sent transaction\n"
+            "\"hash\"               (string) The hex-encoded transaction hash\n"
             "\nExamples:\n"
-            ">mastercored send_MP 1FromAddress PropertyID Amount 1RedeemAddress\n"
+            + HelpExampleCli("sendtoowners_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" 1 \"0.25\"")
+            + HelpExampleRpc("sendtoowners_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", 1, \"0.25\"")
         );
 
   std::string FromAddress = (params[0].get_str());
