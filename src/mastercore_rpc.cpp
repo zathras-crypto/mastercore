@@ -370,21 +370,21 @@ Value sendtoowners_MP(const Array& params, bool fHelp)
 
 Value sendrawtx_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 2 || params.size() > 5)
+    if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
-            "sendrawtx_MP \"fromaddress\" \"hexstring\" ( \"toaddress\" \"redeemaddress\" \"referenceamount\" )\n"
-            "\nCreates and broadcasts a raw Master protocol transaction.\n"
-            "\nParameters:\n"
-            "FromAddress   : the address to send from\n"
-            "RawTX         : the hex-encoded raw transaction\n"
-            "ToAddress     : the address to send to.  This should be empty: (\"\") for transaction\n"
-            "                types that do not use a reference/to address\n"
-            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
-            "ReferenceAmount:(optional)\n"
+            "sendrawtx_MP \"fromaddress\" \"rawtransaction\" ( \"referenceaddress\" \"redeemaddress\" \"referenceamount\" )\n"
+            "\nBroadcasts a raw Omni Layer transaction.\n"
+            "\nArguments:\n"
+            "1. fromaddress       (string, required) The address to send from\n"
+            "2. rawtransaction    (string, required) The hex-encoded raw transaction\n"
+            "3. referenceaddress  (string, optional) A reference address (empty by default)\n"
+            "4. redeemaddress     (string, optional) An address that can spent the transaction dust (sender by default)\n"
+            "5. referenceamount   (string, optional) A bitcoin amount that is sent to the receiver (minimal by default)\n"
             "\nResult:\n"
-            "txid    (string) The transaction ID of the sent transaction\n"
+            "\"hash\"               (string) The hex-encoded transaction hash\n"
             "\nExamples:\n"
-            ">mastercored sendrawtx_MP 1FromAddress <tx bytes hex> 1ToAddress 1RedeemAddress\n"
+            + HelpExampleCli("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" \"000000000000000100000000017d7840\" \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
+            + HelpExampleRpc("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", \"000000000000000100000000017d7840\", \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
         );
 
   std::string fromAddress = (params[0].get_str());
