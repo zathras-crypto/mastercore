@@ -163,6 +163,7 @@ void TXHistoryDialog::setWalletModel(WalletModel *model)
 int TXHistoryDialog::PopulateHistoryMap()
 {
     CWallet *wallet = pwalletMain;
+    if (NULL == wallet) return 0;
     // try and fix intermittent freeze on startup and while running by only updating if we can get required locks
     TRY_LOCK(cs_main,lckMain);
     if (!lckMain) return 0;
