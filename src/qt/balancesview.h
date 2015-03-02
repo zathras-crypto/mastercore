@@ -9,6 +9,7 @@
 
 #include <QWidget>
 
+class ClientModel;
 class TransactionFilterProxy;
 class WalletModel;
 
@@ -32,8 +33,9 @@ class BalancesView : public QWidget
 
 public:
     explicit BalancesView(QWidget *parent = 0);
+    void setClientModel(ClientModel *model);
+    void setWalletModel(WalletModel *model);
 
-    void setModel(WalletModel *model);
     void UpdateBalances();
     void UpdatePropSelector();
     // Date ranges for filter
@@ -57,7 +59,8 @@ public:
     };
 
 private:
-    WalletModel *model;
+    ClientModel *clientModel;
+    WalletModel *walletModel;
     TransactionFilterProxy *transactionProxyModel;
     QTableView *balancesView;
     QTableView *view;
@@ -77,7 +80,7 @@ private:
 
     QWidget *createDateRangeWidget();
 
-    GUIUtil::TableViewLastColumnResizingFixer *columnResizingFixer;
+    GUIUtil::TableViewLastColumnResizingFixer *borrowedColumnResizingFixer;
 
     virtual void resizeEvent(QResizeEvent* event);
 

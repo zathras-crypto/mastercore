@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>About Master Core</string>
+   <string>About Omni Core</string>
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
@@ -50,7 +50,7 @@
           <cursorShape>IBeamCursor</cursorShape>
          </property>
          <property name="text">
-          <string>&lt;b&gt;Master Core&lt;/b&gt; version</string>
+          <string>&lt;b&gt;Omni Core&lt;/b&gt; version</string>
          </property>
          <property name="textInteractionFlags">
           <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
@@ -91,13 +91,10 @@
         <cursorShape>IBeamCursor</cursorShape>
        </property>
        <property name="text">
-        <string notr="true">Copyright (C) 2009-YYYY The Bitcoin Core developers</string>
+        <string notr="true">Copyright &amp;copy; 2009-YYYY The Bitcoin Core developers</string>
        </property>
        <property name="textFormat">
-        <enum>Qt::AutoText</enum>
-       </property>
-       <property name="wordWrap">
-        <bool>true</bool>
+        <enum>Qt::RichText</enum>
        </property>
        <property name="textInteractionFlags">
         <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
@@ -106,8 +103,17 @@
      </item>
      <item>
       <widget class="QLabel" name="copyrightLabel_MC">
+       <property name="cursor">
+        <cursorShape>IBeamCursor</cursorShape>
+       </property>
        <property name="text">
-        <string>Copyright (C) 2013-YYYY The Master Core developers</string>
+        <string>Copyright &amp;copy; 2013-YYYY The Omni Core developers</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::RichText</enum>
+       </property>
+       <property name="textInteractionFlags">
+        <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
        </property>
       </widget>
      </item>

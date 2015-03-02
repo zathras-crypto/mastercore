@@ -554,6 +554,7 @@ bool update_tally_map(string who, unsigned int which_currency, int64_t amount, T
 std::string getMasterCoreAlertString();
 std::string getMasterCoreAlertTextOnly();
 bool parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage);
+std::string getTokenLabel(unsigned int propertyId);
 }
 
 #endif

@@ -395,8 +395,6 @@ static CMPPending *pendingDelete(const uint256 txid, bool bErase = false)
     // display
     CMPPending *p_pending = &(it->second);
 
-    p_pending->print(txid);
-
     int64_t src_amount = getMPbalance(p_pending->src, p_pending->prop, PENDING);
 
     if (msc_debug_verbose3) file_log("%s()src= %ld, line %d, file: %s\n", __FUNCTION__, src_amount, __LINE__, __FILE__);
@@ -433,7 +431,6 @@ CMPPending pending;
     pending.prop = propId;
     pending.desc = txDesc;
     pending.type = type;
-    pending.print(txid);
     my_pending.insert(std::make_pair(txid, pending));
   }
 
@@ -553,6 +550,17 @@ std::string mastercore::getMasterCoreAlertString()
     return global_alert_message;
 }
 
+std::string mastercore::getTokenLabel(unsigned int propertyId)
+{
+    std::string tokenStr;
+    if (propertyId < 3) {
+        if(propertyId == 1) { tokenStr = " MSC"; } else { tokenStr = " TMSC"; }
+    } else {
+        tokenStr = " SPT#" + to_string(propertyId);
+    }
+    return tokenStr;
+}
+
 bool mastercore::parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage)
 {
     std::vector<std::string> vstr;
@@ -632,7 +640,7 @@ bool mastercore::checkExpiredAlerts(unsigned int curBlock, uint64_t curTime)
                      }
                  break;
                  case 3: //Text based alert only expiring by client version, show alert in UI and getalert_MP call, ignores type check value (eg use 0)
-                     if (OMNICORE_VERSION_BASE > expiryValue)
+                     if (OMNICORE_VERSION > expiryValue)
                      {
                          //the alert has expired, clear the global alert string
                          file_log("DEBUG ALERT - Expiring alert string %s\n",global_alert_message.c_str());
@@ -2634,8 +2642,6 @@ int interp_ret = -555555, pop_ret;
     interp_ret = mp_obj.interpretPacket();
     if (interp_ret) file_log("!!! interpretPacket() returned %d !!!\n", interp_ret);
 
-    mp_obj.print();
-
     // of course only MP-related TXs get recorded
     if (!disableLevelDB)
     {
@@ -4151,6 +4157,12 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
 
   // check the alert status, do we need to do anything else here?
   (void) checkExpiredAlerts(nBlockNow, pBlockIndex->GetBlockTime());
+
+  // force an update of the UI once per processed block containing Omni transactions
+  if (countMP > 0)  // there were Omni transactions in this block
+  {
+    uiInterface.OmniStateChanged();
+  }
 
   // save out the state after this block
   if (writePersistence(nBlockNow))

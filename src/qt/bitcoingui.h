@@ -166,6 +166,8 @@ private slots:
     void gotoBalancesPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch directly to bitcoin history tab */
+    void gotoBitcoinHistoryTab();
     /** Switch to utility page */
     void gotoToolboxPage();
     /** Switch to exchange page */

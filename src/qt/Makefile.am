@@ -100,13 +100,8 @@ QT_FORMS_UI = \
   forms/rpcconsole.ui \
   forms/sendcoinsdialog.ui \
   forms/sendcoinsentry.ui \
-  forms/sendmpdialog.ui \
-  forms/txhistorydialog.ui \
-  forms/lookupspdialog.ui \
-  forms/lookupaddressdialog.ui \
-  forms/lookuptxdialog.ui \
   forms/signverifymessagedialog.ui \
-  forms/transactiondescdialog.ui 
+  forms/transactiondescdialog.ui
 
 QT_MOC_CPP = \
   moc_addressbookpage.cpp \
@@ -140,11 +135,6 @@ QT_MOC_CPP = \
   moc_rpcconsole.cpp \
   moc_sendcoinsdialog.cpp \
   moc_sendcoinsentry.cpp \
-  moc_sendmpdialog.cpp \
-  moc_txhistorydialog.cpp \
-  moc_lookupspdialog.cpp \
-  moc_lookupaddressdialog.cpp \
-  moc_lookuptxdialog.cpp \
   moc_signverifymessagedialog.cpp \
   moc_splashscreen.cpp \
   moc_trafficgraphwidget.cpp \
@@ -153,7 +143,6 @@ QT_MOC_CPP = \
   moc_transactionfilterproxy.cpp \
   moc_transactiontablemodel.cpp \
   moc_transactionview.cpp \
-  moc_balancesview.cpp \
   moc_utilitydialog.cpp \
   moc_walletframe.cpp \
   moc_walletmodel.cpp \
@@ -210,11 +199,6 @@ BITCOIN_QT_H = \
   rpcconsole.h \
   sendcoinsdialog.h \
   sendcoinsentry.h \
-  sendmpdialog.h \
-  txhistorydialog.h \
-  lookupspdialog.h \
-  lookupaddressdialog.h \
-  lookuptxdialog.h \
   signverifymessagedialog.h \
   splashscreen.h \
   trafficgraphwidget.h \
@@ -224,7 +208,6 @@ BITCOIN_QT_H = \
   transactionrecord.h \
   transactiontablemodel.h \
   transactionview.h \
-  balancesview.h \
   utilitydialog.h \
   walletframe.h \
   walletmodel.h \
@@ -233,21 +216,6 @@ BITCOIN_QT_H = \
   winshutdownmonitor.h
 
 RES_ICONS = \
-  res/icons/transaction_invalid.png \
-  res/icons/mp_exchange.png \
-  res/icons/mp_toolbox.png \
-  res/icons/mp_sp.png \
-  res/icons/mp_balances.png \
-  res/icons/mp_history.png \
-  res/icons/mp_home.png \
-  res/icons/mp_receive.png \
-  res/icons/mp_send.png \
-  res/icons/mp_meta_cancelled.png \
-  res/icons/mp_meta_filled.png \
-  res/icons/mp_meta_open.png \
-  res/icons/mp_meta_partialclosed.png \
-  res/icons/mp_meta_partial.png \
-  res/icons/mp_meta_pending.png \
   res/icons/add.png \
   res/icons/address-book.png \
   res/icons/bitcoin.ico \
@@ -331,11 +299,6 @@ BITCOIN_QT_CPP += \
   recentrequeststablemodel.cpp \
   sendcoinsdialog.cpp \
   sendcoinsentry.cpp \
-  sendmpdialog.cpp \
-  txhistorydialog.cpp \
-  lookupspdialog.cpp \
-  lookupaddressdialog.cpp \
-  lookuptxdialog.cpp \
   signverifymessagedialog.cpp \
   transactiondesc.cpp \
   transactiondescdialog.cpp \
@@ -343,7 +306,6 @@ BITCOIN_QT_CPP += \
   transactionrecord.cpp \
   transactiontablemodel.cpp \
   transactionview.cpp \
-  balancesview.cpp \
   walletframe.cpp \
   walletmodel.cpp \
   walletmodeltransaction.cpp \
@@ -356,6 +318,72 @@ RES_IMAGES = \
   res/images/splash_testnet.png
 
 RES_MOVIES = $(wildcard res/movies/spinner-*.png)
+
+# omni core qt #
+OMNICORE_QT_FORMS_UI = \
+  forms/lookupaddressdialog.ui \
+  forms/lookupspdialog.ui \
+  forms/lookuptxdialog.ui \
+  forms/sendmpdialog.ui \
+  forms/txhistorydialog.ui
+
+OMNICORE_QT_MOC_CPP = \
+  moc_balancesview.cpp \
+  moc_lookupaddressdialog.cpp \
+  moc_lookupspdialog.cpp \
+  moc_lookuptxdialog.cpp \
+  moc_sendmpdialog.cpp \
+  moc_txhistorydialog.cpp
+
+OMNICORE_QT_H = \
+  balancesview.h \
+  lookupaddressdialog.h \
+  lookupspdialog.h \
+  lookuptxdialog.h \
+  omnicore_init.h \
+  sendmpdialog.h \
+  txhistorydialog.h
+
+OMNICORE_QT_CPP = \
+  balancesview.cpp \
+  lookupaddressdialog.cpp \
+  lookupspdialog.cpp \
+  lookuptxdialog.cpp \
+  omnicore_init.cpp \
+  sendmpdialog.cpp \
+  txhistorydialog.cpp
+
+OMNICORE_RES_ICONS = \
+  res/icons/mp_balances.png \
+  res/icons/mp_exchange.png \
+  res/icons/mp_history.png \
+  res/icons/mp_home.png \
+  res/icons/mp_meta_cancelled.png \
+  res/icons/mp_meta_filled.png \
+  res/icons/mp_meta_open.png \
+  res/icons/mp_meta_partial.png \
+  res/icons/mp_meta_partialclosed.png \
+  res/icons/mp_meta_pending.png \
+  res/icons/mp_receive.png \
+  res/icons/mp_send.png \
+  res/icons/mp_sp.png \
+  res/icons/mp_toolbox.png \
+  res/icons/transaction_invalid.png
+
+QT_FORMS_UI += \
+  $(OMNICORE_QT_FORMS_UI)
+
+QT_MOC_CPP += \
+  $(OMNICORE_QT_MOC_CPP)
+
+BITCOIN_QT_H += \
+  $(OMNICORE_QT_H)
+
+BITCOIN_QT_CPP += \
+  $(OMNICORE_QT_CPP)
+
+RES_ICONS += \
+  $(OMNICORE_RES_ICONS)
 
 BITCOIN_RC = res/bitcoin-qt-res.rc
 

@@ -121,6 +121,11 @@ void LookupSPDialog::searchSP()
         if (address.IsValid()) searchParamType = 2; // search by address;
     }
 
+    // next if we have a "*" only, we'll assume the user wants to request all properties
+    // Znote - unsure about this, adding for now but may be removed in future when number of properties is
+    //         higher because it will get out of hand to add 100,000 properties to a single combo unfiltered
+    if ((searchParamType == 0) && (searchText == "*")) { searchParamType = 4; }
+
     // if we still don't have a param we'll search against free text in the name
     if (searchParamType == 0) searchParamType = 3; // search by free text
 
@@ -217,6 +222,20 @@ void LookupSPDialog::searchSP()
                }
            }
         break;
+        case 4: // grab everything
+           nextSPID = _my_sps->peekNextSPID(1);
+           for (tmpPropertyId = 1; tmpPropertyId<nextSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp)) { addSPToMatchingResults(tmpPropertyId); }
+           }
+           nextTestSPID = _my_sps->peekNextSPID(2);
+           for (tmpPropertyId = TEST_ECO_PROPERTY_1; tmpPropertyId<nextTestSPID; tmpPropertyId++)
+           {
+               CMPSPInfo::Entry sp;
+               if (false != _my_sps->getSP(tmpPropertyId, sp)) { addSPToMatchingResults(tmpPropertyId); }
+           }
+        break;
     }
 
 }
@@ -229,7 +248,7 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
     {
         string spName;
         spName = getPropertyName(propertyId).c_str();
-        if(spName.size()>50) spName=spName.substr(0,50)+"...";
+        if(spName.size()>40) spName=spName.substr(0,40)+"...";
         string spId = static_cast<ostringstream*>( &(ostringstream() << propertyId) )->str();
         spName += " (#" + spId + ")";
         ui->matchingComboBox->addItem(spName.c_str(),spId.c_str());
@@ -242,6 +261,8 @@ void LookupSPDialog::addSPToMatchingResults(unsigned int propertyId)
 
 void LookupSPDialog::updateDisplayedProperty()
 {
+    uint64_t maxLabelWidth=70; // fairly safe value for now, next version consider wrapping
+                               // instead of truncation and evaluate effects on vertical layout
     QString strId = ui->matchingComboBox->itemData(ui->matchingComboBox->currentIndex()).toString();
     // protect against an empty matchedComboBox
     if (strId.toStdString().empty()) return;
@@ -256,10 +277,47 @@ void LookupSPDialog::updateDisplayedProperty()
     if (divisible) { ui->divisibleLabel->setText("Yes"); } else { ui->divisibleLabel->setText("No"); }
     if (isTestEcosystemProperty(propertyId)) { ui->ecosystemLabel->setText("Test"); } else { ui->ecosystemLabel->setText("Production"); }
     ui->propertyIDLabel->setText(QString::fromStdString(FormatIndivisibleMP(propertyId)));
-    ui->nameLabel->setText(QString::fromStdString(sp.name));
-    ui->categoryLabel->setText(QString::fromStdString(sp.category + " > " + sp.subcategory));
-    ui->dataLabel->setText(QString::fromStdString(sp.data));
-    ui->urlLabel->setText(QString::fromStdString(sp.url));
+    if(sp.name.size()>maxLabelWidth) {
+        ui->nameLabel->setText(QString::fromStdString(sp.name.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->nameLabel->setText(QString::fromStdString(sp.name));
+    }
+    std::string dispCat;
+    dispCat = sp.category + " > " + sp.subcategory;
+    if(dispCat.size()>maxLabelWidth) {
+        if(sp.category.size()>maxLabelWidth/2) {
+            dispCat = sp.category.substr(0,maxLabelWidth/2)+"...";
+        } else {
+            dispCat = sp.category;
+        }
+        dispCat += " > ";
+        if(sp.subcategory.size()>maxLabelWidth/2) {
+            dispCat += sp.subcategory.substr(0,maxLabelWidth/2)+"...";
+        } else {
+            dispCat += sp.subcategory;
+        }
+    }
+    ui->categoryLabel->setText(QString::fromStdString(dispCat));
+    if(sp.data.size()>maxLabelWidth) {
+        ui->dataLabel->setText(QString::fromStdString(sp.data.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->dataLabel->setText(QString::fromStdString(sp.data));
+    }
+    if(sp.url.size()>maxLabelWidth) {
+        ui->urlLabel->setText(QString::fromStdString(sp.url.substr(0,maxLabelWidth)+"..."));
+    } else {
+        ui->urlLabel->setText(QString::fromStdString(sp.url));
+    }
+    // overrides for MSC and TMSC - temporary code can be removed when metadata is modified
+    if(propertyId==1) {
+        ui->dataLabel->setText(QString::fromStdString("MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer"));
+        ui->urlLabel->setText(QString::fromStdString("http://www.mastercoin.org"));
+    }
+    if(propertyId==2) {
+        ui->dataLabel->setText(QString::fromStdString("Test MasterCoin serve as the binding between Bitcoin, smart properties and contracts created on the Omni Layer"));
+        ui->urlLabel->setText(QString::fromStdString("http://www.mastercoin.org"));
+    }
+
     string strTotalTokens;
     string strWalletTokens;
     int64_t totalTokens = getTotalTokens(propertyId);

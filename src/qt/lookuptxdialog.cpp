@@ -55,6 +55,7 @@ using namespace leveldb;
 #include "mastercore_tx.h"
 #include "mastercore_sp.h"
 #include "mastercore_rpc.h"
+#include "mastercore_errors.h"
 
 #include <QMessageBox>
 #include <QScrollBar>
@@ -161,7 +162,22 @@ void LookupTXDialog::searchTX()
     else
     {
         // show error message
-        string strText = "The transaction ID entered is either not valid Omni transaction or has not yet been confirmed.";
+        string strText = "The transaction hash entered is ";
+        switch(populateResult) {
+            case MP_TX_NOT_FOUND:
+                strText += "not a valid Bitcoin or Omni transaction.  Please check the transaction hash "
+                           "entered and try again.";
+            break;
+            case MP_TX_UNCONFIRMED:
+                strText += "unconfirmed.  Toolbox lookup of transactions is currently only available for "
+                           "confirmed transactions.\n\nTip: You can view your own outgoing unconfirmed "
+                           "transactions in the transactions tab.";
+            break;
+            case MP_TX_IS_NOT_MASTER_PROTOCOL:
+                strText += "a Bitcoin transaction only.\n\nTip: You can use the debug console "
+                           "'gettransaction' command to lookup specific Bitcoin transactions.";
+            break;
+        }
         QString strQText = QString::fromStdString(strText);
         QMessageBox errorDialog;
         errorDialog.setIcon(QMessageBox::Critical);

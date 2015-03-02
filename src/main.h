@@ -148,6 +148,8 @@ bool LoadBlockIndex();
 void UnloadBlockIndex();
 /** Verify consistency of the block and coin databases */
 bool VerifyDB(int nCheckLevel, int nCheckDepth);
+/** Verify blocks are stored sequentially (false indicates new 0.10 headers first install) */
+bool CheckForOutOfOrderBlockStorage();
 /** Print the loaded block tree */
 void PrintBlockTree();
 /** Process protocol messages received from a given node */

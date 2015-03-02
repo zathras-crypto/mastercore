@@ -28,6 +28,7 @@ class WalletModel;
 QT_BEGIN_NAMESPACE
 class QModelIndex;
 class QProgressDialog;
+class QTabWidget;
 QT_END_NAMESPACE
 
 /*
@@ -86,6 +87,7 @@ private:
     TXHistoryDialog *mpTXTab;
     QWidget *bitcoinTXTab;
     QProgressDialog *progressDialog;
+    QTabWidget *txTabHolder;
 
 public slots:
     /** Switch to overview (home) page */
@@ -98,6 +100,8 @@ public slots:
     void gotoSmartPropertyPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch specifically to bitcoin tx history tab */
+    void gotoBitcoinHistoryTab();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */

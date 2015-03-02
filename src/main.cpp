@@ -3038,7 +3038,44 @@ bool InitBlockIndex() {
     return true;
 }
 
+bool CheckForOutOfOrderBlockStorage()
+{
+    LOCK(cs_main);
 
+    int nHeight = 0;
+    int nFilePrev = 0;
+    unsigned int nPosPrev = 0;
+
+    int nHeightChain = chainActive.Height();
+    CBlockIndex* pindex = chainActive.Genesis();
+
+    while (pindex) {
+        int nFile = pindex->GetBlockPos().nFile;
+        unsigned int nPos = pindex->GetBlockPos().nPos;
+        nHeight = pindex->nHeight;
+
+        if (nFile > nFilePrev) {
+            // moving onto a new blk?????.dat
+            nPosPrev = 0;
+        }
+
+        if (nPos <= nPosPrev) {
+            // found a block stored out of order
+            return true;
+        }
+
+        nFilePrev = nFile;
+        nPosPrev = nPos;
+        pindex = chainActive.Next(pindex);
+    }
+
+    if (nHeight < nHeightChain) {
+        // blocks appear to be missing and have no successor
+        return true;
+    }
+
+    return false;
+}
 
 void PrintBlockTree()
 {

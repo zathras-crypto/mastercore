@@ -11,10 +11,11 @@
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #endif
-#include <QMessageBox>
+
+#include "mastercore_version.h"
+
 #include <QApplication>
 #include <QPainter>
-#include "mastercore_version.h"
 
 SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTestNet) :
     QSplashScreen(pixmap, f)
@@ -22,17 +23,19 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     setAutoFillBackground(true);
 
     // set reference point, paddings
-    int paddingTop              = 200;
+    int paddingLeft             = 33;
+    int paddingTop              = 245;
     int titleVersionVSpace      = 40;
-    int titleCopyrightVSpace    = 60;
+    int titleCopyrightVSpace    = 58;
 
     float fontFactor            = 1.0;
 
     // define text to place
-    string coreVersionStr = "Experimental UI 0.0." + strprintf("%.1f",(double)OMNICORE_VERSION_BASE/10) + OMNICORE_VERSION_TYPE;
     QString titleText       = tr("Omni Core");
-    QString versionText     = QString::fromStdString(coreVersionStr);
-    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers, ")) + QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Omni Protocol developers"));
+    QString versionText     = QString("Experimental UI %1").arg(QString::fromStdString(OmniCoreVersion()));
+    QString copyrightText   = QChar(0xA9)+QString(" 2009-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Bitcoin Core developers"));
+    copyrightText          += QString(", ");
+    copyrightText          += QChar(0xA9)+QString(" 2013-%1 ").arg(COPYRIGHT_YEAR) + QString(tr("The Omni Core developers"));
     QString testnetAddText  = QString(tr("[testnet]")); // define text to place as single text object
 
     QString font            = "Arial";
@@ -61,14 +64,12 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f, bool isTest
     // draw version
     pixPaint.setFont(QFont(font, 20*fontFactor));
     fm = pixPaint.fontMetrics();
-    int versionTextWidth  = fm.width(versionText);
-    pixPaint.drawText((newPixmap.width()-versionTextWidth)/2,paddingTop+titleVersionVSpace,versionText);
+    pixPaint.drawText(paddingLeft,paddingTop+titleVersionVSpace,versionText);
 
     // draw copyright stuff
     pixPaint.setFont(QFont(font, 10*fontFactor));
     fm = pixPaint.fontMetrics();
-    int copyrightTextWidth = fm.width(copyrightText);
-    pixPaint.drawText((newPixmap.width()-copyrightTextWidth)/2,paddingTop+titleCopyrightVSpace,copyrightText);
+    pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace,copyrightText);
 
     // draw testnet string if testnet is on
     if(isTestNet) {
@@ -101,9 +102,9 @@ static void InitMessage(SplashScreen *splash, const std::string &message)
 {
     QMetaObject::invokeMethod(splash, "showMessage",
         Qt::QueuedConnection,
-        Q_ARG(QString, QString::fromStdString(message)),
-        Q_ARG(int, Qt::AlignBottom|Qt::AlignHCenter),
-        Q_ARG(QColor, QColor(55,55,55)));
+        Q_ARG(QString, QString::fromStdString("\n\n\n\n" + message)), // shift down a little from absolute center
+        Q_ARG(int, Qt::AlignCenter),
+        Q_ARG(QColor, QColor(100,100,100)));
 }
 
 static void ShowProgress(SplashScreen *splash, const std::string &title, int nProgress)

@@ -5,7 +5,7 @@ define(_CLIENT_VERSION_MINOR, 9)
 define(_CLIENT_VERSION_REVISION, 3)
 define(_CLIENT_VERSION_BUILD, 0)
 define(_CLIENT_VERSION_IS_RELEASE, true)
-define(_COPYRIGHT_YEAR, 2014)
+define(_COPYRIGHT_YEAR, 2015)
 AC_INIT([Bitcoin Core],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION],[info@bitcoin.org],[bitcoin])
 AC_CONFIG_AUX_DIR([src/build-aux])
 AC_CONFIG_MACRO_DIR([src/m4])
@@ -588,7 +588,7 @@ fi
 
 dnl require enabled wallet for now
 if test x$enable_wallet != xyes; then
-  AC_MSG_ERROR(Master Core must be used with enabled wallet. Please do not use --without-wallet or --disable-wallet.)
+  AC_MSG_ERROR(Omni Core must be used with enabled wallet. Please do not use --without-wallet or --disable-wallet.)
 fi
 
 dnl enable upnp support

@@ -53,7 +53,7 @@
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
        <property name="margin">
-        <number>0</number>
+        <number>8</number>
        </property>
       </widget>
      </item>
@@ -111,6 +111,22 @@
         </sizepolicy>
        </property>
       </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Fixed</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>6</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>
@@ -341,6 +357,8 @@
          </layout>
         </item>
        </layout>
+       <zorder></zorder>
+       <zorder></zorder>
       </widget>
      </item>
     </layout>

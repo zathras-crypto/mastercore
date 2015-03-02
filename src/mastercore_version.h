@@ -1,16 +1,37 @@
-// Copyright (c) 2013 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef OMNICORE_VERSION_H
+#define OMNICORE_VERSION_H
 
-#ifndef _MASTERCORE_VERSION_H
-#define _MASTERCORE_VERSION_H
+#include <string>
 
-  #define OMNICORE_VERSION_BASE 91 // 82 = 0.0.8.2   91 = 0.0.9.1   103 = 0.0.10.3 etc
-  #define OMNICORE_VERSION_TYPE "-dev" // switch to -rel for tags, switch back to -dev for development
+// Increase with every consensus affecting change
+#define OMNICORE_VERSION_MAJOR   9
 
-  /* next tag on 9 branch must contain ONLY non-consensus affecting fixes
-  #define OMNICORE_VERSION_BASE 91
-  #define OMNICORE_VERSION_TYPE "-rel"
-  */
+// Increase with every non-consensus affecting feature
+#define OMNICORE_VERSION_MINOR   1
 
-#endif
+// Increase with every patch, which is not a feature or consensus affecting
+#define OMNICORE_VERSION_PATCH   0
+
+// Use "-dev" for development versions, switch to "-rel" for tags
+#define OMNICORE_VERSION_TYPE    "-dev"
+
+
+//! Omni Core client version
+static const int OMNICORE_VERSION =
+                        +  100000 * OMNICORE_VERSION_MAJOR
+                        +     100 * OMNICORE_VERSION_MINOR
+                        +       1 * OMNICORE_VERSION_PATCH;
+
+//! Returns formatted Omni Core version, e.g. "0.0.9.1-dev"
+const std::string OmniCoreVersion();
+
+//! Returns formatted Bitcoin Core version, e.g. "0.10", "0.9.3"
+const std::string BitcoinCoreVersion();
+
+//! Returns build date
+const std::string BuildDate();
+
+//! Returns commit identifier, if available
+const std::string BuildCommit();
+
+#endif // OMNICORE_VERSION_H

@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QString>
 
+class ClientModel;
 class OptionsModel;
 class SendMPEntry;
 class SendCoinsRecipient;
@@ -29,13 +30,13 @@ class SendMPDialog : public QDialog
 
 public:
     explicit SendMPDialog(QWidget *parent = 0);
+    void setClientModel(ClientModel *model);
+    void setWalletModel(WalletModel *model);
 
-    void setModel(WalletModel *model);
     void clearFields();
     void sendMPTransaction();
     void updateFrom();
     void updateProperty();
-    void updateBalances();
     void updatePropSelector();
     /** Set up the tab chain manually, as Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907).
      */
@@ -55,7 +56,8 @@ public slots:
 
 private:
     Ui::SendMPDialog *ui;
-    WalletModel *model;
+    ClientModel *clientModel;
+    WalletModel *walletModel;
     bool fNewRecipientAllowed;
 
     // Process WalletModel::SendCoinsReturn and generate a pair consisting

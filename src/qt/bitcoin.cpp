@@ -30,6 +30,8 @@
 #include "wallet.h"
 #endif
 
+#include "omnicore_init.h"
+
 #include <stdint.h>
 
 #include <boost/filesystem/operations.hpp>
@@ -444,7 +446,7 @@ void BitcoinApplication::shutdownResult(int retval)
 
 void BitcoinApplication::handleRunawayException(const QString &message)
 {
-    QMessageBox::critical(0, "Runaway exception", BitcoinGUI::tr("A fatal error occurred. Bitcoin can no longer continue safely and will quit.") + QString("\n\n") + message);
+    QMessageBox::critical(0, "Runaway exception", BitcoinGUI::tr("A fatal error occurred. Omni Core can no longer continue safely and will quit.") + QString("\n\n") + message);
     ::exit(1);
 }
 
@@ -475,7 +477,9 @@ int main(int argc, char *argv[])
 #endif
 
     Q_INIT_RESOURCE(bitcoin);
-    GUIUtil::SubstituteFonts(); //0.9.3merge
+
+    GUIUtil::SubstituteFonts();
+
     BitcoinApplication app(argc, argv);
 #if QT_VERSION > 0x050100
     // Generate high-dpi pixmaps
@@ -518,14 +522,14 @@ int main(int argc, char *argv[])
     /// - Do not call GetDataDir(true) before this step finishes
     if (!boost::filesystem::is_directory(GetDataDir(false)))
     {
-        QMessageBox::critical(0, QObject::tr("Bitcoin"),
+        QMessageBox::critical(0, QObject::tr("Omni Core"),
                               QObject::tr("Error: Specified data directory \"%1\" does not exist.").arg(QString::fromStdString(mapArgs["-datadir"])));
         return 1;
     }
     try {
         ReadConfigFile(mapArgs, mapMultiArgs);
     } catch(std::exception &e) {
-        QMessageBox::critical(0, QObject::tr("Bitcoin"),
+        QMessageBox::critical(0, QObject::tr("Omni Core"),
                               QObject::tr("Error: Cannot parse configuration file: %1. Only use key=value syntax.").arg(e.what()));
         return false;
     }
@@ -538,7 +542,7 @@ int main(int argc, char *argv[])
 
     // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
     if (!SelectParamsFromCommandLine()) {
-        QMessageBox::critical(0, QObject::tr("Bitcoin"), QObject::tr("Error: Invalid combination of -regtest and -testnet."));
+        QMessageBox::critical(0, QObject::tr("Omni Core"), QObject::tr("Error: Invalid combination of -regtest and -testnet."));
         return 1;
     }
 #ifdef ENABLE_WALLET
@@ -593,47 +597,26 @@ int main(int argc, char *argv[])
     if (GetBoolArg("-splash", true) && !GetBoolArg("-min", false))
         app.createSplashScreen(isaTestNet);
 
-    /// Show warning
-    string strWarningText = "This software is EXPERIMENTAL software for TESTNET TRANSACTIONS only. USE ON MAINNET AT YOUR OWN RISK.\n\n";
-    strWarningText += "The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future.\n\n";
-    strWarningText += "Omni Core should be considered an alpha-level product, and you use it at your own risk. Neither the Omni Foundation nor the Omni Core developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.\n\n";
-    strWarningText += "Further, please note that this installation of Omni Core should be viewed as EXPERIMENTAL. Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.\n\n";
-    strWarningText += "This software is provided open-source at no cost. You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws.\n\n";
-    strWarningText += "DO NOT use wallet(s) with any significant amount of any property/currency while testing!";
-    QString warningText = QString::fromStdString(strWarningText);
-    QMessageBox warningDialog;
-    warningDialog.setIcon(QMessageBox::Warning);
-    warningDialog.setWindowTitle("WARNING - Experimental Software");
-    warningDialog.setText(warningText);
-    warningDialog.setStandardButtons(QMessageBox::No|QMessageBox::Yes);
-    warningDialog.setDefaultButton(QMessageBox::Yes);
-    warningDialog.setButtonText( QMessageBox::No, "Exit" );
-    warningDialog.setButtonText( QMessageBox::Yes, "Acknowledge + Continue" );
-    if(warningDialog.exec() == QMessageBox::No)
+    // Initialize Omni Core and quit on failure
+    if (!OmniCore::Initialize())
+        return 1;
+
+    try
     {
-        // exit, user does not agree to warning
-        qApp->quit();
-    }
-    else
-    {
-        try
-        {
-            app.createWindow(isaTestNet);
-            app.requestInitialize();
-        #if defined(Q_OS_WIN) && QT_VERSION >= 0x050000
-            WinShutdownMonitor::registerShutdownBlockReason(QObject::tr("Bitcoin Core didn't yet exit safely..."), (HWND)app.getMainWinId());
-        #endif
-            app.exec();
-            app.requestShutdown();
-            app.exec();
-        }
-        catch (std::exception& e) {
-            PrintExceptionContinue(&e, "Runaway exception");
-            app.handleRunawayException(QString::fromStdString(strMiscWarning));
-        } catch (...) {
-            PrintExceptionContinue(NULL, "Runaway exception");
-            app.handleRunawayException(QString::fromStdString(strMiscWarning));
-        }
+        app.createWindow(isaTestNet);
+        app.requestInitialize();
+#if defined(Q_OS_WIN) && QT_VERSION >= 0x050000
+        WinShutdownMonitor::registerShutdownBlockReason(QObject::tr("Omni Core didn't yet exit safely..."), (HWND)app.getMainWinId());
+#endif
+        app.exec();
+        app.requestShutdown();
+        app.exec();
+    } catch (std::exception& e) {
+        PrintExceptionContinue(&e, "Runaway exception");
+        app.handleRunawayException(QString::fromStdString(strMiscWarning));
+    } catch (...) {
+        PrintExceptionContinue(NULL, "Runaway exception");
+        app.handleRunawayException(QString::fromStdString(strMiscWarning));
     }
     return app.getReturnValue();
 }

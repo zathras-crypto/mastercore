@@ -781,8 +781,12 @@ public:
 // Return the data to which index points.
 QVariant MatrixModel::data(const QModelIndex& index, int role) const
 {
-        if (!index.isValid() || role != Qt::DisplayRole)
-            return QVariant();
+        if (!index.isValid()) return QVariant();
+
+        if (((index.column() == 2) || (index.column() == 3)) && (role == Qt::TextAlignmentRole))
+            return Qt::AlignVCenter+Qt::AlignRight;
+
+        if (role != Qt::DisplayRole) return QVariant();
 
 //        qDebug() << __FUNCTION__ << "row=" << index.row() << "column=" << index.column();
 

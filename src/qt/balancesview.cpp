@@ -6,6 +6,7 @@
 
 #include "addresstablemodel.h"
 #include "bitcoinunits.h"
+#include "clientmodel.h"
 #include "csvmodelwriter.h"
 #include "editaddressdialog.h"
 #include "guiutil.h"
@@ -79,7 +80,7 @@ using namespace leveldb;
 #include <QVBoxLayout>
 
 BalancesView::BalancesView(QWidget *parent) :
-    QWidget(parent), model(0), balancesView(0)
+    QWidget(parent), clientModel(0), walletModel(0), balancesView(0)
 {
     // Build filter row
     setContentsMargins(0,0,0,0);
@@ -126,16 +127,27 @@ BalancesView::BalancesView(QWidget *parent) :
     mmp = new MatrixModel(numRows, numColumns, (uint*)matrix, 2147483646);  //id for all (summary)
     view = new QTableView(this);
     view->setModel(mmp);
-    //adjust sizing
-    view->horizontalHeader()->resizeSection(0, 160);
+    // adjust sizing - redone to allow user to adjust all columns
+    borrowedColumnResizingFixer = new GUIUtil::TableViewLastColumnResizingFixer(view,100,100);
+    // note neither resizetocontents or stretch allow user to adjust - go interactive then manually set widths
     #if QT_VERSION < 0x050000
-       view->horizontalHeader()->setResizeMode(1, QHeaderView::Stretch);
+       view->horizontalHeader()->setResizeMode(0, QHeaderView::Interactive);
+       view->horizontalHeader()->setResizeMode(1, QHeaderView::Interactive);
+       view->horizontalHeader()->setResizeMode(2, QHeaderView::Interactive);
+       view->horizontalHeader()->setResizeMode(3, QHeaderView::Interactive);
     #else
-       view->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+       view->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+       view->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+       view->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+       view->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
     #endif
-    view->horizontalHeader()->resizeSection(2, 140);
-    view->horizontalHeader()->resizeSection(3, 140);
+    // whilst we can't use QHeaderView::ResizeToContents for auto we can use resizeColumnToContents programatically
+    view->resizeColumnToContents(0);
+    view->resizeColumnToContents(2);
+    view->resizeColumnToContents(3);
+    borrowedColumnResizingFixer->stretchColumnWidth(1);
     view->verticalHeader()->setVisible(false);
+    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setSelectionMode(QAbstractItemView::SingleSelection);
     vlayout->addLayout(hlayout);
@@ -176,9 +188,24 @@ BalancesView::BalancesView(QWidget *parent) :
     UpdatePropSelector();
 }
 
+void BalancesView::setClientModel(ClientModel *model)
+{
+    if (model != NULL) {
+        this->clientModel = model;
+        connect(model, SIGNAL(refreshOmniState()), this, SLOT(balancesUpdated()));
+    }
+}
+
+void BalancesView::setWalletModel(WalletModel *model)
+{
+    if (model != NULL) {
+        this->walletModel = model;
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
+    }
+}
+
 void BalancesView::UpdatePropSelector()
 {
-    //printf("balancesview::propselectorupdatecalled\n");
     QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
     propSelectorWidget->clear();
     propSelectorWidget->addItem("Wallet Totals (Summary)","2147483646"); //use last possible ID for summary for now
@@ -213,22 +240,14 @@ void BalancesView::UpdatePropSelector()
     if (propIdx != -1) { propSelectorWidget->setCurrentIndex(propIdx); }
 }
 
-void BalancesView::setModel(WalletModel *model)
-{
-    this->model = model;
-    connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(balancesUpdated()));
-}
-
 void BalancesView::UpdateBalances()
 {
-    //printf("balancesview::updatebalances()\n");
     propSelectorChanged(0);
     UpdatePropSelector();
 }
 
 void BalancesView::propSelectorChanged(int idx)
 {
-    //printf("balancesview::propselectorchanged()\n");
     QString spId = propSelectorWidget->itemData(propSelectorWidget->currentIndex()).toString();
     unsigned int propertyId = spId.toUInt();
     //repopulate with new selected balances
@@ -270,16 +289,16 @@ void BalancesView::balancesCopyAmount()
 //    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::FormattedAmountRole);
 }
 
+void BalancesView::balancesUpdated()
+{
+    UpdateBalances();
+}
+
 // We override the virtual resizeEvent of the QWidget to adjust tables column
 // sizes as the tables width is proportional to the dialogs width.
 void BalancesView::resizeEvent(QResizeEvent* event)
 {
-//    QWidget::resizeEvent(event);
-//    columnResizingFixer->stretchColumnWidth(TransactionTableModel::ToAddress);
-}
-
-void BalancesView::balancesUpdated()
-{
-    UpdateBalances();
+    QWidget::resizeEvent(event);
+    borrowedColumnResizingFixer->stretchColumnWidth(1);
 }
 

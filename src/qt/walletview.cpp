@@ -86,12 +86,11 @@ WalletView::WalletView(QWidget *parent):
     mpTXTab = new TXHistoryDialog;
     transactionsPage = new QWidget(this);
     QVBoxLayout *txvbox = new QVBoxLayout();
-    QTabWidget *txTabHolder = new QTabWidget();
-    txTabHolder->addTab(mpTXTab,tr("Omni Protocol"));
+    txTabHolder = new QTabWidget();
+    txTabHolder->addTab(mpTXTab,tr("Omni Layer"));
     txTabHolder->addTab(bitcoinTXTab,tr("Bitcoin"));
     txvbox->addWidget(txTabHolder);
     transactionsPage->setLayout(txvbox);
-
     // receive page
     receiveCoinsPage = new ReceiveCoinsDialog();
 
@@ -101,7 +100,7 @@ WalletView::WalletView(QWidget *parent):
     sendCoinsTab = new SendCoinsDialog();
     sendMPTab = new SendMPDialog();
     QTabWidget *tabHolder = new QTabWidget();
-    tabHolder->addTab(sendMPTab,tr("Omni Protocol"));
+    tabHolder->addTab(sendMPTab,tr("Omni Layer"));
     tabHolder->addTab(sendCoinsTab,tr("Bitcoin"));
     svbox->addWidget(tabHolder);
     sendCoinsPage->setLayout(svbox);
@@ -180,8 +179,8 @@ void WalletView::setBitcoinGUI(BitcoinGUI *gui)
 {
     if (gui)
     {
-        // Clicking on a transaction on the overview page simply sends you to transaction history page
-        connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), gui, SLOT(gotoHistoryPage()));
+        // Clicking on a transaction on the overview page simply sends you to bitcoin history tab
+        connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), gui, SLOT(gotoBitcoinHistoryTab()));
 
         // Receive and report messages
         connect(this, SIGNAL(message(QString,QString,unsigned int)), gui, SLOT(message(QString,QString,unsigned int)));
@@ -199,6 +198,9 @@ void WalletView::setClientModel(ClientModel *clientModel)
     this->clientModel = clientModel;
 
     overviewPage->setClientModel(clientModel);
+    balancesView->setClientModel(clientModel);
+    sendMPTab->setClientModel(clientModel);
+    mpTXTab->setClientModel(clientModel);
 }
 
 void WalletView::setWalletModel(WalletModel *walletModel)
@@ -210,10 +212,10 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     overviewPage->setWalletModel(walletModel);
     receiveCoinsPage->setModel(walletModel);
     sendCoinsTab->setModel(walletModel);
-    sendMPTab->setModel(walletModel);
-    balancesView->setModel(walletModel);
+    sendMPTab->setWalletModel(walletModel);
+    balancesView->setWalletModel(walletModel);
 //    metaDExTab->setModel(walletModel);
-    mpTXTab->setModel(walletModel);
+    mpTXTab->setWalletModel(walletModel);
 //    cancelTab->setModel(walletModel);
 //    orderHistoryTab->setModel(walletModel);
 
@@ -267,6 +269,12 @@ void WalletView::gotoBalancesPage()
 void WalletView::gotoHistoryPage()
 {
     setCurrentWidget(transactionsPage);
+}
+
+void WalletView::gotoBitcoinHistoryTab()
+{
+    setCurrentWidget(transactionsPage);
+    txTabHolder->setCurrentIndex(1);
 }
 
 void WalletView::gotoReceiveCoinsPage()
