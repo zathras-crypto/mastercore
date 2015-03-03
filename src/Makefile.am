@@ -95,6 +95,7 @@ obj/build.h: FORCE
 	@$(top_srcdir)/share/genbuild.sh $(abs_top_builddir)/src/obj/build.h \
 	  $(abs_top_srcdir)
 version.o: obj/build.h
+mastercore_version.o: obj/build.h
 
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
