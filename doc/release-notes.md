@@ -2,7 +2,7 @@ Omni Core version 0.0.9.1-rel is now available from:
 
   {insert URL once ready to release}
 
-0.0.9.1 is a minor release and not consensus critical.  An upgrade is only mandatory, if you are using a version prior 0.0.9.
+0.0.9.1 is a minor release and not consensus critical.  An upgrade is only mandatory if you are using a version prior 0.0.9.
 
 Please report bugs using the issue tracker at GitHub:
 
@@ -29,7 +29,7 @@ If you are upgrading from any version earlier than 0.0.9, the first time you run
 Downgrading
 -----------
 
-Downgrading is not currently supported as older versions will not provide accurate data.
+Downgrading is not currently supported as older versions will not provide accurate information.
 
 Changelog
 =========
@@ -43,6 +43,8 @@ General
 - Update authorized alert senders
 - Added support for TX70 to RPC output
 - Fix missing LOCK of cs_main in selectCoins()
+- Versioning code updated
+
 
 UI
 --
@@ -60,3 +62,5 @@ UI
 - Update signalling to all Omni pages to ensure up to date info
 - Override display of Mastercoin metadata for rebrand (RPC unchanged)
 - Acknowledgement of disclaimer will now be remembered
+- Ecosystem display fixed in property lookup
+- Fix intermittent startup freezes due to locks
