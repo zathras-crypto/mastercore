@@ -2,9 +2,9 @@ Omni Core version 0.0.9.1-rel is now available from:
 
   {insert URL once ready to release}
 
-0.0.9.1-rel is a minor version release.  It is not a required upgrade from 0.0.9-rel, however if you have not already upgraded to 0.0.9-rel or above you must do so immediately (versions prior to 0.0.9-rel are already out of consensus and will provide incorrect data).
+0.0.9.1 is a minor release and not consensus critical.  An upgrade is only mandatory, if you are using a version prior 0.0.9.
 
-Please report bugs using the issue tracker at github:
+Please report bugs using the issue tracker at GitHub:
 
   https://github.com/mastercoin-MSC/mastercore/issues
 
@@ -16,10 +16,27 @@ IMPORTANT
 - If you are upgrading from a version earlier than 0.0.9-rel you must start with the --startclean parameter at least once to refresh your persistence files.
 - The first time Omni Core is run the startup process may take an hour or more as existing Omni Layer transactions are parsed.  This is normal and should only be required the first time Omni Core is run.
 
-CHANGELOG
+Upgrading and downgrading
+==========================
+
+How to Upgrade
+--------------
+
+If you are running an older version, shut it down. Wait until it has completely shut down (which might take a few minutes for older versions), then copy the new version of mastercored/mastercore-qt.
+
+If you are upgrading from any version earlier than 0.0.9, the first time you run you must start with the --startclean parameter at least once to refresh your persistence files.
+
+Downgrading
+-----------
+
+Downgrading is not currently supported as older versions will not provide accurate data.
+
+Changelog
 =========
-GENERAL
+
+General
 -------
+
 - Extra console debugging removed
 - Bitcoin 0.10 blockchain detection (will refuse to start if out of order block storage is detected)
 - txindex default value now matches Bitcoin Core (false)
@@ -29,6 +46,7 @@ GENERAL
 
 UI
 --
+
 - New signal added for changes to Omni state (emitted from block handler for blocks containing Omni transactions)
 - Fix double clicking a transaction in overview does not activate the Bitcoin history tab
 - Splash screen updated to reflect new branding
