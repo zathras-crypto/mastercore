@@ -13,7 +13,7 @@
 #define OMNICORE_VERSION_PATCH   0
 
 // Use "-dev" for development versions, switch to "-rel" for tags
-#define OMNICORE_VERSION_TYPE    "-dev"
+#define OMNICORE_VERSION_TYPE    "-rel"
 
 
 //! Omni Core client version
