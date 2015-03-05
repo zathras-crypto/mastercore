@@ -121,15 +121,7 @@ int extra = 0;
 int extra2 = 0, extra3 = 0;
 
     if (fHelp || params.size() > 3)
-        throw runtime_error(
-            "mscrpc\n"
-            "\nReturns the number of blocks in the longest block chain.\n"
-            "\nResult:\n"
-            "n    (numeric) The current block count\n"
-            "\nExamples:\n"
-            + HelpExampleCli("mscrpc", "")
-            + HelpExampleRpc("mscrpc", "")
-        );
+        return ""; // hack to hide "mscrpc" from "mastercore-cli help"
 
   if (0 < params.size()) extra = atoi(params[0].get_str());
   if (1 < params.size()) extra2 = atoi(params[1].get_str());
@@ -227,12 +219,20 @@ Value getbalance_MP(const Array& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "getbalance_MP \"address\" propertyid\n"
-            "\nReturns the Master Protocol balance for a given address and currency/property.\n"
+            "\nReturns the token balance for a given address and property.\n"
+            "\nArguments:\n"
+            "1. address           (string, required) The address\n"
+            "2. propertyid        (number, required) The property identifier\n"
             "\nResult:\n"
-            "n    (numeric) The applicable balance for address:currency/propertyID pair\n"
+            "{\n"
+            "  \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "  \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "}\n"
             "\nExamples:\n"
-            ">mastercored getbalance_MP 1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1\n"
+            + HelpExampleCli("getbalance_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P 1")
+            + HelpExampleRpc("getbalance_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P, 1")
         );
+
     std::string address = params[0].get_str();
     int64_t tmpPropertyId = params[1].get_int64();
     if ((1 > tmpPropertyId) || (4294967295 < tmpPropertyId)) // not safe to do conversion
@@ -253,21 +253,22 @@ Value getbalance_MP(const Array& params, bool fHelp)
 // send a MP transaction via RPC - simple send
 Value send_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 4 || params.size() > 6)
+    if (fHelp || params.size() < 4 || params.size() > 6)
         throw runtime_error(
             "send_MP \"fromaddress\" \"toaddress\" propertyid \"amount\" ( \"redeemaddress\" \"referenceamount\" )\n"
-            "\nCreates and broadcasts a simple send for a given amount and currency/property ID.\n"
-            "\nParameters:\n"
-            "FromAddress   : the address to send from\n"
-            "ToAddress     : the address to send to\n"
-            "PropertyID    : the id of the smart property to send\n"
-            "Amount        : the amount to send\n"
-            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
-            "ReferenceAmount:(optional)\n"
-            "Result:\n"
-            "txid    (string) The transaction ID of the sent transaction\n"
+            "\nCreates and broadcasts a \"simple send\" transaction.\n"
+            "\nArguments:\n"
+            "1. fromaddress       (string, required) The address to spent from\n"
+            "2. toaddress         (string, required) The address to send to\n"
+            "3. propertyid        (number, required) The identifier of the property to transfer\n"
+            "4. amount            (string, required) The amount to transfer\n"
+            "5. redeemaddress     (string, optional) An address that can spent the transaction dust (sender by default)\n"
+            "6. referenceamount   (string, optional) A bitcoin amount that is sent to the receiver (minimal by default)\n"
+            "\nResult:\n"
+            "\"hash\"               (string) The hex-encoded transaction hash\n"
             "\nExamples:\n"
-            ">mastercored send_MP 1FromAddress 1ToAddress PropertyID Amount 1RedeemAddress\n"
+            + HelpExampleCli("send_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\" 1 \"0.25\"")
+            + HelpExampleRpc("send_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\", 1, \"0.25\"")
         );
 
   std::string FromAddress = (params[0].get_str());
@@ -296,8 +297,6 @@ if (fHelp || params.size() < 4 || params.size() > 6)
   std::string strAdditional = (params.size() > 5) ? (params[5].get_str()): "0";
   additional = StrToInt64(strAdditional, true);
 
-  int n = params.size();
-
   if ((0.01 * COIN) < additional)
    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid reference amount");
 
@@ -314,19 +313,20 @@ if (fHelp || params.size() < 4 || params.size() > 6)
 // send a MP transaction via RPC - simple send
 Value sendtoowners_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 3 || params.size() > 4)
+    if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(
             "sendtoowners_MP \"fromaddress\" propertyid \"amount\" ( \"redeemaddress\" )\n"
-            "\nCreates and broadcasts a send-to-owners transaction for a given amount and currency/property ID.\n"
-            "\nParameters:\n"
-            "FromAddress   : the address to send from\n"
-            "PropertyID    : the id of the smart property to send\n"
-            "Amount (string): the amount to send\n"
-            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
+            "\nCreates and broadcasts a \"send to owners\" transaction.\n"
+            "\nArguments:\n"
+            "1. fromaddress       (string, required) The address to spent from\n"
+            "2. propertyid        (number, required) The identifier of the property to send\n"
+            "3. amount            (string, required) The amount to send\n"
+            "4. redeemaddress     (string, optional) An address that can spent the transaction dust (sender by default)\n"
             "\nResult:\n"
-            "txid    (string) The transaction ID of the sent transaction\n"
+            "\"hash\"               (string) The hex-encoded transaction hash\n"
             "\nExamples:\n"
-            ">mastercored send_MP 1FromAddress PropertyID Amount 1RedeemAddress\n"
+            + HelpExampleCli("sendtoowners_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" 1 \"0.25\"")
+            + HelpExampleRpc("sendtoowners_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", 1, \"0.25\"")
         );
 
   std::string FromAddress = (params[0].get_str());
@@ -369,21 +369,21 @@ if (fHelp || params.size() < 3 || params.size() > 4)
 
 Value sendrawtx_MP(const Array& params, bool fHelp)
 {
-if (fHelp || params.size() < 2 || params.size() > 5)
+    if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
-            "sendrawtx_MP \"fromaddress\" \"hexstring\" ( \"toaddress\" \"redeemaddress\" \"referenceamount\" )\n"
-            "\nCreates and broadcasts a raw Master protocol transaction.\n"
-            "\nParameters:\n"
-            "FromAddress   : the address to send from\n"
-            "RawTX         : the hex-encoded raw transaction\n"
-            "ToAddress     : the address to send to.  This should be empty: (\"\") for transaction\n"
-            "                types that do not use a reference/to address\n"
-            "RedeemAddress : (optional) the address that can redeem the bitcoin outputs. Defaults to FromAddress\n"
-            "ReferenceAmount:(optional)\n"
+            "sendrawtx_MP \"fromaddress\" \"rawtransaction\" ( \"referenceaddress\" \"redeemaddress\" \"referenceamount\" )\n"
+            "\nBroadcasts a raw Omni Layer transaction.\n"
+            "\nArguments:\n"
+            "1. fromaddress       (string, required) The address to send from\n"
+            "2. rawtransaction    (string, required) The hex-encoded raw transaction\n"
+            "3. referenceaddress  (string, optional) A reference address (empty by default)\n"
+            "4. redeemaddress     (string, optional) An address that can spent the transaction dust (sender by default)\n"
+            "5. referenceamount   (string, optional) A bitcoin amount that is sent to the receiver (minimal by default)\n"
             "\nResult:\n"
-            "txid    (string) The transaction ID of the sent transaction\n"
+            "\"hash\"               (string) The hex-encoded transaction hash\n"
             "\nExamples:\n"
-            ">mastercored sendrawtx_MP 1FromAddress <tx bytes hex> 1ToAddress 1RedeemAddress\n"
+            + HelpExampleCli("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" \"000000000000000100000000017d7840\" \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
+            + HelpExampleRpc("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", \"000000000000000100000000017d7840\", \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
         );
 
   std::string fromAddress = (params[0].get_str());
@@ -410,20 +410,22 @@ if (fHelp || params.size() < 2 || params.size() > 5)
 
 Value getallbalancesforid_MP(const Array& params, bool fHelp)
 {
-   if (fHelp || params.size() != 1)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
             "getallbalancesforid_MP propertyid\n"
-            "\nGet a list of balances for a given currency or property identifier.\n"
+            "\nReturns a list of token balances for a given currency or property identifier.\n"
             "\nArguments:\n"
-            "1. propertyid    (int, required) The property identifier\n"
+            "1. propertyid        (number, required) The property identifier\n"
             "\nResult:\n"
-            "{\n"
-            "  \"address\" : \"1Address\",  (string) The address\n"
-            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
-            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
-            "}\n"
-
-            "\nbExamples\n"
+            "[                             (array of JSON objects)\n"
+            "  {\n"
+            "    \"address\" : \"address\",      (string) The address\n"
+            "    \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "    \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
             + HelpExampleCli("getallbalancesforid_MP", "1")
             + HelpExampleRpc("getallbalancesforid_MP", "1")
         );
@@ -467,22 +469,24 @@ Value getallbalancesforaddress_MP(const Array& params, bool fHelp)
 {
    string address;
 
-   if (fHelp || params.size() != 1)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
             "getallbalancesforaddress_MP \"address\"\n"
-            "\nGet a list of all balances for a given address.\n"
+            "\nReturns a list of all token balances for a given address.\n"
             "\nArguments:\n"
-            "1. address    (string, required) The address\n"
+            "1. address           (string, required) The address\n"
             "\nResult:\n"
-            "{\n"
-            "  \"propertyid\" : x,        (numeric) the property id\n"
-            "  \"balance\" : \"x.xxx\",     (string) The available balance of the address\n"
-            "  \"reserved\" : \"x.xxx\",    (string) The amount reserved by sell offers and accepts\n"
-            "}\n"
-
-            "\nbExamples\n"
-            + HelpExampleCli("getallbalancesforaddress_MP", "address")
-            + HelpExampleRpc("getallbalancesforaddress_MP", "address")
+            "[                             (array of JSON objects)\n"
+            "  {\n"
+            "    \"propertyid\" : x,           (number) The property identifier\n"
+            "    \"balance\" : \"x.xxxxxxxx\",   (string) The available balance of the address\n"
+            "    \"reserved\" : \"x.xxxxxxxx\"   (string) The amount reserved by sell offers and accepts\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getallbalancesforaddress_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P")
+            + HelpExampleRpc("getallbalancesforaddress_MP", "1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P")
         );
 
     address = params[0].get_str();
@@ -1916,6 +1920,30 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 
 Value getinfo_MP(const Array& params, bool fHelp)
 {
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getinfo_MP\n"
+            "Returns various state information of the client and protocol.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"mastercoreversion\" : \"x.x.x.x-xxx\",   (string) Client version\n"
+            "  \"bitcoincoreversion\" : \"x.x.x\",        (string) Bitcoin Core version\n"
+            "  \"commitinfo\" : \"xxxxxxx\",              (string) Build commit identifier\n"
+            "  \"block\" : x,                           (number) Number of blocks processed\n"
+            "  \"blocktime\" : xxxxxxxxxx,              (number) Timestamp of the last processed block\n"
+            "  \"blocktransactions\" : x,               (number) Meta transactions found in the last processed block\n"
+            "  \"totaltransactions\" : x,               (number) Meta transactions processed in total\n"
+            "  \"alert\" : {                            (object) Any active protocol alert\n"
+            "    \"alerttype\" : \"xxx\"                    (string) Alert type\n"
+            "    \"expiryvalue\" : \"x\"                    (string) Block until the alert is active\n"
+            "    \"alertmessage\" : \"xxx\"                 (string) Information about the alert event\n"
+            "  }\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getinfo", "")
+            + HelpExampleRpc("getinfo", "")
+        );
+
     Object infoResponse;
     // other bits of info we want to report should be included here
 
@@ -1942,7 +1970,7 @@ Value getinfo_MP(const Array& params, bool fHelp)
     // handle alerts
     Object alertResponse;
     string global_alert_message = getMasterCoreAlertString();
-    int32_t alertType = 0;
+    int32_t alertType = 0;  
     uint64_t expiryValue = 0;
     uint32_t typeCheck = 0;
     uint32_t verCheck = 0;
