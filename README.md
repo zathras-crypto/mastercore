@@ -1,39 +1,37 @@
-Master Core (Beta) integration/staging tree
+Omni Core (Beta) integration/staging tree
 =================================================
 
-What is the Master Protocol
-----------------------------
-The Master Protocol is a communications protocol that uses the Bitcoin block chain to enable features such as smart contracts, user currencies and decentralized peer-to-peer exchanges. A common analogy that is used to describe the relation of the Master Protocol to Bitcoin is that of HTTP to TCP/IP: HTTP, like the Master Protocol, is the application layer to the more fundamental transport and internet layer of TCP/IP, like Bitcoin.
+What is the Omni Layer
+----------------------
+The Omni Layer is a communications protocol that uses the Bitcoin block chain to enable features such as smart contracts, user currencies and decentralized peer-to-peer exchanges. A common analogy that is used to describe the relation of the Omni Layer to Bitcoin is that of HTTP to TCP/IP: HTTP, like the Omni Layer, is the application layer to the more fundamental transport and internet layer of TCP/IP, like Bitcoin.
 
-http://www.mastercoin.org
+http://www.omnilayer.org
 
-What is Master Core
----------------------------
+What is Omni Core
+-----------------
 
-Master Core is a fast, portable Master Protocol implementation that is based off the Bitcoin Core codebase (currently 0.9.3). This implementation requires no external dependencies extraneous to Bitcoin Core, and is native to the Bitcoin network just like other Bitcoin nodes. It currently supports a wallet mode and it will be seamlessly available on 3 platforms: Windows, Linux and Mac OS. Master Protocol extensions are exposed via a JSON-RPC interface. Development has been consolidated on the Master Core product, and once officially released it will become the reference client for the Master Protocol.
+Omni Core is a fast, portable Omni Layer implementation that is based off the Bitcoin Core codebase (currently 0.9.3). This implementation requires no external dependencies extraneous to Bitcoin Core, and is native to the Bitcoin network just like other Bitcoin nodes. It currently supports a wallet mode and it will be seamlessly available on 3 platforms: Windows, Linux and Mac OS. Omni Layer extensions are exposed via the UI and the JSON-RPC interface. Development has been consolidated on the Omni Core product, and once officially released it will become the reference client for the Omni Layer.
 
 Disclaimer, warning
---------------
+-------------------
+This software is EXPERIMENTAL software. USE ON MAINNET AT YOUR OWN RISK.
 
-This software is EXPERIMENTAL software for **TESTNET TRANSACTIONS** only. *USE ON MAINNET AT YOUR OWN RISK.*
+By default this software will use your existing Bitcoin wallet, including spending bitcoins contained therein (for example for transaction fees or trading).
+The protocol and transaction processing rules for the Omni Layer are still under active development and are subject to change in future.
+Omni Core should be considered an alpha-level product, and you use it at your own risk. Neither the Omni Foundation nor the Omni Core developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
 
-The protocol and transaction processing rules for Mastercoin are still under active development and are subject to change in future. 
+Further, please note that this installation of Omni Core should be viewed as EXPERIMENTAL. Your wallet data, bitcoins and Omni Layer tokens may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
 
-Master Core should be considered an alpha-level product, and you use it at your own risk.  Neither the Mastercoin Foundation nor the Master Core developers assumes any responsibility for funds misplaced, mishandled, lost, or misallocated.
+This software is provided open-source at no cost. You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws.
 
-Further, please note that this particular installation of Master Core should be viewed as experimental.  Your wallet data may be lost, deleted, or corrupted, with or without warning due to bugs or glitches. Please take caution.
-
-This software is provided open-source at no cost.  You are responsible for knowing the law in your country and determining if your use of this software contravenes any local laws.
-
-*You all know, BUT: DO NOT use wallet(s) with significant amount of any currency while working!*
+PLEASE DO NOT use wallet(s) with significant amounts of bitcoins or Omni Layer tokens while testing!
 
 Testnet
 -------------------
 
-1. To run Master Core in testnet mode, run Master Core with the following option in place: ``` -testnet ```.
+Testnet mode allows Omni Core to be run on the Bitcoin Testnet blockchain for safe testing.
+1. To run Omni Core in testnet mode, run Omni Core with the following option in place: ``` -testnet ```.
 2. To receive MSC (and TMSC) on testnet please send TBTC to moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP. For each 1 TBTC you will receive 100 MSC and 100 TMSC.
-
-All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
 
 Dependencies
@@ -45,7 +43,7 @@ Installation
 
 *NOTE: This will only build on Ubuntu Linux for now.*
 
-You will need appropriate libraries to run Master Core on Unix, 
+You will need appropriate libraries to run Omni Core on Unix, 
 please see [doc/build-unix.md](doc/build-unix.md) for the full listing.
 
 You will need to install git & pkg-config:
@@ -55,14 +53,13 @@ sudo apt-get install git
 sudo apt-get install pkg-config
 ```
 
-Clone the Master Core repository:
+Clone the Omni Core repository:
 
 ```
  git clone https://github.com/mastercoin-MSC/mastercore.git
  cd mastercore/
 ```
 
-Then, run
 Then, run:
 
 ```
@@ -75,23 +72,23 @@ Once complete:
 ```
 cd src/
 ```
-and start Master Core using ```./mastercored```. The inital parse step for a first time run
-will take approximately 10-15 minutes, during this time your client will scan the blockchain for
-Master Protocol transactions. You can view the output of the parsing at any time by viewing the log
-located in your datadir, by default: ```~/.bitcoin/mastercore.log```.
+and start Omni Core using ```./mastercored``` (or ```./qt/mastercore-qt``` if built with UI). The inital parse step for a first time run
+will take up to 60 minutes or more, during this time your client will scan the blockchain for Omni Layer transactions. You can view the 
+output of the parsing at any time by viewing the log located in your datadir, by default: ```~/.bitcoin/mastercore.log```.
+
+Omni Core requires the transaction index to be enabled.   Add an entry to your bitcoin.conf file for ```txindex=1``` to enable it or Omni Core will refuse to start.
 
 If a message is returned asking you to reindex, pass the ```-reindex``` flag to mastercored. The reindexing process can take serveral hours.
 
-Note: to issue RPC commands to Master Core you may add the '-server=1' CLI flag or add an entry to the bitcoin.conf file (located in '~/.bitcoin/' by default).
+To issue RPC commands to Master Core you may add the '-server=1' CLI flag or add an entry to the bitcoin.conf file (located in '~/.bitcoin/' by default).
 
 In bitcoin.conf:
 ```
 server=1
 ```
 
-After this step completes, check that the installation went smoothly by issuing the following
-command ```./mastercore-cli getinfo``` which should return the 'mastercoreversion' as well as some
-additional information related to the Bitcoin network.
+After this step completes, check that the installation went smoothly by issuing the following command ```./mastercore-cli getinfo_MP``` which should return the 'mastercoreversion' as well as some
+additional information related to the client.
 
 The documentation for the RPC interface and command-line is located in [doc/apidocumentation.md] (doc/apidocumentation.md).
 
@@ -118,10 +115,10 @@ Current feature set:
 
 * Creating and broadcasting transactions based on raw Master Protocol data with sendrawtx_MP
 
+* Functional UI for balances, sending and historical transactions
+
 Pending additions:
 -------------------
-
-* Fully functional UI
 
 * Meta-DEx support
 
@@ -134,4 +131,4 @@ Pending additions:
 Support:
 ------------------
 
-* Email <mastercore@mastercoin.org> or open a [GitHub issue] (https://github.com/mastercoin-MSC/mastercore/issues) to file a bug submission.
+* Open a [GitHub issue] (https://github.com/mastercoin-MSC/mastercore/issues) to file a bug submission.
