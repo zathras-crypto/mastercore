@@ -29,10 +29,9 @@ PLEASE DO NOT use wallet(s) with significant amounts of bitcoins or Omni Layer t
 Testnet
 -------------------
 
-1. To run Master Core in testnet mode, run Master Core with the following option in place: ``` -testnet ```.
+Testnet mode allows Omni Core to be run on the Bitcoin Testnet blockchain for safe testing.
+1. To run Omni Core in testnet mode, run Omni Core with the following option in place: ``` -testnet ```.
 2. To receive MSC (and TMSC) on testnet please send TBTC to moneyqMan7uh8FqdCA2BV5yZ8qVrc9ikLP. For each 1 TBTC you will receive 100 MSC and 100 TMSC.
-
-All functions in this mode will be TESTNET-ONLY (eg. send_MP).
 
 
 Dependencies
@@ -77,9 +76,11 @@ and start Omni Core using ```./mastercored``` (or ```./qt/mastercore-qt``` if bu
 will take up to 60 minutes or more, during this time your client will scan the blockchain for Omni Layer transactions. You can view the 
 output of the parsing at any time by viewing the log located in your datadir, by default: ```~/.bitcoin/mastercore.log```.
 
+Omni Core requires the transaction index to be enabled.   Add an entry to your bitcoin.conf file for ```txindex=1``` to enable it or Omni Core will refuse to start.
+
 If a message is returned asking you to reindex, pass the ```-reindex``` flag to mastercored. The reindexing process can take serveral hours.
 
-Note: to issue RPC commands to Master Core you may add the '-server=1' CLI flag or add an entry to the bitcoin.conf file (located in '~/.bitcoin/' by default).
+To issue RPC commands to Master Core you may add the '-server=1' CLI flag or add an entry to the bitcoin.conf file (located in '~/.bitcoin/' by default).
 
 In bitcoin.conf:
 ```
