@@ -37,6 +37,11 @@ int const MAX_STATE_HISTORY = 50;
 #define FORMAT_BOOST_TXINDEXKEY "index-tx-%s"
 #define FORMAT_BOOST_SPKEY      "sp-%d"
 
+// Omni Layer Transaction Class
+#define OMNI_CLASS_A 1
+#define OMNI_CLASS_B 2
+#define OMNI_CLASS_C 3
+
 // Master Protocol Transaction (Packet) Version
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
