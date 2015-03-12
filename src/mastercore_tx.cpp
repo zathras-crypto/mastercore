@@ -73,7 +73,19 @@ int CMPTransaction::step1()
 
   swapByteOrder32(type);
 
-  file_log("version: %d, Class %s\n", version, !multi ? "A":"B");
+  string classType;
+  switch(multi) {
+      case 0:
+          classType = "A";
+      break;
+      case 1:
+          classType = "B";
+      break;
+      case 2:
+          classType = "C";
+      break;
+  }
+  file_log("version: %d, Class %s\n", version, classType.c_str());
   file_log("\t            type: %u (%s)\n", type, c_strMasterProtocolTXType(type));
 
   return (type);

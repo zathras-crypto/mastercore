@@ -1474,7 +1474,7 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
 
   // ### SET MP TX INFO ###
   if (msc_debug_verbose) file_log("single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
-  mp_tx->Set(strSender, strReference, 0, wtx.GetHash(), nBlock, idx, (unsigned char *)&single_pkt, packet_size, fMultisig, (inAll-outAll));
+  mp_tx->Set(strSender, strReference, 0, wtx.GetHash(), nBlock, idx, (unsigned char *)&single_pkt, packet_size, omniClass-1, (inAll-outAll));
   return 0;
 }
 
