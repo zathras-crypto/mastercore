@@ -98,9 +98,9 @@ static uint64_t exodus_balance;
 
 static boost::filesystem::path MPPersistencePath;
 
-const int msc_debug_parser_data = 0;
-const int msc_debug_parser= 0;
-const int msc_debug_verbose=0;
+const int msc_debug_parser_data = 1;
+const int msc_debug_parser= 1;
+const int msc_debug_verbose=1;
 const int msc_debug_verbose2=0;
 const int msc_debug_verbose3=0;
 const int msc_debug_vin   = 0;
@@ -1099,14 +1099,20 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
 static bool isAllowedOutputType(int whichType, int nBlock)
 {
   int p2shAllowed = 0;
+  int opReturnAllowed = 0;
+
+  if (OP_RETURN_BLOCK <= nBlock || isNonMainNet()) {
+    opReturnAllowed = 1;
+  }
 
   if (P2SH_BLOCK <= nBlock || isNonMainNet()) {
     p2shAllowed = 1;
   }
+
   // validTypes:
   // 1) Pay to pubkey hash
   // 2) Pay to Script Hash (IFF p2sh is allowed)
-  if ((TX_PUBKEYHASH == whichType) || (p2shAllowed && (TX_SCRIPTHASH == whichType))) {
+  if ((TX_PUBKEYHASH == whichType) || (p2shAllowed && (TX_SCRIPTHASH == whichType)) || (opReturnAllowed && (TX_NULL_DATA == whichType))) {
     return true;
   } else {
     return false;
@@ -1126,6 +1132,7 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
   vector<string>address_data;
   vector<int64_t>value_data;
   vector<string>multisig_script_data;
+  vector<string>op_return_script_data;
   CScript op_return_script;
   int64_t ExodusValues[MAX_BTC_OUTPUTS] = { 0 };
   int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
@@ -1179,10 +1186,12 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
               value_data.push_back(wtx.vout[i].nValue);
           }
       } else {
-          if (whichType == TX_NULL_DATA) {
+          if ((whichType == TX_NULL_DATA) && (validType)) {
               fOPReturn = true;
-              op_return_script = wtx.vout[i].scriptPubKey; // can only be one OP_RETURN output so store the data now to save looking for it later
-              printf("Class C transaction detected: %s with script %s at vout %d\n", wtx.GetHash().GetHex().c_str(), op_return_script.ToString().c_str(), i);
+              wtx.vout[i].scriptPubKey.mscore_parse(op_return_script_data); // only one OP_RETURN output permitted per tx
+              string debug_op_string;
+              if (op_return_script_data.size() > 0) debug_op_string=op_return_script_data[0];
+              if (msc_debug_parser_data) file_log("Class C transaction detected: %s parsed to %s at vout %d\n", wtx.GetHash().GetHex().c_str(), debug_op_string.c_str(), i);
           } else { // likeky a multisig
               txnouttype type;
               std::vector<CTxDestination> vDest;
@@ -1444,12 +1453,15 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
       }
       // ### CLASS C SPECIFIC PARSING ###
       if (omniClass == OMNI_CLASS_C) {
-
+          if (op_return_script_data.size() > 0) {
+              packet_size=op_return_script_data[0].size()/2; // get packet byte size - hex so always a multiple of 2
+              memcpy(single_pkt, &ParseHex(op_return_script_data[0])[0], packet_size); // load the packet ready to set mp tx info
+          }
       }
   }
 
 
-  // ### FINALIZE ###
+  // ### FINALIZE CLASS B ###
   for (int m=0;m<mdata_count;m++) { // now decode mastercoin packets
       if (msc_debug_parser) file_log("m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
       // check to ensure the sequence numbers are sequential and begin with 01 !
@@ -1458,6 +1470,9 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
       }
       memcpy(m*(PACKET_SIZE-1)+single_pkt, 1+packets[m], PACKET_SIZE-1); // now ignoring sequence numbers for Class B packets
   }
+
+
+  // ### SET MP TX INFO ###
   if (msc_debug_verbose) file_log("single_pkt: %s\n", HexStr(single_pkt, packet_size + single_pkt, false).c_str());
   mp_tx->Set(strSender, strReference, 0, wtx.GetHash(), nBlock, idx, (unsigned char *)&single_pkt, packet_size, fMultisig, (inAll-outAll));
   return 0;

@@ -51,10 +51,10 @@ int const MAX_STATE_HISTORY = 50;
 
 #define MAX_SHA256_OBFUSCATION_TIMES  255
 
+#define MIN_PACKET_SIZE_CLASS_C 16
 #define PACKET_SIZE_CLASS_A 19
 #define PACKET_SIZE         31
 #define MAX_PACKETS         64
-
 // Transaction types, from the spec
 enum TransactionType {
   MSC_TYPE_SIMPLE_SEND              =  0,
@@ -104,6 +104,7 @@ enum BLOCKHEIGHTRESTRICTIONS {
   MSC_BET_BLOCK     = 999999,
   MSC_MANUALSP_BLOCK= 323230,
   P2SH_BLOCK        = 322000,
+  OP_RETURN_BLOCK   = 340000 // ### NOT TO BE MERGED LIKE THIS ###
 };
 
 enum FILETYPES {
