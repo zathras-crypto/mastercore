@@ -1126,7 +1126,7 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
   vector<string>address_data;
   vector<int64_t>value_data;
   vector<string>multisig_script_data;
-  string op_return_data;
+  CScript op_return_script;
   int64_t ExodusValues[MAX_BTC_OUTPUTS] = { 0 };
   int64_t TestNetMoneyValues[MAX_BTC_OUTPUTS] = { 0 };  // new way to get funded on TestNet, send TBTC to moneyman address
   string strReference;
@@ -1165,11 +1165,11 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
   for (unsigned int i = 0; i < wtx.vout.size(); i++) {
       CTxDestination dest;
       string strAddress;
+      txnouttype whichType;
+      bool validType = false;
+      if (!getOutputType(wtx.vout[i].scriptPubKey, whichType)) validType=false;
+      if (isAllowedOutputType(whichType, nBlock)) validType=true;
       if (ExtractDestination(wtx.vout[i].scriptPubKey, dest)) {
-          txnouttype whichType;
-          bool validType = false;
-          if (!getOutputType(wtx.vout[i].scriptPubKey, whichType)) validType=false;
-          if (isAllowedOutputType(whichType, nBlock)) validType=true;
           strAddress = CBitcoinAddress(dest).ToString();
           if ((exodus_address != strAddress) && (validType)) {
               if (msc_debug_parser_data) file_log("saving address_data #%d: %s:%s\n", i, strAddress.c_str(), wtx.vout[i].scriptPubKey.ToString().c_str());
@@ -1179,11 +1179,16 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
               value_data.push_back(wtx.vout[i].nValue);
           }
       } else {
-          // a multisig or op_return?
-          txnouttype type;
-          std::vector<CTxDestination> vDest;
-          int nRequired;
-          if (ExtractDestinations(wtx.vout[i].scriptPubKey, type, vDest, nRequired)) ++fMultisig;
+          if (whichType == TX_NULL_DATA) {
+              fOPReturn = true;
+              op_return_script = wtx.vout[i].scriptPubKey; // can only be one OP_RETURN output so store the data now to save looking for it later
+              printf("Class C transaction detected: %s with script %s at vout %d\n", wtx.GetHash().GetHex().c_str(), op_return_script.ToString().c_str(), i);
+          } else { // likeky a multisig
+              txnouttype type;
+              std::vector<CTxDestination> vDest;
+              int nRequired;
+              if (ExtractDestinations(wtx.vout[i].scriptPubKey, type, vDest, nRequired)) ++fMultisig;
+          }
       }
   }
   if (msc_debug_parser_data) file_log(" address_data.size=%lu\n script_data.size=%lu\n value_data.size=%lu\n", address_data.size(), script_data.size(), value_data.size());
@@ -1368,8 +1373,8 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
   }
 
 
-  // ### CLASS B PARSING ###
-  if (omniClass == OMNI_CLASS_B) {
+  // ### CLASS B / CLASS C PARSING ###
+  if ((omniClass == OMNI_CLASS_B) || (omniClass == OMNI_CLASS_C)) {
       unsigned int k = 0;
       if (msc_debug_parser_data) file_log("Beginning reference identification\n");
       bool referenceFound = false; // bool to hold whether we've found the reference yet
@@ -1407,44 +1412,44 @@ int parseTransaction(bool bRPConly, const CTransaction &wtx, int nBlock, unsigne
       }
       if (msc_debug_parser_data) file_log("Ending reference identification\nFinal decision on reference identification is: %s\n", strReference.c_str());
       if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-      for (unsigned int k = 0; k<multisig_script_data.size();k++) {
-          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-          CPubKey key(ParseHex(multisig_script_data[k]));
-          CKeyID keyID = key.GetID();
-          string strAddress = CBitcoinAddress(keyID).ToString();
-          char *c_addr_type = (char *)"";
-          string strPacket;
-          if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
-          vector<unsigned char>hash = ParseHex(strObfuscatedHashes[mdata_count+1]);
-          vector<unsigned char>packet = ParseHex(multisig_script_data[k].substr(2*1,2*PACKET_SIZE));
-          for (unsigned int i=0;i<packet.size();i++) { // this is a data packet, must deobfuscate now
-              packet[i] ^= hash[i];
+      // ### CLASS B SPECIFC PARSING ###
+      if (omniClass == OMNI_CLASS_B) {
+          for (unsigned int k = 0; k<multisig_script_data.size();k++) {
+              if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              CPubKey key(ParseHex(multisig_script_data[k]));
+              CKeyID keyID = key.GetID();
+              string strAddress = CBitcoinAddress(keyID).ToString();
+              char *c_addr_type = (char *)"";
+              string strPacket;
+              if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+              vector<unsigned char>hash = ParseHex(strObfuscatedHashes[mdata_count+1]);
+              vector<unsigned char>packet = ParseHex(multisig_script_data[k].substr(2*1,2*PACKET_SIZE));
+              for (unsigned int i=0;i<packet.size();i++) { // this is a data packet, must deobfuscate now
+                  packet[i] ^= hash[i];
+              }
+              memcpy(&packets[mdata_count], &packet[0], PACKET_SIZE);
+              strPacket = HexStr(packet.begin(),packet.end(), false);
+              ++mdata_count;
+              if (MAX_PACKETS <= mdata_count) {
+                  file_log("increase MAX_PACKETS ! mdata_count= %d\n", mdata_count);
+                  return -222;
+              }
+              if (msc_debug_parser_data) file_log("multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
+              if (!strPacket.empty()) { if (msc_debug_parser) file_log("packet #%d: %s\n", mdata_count, strPacket.c_str()); }
+              if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
           }
-          memcpy(&packets[mdata_count], &packet[0], PACKET_SIZE);
-          strPacket = HexStr(packet.begin(),packet.end(), false);
-          ++mdata_count;
-          if (MAX_PACKETS <= mdata_count) {
-              file_log("increase MAX_PACKETS ! mdata_count= %d\n", mdata_count);
-              return -222;
-          }
-          if (msc_debug_parser_data) file_log("multisig_data[%d]:%s: %s%s\n", k, multisig_script_data[k].c_str(), strAddress.c_str(), c_addr_type);
-          if (!strPacket.empty()) { if (msc_debug_parser) file_log("packet #%d: %s\n", mdata_count, strPacket.c_str()); }
+          packet_size = mdata_count * (PACKET_SIZE - 1);
+          if (sizeof(single_pkt)<packet_size) return -111;
           if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
       }
-      packet_size = mdata_count * (PACKET_SIZE - 1);
-      if (sizeof(single_pkt)<packet_size) return -111;
-      if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+      // ### CLASS C SPECIFIC PARSING ###
+      if (omniClass == OMNI_CLASS_C) {
+
+      }
   }
 
 
-  // ### CLASS C PARSING ###
-  if (omniClass == OMNI_CLASS_C) {
-
-  }
-
-
-  // ### DECODE & FINALIZE ###
-  if (msc_debug_parser) file_log("%s(), line %d, file: %s\n", __FUNCTION__, __LINE__, __FILE__);
+  // ### FINALIZE ###
   for (int m=0;m<mdata_count;m++) { // now decode mastercoin packets
       if (msc_debug_parser) file_log("m=%d: %s\n", m, HexStr(packets[m], PACKET_SIZE + packets[m], false).c_str());
       // check to ensure the sequence numbers are sequential and begin with 01 !
