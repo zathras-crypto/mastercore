@@ -2609,6 +2609,49 @@ int64_t feeCheck(const string &address)
     return selectCoins(address, coinControl, 0);
 }
 
+// CLASS C SEND - redemption address ignored but left in for compatibility at this stage
+int mastercore::ClassC_send(const string &senderAddress, const string &receiverAddress, const string &redemptionAddress, const vector<unsigned char> &data, uint256 & txid, int64_t referenceamount)
+{
+    CWallet *wallet = pwalletMain;
+    CCoinControl coinControl;
+    vector< pair<CScript, int64_t> > vecSend;
+    if (0 > selectCoins(senderAddress, coinControl, referenceamount)) { return MP_INPUTS_INVALID; }
+    txid = 0;
+    CWalletTx wtxNew; // prepare a new transaction
+    int64_t nFeeRet = 0;
+    std::string strFailReason;
+    CReserveKey reserveKey(wallet);
+    CBitcoinAddress addr = CBitcoinAddress(senderAddress);  // change goes back to us
+    coinControl.destChange = addr.Get();
+    CScript scriptPubKey;
+    if (!receiverAddress.empty()) { // add the the reference/recepient/receiver ouput if needed
+        scriptPubKey.SetDestination(CBitcoinAddress(receiverAddress).Get());
+        vecSend.push_back(make_pair(scriptPubKey, 0 < referenceamount ? referenceamount : GetDustLimit(scriptPubKey)));
+    }
+    scriptPubKey.SetDestination(CBitcoinAddress(exodus_address).Get());
+    vecSend.push_back(make_pair(scriptPubKey, GetDustLimit(scriptPubKey))); // add the marker output
+    CScript op_return_output;
+    op_return_output << OP_RETURN << data;
+    vecSend.push_back(make_pair(op_return_output, 0));
+    if (!wallet) return MP_ERR_WALLET_ACCESS;
+    if (!coinControl.HasSelected()) return MP_ERR_INPUTSELECT_FAIL; // selected in the parent function, i.e.: ensure we are only using the address passed in as the Sender
+    LOCK(wallet->cs_wallet);
+    // the fee will be computed by Bitcoin Core, need an override (?) // TODO: look at Bitcoin Core's global: nTransactionFee (?)
+    if (!wallet->CreateTransaction(vecSend, wtxNew, reserveKey, nFeeRet, strFailReason, &coinControl)) { printf("FAIL %s\n",strFailReason.c_str()); return MP_ERR_CREATE_TX; }
+    if (bRawTX) {
+        CTransaction tx = (CTransaction) wtxNew;
+        CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+        ssTx << tx;
+        string strHex = HexStr(ssTx.begin(), ssTx.end());
+        printf("RawTX:\n%s\n\n", strHex.c_str());
+        return 0;
+    }
+    file_log("%s():%s; nFeeRet = %lu, line %d, file: %s\n", __FUNCTION__, wtxNew.ToString().c_str(), nFeeRet, __LINE__, __FILE__);
+    if (!wallet->CommitTransaction(wtxNew, reserveKey)) return MP_ERR_COMMIT_TX;
+    txid = wtxNew.GetHash();
+    return 0;
+}
+
 //
 // Do we care if this is true: pubkeys[i].IsCompressed() ???
 // returns 0 if everything is OK, the transaction was sent
@@ -2867,7 +2910,7 @@ const unsigned int prop = PropertyID;
     PUSH_BACK_BYTES(data, action);
   }
 
-  rc = ClassB_send(FromAddress, ToAddress, RedeemAddress, data, txid, additional);
+  rc = ClassC_send(FromAddress, ToAddress, RedeemAddress, data, txid, additional);
   if (msc_debug_send) file_log("ClassB_send returned %d\n", rc);
 
   if (error_code) *error_code = rc;
