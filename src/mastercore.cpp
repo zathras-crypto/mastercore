@@ -20,6 +20,7 @@
 #include "wallet.h"
 // #include "walletdb.h"
 #include "coincontrol.h"
+#include "script.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -2616,7 +2617,7 @@ int mastercore::ClassAgnostic_send(const string &senderAddress, const string &re
     CCoinControl coinControl;
     vector< pair<CScript, int64_t> > vecSend;
     bool fallBackToClassB = false;
-    if(data.size()>80) fallBackToClassB = true; // OP_RETURN data size limited to 80 bytes, if over this send via multisig
+    if(data.size()>nMaxDatacarrierBytes) fallBackToClassB = true; // OP_RETURN data size limited to nMaxDatacarrierBytes bytes, if over this send via multisig
     CWalletTx wtxNew; // prepare a new transaction
     int64_t nFeeRet = 0;
     std::string strFailReason;
