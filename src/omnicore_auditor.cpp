@@ -3,6 +3,7 @@
 #include "omnicore_auditor.h"
 #include "mastercore.h"
 #include "mastercore_sp.h"
+#include "mastercore_dex.h"
 #include "main.h"
 
 #include <boost/lexical_cast.hpp>
@@ -92,6 +93,15 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
         printf("Auditor has detected inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight);
         if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
     }
+
+    // Check the MetaDEx does not have any bad trades present
+    uint256 badTrade = SearchForBadTrades();
+    if (badTrade == 0) {
+        if (omni_debug_auditor_verbose) printf("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
+    } else { // audit failure
+        printf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\n", badTrade.GetHex().c_str(), pBlockIndex->nHeight);
+        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
+    }
 }
 
 /* This function updates the property totals cache when an increase occurs
@@ -133,6 +143,27 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
         printf("Auditor has detected a duplicated or non sequential property ID when attempting to insert property %u\n",propertyId);
         if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
     }
+}
+
+/* This function searches the MetaDEx maps for any invalid trades
+ */
+uint256 SearchForBadTrades()
+{
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
+        md_PricesMap & prices = my_it->second;
+        for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it) {
+            XDOUBLE price = (it->first);
+            md_Set & indexes = (it->second);
+            for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
+                CMPMetaDEx obj = *it;
+                if (0 >= obj.getAmountDesired()) return obj.getHash();
+                if (0 >= obj.getAmountForSale()) return obj.getHash();
+                if (0 >= price) return obj.getHash();
+                if (0 >= obj.effectivePrice()) return obj.getHash();
+            }
+        }
+    }
+    return 0;
 }
 
 /* This function compares the cached number of properties with the state

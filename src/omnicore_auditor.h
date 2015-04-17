@@ -1,6 +1,8 @@
 #ifndef OMNICORE_AUDITOR_H
 #define OMNICORE_AUDITOR_H
 
+#include "uint256.h"
+
 #include <stdint.h>
 #include <string>
 
@@ -19,6 +21,7 @@ namespace mastercore
 
 uint32_t ComparePropertyTotals();
 bool ComparePropertyCounts();
+uint256 SearchForBadTrades();
 
 #endif // OMNICORE_AUDITOR_H
 
