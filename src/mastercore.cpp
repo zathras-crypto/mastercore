@@ -1727,6 +1727,11 @@ const int max_block = GetHeight();
   CBlock block;
   for (int blockNum = nHeight;blockNum<=max_block;blockNum++)
   {
+    if (ShutdownRequested()) {
+        file_log("Shutdown requested, stop scan at block %d of %d\n", blockNum, max_block);
+        break;
+    }
+
     CBlockIndex* pblockindex = chainActive[blockNum];
     string strBlockHash = pblockindex->GetBlockHash().GetHex();
 
