@@ -16,6 +16,7 @@ int omni_debug_auditor_verbose = 0; // TO BE REMOVED WHEN DEXX's LOGGER CHANGES 
 std::map<uint32_t, int64_t> mapPropertyTotals;
 uint32_t auditorPropertyCountMainEco = 0;
 uint32_t auditorPropertyCountTestEco = 0;
+int64_t lastBlockProcessed = -1;
 
 /* This function initializes the auditor
  */
@@ -46,6 +47,19 @@ void mastercore::Auditor_NotifyBlockStart(CBlockIndex const * pBlockIndex)
 {
     // DEBUG : Log that auditor informed a new block
     if (omni_debug_auditor_verbose) printf("Auditor was notified block %d has begun processing\n", pBlockIndex->nHeight);
+
+    // Is this the first block processed or is this block number as expected?
+    if (lastBlockProcessed == -1) {
+        lastBlockProcessed = pBlockIndex->nHeight;
+    } else {
+        if (lastBlockProcessed+1 == pBlockIndex->nHeight) {
+            if (omni_debug_auditor_verbose) printf("Auditor did not detect processing of an out of order block (%d)\n", pBlockIndex->nHeight);
+            lastBlockProcessed = pBlockIndex->nHeight;
+        } else { // audit failure - case should never occur but safety check
+            printf("Auditor has detected processing of a block in a non-sequential order (%d)\n", pBlockIndex->nHeight);
+            if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
+        }
+    }
 }
 
 /* This function handles auditor functions for the end of a block
@@ -54,6 +68,12 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
 {
     // DEBUG : Log that auditor informed block processing completed
     if (omni_debug_auditor_verbose) printf("Auditor was notified block %d has been processed\n", pBlockIndex->nHeight);
+
+    // Verify that the finish notification is for the correct block (otherwise the auditor has somehow missed a/some block(s)
+    if (pBlockIndex->nHeight != lastBlockProcessed) { // audit failure
+        printf("Auditor has received unexpected notification of completion of block %d\n", pBlockIndex->nHeight);
+        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
+    }
 
     // Compare the property totals from the state with the auditor property totals map
     int mismatch = ComparePropertyTotals();
