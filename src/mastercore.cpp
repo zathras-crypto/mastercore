@@ -22,6 +22,7 @@
 #include "mastercore_sp.h"
 #include "mastercore_tx.h"
 #include "mastercore_version.h"
+#include "omnicore_auditor.h"
 
 #include "base58.h"
 #include "chainparams.h"
@@ -1024,7 +1025,16 @@ const double available_reward=all_reward * part_available;
   update_tally_map(exodus_address, OMNI_PROPERTY_MSC, exodus_delta, BALANCE);
   exodus_prev = devmsc;
 
-  return devmsc;
+  return exodus_delta;
+}
+
+uint32_t mastercore::GetNextPropertyId(bool maineco)
+{
+  if(maineco) {
+      return _my_sps->peekNextSPID(1);
+  } else {
+      return _my_sps->peekNextSPID(2);
+  }
 }
 
 // TODO: optimize efficiency -- iterate only over wallet's addresses in the future
@@ -1126,9 +1136,14 @@ int TXExodusFundraiser(const CTransaction &wtx, const string &sender, int64_t Ex
 
     uint64_t msc_tot= round( 100 * ExodusHighestValue * bonus ); 
     if (msc_debug_exo) file_log("Exodus Fundraiser tx detected, tx %s generated %lu.%08lu\n",wtx.GetHash().ToString().c_str(), msc_tot / COIN, msc_tot % COIN);
- 
+
     update_tally_map(sender, OMNI_PROPERTY_MSC, msc_tot, BALANCE);
     update_tally_map(sender, OMNI_PROPERTY_TMSC, msc_tot, BALANCE);
+
+    if (auditorEnabled) {
+        Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, OMNI_PROPERTY_MSC, msc_tot, "Exodus Crowdsale (txid: " + wtx.GetHash().ToString() + ")");
+        Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, OMNI_PROPERTY_TMSC, msc_tot, "Exodus Crowdsale (txid: " + wtx.GetHash().ToString() + ")");
+    }
 
     return 0;
   }
@@ -2617,6 +2632,10 @@ int mastercore_init()
   // redundant? do we need to show it both pre-parse and post-parse?  if so let's label the printfs accordingly
   exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   printf("[Snapshot] Exodus balance: %s\n", FormatDivisibleMP(exodus_balance).c_str());
+
+  // determine whether we should disable the auditor (default enabled) and initialize it
+  if (GetBoolArg("-disableauditor", false)) auditorEnabled = false;
+  if (auditorEnabled) Auditor_Initialize();
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
   (void) p_txlistdb->setLastAlert(nWaterlineBlock);
@@ -4132,6 +4151,9 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
     if (nBlockTop < nBlockPrev + 1)
       return 0;
 
+  // notify the auditor we're about to start processing a block
+  if (auditorEnabled) Auditor_NotifyBlockStart(pBlockIndex);
+
   (void) eraseExpiredCrowdsale(pBlockIndex);
 
   return 0;
@@ -4163,6 +4185,9 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   // calculate devmsc as of this block and update the Exodus' balance
   devmsc = calculate_and_update_devmsc(pBlockIndex->GetBlockTime());
 
+  // notify the auditor that the total number of tokens has changed
+  if ((devmsc > 0) && (auditorEnabled)) Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, OMNI_PROPERTY_MSC, devmsc, strprintf("Dev MSC award (block: %d)", nBlockNow));
+
   if (msc_debug_exo)
     file_log("devmsc for block %d: %lu, Exodus balance: %lu\n", nBlockNow,
         devmsc, getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE));
@@ -4178,6 +4203,10 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   {
     uiInterface.OmniStateChanged();
   }
+
+  // TODO - do we trust countMP enough to rely on it for auditor?  Would save running audits on blocks with no omni transactions (performance gain)
+  // notify the auditor we've finished processing a block
+  if (auditorEnabled) Auditor_NotifyBlockFinish(pBlockIndex);
 
   // save out the state after this block
   if (writePersistence(nBlockNow))
@@ -4290,6 +4319,12 @@ std::string new_global_alert_message;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         update_tally_map(sender, id, nValue, BALANCE);
+
+        // notify the auditor that we've created a new token and add the issued tokens
+        if (auditorEnabled) {
+            Auditor_NotifyPropertyCreated(id);
+            Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, id, nValue, "Fixed issuance (txid: " + txid.GetHex() + ")");
+        }
       }
       rc = 0;
       break;
@@ -4332,6 +4367,9 @@ std::string new_global_alert_message;
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         my_crowds.insert(std::make_pair(sender, CMPCrowd(id, nValue, property, deadline, early_bird, percentage, 0, 0)));
         file_log("CREATED CROWDSALE id: %u value: %lu property: %u\n", id, nValue, property);  
+
+        // notify the auditor that we've created a new token
+        if (auditorEnabled) Auditor_NotifyPropertyCreated(id);
       }
       rc = 0;
       break;
@@ -4416,6 +4454,9 @@ std::string new_global_alert_message;
 
         const unsigned int id = _my_sps->putSP(ecosystem, newSP);
         file_log("CREATED MANUAL PROPERTY id: %u admin: %s \n", id, sender.c_str());
+
+        // notify the auditor that we've created a new token
+        if (auditorEnabled) Auditor_NotifyPropertyCreated(id);
       }
       rc = 0;
       break;
@@ -4608,6 +4649,9 @@ int invalid = 0;  // unused
             update_tally_map(sender, crowd->getPropertyId(), tokens.first, BALANCE);
             update_tally_map(receiver, crowd->getPropertyId(), tokens.second, BALANCE);
 
+            // notify the auditor that we've created some tokens
+            if (auditorEnabled) Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, crowd->getPropertyId(), tokens.first+tokens.second, "Crowdsale Purchase (txid: " + txid.GetHex() + ")");
+
             // close crowdsale if we hit MAX_TOKENS
             if( close_crowdsale ) {
               eraseMaxedCrowdsale(receiver, blockTime, block);
@@ -4772,6 +4816,9 @@ int rc = PKT_ERROR_STO -1000;
         {
           // impossible to reach this, the check was done just before (the check is not necessary since update_tally_map checks balances too)
           return (PKT_ERROR_STO -500);
+        } else {
+            // notify the auditor that we've burned some tokens (reduced the total)
+            if (auditorEnabled) Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_DECREASE, feeProperty, nXferFee, "Send To Owners Fee (txid: " + txid.GetHex() + ")");
         }
       } //  if first ITERATION END
 
@@ -4783,6 +4830,7 @@ int rc = PKT_ERROR_STO -1000;
         // rc = ???
       }
     } // two-iteration loop END
+
 
     return rc;
 }

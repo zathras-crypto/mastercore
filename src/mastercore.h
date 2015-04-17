@@ -60,6 +60,10 @@ int const MAX_STATE_HISTORY = 50;
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
 
+// Auditor increase/decrease
+#define OMNI_AUDITOR_DECREASE 0
+#define OMNI_AUDITOR_INCREASE 1
+
 // Maximum outputs per BTC Transaction
 #define MAX_BTC_OUTPUTS 16
 
@@ -552,6 +556,7 @@ uint256 send_INTERNAL_1packet(const string &FromAddress, const string &ToAddress
 
 bool isTestEcosystemProperty(unsigned int property);
 bool isMainEcosystemProperty(unsigned int property);
+uint32_t GetNextPropertyId(bool maineco);
 
 CMPTally *getTally(const string & address);
 
