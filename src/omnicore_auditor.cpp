@@ -111,7 +111,6 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
         if (omni_debug_auditor) printf("Auditor was notified of a new property creation with ID %u\n", propertyId);
     } else { // audit failure - new property, it should not already exist in cached totals map
         printf("Auditor has detected a duplicated or non sequential property ID when attempting to insert property %u\n",propertyId);
-printf ("%u    %u\n",auditorPropertyCountMainEco+1,auditorPropertyCountTestEco+1);
         if (!GetBoolArg("-overrideforcedshutdown", false)) AbortNode("Shutting down due to audit failure");
     }
 }
