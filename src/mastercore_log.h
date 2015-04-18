@@ -43,6 +43,8 @@ extern bool msc_debug_ui;
 extern bool msc_debug_metadex1;
 extern bool msc_debug_metadex2;
 extern bool msc_debug_metadex3;
+extern bool omni_debug_auditor;
+extern bool omni_debug_auditor_verbose;
 
 /* When we switch to C++11, this can be switched to variadic templates instead
  * of this macro-based construction (see tinyformat.h).
