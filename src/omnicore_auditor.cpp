@@ -8,6 +8,7 @@
 #include "main.h"
 
 #include <boost/lexical_cast.hpp>
+#include <map>
 
 using namespace mastercore;
 
@@ -30,10 +31,10 @@ void mastercore::Auditor_Initialize()
     unsigned int nextPropIdMainEco = GetNextPropertyId(true);
     unsigned int nextPropIdTestEco = GetNextPropertyId(false);
     for (propertyId = 1; propertyId < nextPropIdMainEco; propertyId++) {
-        mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,getTotalTokens(propertyId)));
+        mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,SafeGetTotalTokens(propertyId)));
     }
     for (propertyId = 2147483650; propertyId < nextPropIdTestEco; propertyId++) {
-        mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,getTotalTokens(propertyId)));
+        mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,SafeGetTotalTokens(propertyId)));
     }
 
     // Initialize property counts
@@ -110,7 +111,7 @@ void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t prop
     std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
     if(it != mapPropertyTotals.end()) {
         int64_t cachedValue = it->second;
-        int64_t stateValue = getTotalTokens(propertyId);
+        int64_t stateValue = SafeGetTotalTokens(propertyId);
         int64_t newValue;
         if (increase) { newValue = cachedValue + amount; } else { newValue = cachedValue - amount; }
         if (newValue == stateValue) { // additional sanity check - cached + amount increased should equal state total
@@ -187,11 +188,33 @@ uint32_t ComparePropertyTotals()
     unsigned int nextPropIdTestEco = GetNextPropertyId(false);
     for (propertyId = 1; propertyId < nextPropIdMainEco; propertyId++) {
         std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
-        if(it == mapPropertyTotals.end()) { return propertyId; } else { if (getTotalTokens(propertyId) != it->second) return propertyId; }
+        if(it == mapPropertyTotals.end()) { return propertyId; } else { if (SafeGetTotalTokens(propertyId) != it->second) return propertyId; }
     }
     for (propertyId = 2147483650; propertyId < nextPropIdTestEco; propertyId++) {
         std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
-        if(it == mapPropertyTotals.end()) { return propertyId; } else { if (getTotalTokens(propertyId) != it->second) return propertyId; }
+        if(it == mapPropertyTotals.end()) { return propertyId; } else { if (SafeGetTotalTokens(propertyId) != it->second) return propertyId; }
     }
     return 0;
 }
+
+/* This function obtains the total number of tokens for propertyId from the balances tally.
+ *
+ * Note: similar to getTotalTokens, however getTotalTokens utilizes a shortcut to request the
+ * number of tokens originally issued from the SP object for a fixed issuance property since the
+ * number of tokens should never change.  However for auditing purposes we want to verify how many
+ * tokens exist *now* so must avoid using such a shortcut.
+ */
+int64_t SafeGetTotalTokens(uint32_t propertyId)
+{
+  LOCK(cs_tally);
+  int64_t totalTokens = 0;
+  for(std::map<string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it) {
+      string address = (my_it->first).c_str();
+      totalTokens += getMPbalance(address, propertyId, BALANCE);
+      totalTokens += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
+      totalTokens += getMPbalance(address, propertyId, METADEX_RESERVE);
+      if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+  }
+  return totalTokens;
+}
+

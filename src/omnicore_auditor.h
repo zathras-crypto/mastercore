@@ -22,6 +22,7 @@ namespace mastercore
 uint32_t ComparePropertyTotals();
 bool ComparePropertyCounts();
 uint256 SearchForBadTrades();
+int64_t SafeGetTotalTokens(uint32_t propertyId);
 
 #endif // OMNICORE_AUDITOR_H
 
