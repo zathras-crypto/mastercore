@@ -26,6 +26,7 @@ uint32_t ComparePropertyTotals();
 bool ComparePropertyCounts();
 uint256 SearchForBadTrades(std::string &reasonText);
 int64_t SafeGetTotalTokens(uint32_t propertyId);
+void AuditFail(const std::string& msg);
 
 #endif // OMNICORE_AUDITOR_H
 

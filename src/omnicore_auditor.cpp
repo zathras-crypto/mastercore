@@ -70,8 +70,7 @@ void mastercore::Auditor_NotifyBlockStart(CBlockIndex const * pBlockIndex)
             if (omni_debug_auditor_verbose) file_log("Auditor did not detect processing of an out of order block (%d)\n", pBlockIndex->nHeight);
             lastBlockProcessed = pBlockIndex->nHeight;
         } else { // audit failure - case should never occur but safety check
-            file_log("Auditor has detected processing of a block in a non-sequential order (%d)\n", pBlockIndex->nHeight);
-            if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+            AuditFail(strprintf("Auditor has detected processing of a block in a non-sequential order (%d)\n", pBlockIndex->nHeight));
         }
     }
 }
@@ -85,8 +84,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
 
     // Verify that the finish notification is for the correct block (otherwise the auditor has somehow missed a/some block(s)
     if (pBlockIndex->nHeight != lastBlockProcessed) { // audit failure
-        file_log("Auditor has received unexpected notification of completion of block %d\n", pBlockIndex->nHeight);
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has received unexpected notification of completion of block %d\n", pBlockIndex->nHeight));
     }
 
     // Compare the property totals from the state with the auditor property totals map
@@ -94,8 +92,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     if (mismatch == 0) {
         if (omni_debug_auditor_verbose) file_log("Auditor did not detect any inconsistencies in property token totals following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
-        file_log("Auditor has detected inconsistencies in the amount of tokens for property %u following block %d\n", mismatch, pBlockIndex->nHeight);
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected inconsistencies in the amount of tokens for property %u following block %d\n", mismatch, pBlockIndex->nHeight));
     }
 
     // Compare the number of properties in state with cache
@@ -103,8 +100,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     if (comparePropertyCount) {
         if (omni_debug_auditor_verbose) file_log("Auditor did not detect any inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
-        file_log("Auditor has detected inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight);
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight));
     }
 
     // Check the MetaDEx does not have any bad trades present
@@ -113,9 +109,8 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     if (badTrade == 0) {
         if (omni_debug_auditor_verbose) file_log("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
-        file_log("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\n", badTrade.GetHex().c_str(), pBlockIndex->nHeight);
-        file_log("Reason: %s\n", reasonText.c_str());
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\nReason: %s\n",
+            badTrade.GetHex().c_str(), pBlockIndex->nHeight, reasonText.c_str()));
     }
 }
 
@@ -135,13 +130,12 @@ void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t prop
                 file_log("Auditor was notified of %s of %ld tokens for property %u due to %s\n", increase ? "an increase" : "a decrease", amount, propertyId, reasonStr.c_str());
             }
         } else { // audit failure - sanity check failed
-            file_log("Auditor has detected inconsistencies when attempting to update the total amount of tokens for property %u\n",propertyId);
-            file_log("Type:%s  Amount cached:%ld  Amount changed:%ld  Amount updated:%ld  Amount state:%ld\n", increase ? "increase" : "decrease", cachedValue, amount, newValue, stateValue);
-            if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+            AuditFail(strprintf("Auditor has detected inconsistencies when attempting to update the total amount of tokens for property %u\n"
+                "Type:%s  Total cached:%ld, Amount changed:%ld, Total cached after update:%ld, Total from state:%ld\n",
+                propertyId, increase ? "increase" : "decrease", cachedValue, amount, newValue, stateValue));
         }
     } else { // audit failure - property not found
-        file_log("Auditor has detected inconsistencies when attempting to update the total amount of tokens for non-existent property %u\n",propertyId);
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected inconsistencies when attempting to update the total amount of tokens for non-existent property %u\n",propertyId));
     }
 }
 
@@ -155,8 +149,7 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
         if (!isTestEcosystemProperty(propertyId)) { auditorPropertyCountMainEco += 1; } else { auditorPropertyCountTestEco += 1; }
         if (omni_debug_auditor) file_log("Auditor was notified of a new property creation with ID %u\n", propertyId);
     } else { // audit failure - new property, it should not already exist in cached totals map
-        file_log("Auditor has detected a duplicated or non sequential property ID when attempting to insert property %u\n",propertyId);
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected a duplicated or non sequential property ID when attempting to insert property %u\n",propertyId));
     }
 }
 
@@ -170,9 +163,17 @@ void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice
         if (omni_debug_auditor) file_log("Auditor was notified of a new trade with price %s (txid: %s)\n",
             effectivePrice.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed),txid.GetHex());
     } else { // audit failure - the same new trade cannot be processed twice
-        file_log("Auditor has detected an attempt to add a new trade that has already been processed (txid: %s)\n",txid.GetHex());
-        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+        AuditFail(strprintf("Auditor has detected an attempt to add a new trade that has already been processed (txid: %s)\n",txid.GetHex()));
     }
+}
+
+/* This function handles an audit failure
+ */
+void AuditFail(const std::string& msg)
+{
+    file_log("%s\n", msg);
+    if (!GetBoolArg("-overrideforcedshutdown", false))
+        AbortOmniNode("Shutting down due to audit failure.  Please check mastercore.log for details");
 }
 
 /* This function searches the MetaDEx maps for any invalid trades
