@@ -12,9 +12,10 @@
 
 using namespace mastercore;
 
-bool auditorEnabled = true; // dinable with --disableauditor startup param
+bool auditorEnabled = true; // disable with --disableauditor startup param
 
 std::map<uint32_t, int64_t> mapPropertyTotals;
+std::map<uint256, XDOUBLE> mapMetaDExUnitPrices;
 uint32_t auditorPropertyCountMainEco = 0;
 uint32_t auditorPropertyCountTestEco = 0;
 int64_t lastBlockProcessed = -1;
@@ -23,9 +24,6 @@ int64_t lastBlockProcessed = -1;
  */
 void mastercore::Auditor_Initialize()
 {
-    // Log auditor startup
-    file_log("Auditor initialized\n");
-
     // Initialize property totals map
     unsigned int propertyId;
     unsigned int nextPropIdMainEco = GetNextPropertyId(true);
@@ -37,9 +35,24 @@ void mastercore::Auditor_Initialize()
         mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,SafeGetTotalTokens(propertyId)));
     }
 
+    // Initialize MetaDEx unit prices cache
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
+        md_PricesMap & prices = my_it->second;
+        for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it) {
+            md_Set & indexes = (it->second);
+            for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
+                CMPMetaDEx obj = *it;
+                mapMetaDExUnitPrices.insert(std::pair<uint256,XDOUBLE>(obj.getHash(),obj.effectivePrice()));
+            }
+        }
+    }
+
     // Initialize property counts
     auditorPropertyCountMainEco = nextPropIdMainEco - 1;
     auditorPropertyCountTestEco = nextPropIdTestEco - 1;
+
+    // Log auditor startup
+    file_log("Auditor initialized\n");
 }
 
 /* This function handles auditor functions for the beginning of a block
@@ -95,11 +108,13 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     }
 
     // Check the MetaDEx does not have any bad trades present
-    uint256 badTrade = SearchForBadTrades();
+    std::string reasonText;
+    uint256 badTrade = SearchForBadTrades(reasonText);
     if (badTrade == 0) {
         if (omni_debug_auditor_verbose) file_log("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
         file_log("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\n", badTrade.GetHex().c_str(), pBlockIndex->nHeight);
+        file_log("Reason: %s\n", reasonText.c_str());
         if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
     }
 }
@@ -145,9 +160,29 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
     }
 }
 
-/* This function searches the MetaDEx maps for any invalid trades
+/* This function adds a new trade to the unit prices cache
  */
-uint256 SearchForBadTrades()
+void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice)
+{
+    std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(txid);
+    if (iter == mapMetaDExUnitPrices.end()) {
+        mapMetaDExUnitPrices.insert(std::pair<uint256,XDOUBLE>(txid,effectivePrice));
+        if (omni_debug_auditor) file_log("Auditor was notified of a new trade with price %s (txid: %s)\n",
+            effectivePrice.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed),txid.GetHex());
+    } else { // audit failure - the same new trade cannot be processed twice
+        file_log("Auditor has detected an attempt to add a new trade that has already been processed (txid: %s)\n",txid.GetHex());
+        if (!GetBoolArg("-overrideforcedshutdown", false)) AbortOmniNode("Shutting down due to audit failure");
+    }
+}
+
+/* This function searches the MetaDEx maps for any invalid trades
+ *
+ * NOTE: Invalid trades in the context of the auditor are defined as:
+ *       - Trades with zero amounts for sale or desired
+ *       - Trades with price or effective prices of zero
+ *       - Trades where the price or effective price has been modified
+ */
+uint256 SearchForBadTrades(std::string &reasonText)
 {
     for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
         md_PricesMap & prices = my_it->second;
@@ -156,10 +191,22 @@ uint256 SearchForBadTrades()
             md_Set & indexes = (it->second);
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
                 CMPMetaDEx obj = *it;
-                if (0 >= obj.getAmountDesired()) return obj.getHash();
-                if (0 >= obj.getAmountForSale()) return obj.getHash();
-                if (0 >= price) return obj.getHash();
-                if (0 >= obj.effectivePrice()) return obj.getHash();
+                if (0 >= obj.getAmountDesired()) { reasonText = "Amount desired equals zero"; return obj.getHash(); }
+                if (0 >= obj.getAmountForSale()) { reasonText = "Amount forsale equals zero"; return obj.getHash(); }
+                if (0 >= price) { reasonText = "Price index equals zero"; return obj.getHash(); }
+                if (0 >= obj.effectivePrice()) { reasonText = "Effective price equals zero"; return obj.getHash(); }
+                std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(obj.getHash());
+                if (iter==mapMetaDExUnitPrices.end()) {
+                    reasonText = "Auditor was not notified of this trade";
+                    return obj.getHash();
+                } else {
+                    if (obj.effectivePrice()!=iter->second) {
+                    reasonText = "Effective price has changed since original trade\nOriginal price:";
+                    reasonText += iter->second.str(125,std::ios_base::fixed) + "\n   State price:";
+                    reasonText += obj.effectivePrice().str(125,std::ios_base::fixed);
+                    return obj.getHash();
+                    }
+                }
             }
         }
     }

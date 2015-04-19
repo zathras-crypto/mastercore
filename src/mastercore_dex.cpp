@@ -7,6 +7,7 @@
 #include "mastercore_errors.h"
 #include "mastercore_log.h"
 #include "mastercore_tx.h"
+#include "omnicore_auditor.h"
 
 #include "main.h"
 #include "tinyformat.h"
@@ -740,6 +741,9 @@ int rc = METADEX_ERROR -1;
       // do not work with 0 prices
       return METADEX_ERROR -66;
     }
+
+    // insert the original trade price into the audit cache
+    Auditor_NotifyTradeCreated(txid, new_mdex.effectivePrice());
 
     if (msc_debug_metadex3) MetaDEx_debug_print();
 
