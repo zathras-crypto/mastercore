@@ -118,8 +118,10 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
  */
 void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t propertyId, int64_t amount, std::string const& reasonStr)
 {
+    if (propertyId == 0) AuditFail("Auditor was notified of a property total change for property ID zero\n");
+    if (amount <= 0) AuditFail(strprintf("Auditor was notified of a property total change with an invalid amount (%ld) for property %u\n", amount, propertyId));
     std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
-    if(it != mapPropertyTotals.end()) {
+    if (it != mapPropertyTotals.end()) {
         int64_t cachedValue = it->second;
         int64_t stateValue = SafeGetTotalTokens(propertyId);
         int64_t newValue;
@@ -143,6 +145,7 @@ void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t prop
  */
 void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
 {
+    if (propertyId == 0) AuditFail("Auditor was notified of a property creation with property ID zero\n");
     std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
     if((it == mapPropertyTotals.end()) && ((propertyId == auditorPropertyCountMainEco + 1) || (propertyId == auditorPropertyCountTestEco + 1))) { // check it does not already exist and is sequential
         mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,0));
@@ -157,6 +160,8 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
  */
 void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice)
 {
+    if (txid == 0) AuditFail("Auditor was notified of a new trade with an invalid txid\n");
+    if (effectivePrice <= 0) AuditFail(strprintf("Auditor was notified of a new trade with a zero or negative price: (%s) (txid: %s)\n", effectivePrice.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed), txid.GetHex()));
     std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(txid);
     if (iter == mapMetaDExUnitPrices.end()) {
         mapMetaDExUnitPrices.insert(std::pair<uint256,XDOUBLE>(txid,effectivePrice));
