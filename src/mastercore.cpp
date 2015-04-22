@@ -4073,6 +4073,11 @@ int mastercore_handler_block_end(int nBlockNow, CBlockIndex const * pBlockIndex,
   }
 
   // TODO - do we trust countMP enough to rely on it for auditor?  Would save running audits on blocks with no omni transactions (performance gain)
+  // Update - for the purposes of the auditor no we can't trust it - countMP is only incremented for transactions that return 0 all the way through
+  //          parseTransaction() and interpretPacket() but a non-zero return code somewhere along parsing and processing logic does not guarantee the
+  //          state has not been errorneously changed.
+  //          TODO - find a way of incrementing transaction count based on when we detect the marker, not after parsing and packet interpretation (so we can audit only Omni blocks)
+
   // notify the auditor we've finished processing a block
   if (auditorEnabled) Auditor_NotifyBlockFinish(pBlockIndex);
 
