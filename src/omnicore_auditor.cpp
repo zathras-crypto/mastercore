@@ -119,7 +119,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
 void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t propertyId, int64_t amount, std::string const& reasonStr)
 {
     if (propertyId == 0) AuditFail("Auditor was notified of a property total change for property ID zero\n");
-    if (amount <= 0) AuditFail(strprintf("Auditor was notified of a property total change with an invalid amount (%ld) for property %u\n", amount, propertyId));
+    if (amount <= 0) AuditFail(strprintf("Auditor was notified of a property total change with an invalid amount (%ld) for property %u due to %s\n", amount, propertyId, reasonStr.c_str()));
     std::map<uint32_t,int64_t>::iterator it = mapPropertyTotals.find(propertyId);
     if (it != mapPropertyTotals.end()) {
         int64_t cachedValue = it->second;
