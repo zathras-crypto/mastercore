@@ -27,6 +27,10 @@ int64_t lastBlockProcessed = -1;
  */
 void mastercore::Auditor_Initialize()
 {
+    // Log auditor startup
+    audit_log("##################################################################################\n");
+    audit_log("Auditor initializing...\n");
+
     // Initialize property totals map
     unsigned int propertyId;
     unsigned int nextPropIdMainEco = GetNextPropertyId(true);
@@ -54,7 +58,20 @@ void mastercore::Auditor_Initialize()
     auditorPropertyCountMainEco = nextPropIdMainEco - 1;
     auditorPropertyCountTestEco = nextPropIdTestEco - 1;
 
-    // Log auditor startup
+    // Audit the MetaDEx after loading from persistence (nothing to audit for fresh parse)
+    std::string reasonText;
+    for (int i = 1; i<100; ++i) { // stop after 100 bad trades - indicates significant bug
+        uint256 badTrade = SearchForBadTrades(reasonText);
+        if (badTrade == 0) { break; } else { AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx during initialization\n\t\t\tReason: %s\n",
+            badTrade.GetHex().c_str(), reasonText.c_str())); }
+    }
+    for (int i = 1; i<20; ++i) { // stop after 20 unmatched markets - indicates significant bug
+        uint32_t crossedMarket = SearchForUnmatchedTrades(reasonText);
+        if (crossedMarket == 0) { break; } else { AuditFail(strprintf("Auditor has detected unmatched trades for market %u in the MetaDEx during initialization\n%s\n",
+            crossedMarket, reasonText.c_str())); }
+    }
+
+    // Log auditor startup finished
     audit_log("Auditor initialized\n");
 }
 
