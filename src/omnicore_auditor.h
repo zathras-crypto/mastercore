@@ -25,6 +25,7 @@ namespace mastercore
 uint32_t ComparePropertyTotals();
 bool ComparePropertyCounts();
 uint256 SearchForBadTrades(std::string &reasonText);
+uint32_t SearchForUnmatchedTrades(std::string &reasonText);
 int64_t SafeGetTotalTokens(uint32_t propertyId);
 void AuditFail(const std::string& msg);
 

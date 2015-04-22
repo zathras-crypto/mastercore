@@ -18,6 +18,7 @@ bool auditorEnabled = true; // disable with --disableauditor startup param
 std::map<uint32_t, int64_t> mapPropertyTotals;
 std::map<uint256, XDOUBLE> mapMetaDExUnitPrices;
 std::vector<uint256> vecIgnoreTXIDs; // these vectors are only used when --overrideforcedshutdown is present to avoid spamming logs
+std::vector<uint32_t> vecIgnoreMarkets; // as above
 uint32_t auditorPropertyCountMainEco = 0;
 uint32_t auditorPropertyCountTestEco = 0;
 int64_t lastBlockProcessed = -1;
@@ -181,6 +182,55 @@ void AuditFail(const std::string& msg)
     audit_log("%s\n", msg);
     if (!GetBoolArg("-overrideforcedshutdown", false))
         AbortOmniNode("Shutting down due to audit failure.  Please check mastercore.log for details");
+}
+
+/* This function searches the MetaDEx for crossed pricing
+ */
+uint32_t SearchForUnmatchedTrades(std::string &reasonText)
+{
+    // Loop through each MetaDEx market (except 1 and 2)
+    for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
+        uint32_t propertyId = my_it->first;
+        if (std::find(vecIgnoreMarkets.begin(), vecIgnoreMarkets.end(), propertyId) == vecIgnoreMarkets.end()) { // don't spam the same issue if --overrideforcedshutdown is used
+            if ((propertyId == OMNI_PROPERTY_MSC) || (propertyId == OMNI_PROPERTY_TMSC)) continue;
+            // Determine primary market (MSC or TMSC)
+            uint32_t primaryMarket;
+            if (isTestEcosystemProperty(propertyId)) { primaryMarket = OMNI_PROPERTY_TMSC; } else { primaryMarket = OMNI_PROPERTY_MSC; }
+            // Determine the lowest priced sell
+            XDOUBLE lowestPriceSell = 0;
+            md_PricesMap & prices = my_it->second;
+            for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it) {
+                md_Set & indexes = (it->second);
+                for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
+                    CMPMetaDEx obj = *it;
+                    XDOUBLE price = obj.effectivePrice();
+                    if ((price > 0) && ((price < lowestPriceSell) || (lowestPriceSell == 0))) lowestPriceSell = price;
+                }
+            }
+            // Determine the highest priced 'buy' (inverse order)
+            XDOUBLE highestPriceBuy = 0;
+            md_PropertiesMap::iterator search_it = metadex.find(primaryMarket);
+            if (search_it != metadex.end()) {
+                md_PricesMap & buyPrices = search_it->second;
+                for (md_PricesMap::iterator buy_it = buyPrices.begin(); buy_it != buyPrices.end(); ++buy_it) {
+                    XDOUBLE buyPrice = (buy_it->first);
+                    md_Set & buyIndexes = (buy_it->second);
+                    for (md_Set::iterator set_it = buyIndexes.begin(); set_it != buyIndexes.end(); ++set_it) {
+                        CMPMetaDEx buyObj = *set_it;
+                        if (buyObj.getDesProperty() != propertyId) continue;
+                        if (buyPrice > highestPriceBuy) highestPriceBuy = buyPrice;
+                    }
+                }
+            }
+            if (lowestPriceSell <= highestPriceBuy) {
+                vecIgnoreMarkets.push_back(propertyId);
+                reasonText = strprintf("\t\t\tLowest sell: %s\n\t\t\tHighest buy: %s", lowestPriceSell.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed),
+                    highestPriceBuy.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed));
+                return propertyId;
+            }
+        }
+    }
+    return 0;
 }
 
 /* This function searches the MetaDEx maps for any invalid trades
