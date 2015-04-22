@@ -9,6 +9,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <map>
+#include <vector>
 
 using namespace mastercore;
 
@@ -16,6 +17,7 @@ bool auditorEnabled = true; // disable with --disableauditor startup param
 
 std::map<uint32_t, int64_t> mapPropertyTotals;
 std::map<uint256, XDOUBLE> mapMetaDExUnitPrices;
+std::vector<uint256> vecIgnoreTXIDs; // these vectors are only used when --overrideforcedshutdown is present to avoid spamming logs
 uint32_t auditorPropertyCountMainEco = 0;
 uint32_t auditorPropertyCountTestEco = 0;
 int64_t lastBlockProcessed = -1;
@@ -197,20 +199,25 @@ uint256 SearchForBadTrades(std::string &reasonText)
             md_Set & indexes = (it->second);
             for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
                 CMPMetaDEx obj = *it;
-                if (0 >= obj.getAmountDesired()) { reasonText = "Amount desired equals zero"; return obj.getHash(); }
-                if (0 >= obj.getAmountForSale()) { reasonText = "Amount forsale equals zero"; return obj.getHash(); }
-                if (0 >= price) { reasonText = "Price index equals zero"; return obj.getHash(); }
-                if (0 >= obj.effectivePrice()) { reasonText = "Effective price equals zero"; return obj.getHash(); }
-                std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(obj.getHash());
-                if (iter==mapMetaDExUnitPrices.end()) {
-                    reasonText = "Auditor was not notified of this trade";
-                    return obj.getHash();
-                } else {
-                    if (obj.effectivePrice()!=iter->second) {
-                    reasonText = "Effective price has changed since original trade\nOriginal price:";
-                    reasonText += iter->second.str(125,std::ios_base::fixed) + "\n   State price:";
-                    reasonText += obj.effectivePrice().str(125,std::ios_base::fixed);
-                    return obj.getHash();
+                uint256 txid = obj.getHash();
+                if (std::find(vecIgnoreTXIDs.begin(), vecIgnoreTXIDs.end(), txid) == vecIgnoreTXIDs.end()) { // don't spam the same issue if --overrideforcedshutdown is used
+                    if (0 >= obj.getAmountDesired()) { vecIgnoreTXIDs.push_back(txid); reasonText = "Amount desired equals zero"; return txid; }
+                    if (0 >= obj.getAmountForSale()) { vecIgnoreTXIDs.push_back(txid); reasonText = "Amount for sale equals zero"; return txid; }
+                    if (0 >= price) { vecIgnoreTXIDs.push_back(txid); reasonText = "Price index equals zero"; return txid; }
+                    if (0 >= obj.effectivePrice()) { vecIgnoreTXIDs.push_back(txid); reasonText = "Effective price equals zero"; return txid; }
+                    std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(obj.getHash());
+                    if (iter==mapMetaDExUnitPrices.end()) {
+                        vecIgnoreTXIDs.push_back(txid);
+                        reasonText = "Auditor was not notified of this trade";
+                        return txid;;
+                    } else {
+                        if (obj.effectivePrice()!=iter->second) {
+                            vecIgnoreTXIDs.push_back(txid);
+                            reasonText = "Effective price has changed since original trade\n\t\t\tOriginal price:";
+                            reasonText += iter->second.str(125,std::ios_base::fixed) + "\n\t\t\t   State price:";
+                            reasonText += obj.effectivePrice().str(125,std::ios_base::fixed);
+                            return txid;
+                        }
                     }
                 }
             }
