@@ -108,12 +108,17 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
 
     // Check the MetaDEx does not have any bad trades present
     std::string reasonText;
-    uint256 badTrade = SearchForBadTrades(reasonText);
-    if (badTrade == 0) {
-        if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
-    } else { // audit failure
-        AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\nReason: %s\n",
-            badTrade.GetHex().c_str(), pBlockIndex->nHeight, reasonText.c_str()));
+    for (int i = 1; i<100; ++i) { // stop after 100 bad trades - indicates significant bug
+        uint256 badTrade = SearchForBadTrades(reasonText);
+        if (badTrade == 0) { break; } else { AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx during initialization\n\t\t\tReason: %s\n",
+            badTrade.GetHex().c_str(), reasonText.c_str())); }
+    }
+
+    // Check the MetaDEx for any crossed/unmatched trades
+    for (int i = 1; i<20; ++i) { // stop after 20 unmatched markets - indicates significant bug
+        uint32_t crossedMarket = SearchForUnmatchedTrades(reasonText);
+        if (crossedMarket == 0) { break; } else { AuditFail(strprintf("Auditor has detected unmatched trades for market %u in the MetaDEx during initialization\n%s\n",
+            crossedMarket, reasonText.c_str())); }
     }
 }
 
