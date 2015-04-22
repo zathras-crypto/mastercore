@@ -75,6 +75,22 @@ void mastercore::Auditor_Initialize()
     audit_log("Auditor initialized\n");
 }
 
+/* This function reinitializes the auditor after a chain reorg/orphan
+ */
+void mastercore::Auditor_NotifyChainReorg(int nWaterlineBlock)
+{
+    audit_log("Auditor was notified that the state has been rolled back to block %d due to a reorg/orphan. The auditor will now restart\n", nWaterlineBlock);
+    // reset auditor state and reinitialize
+    auditorPropertyCountMainEco = 0;
+    auditorPropertyCountTestEco = 0;
+    lastBlockProcessed = -1;
+    mapPropertyTotals.clear();
+    mapMetaDExUnitPrices.clear();
+    vecIgnoreTXIDs.clear();
+    vecIgnoreMarkets.clear();
+    Auditor_Initialize();
+}
+
 /* This function handles auditor functions for the beginning of a block
  */
 void mastercore::Auditor_NotifyBlockStart(CBlockIndex const * pBlockIndex)

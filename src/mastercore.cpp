@@ -4013,6 +4013,9 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
       // scan from the block after the best active block to catch up to the active chain
       msc_initial_scan(nWaterlineBlock + 1);
     }
+
+    // notify the auditor of a reorg
+    if (auditorEnabled) Auditor_NotifyChainReorg(nWaterlineBlock);
   }
 
   if (0 < nBlockTop)

@@ -20,6 +20,7 @@ namespace mastercore
   void Auditor_NotifyPropertyTotalChanged(bool incrase, uint32_t propertyId, int64_t amount, std::string const& reasonStr);
   void Auditor_NotifyPropertyCreated(uint32_t propertyId);
   void Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice);
+  void Auditor_NotifyChainReorg(int nWaterlineBlock);
 }
 
 uint32_t ComparePropertyTotals();
