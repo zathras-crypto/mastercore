@@ -29,6 +29,8 @@
 #include "walletdb.h"
 #endif
 
+#include "mastercore_log.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -217,6 +219,7 @@ void HandleSIGTERM(int)
 void HandleSIGHUP(int)
 {
     fReopenDebugLog = true;
+    fReopenOmniLog = true;
 }
 
 bool static InitError(const std::string &str)

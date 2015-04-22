@@ -66,6 +66,8 @@ static boost::once_flag debugLogInitFlag = BOOST_ONCE_INIT;
 static FILE* fileout = NULL;
 static boost::mutex* mutexDebugLog = NULL;
 
+volatile bool fReopenOmniLog = false;
+
 /**
  * Opens debug log file.
  */
@@ -118,8 +120,8 @@ int LogFilePrint(const std::string& str)
         boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
         // Reopen the log file, if requested
-        if (fReopenDebugLog) {
-            fReopenDebugLog = false;
+        if (fReopenOmniLog) {
+            fReopenOmniLog = false;
             boost::filesystem::path pathDebug = GetDataDir() / LOG_FILENAME;
             if (freopen(pathDebug.string().c_str(), "a", fileout) != NULL) {
                 setbuf(fileout, NULL); // Unbuffered
