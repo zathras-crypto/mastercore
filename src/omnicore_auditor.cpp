@@ -52,7 +52,7 @@ void mastercore::Auditor_Initialize()
     auditorPropertyCountTestEco = nextPropIdTestEco - 1;
 
     // Log auditor startup
-    file_log("Auditor initialized\n");
+    audit_log("Auditor initialized\n");
 }
 
 /* This function handles auditor functions for the beginning of a block
@@ -60,14 +60,14 @@ void mastercore::Auditor_Initialize()
 void mastercore::Auditor_NotifyBlockStart(CBlockIndex const * pBlockIndex)
 {
     // DEBUG : Log that auditor informed a new block
-    if (omni_debug_auditor_verbose) file_log("Auditor was notified block %d has begun processing\n", pBlockIndex->nHeight);
+    if (omni_debug_auditor_verbose) audit_log("Auditor was notified block %d has begun processing\n", pBlockIndex->nHeight);
 
     // Is this the first block processed or is this block number as expected?
     if (lastBlockProcessed == -1) {
         lastBlockProcessed = pBlockIndex->nHeight;
     } else {
         if (lastBlockProcessed+1 == pBlockIndex->nHeight) {
-            if (omni_debug_auditor_verbose) file_log("Auditor did not detect processing of an out of order block (%d)\n", pBlockIndex->nHeight);
+            if (omni_debug_auditor_verbose) audit_log("Auditor did not detect processing of an out of order block (%d)\n", pBlockIndex->nHeight);
             lastBlockProcessed = pBlockIndex->nHeight;
         } else { // audit failure - case should never occur but safety check
             AuditFail(strprintf("Auditor has detected processing of a block in a non-sequential order (%d)\n", pBlockIndex->nHeight));
@@ -80,7 +80,7 @@ void mastercore::Auditor_NotifyBlockStart(CBlockIndex const * pBlockIndex)
 void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
 {
     // DEBUG : Log that auditor informed block processing completed
-    if (omni_debug_auditor_verbose) file_log("Auditor was notified block %d has been processed\n", pBlockIndex->nHeight);
+    if (omni_debug_auditor_verbose) audit_log("Auditor was notified block %d has been processed\n", pBlockIndex->nHeight);
 
     // Verify that the finish notification is for the correct block (otherwise the auditor has somehow missed a/some block(s)
     if (pBlockIndex->nHeight != lastBlockProcessed) { // audit failure
@@ -90,7 +90,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     // Compare the property totals from the state with the auditor property totals map
     int mismatch = ComparePropertyTotals();
     if (mismatch == 0) {
-        if (omni_debug_auditor_verbose) file_log("Auditor did not detect any inconsistencies in property token totals following block %d\n", pBlockIndex->nHeight);
+        if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any inconsistencies in property token totals following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
         AuditFail(strprintf("Auditor has detected inconsistencies in the amount of tokens for property %u following block %d\n", mismatch, pBlockIndex->nHeight));
     }
@@ -98,7 +98,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     // Compare the number of properties in state with cache
     bool comparePropertyCount = ComparePropertyCounts();
     if (comparePropertyCount) {
-        if (omni_debug_auditor_verbose) file_log("Auditor did not detect any inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight);
+        if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
         AuditFail(strprintf("Auditor has detected inconsistencies in the total number of properties following block %d\n", pBlockIndex->nHeight));
     }
@@ -107,7 +107,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     std::string reasonText;
     uint256 badTrade = SearchForBadTrades(reasonText);
     if (badTrade == 0) {
-        if (omni_debug_auditor_verbose) file_log("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
+        if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any problems in the MetaDEx maps following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
         AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\nReason: %s\n",
             badTrade.GetHex().c_str(), pBlockIndex->nHeight, reasonText.c_str()));
@@ -129,7 +129,7 @@ void mastercore::Auditor_NotifyPropertyTotalChanged(bool increase, uint32_t prop
         if (newValue == stateValue) { // additional sanity check - cached + amount increased should equal state total
             it->second = newValue;
             if ((omni_debug_auditor_verbose) || ((omni_debug_auditor) && (reasonStr.length() > 7) && (reasonStr.substr(0,7) != "Dev MSC"))) {
-                file_log("Auditor was notified of %s of %ld tokens for property %u due to %s\n", increase ? "an increase" : "a decrease", amount, propertyId, reasonStr.c_str());
+                audit_log("Auditor was notified of %s of %ld tokens for property %u due to %s\n", increase ? "an increase" : "a decrease", amount, propertyId, reasonStr.c_str());
             }
         } else { // audit failure - sanity check failed
             AuditFail(strprintf("Auditor has detected inconsistencies when attempting to update the total amount of tokens for property %u\n"
@@ -150,7 +150,7 @@ void mastercore::Auditor_NotifyPropertyCreated(uint32_t propertyId)
     if((it == mapPropertyTotals.end()) && ((propertyId == auditorPropertyCountMainEco + 1) || (propertyId == auditorPropertyCountTestEco + 1))) { // check it does not already exist and is sequential
         mapPropertyTotals.insert(std::pair<uint32_t,int64_t>(propertyId,0));
         if (!isTestEcosystemProperty(propertyId)) { auditorPropertyCountMainEco += 1; } else { auditorPropertyCountTestEco += 1; }
-        if (omni_debug_auditor) file_log("Auditor was notified of a new property creation with ID %u\n", propertyId);
+        if (omni_debug_auditor) audit_log("Auditor was notified of a new property creation with ID %u\n", propertyId);
     } else { // audit failure - new property, it should not already exist in cached totals map
         AuditFail(strprintf("Auditor has detected a duplicated or non sequential property ID when attempting to insert property %u\n",propertyId));
     }
@@ -165,7 +165,7 @@ void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice
     std::map<uint256,XDOUBLE>::iterator iter = mapMetaDExUnitPrices.find(txid);
     if (iter == mapMetaDExUnitPrices.end()) {
         mapMetaDExUnitPrices.insert(std::pair<uint256,XDOUBLE>(txid,effectivePrice));
-        if (omni_debug_auditor) file_log("Auditor was notified of a new trade with price %s (txid: %s)\n",
+        if (omni_debug_auditor) audit_log("Auditor was notified of a new trade with price %s (txid: %s)\n",
             effectivePrice.str(DISPLAY_PRECISION_LEN,std::ios_base::fixed),txid.GetHex());
     } else { // audit failure - the same new trade cannot be processed twice
         AuditFail(strprintf("Auditor has detected an attempt to add a new trade that has already been processed (txid: %s)\n",txid.GetHex()));
@@ -176,7 +176,7 @@ void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice
  */
 void AuditFail(const std::string& msg)
 {
-    file_log("%s\n", msg);
+    audit_log("%s\n", msg);
     if (!GetBoolArg("-overrideforcedshutdown", false))
         AbortOmniNode("Shutting down due to audit failure.  Please check mastercore.log for details");
 }
