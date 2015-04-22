@@ -220,6 +220,7 @@ void HandleSIGHUP(int)
 {
     fReopenDebugLog = true;
     fReopenOmniLog = true;
+    fReopenAuditLog = true;
 }
 
 bool static InitError(const std::string &str)

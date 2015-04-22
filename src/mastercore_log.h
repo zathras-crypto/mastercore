@@ -9,6 +9,9 @@
 /** Prints to the log file. */
 int LogFilePrint(const std::string& str);
 
+/** Prints to the audit file. */
+int LogAuditPrint(const std::string& str);
+
 /** Prints to the console. */
 int ConsolePrint(const std::string& str);
 
@@ -19,6 +22,7 @@ void ShrinkDebugLog();
 extern const std::string LOG_FILENAME;
 extern const std::string INFO_FILENAME;
 extern const std::string OWNERS_FILENAME;
+extern const std::string AUDIT_FILENAME;
 
 // Debug flags
 extern bool msc_debug_parser_data;
@@ -47,6 +51,7 @@ extern bool omni_debug_auditor;
 extern bool omni_debug_auditor_verbose;
 
 extern volatile bool fReopenOmniLog;
+extern volatile bool fReopenAuditLog;
 
 /* When we switch to C++11, this can be switched to variadic templates instead
  * of this macro-based construction (see tinyformat.h).
@@ -68,6 +73,16 @@ extern volatile bool fReopenOmniLog;
     static inline int file_log(TINYFORMAT_VARARGS(n))                           \
     {                                                                           \
         return LogFilePrint(tfm::format("%s", TINYFORMAT_PASSARGS(n)));         \
+    }                                                                           \
+    template<TINYFORMAT_ARGTYPES(n)>                                            \
+    static inline int audit_log(const char* format, TINYFORMAT_VARARGS(n))      \
+    {                                                                           \
+        return LogAuditPrint(tfm::format(format, TINYFORMAT_PASSARGS(n)));      \
+    }                                                                           \
+    template<TINYFORMAT_ARGTYPES(n)>                                            \
+    static inline int audit_log(TINYFORMAT_VARARGS(n))                          \
+    {                                                                           \
+        return LogAuditPrint(tfm::format("%s", TINYFORMAT_PASSARGS(n)));        \
     }                                                                           \
     template<TINYFORMAT_ARGTYPES(n)>                                            \
     static inline int PrintToConsole(const char* format, TINYFORMAT_VARARGS(n)) \
