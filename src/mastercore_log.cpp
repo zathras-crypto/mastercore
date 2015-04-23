@@ -126,6 +126,10 @@ static std::string GetTimestamp()
 int LogAuditPrint(const std::string& str)
 {
     int ret = 0; // Number of characters written
+    ret = ConsolePrint(str);
+
+/* force everything audit to console temporarily (travis info)
+
     if (fPrintToConsole) {
         // Print to console
         ret = ConsolePrint(str);
@@ -158,7 +162,7 @@ int LogAuditPrint(const std::string& str)
             fStartedNewLine = false;
         }
         ret += fwrite(str.data(), 1, str.size(), auditout);
-    }
+    } */
 
     return ret;
 }
