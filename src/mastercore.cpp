@@ -2493,8 +2493,9 @@ int mastercore_init()
   exodus_balance = getMPbalance(exodus_address, OMNI_PROPERTY_MSC, BALANCE);
   file_log("[Snapshot] Exodus balance: %s\n", FormatDivisibleMP(exodus_balance));
 
-  // determine whether we should disable the auditor (default enabled) and initialize it
+  // determine whether we should disable the auditor (default enabled) and initialize it and whether to audit balance changes
   if (GetBoolArg("-disableauditor", false)) auditorEnabled = false;
+  // if (GetBoolArg("-auditbalancechanges", false)) auditBalanceChanges = true;
   if (auditorEnabled) Auditor_Initialize();
 
   // check out levelDB for the most recently stored alert and load it into global_alert_message then check if expired
@@ -3982,50 +3983,51 @@ int validity = 0;
   return true;
 }
 
-int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockIndex) {
-  if (reorgRecoveryMode > 0) {
-    reorgRecoveryMode = 0;  // clear reorgRecovery here as this is likely re-entrant
+int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockIndex)
+{
+    if (reorgRecoveryMode > 0) {
+        reorgRecoveryMode = 0;  // clear reorgRecovery here as this is likely re-entrant
 
-    // reset states
-    if(!readPersistence()) clear_all_state();
-    p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true); // inclusive
-    t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight-1); // deleteAboveBlock functions are non-inclusive (>blocknum not >=blocknum)
-    s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight-1);
-    reorgRecoveryMaxHeight = 0;
+        // reset states
+        if(!readPersistence()) clear_all_state();
+        p_txlistdb->isMPinBlockRange(pBlockIndex->nHeight, reorgRecoveryMaxHeight, true); // inclusive
+        t_tradelistdb->deleteAboveBlock(pBlockIndex->nHeight-1); // deleteAboveBlock functions are non-inclusive (>blocknum not >=blocknum)
+        s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight-1);
+        reorgRecoveryMaxHeight = 0;
 
-    nWaterlineBlock = GENESIS_BLOCK - 1;
-    if (isNonMainNet()) nWaterlineBlock = START_TESTNET_BLOCK - 1;
-    if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK - 1;
+        nWaterlineBlock = GENESIS_BLOCK - 1;
+        if (isNonMainNet()) nWaterlineBlock = START_TESTNET_BLOCK - 1;
+        if (RegTest()) nWaterlineBlock = START_REGTEST_BLOCK - 1;
 
-    if(readPersistence()) {
-      int best_state_block = load_most_relevant_state();
-      if (best_state_block < 0) {
-        // unable to recover easily, remove stale stale state bits and reparse from the beginning.
-        clear_all_state();
-      } else {
-        nWaterlineBlock = best_state_block;
-      }
+        if (readPersistence()) {
+            int best_state_block = load_most_relevant_state();
+            if (best_state_block < 0) {
+                // unable to recover easily, remove stale stale state bits and reparse from the beginning.
+                clear_all_state();
+            } else {
+                nWaterlineBlock = best_state_block;
+            }
+        }
+
+        // notify the auditor of a reorg
+        if (auditorEnabled) Auditor_NotifyChainReorg(nWaterlineBlock);
+
+        if (nWaterlineBlock < nBlockPrev) {
+            // scan from the block after the best active block to catch up to the active chain
+            msc_initial_scan(nWaterlineBlock + 1);
+        }
     }
 
-    if (nWaterlineBlock < nBlockPrev) {
-      // scan from the block after the best active block to catch up to the active chain
-      msc_initial_scan(nWaterlineBlock + 1);
+    if (0 < nBlockTop) {
+        if (nBlockTop < nBlockPrev + 1) return 0;
     }
 
-    // notify the auditor of a reorg
-    if (auditorEnabled) Auditor_NotifyChainReorg(nWaterlineBlock);
-  }
+    // notify the auditor we're about to start processing a block
+    if (auditorEnabled) Auditor_NotifyBlockStart(pBlockIndex);
 
-  if (0 < nBlockTop)
-    if (nBlockTop < nBlockPrev + 1)
-      return 0;
+    (void) eraseExpiredCrowdsale(pBlockIndex);
 
-  // notify the auditor we're about to start processing a block
-  if (auditorEnabled) Auditor_NotifyBlockStart(pBlockIndex);
-
-  (void) eraseExpiredCrowdsale(pBlockIndex);
-
-  return 0;
+    return 0;
 }
 
 // called once per block, after the block has been processed
