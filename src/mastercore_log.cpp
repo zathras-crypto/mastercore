@@ -47,8 +47,8 @@ bool msc_debug_metadex1           = 0;
 bool msc_debug_metadex2           = 0;
 //! Print orderbook before and after each trade
 bool msc_debug_metadex3           = 0;
-bool omni_debug_auditor           = 0;
-bool omni_debug_auditor_verbose   = 0;
+bool omni_debug_auditor           = 1;
+bool omni_debug_auditor_verbose   = 1;
 /**
  * LogPrintf() has been broken a couple of times now
  * by well-meaning people adding mutexes in the most straightforward way.
