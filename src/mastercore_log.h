@@ -49,6 +49,7 @@ extern bool msc_debug_metadex2;
 extern bool msc_debug_metadex3;
 extern bool omni_debug_auditor;
 extern bool omni_debug_auditor_verbose;
+extern bool omni_auditor_filterdevmsc;
 
 extern volatile bool fReopenOmniLog;
 extern volatile bool fReopenAuditLog;

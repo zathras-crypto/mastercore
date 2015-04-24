@@ -624,7 +624,7 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // grant the tokens
-    update_tally_map(sender, property, nValue, BALANCE);
+    update_tally_map(sender, property, nValue, BALANCE, txid, "Token Grant", strprintf("%s line %d",__FUNCTION__,__LINE__));
 
     // call the send logic
     rc = logicMath_SimpleSend();
@@ -673,7 +673,7 @@ int CMPTransaction::logicMath_RevokeTokens()
     }
 
     // insufficient funds check and revoke
-    if (false == update_tally_map(sender, property, -nValue, BALANCE)) {
+    if (false == update_tally_map(sender, property, -nValue, BALANCE, txid, "Token Revoke", strprintf("%s line %d",__FUNCTION__,__LINE__))) {
       file_log("\tRejecting Revoke: insufficient funds\n");
       return (PKT_ERROR_TOKENS - 111);
     }

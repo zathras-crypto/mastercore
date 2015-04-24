@@ -14,11 +14,14 @@
 using namespace mastercore;
 
 bool auditorEnabled = true; // disable with --disableauditor startup param
+bool auditBalanceChanges = false; // enable with --auditbalancechanges startup param
 
 std::map<uint32_t, int64_t> mapPropertyTotals;
 std::map<uint256, XDOUBLE> mapMetaDExUnitPrices;
 std::vector<uint256> vecIgnoreTXIDs; // these vectors are only used when --overrideforcedshutdown is present to avoid spamming logs
 std::vector<uint32_t> vecIgnoreMarkets; // as above
+std::map<string, CMPTally> mapBalancesCache;
+
 uint32_t auditorPropertyCountMainEco = 0;
 uint32_t auditorPropertyCountTestEco = 0;
 int64_t lastBlockProcessed = -1;
@@ -71,6 +74,9 @@ void mastercore::Auditor_Initialize()
             crossedMarket, reasonText.c_str())); }
     }
 
+    // If balance change auditing is enabled (--auditbalancechanges) populate the balances cache
+    if (auditBalanceChanges) mapBalancesCache = mp_tally_map;
+
     // Log auditor startup finished
     audit_log("Auditor initialized\n");
 }
@@ -86,9 +92,38 @@ void mastercore::Auditor_NotifyChainReorg(int nWaterlineBlock)
     lastBlockProcessed = -1;
     mapPropertyTotals.clear();
     mapMetaDExUnitPrices.clear();
+    mapBalancesCache.clear();
     vecIgnoreTXIDs.clear();
     vecIgnoreMarkets.clear();
     Auditor_Initialize();
+}
+
+/* This function handles notification of a balance change
+ */
+void mastercore::Auditor_NotifyBalanceChangeRequested(const std::string& address, int64_t amount, uint32_t propertyId, TallyType tallyType, const std::string& type, uint256 txid, const std::string& caller, bool processed)
+{
+//printf("called\n");
+    if (address.empty()) AuditFail(strprintf("Auditor was notified of a balance change request with an invalid address (%s) by %s:%s (caller %s)\n", address, type, txid.GetHex(), caller));
+    if ((propertyId == 0) || ((propertyId > auditorPropertyCountMainEco) && (propertyId < 2147483647)) || (propertyId > auditorPropertyCountTestEco))
+        AuditFail(strprintf("Auditor was notified of a balance change request with an invalid property ID (%u) by %s:%s (caller %s)\n", propertyId, type, txid.GetHex(), caller));
+    if (tallyType > TALLY_TYPE_COUNT) AuditFail(strprintf("Auditor was notified of a balance change request with an invalid tallyType (%d) by %s:%s (caller %s)\n", tallyType, type, txid.GetHex(), caller));
+
+    if (processed) { // the balance change request was processed, change the cache accordingly
+        std::map<std::string, CMPTally>::iterator search_it = mapBalancesCache.find(address);
+        if (search_it == mapBalancesCache.end()) { // address doesn't exist, insert
+            search_it = ( mapBalancesCache.insert(std::make_pair(address,CMPTally())) ).first;
+        }
+        CMPTally &tally = search_it->second;
+        if(!tally.updateMoney(propertyId, amount, tallyType)) {
+            AuditFail(strprintf("Auditor was unable to modify the balances cache for %s, %ld of SP%u on tally %d, (%s:%s, %s)\n", address, amount, propertyId, tallyType, type, txid.GetHex(), caller));
+        }
+    }
+
+    if ((omni_auditor_filterdevmsc) && (type == "Award Dev MSC")) {
+        return;
+    } else {
+        audit_log(strprintf("Balance Update %s: %s, %ld of SP%u on tally %d, (%s:%s, %s)\n", processed ? "Accepted":"REJECTED", address, amount, propertyId, tallyType, type, txid>0 ? txid.GetHex():"N/A", caller));
+    }
 }
 
 /* This function handles auditor functions for the beginning of a block
@@ -124,7 +159,7 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     }
 
     // Compare the property totals from the state with the auditor property totals map
-    int mismatch = ComparePropertyTotals();
+    uint32_t mismatch = ComparePropertyTotals();
     if (mismatch == 0) {
         if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any inconsistencies in property token totals following block %d\n", pBlockIndex->nHeight);
     } else { // audit failure
@@ -143,15 +178,26 @@ void mastercore::Auditor_NotifyBlockFinish(CBlockIndex const * pBlockIndex)
     std::string reasonText;
     for (int i = 1; i<100; ++i) { // stop after 100 bad trades - indicates significant bug
         uint256 badTrade = SearchForBadTrades(reasonText);
-        if (badTrade == 0) { break; } else { AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx during initialization\n\t\t\tReason: %s\n",
-            badTrade.GetHex().c_str(), reasonText.c_str())); }
+        if (badTrade == 0) { break; } else { AuditFail(strprintf("Auditor has detected an invalid trade (txid: %s) present in the MetaDEx following block %d\n\t\t\tReason: %s\n",
+            pBlockIndex->nHeight, badTrade.GetHex().c_str(), reasonText.c_str())); }
     }
 
     // Check the MetaDEx for any crossed/unmatched trades
     for (int i = 1; i<20; ++i) { // stop after 20 unmatched markets - indicates significant bug
         uint32_t crossedMarket = SearchForUnmatchedTrades(reasonText);
-        if (crossedMarket == 0) { break; } else { AuditFail(strprintf("Auditor has detected unmatched trades for market %u in the MetaDEx during initialization\n%s\n",
-            crossedMarket, reasonText.c_str())); }
+        if (crossedMarket == 0) { break; } else { AuditFail(strprintf("Auditor has detected unmatched trades for market %u in the MetaDEx following block %d\n%s\n",
+            pBlockIndex->nHeight, crossedMarket, reasonText.c_str())); }
+    }
+
+    // If balance change auditing is enabled, compare cache with state
+    if (auditBalanceChanges) {
+        std::string compareFailures;
+        bool cacheMatch = CompareBalances(compareFailures);
+        if (cacheMatch) {
+            if (omni_debug_auditor_verbose) audit_log("Auditor did not detect any inconsistencies in the balance cache following block %d\n", pBlockIndex->nHeight);
+        } else { // audit failure
+            AuditFail(strprintf("Auditor has detected inconsistencies in the balance cache following block %d\n%s", pBlockIndex->nHeight, compareFailures));
+        }
     }
 }
 
@@ -217,7 +263,7 @@ void mastercore::Auditor_NotifyTradeCreated(uint256 txid, XDOUBLE effectivePrice
  */
 void AuditFail(const std::string& msg)
 {
-    audit_log("%s\n", msg);
+    audit_log("%s", msg);
     if (!GetBoolArg("-overrideforcedshutdown", false))
         AbortOmniNode("Shutting down due to audit failure.  Please check mastercore.log for details");
 }
@@ -364,5 +410,63 @@ int64_t SafeGetTotalTokens(uint32_t propertyId)
       if (propertyId<3) totalTokens += getMPbalance(address, propertyId, ACCEPT_RESERVE);
   }
   return totalTokens;
+}
+
+/* This function compres state balances with cached balances
+ *
+ * Note: this is a significant performance hit, but auditing balances is an on-demand action
+ */
+bool CompareBalances(std::string &compareFailures)
+{
+    for (std::map<string, CMPTally>::iterator my_it = mapBalancesCache.begin(); my_it != mapBalancesCache.end(); ++my_it) {
+        string address = my_it->first.c_str();
+        CMPTally &tally = my_it->second;
+        tally.init();
+        uint32_t propertyId;
+        while (0 != (propertyId = tally.next())) {
+            if (getMPbalance(address, propertyId, BALANCE) != tally.getMoney(propertyId, BALANCE))
+                compareFailures += strprintf("CACHE DIFF: %s, SP%u, Balance Tally, State Balance: %ld, Cache Balance: %ld\n",
+                address, propertyId, getMPbalance(address, propertyId, BALANCE), tally.getMoney(propertyId, BALANCE));
+            if (getMPbalance(address, propertyId, SELLOFFER_RESERVE) != tally.getMoney(propertyId, SELLOFFER_RESERVE))
+                compareFailures += strprintf("CACHE DIFF: %s, SP%u, SellOffer Tally, State Balance: %ld, Cache Balance: %ld\n",
+                address, propertyId, getMPbalance(address, propertyId, SELLOFFER_RESERVE), tally.getMoney(propertyId, SELLOFFER_RESERVE));
+            if (getMPbalance(address, propertyId, METADEX_RESERVE) != tally.getMoney(propertyId, METADEX_RESERVE))
+                compareFailures += strprintf("CACHE DIFF: %s, SP%u, MetaDEx Tally, State Balance: %ld, Cache Balance: %ld\n",
+                address, propertyId, getMPbalance(address, propertyId, METADEX_RESERVE), tally.getMoney(propertyId, METADEX_RESERVE));
+            if (getMPbalance(address, propertyId, ACCEPT_RESERVE) != tally.getMoney(propertyId, ACCEPT_RESERVE))
+                compareFailures += strprintf("CACHE DIFF: %s, SP%u, Accept Tally, State Balance: %ld, Cache Balance: %ld\n",
+                address, propertyId, getMPbalance(address, propertyId, ACCEPT_RESERVE), tally.getMoney(propertyId, ACCEPT_RESERVE));
+            if (getMPbalance(address, propertyId, PENDING) != tally.getMoney(propertyId, PENDING))
+                compareFailures += strprintf("CACHE DIFF: %s, SP%u, Pending Tally, State Balance: %ld, Cache Balance: %ld\n",
+                address, propertyId, getMPbalance(address, propertyId, PENDING), tally.getMoney(propertyId, PENDING));
+        }
+    }
+
+    // search for addresses that are not in the cache - if there are no compareFailures at this point and sizes are the same that's a shortcut to know there are no missing cache entries
+    if ((!compareFailures.empty()) || (mp_tally_map.size() != mapBalancesCache.size())) {
+        for (std::map<std::string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it) {
+            string address = my_it->first.c_str();
+            std::map<std::string, CMPTally>::iterator it = mapBalancesCache.find(address);
+            if (it == mapBalancesCache.end()) {
+                // verify this isn't an empty address
+                CMPTally *tally = getTally(address);
+                if (tally == NULL) {
+                    tally->init();
+                    uint32_t propertyId;
+                    while (0 != (propertyId = tally->next())) {
+                        if ((getMPbalance(address, propertyId, BALANCE) != 0) ||
+                            (getMPbalance(address, propertyId, SELLOFFER_RESERVE) != 0) ||
+                            (getMPbalance(address, propertyId, METADEX_RESERVE) != 0) ||
+                            (getMPbalance(address, propertyId, ACCEPT_RESERVE) != 0) ||
+                            (getMPbalance(address, propertyId, PENDING) != 0)) {
+                                compareFailures += strprintf("CACHE MISS: %s is missing from balances cache\n", address);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!compareFailures.empty()) { return false; } else { return true; }
 }
 

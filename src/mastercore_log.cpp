@@ -47,8 +47,10 @@ bool msc_debug_metadex1           = 0;
 bool msc_debug_metadex2           = 0;
 //! Print orderbook before and after each trade
 bool msc_debug_metadex3           = 0;
+// Auditor flags
+bool omni_auditor_filterdevmsc    = 1;
 bool omni_debug_auditor           = 1;
-bool omni_debug_auditor_verbose   = 1;
+bool omni_debug_auditor_verbose   = 0;
 /**
  * LogPrintf() has been broken a couple of times now
  * by well-meaning people adding mutexes in the most straightforward way.
@@ -126,9 +128,6 @@ static std::string GetTimestamp()
 int LogAuditPrint(const std::string& str)
 {
     int ret = 0; // Number of characters written
-    ret = ConsolePrint(str);
-
-/* force everything audit to console temporarily (travis info)
 
     if (fPrintToConsole) {
         // Print to console
@@ -162,7 +161,7 @@ int LogAuditPrint(const std::string& str)
             fStartedNewLine = false;
         }
         ret += fwrite(str.data(), 1, str.size(), auditout);
-    } */
+    }
 
     return ret;
 }

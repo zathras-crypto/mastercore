@@ -522,7 +522,8 @@ bool isTransactionTypeAllowed(int txBlock, unsigned int txProperty, unsigned int
 
 bool getValidMPTX(const uint256 &txid, int *block = NULL, unsigned int *type = NULL, uint64_t *nAmended = NULL);
 
-bool update_tally_map(string who, unsigned int which_currency, int64_t amount, TallyType ttype);
+bool update_tally_map(string who, unsigned int which_property, int64_t amount, TallyType ttype, uint256 txid, const std::string& updateReason, const std::string& caller);
+
 std::string getMasterCoreAlertString();
 std::string getMasterCoreAlertTextOnly();
 bool parseAlertMessage(std::string rawAlertStr, int32_t *alertType, uint64_t *expiryValue, uint32_t *typeCheck, uint32_t *verCheck, std::string *alertMessage);
