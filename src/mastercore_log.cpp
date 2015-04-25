@@ -72,9 +72,6 @@ static boost::mutex* mutexDebugLog = NULL;
 static FILE* auditout = NULL;
 static boost::mutex* mutexAuditLog = NULL;
 
-volatile bool fReopenOmniLog = false;
-volatile bool fReopenAuditLog = false;
-
 /**
  * Opens audit log file.
  */
@@ -89,6 +86,9 @@ static void AuditLogInit()
 
     mutexAuditLog = new boost::mutex();
 }
+
+/** Flag to indicate, whether the Omni Core log file should be reopened. */
+extern volatile bool fReopenOmniCoreLog;
 
 /**
  * Opens debug log file.
@@ -195,8 +195,8 @@ int LogFilePrint(const std::string& str)
         boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
         // Reopen the log file, if requested
-        if (fReopenOmniLog) {
-            fReopenOmniLog = false;
+        if (fReopenOmniCoreLog) {
+            fReopenOmniCoreLog = false;
             boost::filesystem::path pathDebug = GetDataDir() / LOG_FILENAME;
             if (freopen(pathDebug.string().c_str(), "a", fileout) != NULL) {
                 setbuf(fileout, NULL); // Unbuffered
