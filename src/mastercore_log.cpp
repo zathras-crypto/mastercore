@@ -87,9 +87,6 @@ static void AuditLogInit()
     mutexAuditLog = new boost::mutex();
 }
 
-/** Flag to indicate, whether the Omni Core log file should be reopened. */
-extern volatile bool fReopenOmniCoreLog;
-
 /**
  * Opens debug log file.
  */
