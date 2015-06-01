@@ -2307,86 +2307,66 @@ int mastercore::ClassAgnosticWalletTXBuilder(const string &senderAddress, const 
     }
 }
 
-int CMPTxList::setLastAlert(int blockHeight)
+bool CMPTxList::setLastAlert(int blockHeight)
 {
-    if (blockHeight > chainActive.Height()) blockHeight = chainActive.Height();
-    if (!pdb) return 0;
-    Slice skey, svalue;
+    if (blockHeight > GetHeight()) blockHeight = GetHeight();
+    if (!pdb) return false;
     Iterator* it = NewIterator();
-    string lastAlertTxid;
-    string lastAlertData;
-    int64_t lastAlertBlock = 0;
-    for(it->SeekToFirst(); it->Valid(); it->Next())
-    {
-       skey = it->key();
-       svalue = it->value();
-       string itData = svalue.ToString();
-       std::vector<std::string> vstr;
-       boost::split(vstr, itData, boost::is_any_of(":"), token_compress_on);
-       // we expect 5 tokens
-       if (4 == vstr.size())
-       {
-           if (atoi(vstr[2]) == OMNICORE_MESSAGE_TYPE_ALERT) // is it an alert?
-           {
-               if (atoi(vstr[0]) == 1) // is it valid?
-               {
-                    if ((atoi(vstr[1]) > lastAlertBlock) && (atoi(vstr[1]) <= blockHeight)) // is it the most recent and within our parsed range?
-                    {
-                        lastAlertTxid = skey.ToString();
-                        lastAlertData = svalue.ToString();
-                        lastAlertBlock = atoi(vstr[1]);
-                    }
-               }
+    std::string lastAlertTxid;
+    std::string lastAlertData;
+    int lastAlertBlock = 0;
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        Slice skey = it->key();
+        Slice svalue = it->value();
+        std::string itValue = svalue.ToString();
+        std::vector<std::string> vstr;
+        boost::split(vstr, itValue, boost::is_any_of(":"), boost::token_compress_on);
+        // we expect 4 tokens
+        if (4 == vstr.size()) {
+           // is it a valid alert?
+            if (atoi(vstr[2]) == OMNICORE_MESSAGE_TYPE_ALERT && atoi(vstr[0]) == 1) {
+                // is it the most recent and within our parsed range?
+                if (atoi(vstr[1]) > lastAlertBlock && atoi(vstr[1]) <= blockHeight) {
+                    lastAlertTxid = skey.ToString();
+                    lastAlertData = svalue.ToString();
+                    lastAlertBlock = atoi(vstr[1]);
+                }
            }
        }
     }
     delete it;
 
     // if lastAlertTxid is not empty, load the alert and see if it's still valid - if so, copy to global_alert_message
-    if(lastAlertTxid.empty())
-    {
+    if (lastAlertTxid.empty()) {
         PrintToLog("DEBUG ALERT No alerts found to load\n");
+        return false;
     }
-    else
-    {
-        PrintToLog("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
 
-        // reparse lastAlertTxid
-        uint256 hash;
-        hash.SetHex(lastAlertTxid);
-        CTransaction wtx;
-        uint256 blockHash = 0;
-        if (!GetTransaction(hash, wtx, blockHash, true)) //can't find transaction
-        {
-            PrintToLog("DEBUG ALERT Unable to load lastAlertTxid, transaction not found\n");
-        }
-        else // note reparsing here is unavoidable because we've only loaded a txid and have no other alert info stored
-        {
-            CMPTransaction mp_obj;
-            int parseRC = ParseTransaction(wtx, blockHeight, 0, mp_obj);
-            string new_global_alert_message;
-            if (0 <= parseRC)
-            {
-                if (0<=mp_obj.step1())
-                {
-                    if(65535 == mp_obj.getType())
-                    {
-                        // TODO: use new parsing/interpretation functions
-                        if (0 == mp_obj.step2_Alert(&new_global_alert_message))
-                        {
-                            SetOmniCoreAlert(new_global_alert_message);
-                            // check if expired
-                            CBlockIndex* pBlockIndex = chainActive[blockHeight];
-                            if (pBlockIndex != NULL) {
-                                CheckExpiredAlerts(blockHeight, pBlockIndex->GetBlockTime());
-                            }
-                        }
-                    }
-                }
+    PrintToLog("DEBUG ALERT Loading lastAlertTxid %s\n", lastAlertTxid);
+
+    // reparse the last alert
+    uint256 hash(lastAlertTxid);
+    CTransaction tx;
+    uint256 blockHash;
+    if (!GetTransaction(hash, tx, blockHash, true)) {
+        PrintToLog("DEBUG ALERT Unable to load lastAlertTxid, transaction not found\n");
+        return false;
+    }
+
+    CMPTransaction alertTx;
+    if (ParseTransaction(tx, blockHeight, 0, alertTx) == 0) {
+        // TODO: calling interpretPacket, and logic in general, outside of the
+        // regular flow seems dangerous
+        if (alertTx.interpretPacket() == 0) {
+            CBlockIndex* pBlockIndex = chainActive[blockHeight];
+            if (pBlockIndex != NULL) {
+                CheckExpiredAlerts(blockHeight, pBlockIndex->GetBlockTime());
+                return true;
             }
         }
     }
-    return 0;
+
+    return false;
 }
 
 uint256 CMPTxList::findMetaDExCancel(const uint256 txid)

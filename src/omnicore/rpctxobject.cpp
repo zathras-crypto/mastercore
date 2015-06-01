@@ -47,7 +47,6 @@ int populateRPCTransactionObject(const uint256& txid, Object& txobj, std::string
 
     // attempt to parse the transaction
     CMPTransaction mp_obj;
-    mp_obj.SetNull();
     int parseRC = ParseTransaction(wtx, blockHeight, 0, mp_obj);
     if (parseRC < 0) return MP_INVALID_TX_IN_DB_FOUND;
 
@@ -67,8 +66,8 @@ int populateRPCTransactionObject(const uint256& txid, Object& txobj, std::string
         return 0;
     }
 
-    // call step1 to populate mp_obj
-    if (mp_obj.step1() < 0) return MP_INVALID_TX_IN_DB_FOUND;
+    // populate mp_obj
+    if (!mp_obj.interpret_Transaction()) return MP_INVALID_TX_IN_DB_FOUND;
 
     // check if we're filtering from listtransactions_MP, and if so whether we have a non-match we want to skip
     if (!filterAddress.empty() && mp_obj.getSender() != filterAddress && mp_obj.getReceiver() != filterAddress) return -1;
@@ -87,8 +86,8 @@ int populateRPCTransactionObject(const uint256& txid, Object& txobj, std::string
     txobj.push_back(Pair("fee", FormatDivisibleMP(mp_obj.getFeePaid())));
     txobj.push_back(Pair("blocktime", blockTime));
     txobj.push_back(Pair("valid", valid));
-    txobj.push_back(Pair("version", (int64_t)mp_obj.getVersion()));
-    txobj.push_back(Pair("type_int", (int64_t)mp_obj.getType()));
+    txobj.push_back(Pair("version", (uint64_t)mp_obj.getVersion()));
+    txobj.push_back(Pair("type_int", (uint64_t)mp_obj.getType()));
     txobj.push_back(Pair("type", mp_obj.getTypeString()));
 
     // populate type specific info & extended details if requested
@@ -177,7 +176,6 @@ bool showRefForTx(uint32_t txType)
 
 void populateRPCTypeSimpleSend(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     int64_t crowdPropertyId = 0, crowdTokens = 0, issuerTokens = 0;
     bool crowdPurchase = isCrowdsalePurchase(omniObj.getHash(), omniObj.getReceiver(), &crowdPropertyId, &crowdTokens, &issuerTokens);
@@ -206,7 +204,6 @@ void populateRPCTypeSimpleSend(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeSendToOwners(CMPTransaction& omniObj, Object& txobj, bool extendedDetails, std::string extendedDetailsFilter)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -217,14 +214,13 @@ void populateRPCTypeSendToOwners(CMPTransaction& omniObj, Object& txobj, bool ex
 void populateRPCTypeTradeOffer(CMPTransaction& omniObj, Object& txobj)
 {
     CMPOffer temp_offer;
-    if (0 != omniObj.step2_Value()) return;
     if (0 > omniObj.interpretPacket(&temp_offer)) return;
     uint32_t propertyId = omniObj.getProperty();
     int64_t amount = omniObj.getAmount();
 
     // NOTE: some manipulation of sell_subaction is needed here
     // TODO: interpretPacket should provide reliable data, cleanup at RPC layer is not cool
-    unsigned char sell_subaction = temp_offer.getSubaction();
+    uint8_t sell_subaction = temp_offer.getSubaction();
     if (sell_subaction > 3) sell_subaction = 0; // case where subaction byte >3, to have been allowed must be a v0 sell, flip byte to 0
     if (sell_subaction == 0 && amount > 0) sell_subaction = 1; // case where subaction byte=0, must be a v0 sell, amount > 0 means a new sell
     if (sell_subaction == 0 && amount == 0) sell_subaction = 3; // case where subaction byte=0. must be a v0 sell, amount of 0 means a cancel
@@ -252,7 +248,6 @@ void populateRPCTypeTradeOffer(CMPTransaction& omniObj, Object& txobj)
 void populateRPCTypeMetaDExTrade(CMPTransaction& omniObj, Object& txobj, bool extendedDetails)
 {
     CMPMetaDEx metaObj;
-    if (0 != omniObj.step2_Value()) return;
     if (0 > omniObj.interpretPacket(NULL, &metaObj)) return;
 
     // unit price display adjustment based on divisibility and always showing prices in MSC/TMSC
@@ -284,8 +279,7 @@ void populateRPCTypeMetaDExTrade(CMPTransaction& omniObj, Object& txobj, bool ex
 void populateRPCTypeMetaDExCancelPrice(CMPTransaction& omniObj, Object& txobj, bool extendedDetails)
 {
     CMPMetaDEx metaObj;
-    if (0 != omniObj.step2_Value()) return;
-    if (0 > omniObj.interpretPacket(NULL, &metaObj)) return;
+    if (0 != omniObj.interpretPacket(NULL, &metaObj)) return;
 
     // unit price display adjustment based on divisibility and always showing prices in MSC/TMSC
     bool propertyIdForSaleIsDivisible = isPropertyDivisible(omniObj.getProperty());
@@ -314,8 +308,7 @@ void populateRPCTypeMetaDExCancelPrice(CMPTransaction& omniObj, Object& txobj, b
 void populateRPCTypeMetaDExCancelPair(CMPTransaction& omniObj, Object& txobj, bool extendedDetails)
 {
     CMPMetaDEx metaObj;
-    if (0 != omniObj.step2_Value()) return;
-    if (0 > omniObj.interpretPacket(NULL, &metaObj)) return;
+    if (0 != omniObj.interpretPacket(NULL, &metaObj)) return;
 
     // populate
     txobj.push_back(Pair("propertyidforsale", (uint64_t)omniObj.getProperty()));
@@ -326,8 +319,7 @@ void populateRPCTypeMetaDExCancelPair(CMPTransaction& omniObj, Object& txobj, bo
 void populateRPCTypeMetaDExCancelEcosystem(CMPTransaction& omniObj, Object& txobj, bool extendedDetails)
 {
     CMPMetaDEx metaObj;
-    if (0 != omniObj.step2_Value()) return;
-    if (0 > omniObj.interpretPacket(NULL, &metaObj)) return;
+    if (0 != omniObj.interpretPacket(NULL, &metaObj)) return;
 
     // populate
     if (omniObj.getProperty() == 0) txobj.push_back(Pair("ecosystem", "both")); // property seems an odd place to store this
@@ -338,7 +330,6 @@ void populateRPCTypeMetaDExCancelEcosystem(CMPTransaction& omniObj, Object& txob
 
 void populateRPCTypeAcceptOffer(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     int64_t amount = omniObj.getAmount();
 
@@ -357,11 +348,7 @@ void populateRPCTypeAcceptOffer(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeCreatePropertyFixed(CMPTransaction& omniObj, Object& txobj)
 {
-    int rc = -1;
-    omniObj.step2_SmartProperty(rc);
-    if (0 != rc) return;
     uint32_t propertyId = _my_sps->findSPByTX(omniObj.getHash());
-
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("propertyname", omniObj.getSPName()));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -370,11 +357,7 @@ void populateRPCTypeCreatePropertyFixed(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeCreatePropertyVariable(CMPTransaction& omniObj, Object& txobj)
 {
-    int rc = -1;
-    omniObj.step2_SmartProperty(rc);
-    if (0 != rc) return;
     uint32_t propertyId = _my_sps->findSPByTX(omniObj.getHash());
-
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("propertyname", omniObj.getSPName()));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -383,11 +366,7 @@ void populateRPCTypeCreatePropertyVariable(CMPTransaction& omniObj, Object& txob
 
 void populateRPCTypeCreatePropertyManual(CMPTransaction& omniObj, Object& txobj)
 {
-    int rc = -1;
-    omniObj.step2_SmartProperty(rc);
-    if (0 != rc) return;
     uint32_t propertyId = _my_sps->findSPByTX(omniObj.getHash());
-
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("propertyname", omniObj.getSPName()));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -396,7 +375,6 @@ void populateRPCTypeCreatePropertyManual(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeCloseCrowdsale(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -404,7 +382,6 @@ void populateRPCTypeCloseCrowdsale(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeGrant(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -413,7 +390,6 @@ void populateRPCTypeGrant(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeRevoke(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -422,7 +398,6 @@ void populateRPCTypeRevoke(CMPTransaction& omniObj, Object& txobj)
 
 void populateRPCTypeChangeIssuer(CMPTransaction& omniObj, Object& txobj)
 {
-    if (0 != omniObj.step2_Value()) return;
     uint32_t propertyId = omniObj.getProperty();
     txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
     txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));

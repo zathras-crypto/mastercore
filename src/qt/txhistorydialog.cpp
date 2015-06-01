@@ -346,7 +346,7 @@ int TXHistoryDialog::PopulateHistoryMap()
             }
             if (0 == parseRC) { //negative RC means no MP content/badly encoded TX, we shouldn't see this if TX in levelDB but check for sanity
                 // ### START HANDLE OMNI TRANSACTION ###
-                if (0<=mp_obj.step1()) {
+                if (mp_obj.interpret_Transaction()) {
                     MPTxType = mp_obj.getTypeString();
                     senderAddress = mp_obj.getSender();
                     refAddress = mp_obj.getReceiver();
@@ -354,20 +354,18 @@ int TXHistoryDialog::PopulateHistoryMap()
                     uint32_t tmptype=0;
                     uint64_t amountNew=0;
                     valid=getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
-                    if (0 == mp_obj.step2_Value()) {
-                        propertyId = mp_obj.getProperty();
-                        amount = mp_obj.getAmount();
-                        // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
-                        if (valid) { // we only generate an ID for valid creates
-                            if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
-                                (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
-                                (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
-                                    propertyId = _my_sps->findSPByTX(hash);
-                                    if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) { amount = getTotalTokens(propertyId); } else { amount = 0; }
-                                }
-                        }
-                        divisible = isPropertyDivisible(propertyId);
+                    propertyId = mp_obj.getProperty();
+                    amount = mp_obj.getAmount();
+                    // special case for property creation (getProperty cannot get ID as createdID not stored in obj)
+                    if (valid) { // we only generate an ID for valid creates
+                        if ((mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) ||
+                            (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_VARIABLE) ||
+                            (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_MANUAL)) {
+                                propertyId = _my_sps->findSPByTX(hash);
+                                if (mp_obj.getType() == MSC_TYPE_CREATE_PROPERTY_FIXED) { amount = getTotalTokens(propertyId); } else { amount = 0; }
+                            }
                     }
+                    divisible = isPropertyDivisible(propertyId);
                 }
                 bool fundsMoved = true;
                 displayType = shrinkTxType(mp_obj.getType(), &fundsMoved); // shrink tx type to better fit in column
