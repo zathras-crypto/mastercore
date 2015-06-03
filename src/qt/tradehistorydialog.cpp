@@ -336,24 +336,22 @@ int TradeHistoryDialog::PopulateTradeHistoryMap()
         // parse the transaction
         int parseRC = ParseTransaction(wtx, blockHeight, 0, mp_obj);
         if (0 != parseRC) continue;
-        if (0<=mp_obj.step1()) {
+        if (mp_obj.interpret_Transaction()) {
             int tmpblock=0;
             uint32_t tmptype=0;
             uint64_t amountNew=0;
             valid = getValidMPTX(hash, &tmpblock, &tmptype, &amountNew);
-            if (0 == mp_obj.step2_Value()) {
-                propertyIdForSale = mp_obj.getProperty();
-                amountForSale = mp_obj.getAmount();
-                divisibleForSale = isPropertyDivisible(propertyIdForSale);
-                if (0 <= mp_obj.interpretPacket(NULL,&temp_metadexoffer)) {
-                    uint8_t mdex_action = temp_metadexoffer.getAction();
-                    if (mdex_action != 1) continue; // cancels aren't trades
-                    propertyIdDesired = temp_metadexoffer.getDesProperty();
-                    divisibleDesired = isPropertyDivisible(propertyIdDesired);
-                    amountDesired = temp_metadexoffer.getAmountDesired();
-                    t_tradelistdb->getMatchingTrades(hash, propertyIdForSale, tradeArray, totalSold, totalReceived);
-                    orderOpen = MetaDEx_isOpen(hash, propertyIdForSale);
-                }
+            propertyIdForSale = mp_obj.getProperty();
+            amountForSale = mp_obj.getAmount();
+            divisibleForSale = isPropertyDivisible(propertyIdForSale);
+            if (0 != mp_obj.interpretPacket(NULL, &temp_metadexoffer)) {
+                uint8_t mdex_action = temp_metadexoffer.getAction();
+                if (mdex_action != 1) continue; // cancels aren't trades
+                propertyIdDesired = temp_metadexoffer.getDesProperty();
+                divisibleDesired = isPropertyDivisible(propertyIdDesired);
+                amountDesired = temp_metadexoffer.getAmountDesired();
+                t_tradelistdb->getMatchingTrades(hash, propertyIdForSale, tradeArray, totalSold, totalReceived);
+                orderOpen = MetaDEx_isOpen(hash, propertyIdForSale);
             }
         }
 

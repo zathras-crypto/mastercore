@@ -219,14 +219,6 @@ public:
     int interpretPacket(CMPOffer* obj_o = NULL, CMPMetaDEx* mdex_o = NULL);
     bool isOverrun(const char* p, unsigned int line);
 
-    // Deprecated
-    int step1();
-    int step2_Alert(std::string* new_global_alert_message);
-    int step2_Value();
-    const char* step2_SmartProperty(int& error_code);
-    int step3_sp_fixed(const char* p);
-    int step3_sp_variable(const char* p);
-
     void Set(const uint256& t, int b, unsigned int idx, int64_t bt)
     {
         txid = t;

@@ -795,7 +795,7 @@ Value getorderbook_MP(const Array& params, bool fHelp)
 {
    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getorderbook_MP property_id1 ( property_id2 )\n"
+            "getorderbook_MP propertyid ( propertyid )\n"
             "\nRequest active trade information from the MetaDEx\n"
 
             "\nArguments:\n"
@@ -841,7 +841,7 @@ Value gettradessince_MP(const Array& params, bool fHelp)
 {
    if (fHelp)
         throw runtime_error(
-            "gettradessince_MP\n"
+            "gettradessince_MP ( timestamp propertyid propertyid )\n"
             "\nRequest last known orders from order book\n"
             
             "\nArguments:\n"
@@ -909,7 +909,7 @@ Value gettradehistoryforaddress_OMNI(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "gettradehistory_MP\n"
+            "gettradehistoryforaddress_OMNI address ( count propertyid )\n"
             "\nAllows user to retrieve MetaDEx trade history for the supplied address\n"
             "\nArguments:\n"
             "1. address          (string, required) address to retrieve history for\n"
@@ -977,7 +977,7 @@ Value gettradehistoryforpair_OMNI(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "gettradehistory_MP\n"
+            "gettradehistoryformarket_OMNI propertyid ( count )\n"
             "\nAllows user to retrieve MetaDEx trade history for the specified market\n"
             "\nArguments:\n"
             "1. propertyid           (int, required) the first side of the pair\n"
