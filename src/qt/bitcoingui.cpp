@@ -964,17 +964,6 @@ bool BitcoinGUI::handlePaymentRequest(const SendCoinsRecipient& recipient)
     return false;
 }
 
-void BitcoinGUI::setOmniPendingStatus(bool pending)
-{
-    if (!pending) {
-        labelOmniPendingIcon->hide();
-    } else {
-        labelOmniPendingIcon->show();
-        labelOmniPendingIcon->setPixmap(QIcon(":/icons/hourglass").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-        labelOmniPendingIcon->setToolTip(tr("You have Omni transactions awaiting confirmation."));
-    }
-}
-
 void BitcoinGUI::setEncryptionStatus(int status)
 {
     switch(status)
@@ -1001,6 +990,18 @@ void BitcoinGUI::setEncryptionStatus(int status)
         changePassphraseAction->setEnabled(true);
         encryptWalletAction->setEnabled(false); // TODO: decrypt currently not supported
         break;
+    }
+}
+
+/** Show or hide pending status for Omni layer transactions. */
+void BitcoinGUI::setOmniPendingStatus(bool pending)
+{
+    if (!pending) {
+        labelOmniPendingIcon->hide();
+    } else {
+        labelOmniPendingIcon->show();
+        labelOmniPendingIcon->setPixmap(QIcon(":/icons/hourglass").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
+        labelOmniPendingIcon->setToolTip(tr("You have Omni transactions awaiting confirmation."));
     }
 }
 #endif // ENABLE_WALLET

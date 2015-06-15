@@ -127,11 +127,13 @@ void ClientModel::updateNumConnections(int numConnections)
     emit numConnectionsChanged(numConnections);
 }
 
+/** Emits a refreshOmniState signal. */
 void ClientModel::updateOmniState()
 {
     emit refreshOmniState();
 }
 
+/** Emits a refreshOmniPending signal. */
 void ClientModel::updateOmniPending(bool pending)
 {
     emit refreshOmniPending(pending);
@@ -211,19 +213,6 @@ QString ClientModel::formatClientStartupTime() const
     return QDateTime::fromTime_t(nClientStartupTime).toString();
 }
 
-// Handlers for core signals
-static void OmniStateChanged(ClientModel *clientmodel)
-{
-    // This will be triggered for each block that contains Omni layer transactions
-    QMetaObject::invokeMethod(clientmodel, "updateOmniState", Qt::QueuedConnection);
-}
-
-static void OmniPendingChanged(ClientModel *clientmodel, bool pending)
-{
-    // Triggered when Omni pending map adds/removes transactions
-    QMetaObject::invokeMethod(clientmodel, "updateOmniPending", Qt::QueuedConnection, Q_ARG(bool, pending));
-}
-
 static void ShowProgress(ClientModel *clientmodel, const std::string &title, int nProgress)
 {
     // emits signal "showProgress"
@@ -245,6 +234,18 @@ static void NotifyAlertChanged(ClientModel *clientmodel, const uint256 &hash, Ch
     QMetaObject::invokeMethod(clientmodel, "updateAlert", Qt::QueuedConnection,
                               Q_ARG(QString, QString::fromStdString(hash.GetHex())),
                               Q_ARG(int, status));
+}
+
+/** Triggered by each block that contains Omni layer transactions. */
+static void OmniStateChanged(ClientModel *clientmodel)
+{
+    QMetaObject::invokeMethod(clientmodel, "updateOmniState", Qt::QueuedConnection);
+}
+
+/** Triggered when Omni pending map adds/removes transactions. */
+static void OmniPendingChanged(ClientModel *clientmodel, bool pending)
+{
+    QMetaObject::invokeMethod(clientmodel, "updateOmniPending", Qt::QueuedConnection, Q_ARG(bool, pending));
 }
 
 void ClientModel::subscribeToCoreSignals()
