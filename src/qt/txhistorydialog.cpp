@@ -9,7 +9,6 @@
 
 #include "clientmodel.h"
 #include "guiutil.h"
-#include "walletmodel.h"
 
 #include "omnicore/omnicore.h"
 #include "omnicore/pending.h"
@@ -59,8 +58,7 @@ using namespace mastercore;
 TXHistoryDialog::TXHistoryDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::txHistoryDialog),
-    clientModel(0),
-    walletModel(0)
+    clientModel(0)
 {
     ui->setupUi(this);
     // setup
@@ -143,12 +141,6 @@ void TXHistoryDialog::setClientModel(ClientModel *model)
         connect(model, SIGNAL(refreshOmniState()), this, SLOT(UpdateHistory()));
         connect(model, SIGNAL(numBlocksChanged(int)), this, SLOT(UpdateConfirmations()));
     }
-}
-
-void TXHistoryDialog::setWalletModel(WalletModel *model)
-{
-    this->walletModel = model;
-    if (model != NULL) { } // do nothing, signals from walletModel no longer needed
 }
 
 int TXHistoryDialog::PopulateHistoryMap()

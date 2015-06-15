@@ -184,10 +184,7 @@ void WalletView::setWalletModel(WalletModel *walletModel)
     receiveCoinsPage->setModel(walletModel);
     sendCoinsTab->setModel(walletModel);
     sendMPTab->setWalletModel(walletModel);
-    balancesPage->setWalletModel(walletModel);
     metaDExTab->setWalletModel(walletModel);
-    mpTXTab->setWalletModel(walletModel);
-    tradeHistoryTab->setWalletModel(walletModel);
     cancelTab->setWalletModel(walletModel);
 
     if (walletModel)

@@ -10,7 +10,6 @@
 #include <QDialog>
 
 class ClientModel;
-class WalletModel;
 
 QT_BEGIN_NAMESPACE
 class QMenu;
@@ -33,7 +32,6 @@ public:
     ~BalancesDialog();
 
     void setClientModel(ClientModel *model);
-    void setWalletModel(WalletModel *model);
     void AddRow(const std::string& label, const std::string& address, const std::string& reserved, const std::string& available);
     void PopulateBalances(unsigned int propertyId);
     void UpdatePropSelector();
@@ -41,7 +39,6 @@ public:
 private:
     Ui::balancesDialog *ui;
     ClientModel *clientModel;
-    WalletModel *walletModel;
     QMenu *contextMenu;
     QMenu *contextMenuSummary;
 

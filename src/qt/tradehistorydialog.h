@@ -10,7 +10,6 @@
 
 #include <QDialog>
 
-class WalletModel;
 class ClientModel;
 
 QT_BEGIN_NAMESPACE
@@ -51,7 +50,6 @@ class TradeHistoryDialog : public QDialog
 public:
     explicit TradeHistoryDialog(QWidget *parent = 0);
     ~TradeHistoryDialog();
-    void setWalletModel(WalletModel *model);
     void setClientModel(ClientModel *model);
     GUIUtil::TableViewLastColumnResizingFixer *borrowedColumnResizingFixer;
     virtual void resizeEvent(QResizeEvent* event);
@@ -59,7 +57,6 @@ public:
 private:
     Ui::tradeHistoryDialog *ui;
     ClientModel *clientModel;
-    WalletModel *walletModel;
     QMenu *contextMenu;
     TradeHistoryMap tradeHistoryMap;
 
