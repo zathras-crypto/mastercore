@@ -113,7 +113,6 @@ void MetaDExDialog::setClientModel(ClientModel *model)
 void MetaDExDialog::setWalletModel(WalletModel *model)
 {
     this->walletModel = model;
-    if (model != NULL) { } // do nothing, signals from walletModel no longer needed
 }
 
 void MetaDExDialog::OrderRefresh()

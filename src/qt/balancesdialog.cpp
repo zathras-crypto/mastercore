@@ -4,7 +4,6 @@
 #include "ui_balancesdialog.h"
 
 #include "clientmodel.h"
-#include "walletmodel.h"
 #include "guiutil.h"
 
 #include "omnicore/omnicore.h"
@@ -37,7 +36,7 @@ using std::string;
 using namespace mastercore;
 
 BalancesDialog::BalancesDialog(QWidget *parent) :
-    QDialog(parent), ui(new Ui::balancesDialog), clientModel(0), walletModel(0)
+    QDialog(parent), ui(new Ui::balancesDialog), clientModel(0)
 {
     // setup
     ui->setupUi(this);
@@ -120,12 +119,6 @@ void BalancesDialog::setClientModel(ClientModel *model)
     if (model != NULL) {
         connect(model, SIGNAL(refreshOmniState()), this, SLOT(balancesUpdated()));
     }
-}
-
-void BalancesDialog::setWalletModel(WalletModel *model)
-{
-    this->walletModel = model;
-    if (model != NULL) { } // do nothing, signals from walletModel no longer needed
 }
 
 void BalancesDialog::UpdatePropSelector()

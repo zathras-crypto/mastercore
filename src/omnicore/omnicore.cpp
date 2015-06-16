@@ -603,6 +603,8 @@ uint32_t mastercore::GetNextPropertyId(bool maineco)
 //       include change addresses).  with current transaction load, about 0.02 - 0.06 seconds is spent on this function
 void set_wallet_totals()
 {
+    LOCK(cs_tally);
+
     //zero balances
     global_balance_money.clear();
     global_balance_reserved.clear();
@@ -610,25 +612,30 @@ void set_wallet_totals()
     // populate global balance totals and wallet property list - note global balances do not include additional balances from watch-only addresses
     for(std::map<std::string, CMPTally>::iterator my_it = mp_tally_map.begin(); my_it != mp_tally_map.end(); ++my_it) {
         // check if the address is a wallet address (including watched addresses)
-        std::string address = my_it->first;
+        const std::string& address = my_it->first;
+        CMPTally& tally = my_it->second;
+
         int addressIsMine = IsMyAddress(address);
         if (!addressIsMine) continue;
 
         // iterate only those properties in the TokenMap for this address
-        my_it->second.init();
+        tally.init();
         uint32_t propertyId;
-        while (0 != (propertyId = (my_it->second).next())) {
+        while (0 != (propertyId = tally.next())) {
             // add to the global wallet property list
             global_wallet_property_list.insert(propertyId);
 
             // check if the address is spendable (only spendable balances are included in totals)
             if (addressIsMine != ISMINE_SPENDABLE) continue;
 
+            // TODO: get aggregated amounts directly from tally
+
             // work out the balances and add to globals
-            global_balance_money[propertyId] += getUserAvailableMPbalance(address, propertyId);
-            global_balance_reserved[propertyId] += getMPbalance(address, propertyId, SELLOFFER_RESERVE);
-            global_balance_reserved[propertyId] += getMPbalance(address, propertyId, METADEX_RESERVE);
-            global_balance_reserved[propertyId] += getMPbalance(address, propertyId, ACCEPT_RESERVE);
+            global_balance_money[propertyId] += tally.getMoney(propertyId, BALANCE);
+            global_balance_money[propertyId] += tally.getMoney(propertyId, PENDING);
+            global_balance_reserved[propertyId] += tally.getMoney(propertyId, SELLOFFER_RESERVE);
+            global_balance_reserved[propertyId] += tally.getMoney(propertyId, ACCEPT_RESERVE);
+            global_balance_reserved[propertyId] += tally.getMoney(propertyId, METADEX_RESERVE);
         }
     }
 }

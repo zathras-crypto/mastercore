@@ -99,10 +99,10 @@ public:
     /** New block has been accepted */
     boost::signals2::signal<void (const uint256& hash)> NotifyBlockTip;
 
-    /** Omni balances have been updated. */
+    /** Omni layer transactions have been confirmed. */
     boost::signals2::signal<void ()> OmniStateChanged;
 
-    /** Omni pending status has been changed */
+    /** Pending status of Omni layer transactions has been changed. */
     boost::signals2::signal<void (bool pending)> OmniPendingChanged;
 };
 

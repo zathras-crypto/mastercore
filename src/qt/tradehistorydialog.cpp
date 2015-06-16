@@ -9,7 +9,6 @@
 
 #include "guiutil.h"
 #include "ui_interface.h"
-#include "walletmodel.h"
 #include "clientmodel.h"
 
 #include "omnicore/mdex.h"
@@ -63,8 +62,7 @@ using namespace mastercore;
 TradeHistoryDialog::TradeHistoryDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::tradeHistoryDialog),
-    clientModel(0),
-    walletModel(0)
+    clientModel(0)
 {
     // Setup the UI
     ui->setupUi(this);
@@ -498,12 +496,6 @@ void TradeHistoryDialog::UpdateData()
         ui->tradeHistoryTable->setItem(row, 6, amountOutCell);
         ui->tradeHistoryTable->setItem(row, 7, amountInCell);
     }
-}
-
-void TradeHistoryDialog::setWalletModel(WalletModel *model)
-{
-    this->walletModel = model;
-    if (model != NULL) { } // do nothing, signals from walletModel no longer needed
 }
 
 void TradeHistoryDialog::setClientModel(ClientModel *model)

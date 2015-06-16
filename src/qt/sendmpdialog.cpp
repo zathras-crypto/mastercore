@@ -85,7 +85,6 @@ void SendMPDialog::setClientModel(ClientModel *model)
 void SendMPDialog::setWalletModel(WalletModel *model)
 {
     this->walletModel = model;
-    if (model != NULL) { } // do nothing, signals from walletModel no longer needed
 }
 
 void SendMPDialog::updatePropSelector()

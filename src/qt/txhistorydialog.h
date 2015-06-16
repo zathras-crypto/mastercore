@@ -13,7 +13,6 @@
 #include <QDialog>
 
 class ClientModel;
-class WalletModel;
 
 QT_BEGIN_NAMESPACE
 class QMenu;
@@ -54,7 +53,6 @@ public:
     ~TXHistoryDialog();
 
     void setClientModel(ClientModel *model);
-    void setWalletModel(WalletModel *model);
 
     virtual void resizeEvent(QResizeEvent* event);
     std::string shrinkTxType(int txType, bool *fundsMoved);
@@ -62,7 +60,6 @@ public:
 private:
     Ui::txHistoryDialog *ui;
     ClientModel *clientModel;
-    WalletModel *walletModel;
     GUIUtil::TableViewLastColumnResizingFixer *borrowedColumnResizingFixer;
     QMenu *contextMenu;
     HistoryMap txHistoryMap;
