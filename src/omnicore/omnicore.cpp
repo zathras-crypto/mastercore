@@ -4266,14 +4266,10 @@ const std::vector<unsigned char> GetOmMarker()
  // optional: provide the pointer to the CMPOffer object, it will get filled in
  // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
  //
-int CMPTransaction::interpretPacket(CMPOffer* obj_o)
+int CMPTransaction::interpretPacket()
 {
     if (!interpret_Transaction()) {
         return -98765;
-    }
-
-    if (obj_o && MSC_TYPE_TRADE_OFFER != type) {
-        return -777; // can't fill in the Offer object !
     }
 
     LOCK(cs_tally);
@@ -4286,7 +4282,7 @@ int CMPTransaction::interpretPacket(CMPOffer* obj_o)
             return logicMath_SendToOwners();
 
         case MSC_TYPE_TRADE_OFFER:
-            return logicMath_TradeOffer(obj_o);
+            return logicMath_TradeOffer();
 
         case MSC_TYPE_ACCEPT_OFFER_BTC:
             return logicMath_AcceptOffer_BTC();
