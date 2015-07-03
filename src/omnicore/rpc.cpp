@@ -3,7 +3,6 @@
 #include "omnicore/rpc.h"
 
 #include "omnicore/convert.h"
-#include "omnicore/createpayload.h"
 #include "omnicore/dex.h"
 #include "omnicore/errors.h"
 #include "omnicore/fetchwallettx.h"
@@ -11,7 +10,6 @@
 #include "omnicore/mdex.h"
 #include "omnicore/notifications.h"
 #include "omnicore/omnicore.h"
-#include "omnicore/parse_string.h"
 #include "omnicore/rpcrequirements.h"
 #include "omnicore/rpctx.h"
 #include "omnicore/rpctxobject.h"
@@ -32,26 +30,14 @@
 #include "utilstrencodings.h"
 #include "wallet.h"
 
-#include <boost/algorithm/string.hpp>
-#include <boost/exception/to_string.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include "json/json_spirit_value.h"
 
 #include <stdint.h>
-
 #include <map>
 #include <stdexcept>
 #include <string>
 
-using boost::algorithm::token_compress_on;
-using boost::to_string;
-
-using std::map;
 using std::runtime_error;
-using std::string;
-using std::vector;
-
 using namespace json_spirit;
 using namespace mastercore;
 
@@ -851,7 +837,7 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
-int check_prop_valid(int64_t tmpPropId, string error, string exist_error ) {
+int check_prop_valid(int64_t tmpPropId, std::string error, std::string exist_error ) {
   CMPSPInfo::Entry sp;
   LOCK(cs_tally);
 
@@ -1003,7 +989,7 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
 
       //if 0 params list all sells, otherwise first param is filter address
       bool addressFilter = false;
-      string addressParam;
+      std::string addressParam;
 
       if (params.size() > 0)
       {
@@ -1018,14 +1004,14 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
       for(OfferMap::iterator it = my_offers.begin(); it != my_offers.end(); ++it)
       {
           CMPOffer selloffer = it->second;
-          string sellCombo = it->first;
-          string seller = sellCombo.substr(0, sellCombo.size()-2);
+          std::string sellCombo = it->first;
+          std::string seller = sellCombo.substr(0, sellCombo.size()-2);
 
           //filtering
           if ((addressFilter) && (seller != addressParam)) continue;
 
           uint256 sellHash = selloffer.getHash();
-          string txid = sellHash.GetHex();
+          std::string txid = sellHash.GetHex();
           uint64_t propertyId = selloffer.getProperty();
           uint64_t minFee = selloffer.getMinFee();
           unsigned char timeLimit = selloffer.getBlockTimeLimit();
@@ -1059,13 +1045,13 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
               Object matchedAccept;
 
               CMPAccept accept = ait->second;
-              string acceptCombo = ait->first;
+              std::string acceptCombo = ait->first;
               uint256 matchedHash = accept.getHash();
               // does this accept match the sell?
               if (matchedHash == sellHash)
               {
                   //split acceptCombo out to get the buyer address
-                  string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
+                  std::string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
                   uint64_t acceptBlock = accept.getAcceptBlock();
                   uint64_t acceptAmount = accept.getAcceptAmountRemaining();
                   matchedAccept.push_back(Pair("buyer", buyer));
@@ -1182,7 +1168,7 @@ Value listtransactions_MP(const Array& params, bool fHelp)
         );
 
     // obtains parameters - default all wallet addresses & last 10 transactions
-    string addressParam = "";
+    std::string addressParam;
     if (params.size() > 0) {
         if (("*" != params[0].get_str()) && ("" != params[0].get_str())) addressParam = params[0].get_str();
     }
@@ -1335,7 +1321,7 @@ Value getsto_MP(const Array& params, bool fHelp)
 
     Object txobj;
     uint256 hash(params[0].get_str());
-    string filterAddress = "";
+    std::string filterAddress;
     if (params.size() == 2) filterAddress = params[1].get_str();
     int populateResult = populateRPCTransactionObject(hash, txobj, "", true, filterAddress);
     if (populateResult != 0) PopulateFailure(populateResult);
