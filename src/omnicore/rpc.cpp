@@ -329,7 +329,7 @@ Value sendrawtx_MP(const Array& params, bool fHelp)
             "4. redeemaddress     (string, optional) an address that can spent the transaction dust (sender by default)\n"
             "5. referenceamount   (string, optional) a bitcoin amount that is sent to the receiver (minimal by default)\n"
             "\nResult:\n"
-            "\"hash\"               (string) The hex-encoded transaction hash\n"
+            "\"hash\"               (string) the hex-encoded transaction hash\n"
             "\nExamples:\n"
             + HelpExampleCli("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\" \"000000000000000100000000017d7840\" \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
             + HelpExampleRpc("sendrawtx_MP", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\", \"000000000000000100000000017d7840\", \"1EqTta1Rt8ixAA32DuC29oukbsSWU62qAV\"")
@@ -565,12 +565,13 @@ Value listproperties_MP(const Array& params, bool fHelp)
 
 Value getcrowdsale_MP(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 )
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getcrowdsale_MP propertyid\n"
+            "getcrowdsale_MP propertyid ( verbose )\n"
             "\nGet information about a crowdsale for a property identifier.\n"
             "\nArguments:\n"
             "1. propertyid        (number, required) the property identifier\n"
+            "2. verbose           (boolean, optional) list crowdsale participants (default: false)\n"
             "\nResult:\n"
             "{\n"
             "  \"name\" : \"PropertyName\",     (string) the property name\n"
@@ -589,11 +590,12 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
             "  \"closetx\" : \"txid\",     (string) the transaction that closed the crowdsale\n"
             "}\n"
             "\nExamples\n"
-            + HelpExampleCli("getcrowdsale_MP", "3")
-            + HelpExampleRpc("getcrowdsale_MP", "3")
+            + HelpExampleCli("getcrowdsale_MP", "3 true")
+            + HelpExampleRpc("getcrowdsale_MP", "3, true")
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
+    bool showVerbose = (params.size() > 1) ? params[1].get_bool() : false;
 
     RequireExistingProperty(propertyId);
     RequireCrowdsale(propertyId);
@@ -605,9 +607,6 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not exist");
         }
     }
-
-    bool showVerbose = false;
-    if (params.size() > 1) showVerbose = params[1].get_bool();
 
     const uint256& creationHash = sp.txid;
 
@@ -649,24 +648,6 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
         startTime = GetBlockIndex(hashBlock)->nTime;
     }
 
-    Array participanttxs;
-    std::map<uint256, std::vector<int64_t> >::const_iterator it;
-    for (it = database.begin(); it != database.end(); it++) {
-        Object participanttx;
-
-        const std::string& txid = it->first.GetHex();
-        int64_t userTokens = it->second.at(2);
-        int64_t issuerTokens = it->second.at(3);
-        int64_t amountSent = it->second.at(0);
-
-        amountRaised += amountSent;
-        participanttx.push_back(Pair("txid", txid));
-        participanttx.push_back(Pair("amountsent", FormatMP(sp.property_desired, amountSent)));
-        participanttx.push_back(Pair("participanttokens", FormatMP(propertyId, userTokens)));
-        participanttx.push_back(Pair("issuertokens", FormatMP(propertyId, issuerTokens)));
-        participanttxs.push_back(participanttx);
-    }
-
     response.push_back(Pair("name", sp.name));
     response.push_back(Pair("active", active));
     response.push_back(Pair("issuer", sp.issuer));
@@ -688,6 +669,24 @@ Value getcrowdsale_MP(const Array& params, bool fHelp)
 
     // array of txids contributing to crowdsale here if needed
     if (showVerbose) {
+        Array participanttxs;
+        std::map<uint256, std::vector<int64_t> >::const_iterator it;
+        for (it = database.begin(); it != database.end(); it++) {
+            Object participanttx;
+
+            std::string txid = it->first.GetHex();
+            int64_t userTokens = it->second.at(2);
+            int64_t issuerTokens = it->second.at(3);
+            int64_t amountSent = it->second.at(0);
+
+            amountRaised += amountSent;
+            participanttx.push_back(Pair("txid", txid));
+            participanttx.push_back(Pair("amountsent", FormatMP(sp.property_desired, amountSent)));
+            participanttx.push_back(Pair("participanttokens", FormatMP(propertyId, userTokens)));
+            participanttx.push_back(Pair("issuertokens", FormatMP(propertyId, issuerTokens)));
+            participanttxs.push_back(participanttx);
+        }
+
         response.push_back(Pair("participanttransactions", participanttxs));
     }
 
@@ -837,21 +836,9 @@ Value getgrants_MP(const Array& params, bool fHelp)
     return response;
 }
 
-int check_prop_valid(int64_t tmpPropId, std::string error, std::string exist_error ) {
-  CMPSPInfo::Entry sp;
-  LOCK(cs_tally);
-
-  if ((1 > tmpPropId) || (4294967295LL < tmpPropId))
-    throw JSONRPCError(RPC_INVALID_PARAMETER, error);
-  if (false == _my_sps->getSP(tmpPropId, sp)) 
-    throw JSONRPCError(RPC_INVALID_PARAMETER, exist_error);
-
-  return tmpPropId;
-}
-
 Value getorderbook_MP(const Array& params, bool fHelp)
 {
-   if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getorderbook_MP propertyid ( propertyid )\n"
             "\nRequest active trade information from the MetaDEx.\n"
@@ -859,37 +846,47 @@ Value getorderbook_MP(const Array& params, bool fHelp)
             "1. propertyid           (number, required) filter orders by propertyid for sale\n"
             "2. propertyid           (number, optional) filter orders by propertyid desired\n"
             "\nResult:\n"
-            "{JSON array of MetaDEx trades}\n"
+            "[                             (array of MetaDEx trades)\n"
+            "  ...\n"
+            "]\n"
             "\nExamples:\n"
             + HelpExampleCli("getorderbook_MP", "1 12")
-            + HelpExampleRpc("getorderbook_MP", "1 12")
+            + HelpExampleRpc("getorderbook_MP", "1, 12")
         );
 
-  bool filterDesired = (params.size() == 2) ? true : false;
-  uint32_t propertyIdForSale = 0, propertyIdDesired = 0;
-  propertyIdForSale = check_prop_valid(params[0].get_int64(), "Invalid property id (for sale)", "Property id does not exist (for sale)");
-  if (filterDesired) propertyIdDesired = check_prop_valid(params[1].get_int64(), "Invalid property id (desired)", "Property id does not exist (desired)");
+    bool filterDesired = (params.size() > 1);
+    uint32_t propertyIdForSale = ParsePropertyId(params[0]);
+    uint32_t propertyIdDesired = 0;
 
-  std::vector<CMPMetaDEx> vecMetaDexObjects;
+    RequireExistingProperty(propertyIdForSale);
 
-  {
-      LOCK(cs_tally);
-      for (md_PropertiesMap::iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
-          md_PricesMap & prices = my_it->second;
-          for (md_PricesMap::iterator it = prices.begin(); it != prices.end(); ++it) {
-              md_Set & indexes = (it->second);
-              for (md_Set::iterator it = indexes.begin(); it != indexes.end(); ++it) {
-                  CMPMetaDEx obj = *it;
-                  if (obj.getProperty() != propertyIdForSale) continue;
-                  if (!filterDesired || obj.getDesProperty() == propertyIdDesired) vecMetaDexObjects.push_back(obj);
-              }
-          }
-      }
-  }
+    if (filterDesired) {
+        propertyIdDesired = ParsePropertyId(params[1]);
 
-  Array response;
-  MetaDexObjectsToJSON(vecMetaDexObjects, response);
-  return response;
+        RequireExistingProperty(propertyIdDesired);
+        RequireSameEcosystem(propertyIdForSale, propertyIdDesired);
+        RequireDifferentIds(propertyIdForSale, propertyIdDesired);
+    }
+
+    std::vector<CMPMetaDEx> vecMetaDexObjects;
+    {
+        LOCK(cs_tally);
+        for (md_PropertiesMap::const_iterator my_it = metadex.begin(); my_it != metadex.end(); ++my_it) {
+            const md_PricesMap& prices = my_it->second;
+            for (md_PricesMap::const_iterator it = prices.begin(); it != prices.end(); ++it) {
+                const md_Set& indexes = it->second;
+                for (md_Set::const_iterator it = indexes.begin(); it != indexes.end(); ++it) {
+                    const CMPMetaDEx& obj = *it;
+                    if (obj.getProperty() != propertyIdForSale) continue;
+                    if (!filterDesired || obj.getDesProperty() == propertyIdDesired) vecMetaDexObjects.push_back(obj);
+                }
+            }
+        }
+    }
+
+    Array response;
+    MetaDexObjectsToJSON(vecMetaDexObjects, response);
+    return response;
 }
 
 Value gettradehistoryforaddress_OMNI(const Array& params, bool fHelp)
@@ -903,7 +900,9 @@ Value gettradehistoryforaddress_OMNI(const Array& params, bool fHelp)
             "2. count            (number, optional) number of trades to retrieve (default: 10)\n"
             "3. propertyid       (number, optional) filter by propertyid transacted (default: no filter)\n"
             "\nResult:\n"
-            "{JSON array of MetaDEx trades including matches}\n"
+            "[                             (array of MetaDEx trades including matches)\n"
+            "  ...\n"
+            "]\n"
             "\nExamples:\n"
             + HelpExampleCli("gettradehistoryforaddress_OMNI", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\"")
             + HelpExampleRpc("gettradehistoryforaddress_OMNI", "\"1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8\"")
@@ -911,8 +910,12 @@ Value gettradehistoryforaddress_OMNI(const Array& params, bool fHelp)
 
     std::string address = ParseAddress(params[0]);
     uint64_t count = (params.size() > 1) ? params[1].get_uint64() : 10;
-    uint32_t propertyId = (params.size() > 2) ? ParsePropertyId(params[2]) : 0;
-    if (propertyId != 0) RequireExistingProperty(propertyId);
+    uint32_t propertyId = 0;
+
+    if (params.size() > 2) {
+        propertyId = ParsePropertyId(params[2]);
+        RequireExistingProperty(propertyId);
+    }
 
     // Obtain a sorted vector of txids for the address trade history
     std::vector<uint256> vecTransactions;
@@ -941,37 +944,49 @@ Value gettradehistoryforpair_OMNI(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "gettradehistory_MP\n"
+            "gettradehistory_MP propertyid propertyid ( count )\n"
             "\nAllows user to retrieve MetaDEx trade history for the specified market\n"
             "\nArguments:\n"
-            "1. propertyid           (int, required) the first side of the pair\n"
-            "2. propertyid           (int, required) the second side of the pair\n"
-            "3. count                (int, optional) number of trades to retrieve (default: 10)\n"
+            "1. propertyid           (number, required) the first side of the pair\n"
+            "2. propertyid           (number, required) the second side of the pair\n"
+            "3. count                (number, optional) number of trades to retrieve (default: 100)\n"
+            "\nResult:\n"
+            "[                             (array of MetaDEx trades)\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("gettradehistoryforpair_OMNI", "1 12 500")
+            + HelpExampleRpc("gettradehistoryforpair_OMNI", "1, 12, 500")
         );
-
-    Array response;
 
     // obtain property identifiers for pair & check valid parameters
     uint32_t propertyIdSideA = ParsePropertyId(params[0]);
     uint32_t propertyIdSideB = ParsePropertyId(params[1]);
-    uint64_t count = (params.size() > 2) ? params[1].get_uint64() : 10;
+    uint64_t count = (params.size() > 2) ? params[2].get_uint64() : 100;
+
     RequireExistingProperty(propertyIdSideA);
     RequireExistingProperty(propertyIdSideB);
     RequireSameEcosystem(propertyIdSideA, propertyIdSideB);
     RequireDifferentIds(propertyIdSideA, propertyIdSideB);
 
     // request pair trade history from trade db
-    t_tradelistdb->getTradesForPair(propertyIdSideA, propertyIdSideB, response);
+    Array response;
+    {
+        LOCK(cs_tally);
+        t_tradelistdb->getTradesForPair(propertyIdSideA, propertyIdSideB, response);
+    }
 
     return response;
 }
 
 Value getactivedexsells_MP(const Array& params, bool fHelp)
 {
-   if (fHelp)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getactivedexsells_MP\n"
+            "getactivedexsells_MP ( address )\n"
             "\nReturns currently active offers on the distributed exchange.\n"
+            "\nArguments:\n"
+            "1. address          (string, optional) address filter (default: include any)\n"
             "\nResult:\n"
             "[                             (array of JSON objects)\n"
             "  {\n"
@@ -983,86 +998,81 @@ Value getactivedexsells_MP(const Array& params, bool fHelp)
             + HelpExampleRpc("getactivedexsells_MP", "")
         );
 
-      //if 0 params list all sells, otherwise first param is filter address
-      bool addressFilter = false;
-      std::string addressParam;
+    std::string addressFilter;
 
-      if (params.size() > 0)
-      {
-          addressParam = params[0].get_str();
-          addressFilter = true;
-      }
+    if (params.size() > 0) {
+        addressFilter = ParseAddress(params[0]);
+    }
 
-      Array response;
+    Array response;
 
-      LOCK(cs_tally);
+    LOCK(cs_tally);
 
-      for(OfferMap::iterator it = my_offers.begin(); it != my_offers.end(); ++it)
-      {
-          CMPOffer selloffer = it->second;
-          std::string sellCombo = it->first;
-          std::string seller = sellCombo.substr(0, sellCombo.size()-2);
+    for (OfferMap::iterator it = my_offers.begin(); it != my_offers.end(); ++it) {
+        const CMPOffer& selloffer = it->second;
+        const std::string& sellCombo = it->first;
+        std::string seller = sellCombo.substr(0, sellCombo.size() - 2);
 
-          //filtering
-          if ((addressFilter) && (seller != addressParam)) continue;
+        // filtering
+        if (!addressFilter.empty() && seller != addressFilter) continue;
 
-          uint256 sellHash = selloffer.getHash();
-          std::string txid = sellHash.GetHex();
-          uint64_t propertyId = selloffer.getProperty();
-          uint64_t minFee = selloffer.getMinFee();
-          unsigned char timeLimit = selloffer.getBlockTimeLimit();
-          uint64_t sellOfferAmount = selloffer.getOfferAmountOriginal(); //badly named - "Original" implies off the wire, but is amended amount
-          uint64_t sellBitcoinDesired = selloffer.getBTCDesiredOriginal(); //badly named - "Original" implies off the wire, but is amended amount
-          uint64_t amountAvailable = getMPbalance(seller, propertyId, SELLOFFER_RESERVE);
-          uint64_t amountAccepted = getMPbalance(seller, propertyId, ACCEPT_RESERVE);
+        std::string txid = selloffer.getHash().GetHex();
+        uint32_t propertyId = selloffer.getProperty();
+        int64_t minFee = selloffer.getMinFee();
+        uint8_t timeLimit = selloffer.getBlockTimeLimit();
+        int64_t sellOfferAmount = selloffer.getOfferAmountOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+        int64_t sellBitcoinDesired = selloffer.getBTCDesiredOriginal(); //badly named - "Original" implies off the wire, but is amended amount
+        int64_t amountAvailable = getMPbalance(seller, propertyId, SELLOFFER_RESERVE);
+        int64_t amountAccepted = getMPbalance(seller, propertyId, ACCEPT_RESERVE);
 
-          //unit price & updated bitcoin desired calcs
-          double unitPriceFloat = 0;
-          if ((sellOfferAmount>0) && (sellBitcoinDesired > 0)) unitPriceFloat = (double)sellBitcoinDesired/(double)sellOfferAmount; //divide by zero protection
-          uint64_t unitPrice = rounduint64(unitPriceFloat * COIN);
-          uint64_t bitcoinDesired = rounduint64(amountAvailable*unitPriceFloat);
+        // TODO: no math, and especially no rounding here (!)
+        // TODO: no math, and especially no rounding here (!)
+        // TODO: no math, and especially no rounding here (!)
 
-          Object responseObj;
+        //unit price & updated bitcoin desired calcs
+        double unitPriceFloat = 0;
+        if ((sellOfferAmount > 0) && (sellBitcoinDesired > 0)) unitPriceFloat = (double) sellBitcoinDesired / (double) sellOfferAmount; //divide by zero protection
+        uint64_t unitPrice = rounduint64(unitPriceFloat * COIN);
+        uint64_t bitcoinDesired = rounduint64(amountAvailable * unitPriceFloat);
 
-          responseObj.push_back(Pair("txid", txid));
-          responseObj.push_back(Pair("propertyid", propertyId));
-          responseObj.push_back(Pair("seller", seller));
-          responseObj.push_back(Pair("amountavailable", FormatDivisibleMP(amountAvailable)));
-          responseObj.push_back(Pair("bitcoindesired", FormatDivisibleMP(bitcoinDesired)));
-          responseObj.push_back(Pair("unitprice", FormatDivisibleMP(unitPrice)));
-          responseObj.push_back(Pair("timelimit", timeLimit));
-          responseObj.push_back(Pair("minimumfee", FormatDivisibleMP(minFee)));
+        Object responseObj;
 
-          // display info about accepts related to sell
-          responseObj.push_back(Pair("amountaccepted", FormatDivisibleMP(amountAccepted)));
-          Array acceptsMatched;
-          for(AcceptMap::iterator ait = my_accepts.begin(); ait != my_accepts.end(); ++ait)
-          {
-              Object matchedAccept;
+        responseObj.push_back(Pair("txid", txid));
+        responseObj.push_back(Pair("propertyid", (uint64_t) propertyId));
+        responseObj.push_back(Pair("seller", seller));
+        responseObj.push_back(Pair("amountavailable", FormatDivisibleMP(amountAvailable)));
+        responseObj.push_back(Pair("bitcoindesired", FormatDivisibleMP(bitcoinDesired)));
+        responseObj.push_back(Pair("unitprice", FormatDivisibleMP(unitPrice)));
+        responseObj.push_back(Pair("timelimit", timeLimit));
+        responseObj.push_back(Pair("minimumfee", FormatDivisibleMP(minFee)));
 
-              CMPAccept accept = ait->second;
-              std::string acceptCombo = ait->first;
-              uint256 matchedHash = accept.getHash();
-              // does this accept match the sell?
-              if (matchedHash == sellHash)
-              {
-                  //split acceptCombo out to get the buyer address
-                  std::string buyer = acceptCombo.substr((acceptCombo.find("+")+1),(acceptCombo.size()-(acceptCombo.find("+")+1)));
-                  uint64_t acceptBlock = accept.getAcceptBlock();
-                  uint64_t acceptAmount = accept.getAcceptAmountRemaining();
-                  matchedAccept.push_back(Pair("buyer", buyer));
-                  matchedAccept.push_back(Pair("block", acceptBlock));
-                  matchedAccept.push_back(Pair("amount", FormatDivisibleMP(acceptAmount)));
-                  acceptsMatched.push_back(matchedAccept);
-              }
-          }
-          responseObj.push_back(Pair("accepts", acceptsMatched));
+        // display info about accepts related to sell
+        responseObj.push_back(Pair("amountaccepted", FormatDivisibleMP(amountAccepted)));
+        Array acceptsMatched;
+        for (AcceptMap::const_iterator ait = my_accepts.begin(); ait != my_accepts.end(); ++ait) {
+            Object matchedAccept;
+            const CMPAccept& accept = ait->second;
+            const std::string& acceptCombo = ait->first;
 
-          // add sell object into response array
-          response.push_back(responseObj);
-      }
+            // does this accept match the sell?
+            if (accept.getHash() == selloffer.getHash()) {
+                // split acceptCombo out to get the buyer address
+                std::string buyer = acceptCombo.substr((acceptCombo.find("+") + 1), (acceptCombo.size()-(acceptCombo.find("+") + 1)));
+                int acceptBlock = accept.getAcceptBlock();
+                int64_t acceptAmount = accept.getAcceptAmountRemaining();
+                matchedAccept.push_back(Pair("buyer", buyer));
+                matchedAccept.push_back(Pair("block", acceptBlock));
+                matchedAccept.push_back(Pair("amount", FormatDivisibleMP(acceptAmount)));
+                acceptsMatched.push_back(matchedAccept);
+            }
+        }
+        responseObj.push_back(Pair("accepts", acceptsMatched));
 
-return response;
+        // add sell object into response array
+        response.push_back(responseObj);
+    }
+
+    return response;
 }
 
 Value listblocktransactions_MP(const Array& params, bool fHelp)
@@ -1147,9 +1157,11 @@ Value gettransaction_MP(const Array& params, bool fHelp)
         );
 
     uint256 hash(params[0].get_str());
+
     Object txobj;
     int populateResult = populateRPCTransactionObject(hash, txobj);
     if (populateResult != 0) PopulateFailure(populateResult);
+
     return txobj;
 }
 
@@ -1157,8 +1169,18 @@ Value listtransactions_MP(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 5)
         throw runtime_error(
-            "listtransactions_MP ( \"address\" count skip startblock endblock )\n" //todo increase verbosity in help
-            "\nList wallet transactions filtered on counts and block boundaries\n"
+            "listtransactions_MP ( \"address\" count skip startblock endblock )\n"
+            "\nList wallet transactions, optionally filtered by an address and block boundaries.\n"
+            "\nArguments:\n"
+            "1. address           (string, optional) address filter (default: \"*\")\n"
+            "2. count             (number, optional) show at most n transactions (default: 10)\n"
+            "3. skip              (number, optional) skip the first n transactions (default: 0)\n"
+            "4. startblock        (number, optional) first block to begin the search (default: 0)\n"
+            "5. endblock          (number, optional) last block to include in the search (default: 999999)\n"
+            "\nResult:\n"
+            "[                             (array of transactions)\n"
+            "  ...\n"
+            "]\n"
             + HelpExampleCli("listtransactions_MP", "")
             + HelpExampleRpc("listtransactions_MP", "")
         );
@@ -1204,7 +1226,6 @@ Value listtransactions_MP(const Array& params, bool fHelp)
     if (first != response.begin()) response.erase(response.begin(), first);
     std::reverse(response.begin(), response.end());
 
-    // return the populated array
     return response;
 }
 
@@ -1235,7 +1256,6 @@ Value getinfo_MP(const Array& params, bool fHelp)
         );
 
     Object infoResponse;
-    // other bits of info we want to report should be included here
 
     // provide the mastercore and bitcoin version and if available commit id
     infoResponse.push_back(Pair("mastercoreversion", OmniCoreVersion()));
@@ -1315,12 +1335,14 @@ Value getsto_MP(const Array& params, bool fHelp)
             + HelpExampleRpc("getsto_MP", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
         );
 
-    Object txobj;
     uint256 hash(params[0].get_str());
     std::string filterAddress;
-    if (params.size() == 2) filterAddress = params[1].get_str();
+    if (params.size() > 1) filterAddress = ParseAddress(params[1]);
+
+    Object txobj;
     int populateResult = populateRPCTransactionObject(hash, txobj, "", true, filterAddress);
     if (populateResult != 0) PopulateFailure(populateResult);
+
     return txobj;
 }
 
@@ -1340,9 +1362,11 @@ Value gettrade_MP(const Array& params, bool fHelp)
         );
 
     uint256 hash(params[0].get_str());
+
     Object txobj;
     int populateResult = populateRPCTransactionObject(hash, txobj, "", true);
     if (populateResult != 0) PopulateFailure(populateResult);
+
     return txobj;
 }
 
