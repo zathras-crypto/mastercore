@@ -3,6 +3,7 @@
 
 #include "omnicore/log.h"
 #include "omnicore/omnicore.h"
+#include "omnicore/tx.h"
 
 #include "amount.h"
 #include "tinyformat.h"
@@ -65,13 +66,9 @@ public:
     if (msc_debug_dex) PrintToLog("%s(%lu): %s , line %d, file: %s\n", __FUNCTION__, a, txid.GetHex(), __LINE__, __FILE__);
   }
 
-  void Set(uint64_t d, uint64_t fee, unsigned char btl, unsigned char suba)
-  {
-    BTC_desired_original = d;
-    min_fee = fee;
-    blocktimelimit = btl;
-    subaction = suba;
-  }
+    CMPOffer(const CMPTransaction& tx)
+      : offerBlock(tx.block), offer_amount_original(tx.nValue), property(tx.property), BTC_desired_original(tx.amount_desired),
+        min_fee(tx.min_fee), blocktimelimit(tx.blocktimelimit), subaction(tx.subaction) {}
 
   void saveOffer(ofstream &file, SHA256_CTX *shaCtx, string const &addr ) const {
     // compose the outputline
@@ -122,7 +119,7 @@ public:
   unsigned char getBlockTimeLimit() { return blocktimelimit; }
   unsigned int getProperty() const { return property; }
 
-  int getAcceptBlock()  { return block; }
+  int getAcceptBlock() const { return block; }
 
   CMPAccept(uint64_t a, int b, unsigned char blt, unsigned int c, uint64_t o, uint64_t btc, const uint256 &txid):accept_amount_remaining(a),blocktimelimit(blt),property(c),
    offer_amount_original(o), BTC_desired_original(btc),offer_txid(txid),block(b)

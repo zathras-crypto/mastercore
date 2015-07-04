@@ -1702,7 +1702,7 @@ static int parseTransaction(bool bRPConly, const CTransaction& wtx, int nBlock, 
             // ### PREPARE A FEW VARS ###
             std::string strObfuscatedHashes[1+MAX_SHA256_OBFUSCATION_TIMES];
             PrepareObfuscatedHashes(strSender, strObfuscatedHashes);
-            unsigned char packets[nPackets][32];
+            unsigned char packets[MAX_PACKETS][32];
             unsigned int mdata_count = 0;  // multisig data count
 
             // ### DEOBFUSCATE MULTISIG PACKETS ###
@@ -3050,7 +3050,7 @@ int mastercore::ClassAgnosticWalletTXBuilder(const std::string& senderAddress, c
 
 int CMPTxList::setLastAlert(int blockHeight)
 {
-    if (blockHeight > chainActive.Height()) blockHeight = chainActive.Height();
+    if (blockHeight > GetHeight()) blockHeight = GetHeight();
     if (!pdb) return 0;
     Slice skey, svalue;
     Iterator* it = NewIterator();
@@ -3104,23 +3104,24 @@ int CMPTxList::setLastAlert(int blockHeight)
         else // note reparsing here is unavoidable because we've only loaded a txid and have no other alert info stored
         {
             CMPTransaction mp_obj;
-            int parseRC = ParseTransaction(wtx, blockHeight, 0, mp_obj);
-            string new_global_alert_message;
-            if (0 <= parseRC)
+            if (0 <= ParseTransaction(wtx, blockHeight, 0, mp_obj))
             {
-                if (0<=mp_obj.step1())
+                if (mp_obj.interpret_Transaction())
                 {
-                    if(65535 == mp_obj.getType())
+                    if (OMNICORE_MESSAGE_TYPE_ALERT == mp_obj.getType())
                     {
-                        // TODO: use new parsing/interpretation functions
-                        if (0 == mp_obj.step2_Alert(&new_global_alert_message))
+                        SetOmniCoreAlert(mp_obj.getAlertString());
+
+                        int64_t blockTime = 0;
                         {
-                            SetOmniCoreAlert(new_global_alert_message);
-                            // check if expired
+                            LOCK(cs_main);
                             CBlockIndex* pBlockIndex = chainActive[blockHeight];
                             if (pBlockIndex != NULL) {
-                                CheckExpiredAlerts(blockHeight, pBlockIndex->GetBlockTime());
+                                blockTime = pBlockIndex->GetBlockTime();
                             }
+                        }
+                        if (blockTime > 0) {
+                            CheckExpiredAlerts(blockHeight, blockTime);
                         }
                     }
                 }
@@ -4265,28 +4266,13 @@ const std::vector<unsigned char> GetOmMarker()
  // optional: provide the pointer to the CMPOffer object, it will get filled in
  // verify that it does via if (MSC_TYPE_TRADE_OFFER == mp_obj.getType())
  //
-int CMPTransaction::interpretPacket(CMPOffer* obj_o, CMPMetaDEx* mdex_o)
+int CMPTransaction::interpretPacket()
 {
     if (!interpret_Transaction()) {
         return -98765;
     }
 
-    if (obj_o && MSC_TYPE_TRADE_OFFER != type) {
-        return -777; // can't fill in the Offer object !
-    }
-
     LOCK(cs_tally);
-
-    if (mdex_o) {
-        if (type != MSC_TYPE_METADEX_TRADE
-                && type != MSC_TYPE_METADEX_CANCEL_PRICE
-                && type != MSC_TYPE_METADEX_CANCEL_PAIR
-                && type != MSC_TYPE_METADEX_CANCEL_ECOSYSTEM) {
-            return -778; // can't fill in the MetaDEx object !
-        } else {
-            return logicMath_MetaDEx(mdex_o); // temp
-        }
-    }
 
     switch (type) {
         case MSC_TYPE_SIMPLE_SEND:
@@ -4296,7 +4282,7 @@ int CMPTransaction::interpretPacket(CMPOffer* obj_o, CMPMetaDEx* mdex_o)
             return logicMath_SendToOwners();
 
         case MSC_TYPE_TRADE_OFFER:
-            return logicMath_TradeOffer(obj_o);
+            return logicMath_TradeOffer();
 
         case MSC_TYPE_ACCEPT_OFFER_BTC:
             return logicMath_AcceptOffer_BTC();
@@ -4323,7 +4309,7 @@ int CMPTransaction::interpretPacket(CMPOffer* obj_o, CMPMetaDEx* mdex_o)
             return logicMath_CloseCrowdsale();
 
         case MSC_TYPE_CREATE_PROPERTY_MANUAL:
-            return logicMath_CreatePropertyMananged();
+            return logicMath_CreatePropertyManaged();
 
         case MSC_TYPE_GRANT_PROPERTY_TOKENS:
             return logicMath_GrantTokens();
@@ -4344,18 +4330,33 @@ int CMPTransaction::interpretPacket(CMPOffer* obj_o, CMPMetaDEx* mdex_o)
 int CMPTransaction::logicMath_SimpleSend()
 {
     if (!IsTransactionTypeAllowed(block, property, type, version)) {
+        PrintToLog("%s(): rejected: type %d or version %d not permitted for property %d at block %d\n",
+                __func__,
+                type,
+                version,
+                property,
+                block);
         return (PKT_ERROR_SEND -22);
     }
 
     if (nValue <= 0 || MAX_INT_8_BYTES < nValue) {
+        PrintToLog("%s(): rejected: value out of range or zero: %d", __func__, nValue);
         return (PKT_ERROR_SEND -23);
     }
 
     if (!_my_sps->hasSP(property)) {
+        PrintToLog("%s(): rejected: property %d does not exist\n", __func__, property);
         return (PKT_ERROR_SEND -24);
     }
 
-    if (getMPbalance(sender, property, BALANCE) < (int64_t)nValue) {
+    int64_t nBalance = getMPbalance(sender, property, BALANCE);
+    if (nBalance < (int64_t) nValue) {
+        PrintToLog("%s(): rejected: sender %s has insufficient balance of property %d [%s < %s]\n",
+                __func__,
+                sender,
+                FormatMP(property, nBalance),
+                FormatMP(property, nValue),
+                property);
         return (PKT_ERROR_SEND -25);
     }
 
