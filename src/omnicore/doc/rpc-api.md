@@ -586,6 +586,15 @@ Retrieves the history of orders on the distributed exchange for the supplied add
 $ omnicore-cli "omni_gettradehistoryforaddress" "1MCHESTptvd2LnNp7wmr2sGTpRomteAkq8"
 ```
 
+### omni_getactivations
+
+Returns pending and completed feature activations.
+
+**Example:**
+
+```bash
+$ omnicore-cli "omni_getactivations"
+```
 
 ## Depreciated RPC Calls
 
