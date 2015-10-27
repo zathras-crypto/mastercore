@@ -1,0 +1,196 @@
+console.log('Loading event');
+var AWS = require('aws-sdk');
+var dynamodb = new AWS.DynamoDB();
+
+exports.handler = function(event, context) {
+    console.log("Request received:\n", JSON.stringify(event));
+    console.log("Context received:\n", JSON.stringify(context));
+  
+    var updateType = event.updatetype;
+    var tableName = "";
+    var uploadData = {};
+    
+    if (updateType == "balancechange") {
+        tableName = "ChestBalancesTest";
+        uploadData = {
+            "address": {"S": event.updatedelta.address},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "balance": {"N": event.updatedelta.balance},
+            "reserved": {"N": event.updatedelta.reserved}
+        };
+    }
+    
+    if (updateType == "transaction") {
+        // ddb requires numbers as strings - stringify all values ex bool
+        for (var k in event.updatedelta) {
+            if (event.updatedelta.hasOwnProperty(k)) {
+                if (String(event.updatedelta[k]) != "true" && String(event.updatedelta[k]) != "false") {
+                    event.updatedelta[k] = String(event.updatedelta[k]);
+                }
+            }
+        }
+        console.log("Request modified:\n", JSON.stringify(event));
+    
+        tableName = "ChestTransactions";
+        var category;
+        var subcategory;
+        var data;
+        var url;
+    
+        if (event.updatedelta.type == "Simple Send") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount},
+            "referenceaddress": {"S": event.updatedelta.referenceaddress}
+        };}
+        if (event.updatedelta.type == "Send All") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "referenceaddress": {"S": event.updatedelta.referenceaddress},
+        };}
+        if (event.updatedelta.type == "Send To Owners") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount},
+        };}
+        if (event.updatedelta.type == "DEx Sell Offer") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount},
+            "bitcoindesired": {"N": event.updatedelta.bitcoindesired},
+            "timelimit": {"N": event.updatedelta.timelimit},
+            "feerequired": {"N": event.updatedelta.feerequired},
+            "action": {"S": event.updatedelta.action},
+        };}
+        if (event.updatedelta.type == "DEx Accept Offer") { uploadData = { 
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount},
+            "referenceaddress": {"S": event.updatedelta.referenceaddress}
+        };}
+        if (event.updatedelta.type == "Grant Property Tokens") { uploadData = { 
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount},
+            "referenceaddress": {"S": event.updatedelta.referenceaddress}
+        };}        
+        if (event.updatedelta.type == "Revoke Property Tokens") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "amount": {"N": event.updatedelta.amount}
+        };}
+        if (event.updatedelta.type == "MetaDEx trade") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyidforsale": {"N": event.updatedelta.propertyidforsale},
+            "propertyidforsaleisdivisible": {"BOOL": event.updatedelta.propertyidforsaleisdivisible},
+            "amountforsale": {"N": event.updatedelta.amountforsale},
+            "propertyiddesired": {"N": event.updatedelta.propertyiddesired},
+            "propertyiddesiredisdivisible": {"BOOL": event.updatedelta.propertyiddesiredisdivisible},
+            "amountdesired": {"N": event.updatedelta.amountdesired},
+            "unitprice": {"N": event.updatedelta.unitprice},
+        };} 
+        if (event.updatedelta.type == "Create Property - Fixed") { 
+            category = event.updatedelta.category;
+            subcategory = event.updatedelta.subcategory;
+            data = event.updatedelta.data;
+            url = event.updatedelta.url;
+            if (category === "") { category = "N/A"; }
+            if (subcategory === "") { subcategory = "N/A"; }
+            if (data === "") { data = "N/A"; }
+            if (url === "") { url = "N/A"; }
+            uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "ecosystem": {"S": event.updatedelta.ecosystem},
+            "propertytype": {"S": event.updatedelta.propertytype},
+            "category": {"S": category},
+            "subcategory": {"S": subcategory},
+            "propertyname": {"S": event.updatedelta.propertyname},
+            "data": {"S": data},
+            "url": {"S": url},
+            "amount": {"N": event.updatedelta.amount}
+        };}
+        if (event.updatedelta.type == "Create Property - Manual") { 
+            category = event.updatedelta.category;
+            subcategory = event.updatedelta.subcategory;
+            data = event.updatedelta.data;
+            url = event.updatedelta.url;
+            if (category === "") { category = "N/A"; }
+            if (subcategory === "") { subcategory = "N/A"; }
+            if (data === "") { data = "N/A"; }
+            if (url === "") { url = "N/A"; }
+            uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "ecosystem": {"S": event.updatedelta.ecosystem},
+            "propertytype": {"S": event.updatedelta.propertytype},
+            "category": {"S": category},
+            "subcategory": {"S": subcategory},
+            "propertyname": {"S": event.updatedelta.propertyname},
+            "data": {"S": data},
+            "url": {"S": url},
+            "amount": {"N": event.updatedelta.amount}
+        };}  
+        if (event.updatedelta.type == "Create Property - Variable") { 
+            category = event.updatedelta.category;
+            subcategory = event.updatedelta.subcategory;
+            data = event.updatedelta.data;
+            url = event.updatedelta.url;
+            if (category === "") { category = "N/A"; }
+            if (subcategory === "") { subcategory = "N/A"; }
+            if (data === "") { data = "N/A"; }
+            if (url === "") { url = "N/A"; }
+            uploadData = { 
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "ecosystem": {"S": event.updatedelta.ecosystem},
+            "propertytype": {"S": event.updatedelta.propertytype},
+            "category": {"S": category},
+            "subcategory": {"S": subcategory},
+            "propertyname": {"S": event.updatedelta.propertyname},
+            "data": {"S": data},
+            "url": {"S": url},
+            "propertyiddesired": {"N": event.updatedelta.propertyiddesired},
+            "tokensperunit": {"N": event.updatedelta.tokensperunit},
+            "deadline": {"N": event.updatedelta.deadline},
+            "earlybonus": {"N": event.updatedelta.earlybonus},
+            "percenttoissuer": {"N": event.updatedelta.percenttoissuer},
+            "amount": {"N": event.updatedelta.amount}
+        };}
+        if (event.updatedelta.type == "Close Crowdsale") { uploadData = { 
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible}
+        };}
+        if (event.updatedelta.type == "Change Issuer Address") { uploadData = {
+            "txid": {"S": event.updatedelta.txid}, "sendingaddress": {"S": event.updatedelta.sendingaddress}, "version": {"N": event.updatedelta.version}, "type_int": { "N": event.updatedelta.type_int}, "type": {"S": event.updatedelta.type},
+            "valid": {"BOOL": event.updatedelta.valid}, "blockhash": {"S": event.updatedelta.blockhash}, "blocktime": {"N": event.updatedelta.blocktime}, "block": {"N": event.updatedelta.block}, "fee": { "S": event.updatedelta.fee},
+            "propertyid": {"N": event.updatedelta.propertyid},
+            "divisible": {"BOOL": event.updatedelta.divisible},
+            "referenceaddress": {"S": event.updatedelta.referenceaddress}
+        };}
+    }
+    
+    // Push the data into ddb and return the result
+    dynamodb.putItem({'TableName': tableName, 'Item': uploadData}, function(err, data) {
+        if (err) { context.fail('REQUEST:' + JSON.stringify(event) + '==== ERROR: Dynamo failed: ' + err); } else { context.succeed('APISUCCESS'); }
+    });
+
+}; 
