@@ -180,7 +180,6 @@ Value omni_discardmempooltransaction(const Array& params, bool fHelp)
     Array result;
     BOOST_FOREACH(const CTransaction &tx, removedList) {
         result.push_back(tx.GetHash().GetHex());
-        //result.push_back(Pair("txid", tx.GetHash().GetHex()));
     }
 
     return result;

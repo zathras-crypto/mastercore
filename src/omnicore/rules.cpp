@@ -490,7 +490,6 @@ bool IsTransactionTypeAllowed(int txBlock, uint32_t txProperty, uint16_t txType,
  */
 bool VerifyCheckpoint(int block, const uint256& blockHash)
 {
-return true;
     const std::vector<ConsensusCheckpoint>& vCheckpoints = ConsensusParams().GetCheckpoints();
 
     for (std::vector<ConsensusCheckpoint>::const_iterator it = vCheckpoints.begin(); it != vCheckpoints.end(); ++it) {
