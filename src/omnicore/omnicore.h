@@ -55,6 +55,7 @@ int const MAX_STATE_HISTORY = 50;
 // Omni Layer Transaction (Packet) Version
 #define MP_TX_PKT_V0  0
 #define MP_TX_PKT_V1  1
+#define MP_TX_PKT_V2  2
 
 #define MIN_PAYLOAD_SIZE     5
 #define PACKET_SIZE_CLASS_A 19

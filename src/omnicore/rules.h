@@ -34,6 +34,8 @@ const uint16_t FEATURE_TRADEALLPAIRS = 8;
 const uint16_t FEATURE_FEES = 9;
 //! Feature identifier to enable cross property (v1) Send To Owners
 const uint16_t FEATURE_STOV1 = 10;
+//! Feature identifier to enable BTC in crowdsales
+const uint16_t FEATURE_BTC_CROWDSALES = 11;
 
 //! When (propertyTotalTokens / OMNI_FEE_THRESHOLD) is reached fee distribution will occur
 const int64_t OMNI_FEE_THRESHOLD = 100000; // 0.001%
@@ -113,8 +115,13 @@ public:
     int MSC_SEND_ALL_BLOCK;
     //! Block to enable betting transactions
     int MSC_BET_BLOCK;
+<<<<<<< c806479765feb0dd7dce35414e3602200315c8c9
     //! Block to enable cross property STO (v1)
     int MSC_STOV1_BLOCK;
+=======
+    //! Block to enable BTC in crowdsales
+    int MSC_BTC_CROWDSALE_BLOCK;
+>>>>>>> Add feature activation for ID 11 for BTC crowdsales
 
     //! Block to deactivate crowdsale participations when "granting tokens"
     int GRANTEFFECTS_FEATURE_BLOCK;
