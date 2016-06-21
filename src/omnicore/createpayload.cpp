@@ -3,6 +3,7 @@
 #include "omnicore/createpayload.h"
 
 #include "omnicore/convert.h"
+#include "omnicore/omnicore.h"
 
 #include "tinyformat.h"
 
@@ -168,7 +169,7 @@ std::vector<unsigned char> CreatePayload_IssuanceVariable(uint8_t ecosystem, uin
 {
     std::vector<unsigned char> payload;
     uint16_t messageType = 51;
-    uint16_t messageVer = 0;
+    uint16_t messageVer = (propertyIdDesired == BTC_PROPERTY_ID) ? 2 : 0;
     mastercore::swapByteOrder16(messageVer);
     mastercore::swapByteOrder16(messageType);
     mastercore::swapByteOrder16(propertyType);

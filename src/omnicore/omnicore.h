@@ -35,7 +35,7 @@ using std::string;
 int const MAX_STATE_HISTORY = 50;
 
 #define TEST_ECO_PROPERTY_1 (0x80000003UL)
-
+#define BTC_PROPERTY_ID 0
 // increment this value to force a refresh of the state (similar to --startclean)
 #define DB_VERSION 3
 

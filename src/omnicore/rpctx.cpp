@@ -366,7 +366,7 @@ Value omni_sendissuancecrowdsale(const Array& params, bool fHelp)
     std::string name = ParseText(params[6]);
     std::string url = ParseText(params[7]);
     std::string data = ParseText(params[8]);
-    uint32_t propertyIdDesired = ParsePropertyId(params[9]);
+    uint32_t propertyIdDesired = ParsePropertyIdOrZero(params[9]);
     int64_t numTokens = ParseAmount(params[10], type);
     int64_t deadline = ParseDeadline(params[11]);
     uint8_t earlyBonus = ParseEarlyBirdBonus(params[12]);
@@ -374,8 +374,10 @@ Value omni_sendissuancecrowdsale(const Array& params, bool fHelp)
 
     // perform checks
     RequirePropertyName(name);
-    RequireExistingProperty(propertyIdDesired);
-    RequireSameEcosystem(ecosystem, propertyIdDesired);
+    if (propertyIdDesired != BTC_PROPERTY_ID) {
+        RequireExistingProperty(propertyIdDesired);
+        RequireSameEcosystem(ecosystem, propertyIdDesired);
+    }
 
     // create a payload for the transaction
     std::vector<unsigned char> payload = CreatePayload_IssuanceVariable(ecosystem, type, previousId, category, subcategory, name, url, data, propertyIdDesired, numTokens, deadline, earlyBonus, issuerPercentage);

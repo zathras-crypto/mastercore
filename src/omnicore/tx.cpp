@@ -1507,7 +1507,7 @@ int CMPTransaction::logicMath_CreatePropertyVariable()
         return (PKT_ERROR_SP -23);
     }
 
-    if (!_my_sps->hasSP(property)) {
+    if (version < MP_TX_PKT_V2 && !_my_sps->hasSP(property)) {
         PrintToLog("%s(): rejected: property %d does not exist\n", __func__, property);
         return (PKT_ERROR_SP -24);
     }
