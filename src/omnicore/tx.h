@@ -119,6 +119,7 @@ private:
     bool interpret_GrantTokens();
     bool interpret_RevokeTokens();
     bool interpret_ChangeIssuer();
+    bool interpret_PayCrowdsale();
     bool interpret_Activation();
     bool interpret_Alert();
 
@@ -141,6 +142,7 @@ private:
     int logicMath_GrantTokens();
     int logicMath_RevokeTokens();
     int logicMath_ChangeIssuer();
+    int logicMath_PayCrowdsale();
     int logicMath_Activation();
     int logicMath_Alert();
 

@@ -53,6 +53,8 @@ std::vector<TransactionRestriction> CConsensusParams::GetRestrictions() const
         { MSC_TYPE_CREATE_PROPERTY_VARIABLE,  MP_TX_PKT_V2,  true,    MSC_BTC_CROWDSALE_BLOCK },
         { MSC_TYPE_CLOSE_CROWDSALE,           MP_TX_PKT_V0,  false,   MSC_SP_BLOCK            },
 
+        { MSC_TYPE_PAYMENT_CROWDSALE,         MP_TX_PKT_V0,  false,   MSC_BTC_CROWDSALE_BLOCK },
+
         { MSC_TYPE_CREATE_PROPERTY_MANUAL,    MP_TX_PKT_V0,  false,   MSC_MANUALSP_BLOCK      },
         { MSC_TYPE_GRANT_PROPERTY_TOKENS,     MP_TX_PKT_V0,  false,   MSC_MANUALSP_BLOCK      },
         { MSC_TYPE_REVOKE_PROPERTY_TOKENS,    MP_TX_PKT_V0,  false,   MSC_MANUALSP_BLOCK      },

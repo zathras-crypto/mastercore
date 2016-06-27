@@ -61,6 +61,7 @@ std::string mastercore::strTransactionType(uint16_t txType)
         case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return "Revoke Property Tokens";
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return "Change Issuer Address";
         case MSC_TYPE_NOTIFICATION: return "Notification";
+        case MSC_TYPE_PAYMENT_CROWDSALE: return "Crowdsale Payment";
         case OMNICORE_MESSAGE_TYPE_ALERT: return "ALERT";
         case OMNICORE_MESSAGE_TYPE_ACTIVATION: return "Feature Activation";
 
@@ -148,6 +149,9 @@ bool CMPTransaction::interpret_Transaction()
 
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
             return interpret_ChangeIssuer();
+
+        case MSC_TYPE_PAYMENT_CROWDSALE:
+            return interpret_PayCrowdsale();
 
         case OMNICORE_MESSAGE_TYPE_ACTIVATION:
             return interpret_Activation();
@@ -628,6 +632,13 @@ bool CMPTransaction::interpret_ChangeIssuer()
     return true;
 }
 
+/** Tx 80 */
+bool CMPTransaction::interpret_PayCrowdsale()
+{
+    // There are no fields with this transaction
+    return true;
+}
+
 /** Tx 65534 */
 bool CMPTransaction::interpret_Activation()
 {
@@ -750,6 +761,9 @@ int CMPTransaction::interpretPacket()
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
             return logicMath_ChangeIssuer();
 
+        case MSC_TYPE_PAYMENT_CROWDSALE:
+            return logicMath_PayCrowdsale();
+
         case OMNICORE_MESSAGE_TYPE_ACTIVATION:
             return logicMath_Activation();
 
@@ -770,8 +784,14 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
         return (PKT_ERROR_CROWD -1);
     }
     // Active crowdsale, but not for this property
+    // Note property is 0 by default, ideally need a way to explicitly specify BTC
     if (pcrowdsale->getCurrDes() != property) {
         return (PKT_ERROR_CROWD -2);
+    }
+
+    int64_t participationAmount = nValue;
+    if (version > MP_TX_PKT_V0 && pcrowdsale->getCurrDes() == BTC_PROPERTY_ID) {
+        participationAmount = 0; //BTC amount goes here, create a helper
     }
 
     CMPSPInfo::Entry sp;
@@ -793,7 +813,7 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
     bool inflateAmount = isPropertyDivisible(property) ? false : true;
 
     // Calculate the amounts to credit for this fundraiser
-    calculateFundraiser(inflateAmount, nValue, sp.early_bird, sp.deadline, blockTime,
+    calculateFundraiser(inflateAmount, participationAmount, sp.early_bird, sp.deadline, blockTime,
             sp.num_tokens, sp.percentage, getTotalTokens(pcrowdsale->getPropertyId()),
             tokens, close_crowdsale);
 
@@ -809,7 +829,7 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
     pcrowdsale->incTokensIssuerCreated(tokens.second);
 
     // Data to pass to txFundraiserData
-    int64_t txdata[] = {(int64_t) nValue, blockTime, tokens.first, tokens.second};
+    int64_t txdata[] = {(int64_t) participationAmount, blockTime, tokens.first, tokens.second};
     std::vector<int64_t> txDataVec(txdata, txdata + sizeof(txdata) / sizeof(txdata[0]));
 
     // Insert data about crowdsale participation
@@ -1909,6 +1929,46 @@ int CMPTransaction::logicMath_ChangeIssuer()
     sp.update_block = blockHash;
 
     assert(_my_sps->updateSP(property, sp));
+
+    return 0;
+}
+
+/** Tx 80 */
+int CMPTransaction::logicMath_PayCrowdsale()
+{
+    uint256 blockHash;
+    {
+        LOCK(cs_main);
+
+        CBlockIndex* pindex = chainActive[block];
+        if (pindex == NULL) {
+            PrintToLog("%s(): ERROR: block %d not in the active chain\n", __func__, block);
+            return (PKT_ERROR_TOKENS -20);
+        }
+        blockHash = pindex->GetBlockHash();
+    }
+
+    if (!IsTransactionTypeAllowed(block, property, type, version)) {
+        PrintToLog("%s(): rejected: type %d or version %d not permitted for property %d at block %d\n",
+                __func__,
+                type,
+                version,
+                property,
+                block);
+        return (PKT_ERROR_TOKENS -22);
+    }
+
+    if (receiver.empty()) {
+        PrintToLog("%s(): rejected: receiver is empty\n", __func__);
+        return (PKT_ERROR_TOKENS -45);
+    }
+
+    if (NULL == getCrowd(receiver)) {
+        PrintToLog("%s(): rejected: receiver %s does not have an active crowdsale\n", __func__, receiver);
+        return (PKT_ERROR_TOKENS -47);
+    }
+
+    logicHelper_CrowdsaleParticipation();
 
     return 0;
 }
