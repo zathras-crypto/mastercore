@@ -53,7 +53,7 @@ std::vector<TransactionRestriction> CConsensusParams::GetRestrictions() const
         { MSC_TYPE_CREATE_PROPERTY_VARIABLE,  MP_TX_PKT_V2,  true,    MSC_BTC_CROWDSALE_BLOCK },
         { MSC_TYPE_CLOSE_CROWDSALE,           MP_TX_PKT_V0,  false,   MSC_SP_BLOCK            },
 
-        { MSC_TYPE_PAYMENT_CROWDSALE,         MP_TX_PKT_V0,  false,   MSC_BTC_CROWDSALE_BLOCK },
+        { MSC_TYPE_BITCOIN_PAYMENT,           MP_TX_PKT_V0,  true,    MSC_BTC_CROWDSALE_BLOCK },
 
         { MSC_TYPE_CREATE_PROPERTY_MANUAL,    MP_TX_PKT_V0,  false,   MSC_MANUALSP_BLOCK      },
         { MSC_TYPE_GRANT_PROPERTY_TOKENS,     MP_TX_PKT_V0,  false,   MSC_MANUALSP_BLOCK      },
@@ -352,6 +352,20 @@ bool IsAllowedOutputType(int whichType, int nBlock)
     }
 
     return false;
+}
+
+/**
+ * Whether Bitcoin payments are supported for a transaction type/version.
+ */
+bool IsBitcoinPaymentAllowed(uint16_t type, uint16_t version)
+{
+    bool allowed = false;
+
+    if (type == MSC_TYPE_CREATE_PROPERTY_VARIABLE && version == MP_TX_PKT_V2) {
+        allowed = true;
+    }
+
+    return allowed;
 }
 
 /**

@@ -93,6 +93,56 @@ Value omni_send(const Array& params, bool fHelp)
     }
 }
 
+// omni_sendbtcpayment - send a BTC payment
+Value omni_sendbtcpayment(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "omni_sendbtcpayment \"fromaddress\" \"toaddress\" \"linkedtxid\" \"amount\"\n"
+
+            "\nCreate and broadcast a BTC payment transaction.\n"
+
+            "\nArguments:\n"
+            "1. fromaddress          (string, required) the address to send from\n"
+            "2. toaddress            (string, required) the address of the receiver\n"
+            "3. linkedtxid           (string, required) the transaction ID of the linked transaction\n"
+            "4. amount               (string, required) the amount of Bitcoin to send\n"
+
+            "\nResult:\n"
+            "\"hash\"                  (string) the hex-encoded transaction hash\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("omni_sendbtcpayment", "\"3M9qvHKtgARhqcMtM5cRT9VaiDJ5PSfQGY\" \"37FaKponF7zqoMLUjEiko25pDiuVH5YLEa\" \"txid\" \"0.01\"")
+            + HelpExampleRpc("omni_sendbtcpayment", "\"3M9qvHKtgARhqcMtM5cRT9VaiDJ5PSfQGY\", \"37FaKponF7zqoMLUjEiko25pDiuVH5YLEa\", \"txid\", \"0.01\"")
+        );
+
+    // obtain parameters & info
+    std::string fromAddress = ParseAddress(params[0]);
+    std::string toAddress = ParseAddress(params[1]);
+    uint256 linkedtxid = ParseHashV(params[2], "txid");
+    int64_t referenceAmount = ParseAmount(params[3], true);
+
+    // create a payload for the transaction
+    std::vector<unsigned char> payload = CreatePayload_BitcoinPayment(linkedtxid);
+
+    // request the wallet build the transaction (and if needed commit it)
+    uint256 txid;
+    std::string rawHex;
+    int result = ClassAgnosticWalletTXBuilder(fromAddress, toAddress, fromAddress, referenceAmount, payload, txid, rawHex, autoCommit);
+
+    // check error and return the txid (or raw hex depending on autocommit)
+    if (result != 0) {
+        throw JSONRPCError(result, error_str(result));
+    } else {
+        if (!autoCommit) {
+            return rawHex;
+        } else {
+            PendingAdd(txid, fromAddress, MSC_TYPE_BITCOIN_PAYMENT, BTC_PROPERTY_ID, referenceAmount);
+            return txid.GetHex();
+        }
+    }
+}
+
 // omni_sendall - send all
 Value omni_sendall(const Array& params, bool fHelp)
 {

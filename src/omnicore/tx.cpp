@@ -6,6 +6,7 @@
 #include "omnicore/convert.h"
 #include "omnicore/dex.h"
 #include "omnicore/fees.h"
+#include "omnicore/errors.h"
 #include "omnicore/log.h"
 #include "omnicore/mdex.h"
 #include "omnicore/notifications.h"
@@ -13,10 +14,12 @@
 #include "omnicore/rules.h"
 #include "omnicore/sp.h"
 #include "omnicore/sto.h"
+#include "omnicore/utilsbitcoin.h"
 
 #include "alert.h"
 #include "amount.h"
 #include "main.h"
+#include "rpcserver.h"
 #include "sync.h"
 #include "utiltime.h"
 
@@ -61,7 +64,7 @@ std::string mastercore::strTransactionType(uint16_t txType)
         case MSC_TYPE_REVOKE_PROPERTY_TOKENS: return "Revoke Property Tokens";
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS: return "Change Issuer Address";
         case MSC_TYPE_NOTIFICATION: return "Notification";
-        case MSC_TYPE_PAYMENT_CROWDSALE: return "Crowdsale Payment";
+        case MSC_TYPE_BITCOIN_PAYMENT: return "Bitcoin Payment";
         case OMNICORE_MESSAGE_TYPE_ALERT: return "ALERT";
         case OMNICORE_MESSAGE_TYPE_ACTIVATION: return "Feature Activation";
 
@@ -150,8 +153,8 @@ bool CMPTransaction::interpret_Transaction()
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
             return interpret_ChangeIssuer();
 
-        case MSC_TYPE_PAYMENT_CROWDSALE:
-            return interpret_PayCrowdsale();
+        case MSC_TYPE_BITCOIN_PAYMENT:
+            return interpret_BitcoinPayment();
 
         case OMNICORE_MESSAGE_TYPE_ACTIVATION:
             return interpret_Activation();
@@ -180,6 +183,8 @@ bool CMPTransaction::interpret_TransactionType()
 
     if ((!rpcOnly && msc_debug_packets) || msc_debug_packets_readonly) {
         PrintToLog("\t------------------------------\n");
+        PrintToLog("\t          sender: %s\n", sender);
+        PrintToLog("\t       recipient: %s\n", receiver);
         PrintToLog("\t         version: %d, class %s\n", txVersion, intToClass(encodingClass));
         PrintToLog("\t            type: %d (%s)\n", txType, strTransactionType(txType));
     }
@@ -633,9 +638,20 @@ bool CMPTransaction::interpret_ChangeIssuer()
 }
 
 /** Tx 80 */
-bool CMPTransaction::interpret_PayCrowdsale()
+bool CMPTransaction::interpret_BitcoinPayment()
 {
-    // There are no fields with this transaction
+    if (pkt_size < 36) {
+        return false;
+    }
+
+    const char* p = 4 + (char*) &pkt;
+    std::string hash(p);
+    linked_txid = ParseHashV(hash, "txid");
+
+    if ((!rpcOnly && msc_debug_packets) || msc_debug_packets_readonly) {
+        PrintToLog("\t     linked txid: %s\n", linked_txid.GetHex());
+    }
+
     return true;
 }
 
@@ -761,8 +777,8 @@ int CMPTransaction::interpretPacket()
         case MSC_TYPE_CHANGE_ISSUER_ADDRESS:
             return logicMath_ChangeIssuer();
 
-        case MSC_TYPE_PAYMENT_CROWDSALE:
-            return logicMath_PayCrowdsale();
+        case MSC_TYPE_BITCOIN_PAYMENT:
+            return logicMath_BitcoinPayment();
 
         case OMNICORE_MESSAGE_TYPE_ACTIVATION:
             return logicMath_Activation();
@@ -1934,7 +1950,7 @@ int CMPTransaction::logicMath_ChangeIssuer()
 }
 
 /** Tx 80 */
-int CMPTransaction::logicMath_PayCrowdsale()
+int CMPTransaction::logicMath_BitcoinPayment()
 {
     uint256 blockHash;
     {
@@ -1958,17 +1974,80 @@ int CMPTransaction::logicMath_PayCrowdsale()
         return (PKT_ERROR_TOKENS -22);
     }
 
+    CTransaction linked_tx;
+    uint256 linked_blockHash = 0;
+    int linked_blockHeight = 0;
+    int linked_blockTime = 0;
+
+    if (!GetTransaction(linked_txid, linked_tx, linked_blockHash, true)) {
+        PrintToLog("%s(): rejected: linked transaction %s does not exist\n",
+                __func__,
+                linked_txid.GetHex());
+        return MP_TX_NOT_FOUND;
+    }
+
+    if (linked_blockHash == 0) { // linked transaction is unconfirmed (and thus not yet added to state), cannot process payment
+        PrintToLog("%s(): rejected: linked transaction %s does not exist (unconfirmed)\n",
+                __func__,
+                linked_txid.GetHex());
+        return MP_TX_NOT_FOUND;
+    }
+
+    CBlockIndex* pBlockIndex = GetBlockIndex(linked_blockHash);
+    if (NULL != pBlockIndex) {
+        linked_blockHeight = pBlockIndex->nHeight;
+        linked_blockTime = pBlockIndex->nTime;
+    }
+
+    CMPTransaction mp_obj;
+    int parseRC = ParseTransaction(linked_tx, linked_blockHeight, 0, mp_obj, linked_blockTime);
+    if (parseRC < 0) {
+        PrintToLog("%s(): rejected: linked transaction %s is not an Omni layer transaction\n",
+                __func__,
+                linked_txid.GetHex());
+        return MP_TX_IS_NOT_MASTER_PROTOCOL;
+    }
+
+    if (!mp_obj.interpret_Transaction()) {
+        PrintToLog("%s(): rejected: linked transaction %s is not an Omni layer transaction\n",
+                __func__,
+                linked_txid.GetHex());
+        return MP_TX_IS_NOT_MASTER_PROTOCOL;
+    }
+
+    bool linked_valid = false;
+    {
+        LOCK(cs_tally);
+        linked_valid = getValidMPTX(linked_txid);
+    }
+    if (!linked_valid) {
+        PrintToLog("%s(): rejected: linked transaction %s is an invalid transaction\n",
+                __func__,
+                linked_txid.GetHex());
+        return MP_TX_IS_NOT_MASTER_PROTOCOL -101;
+    }
+
+    uint16_t linked_type = mp_obj.getType();
+    uint16_t linked_version = mp_obj.getVersion();
+    if (!IsBitcoinPaymentAllowed(linked_type, linked_version)) {
+        PrintToLog("%s(): rejected: linked transaction %s doesn't support bitcoin payments\n",
+                __func__,
+                linked_txid.GetHex());
+        return (PKT_ERROR_TOKENS -61);
+    }
+
     if (receiver.empty()) {
         PrintToLog("%s(): rejected: receiver is empty\n", __func__);
         return (PKT_ERROR_TOKENS -45);
     }
 
-    if (NULL == getCrowd(receiver)) {
-        PrintToLog("%s(): rejected: receiver %s does not have an active crowdsale\n", __func__, receiver);
-        return (PKT_ERROR_TOKENS -47);
+    if (linked_type == MSC_TYPE_CREATE_PROPERTY_VARIABLE) {
+        if (NULL == getCrowd(receiver)) {
+            PrintToLog("%s(): rejected: receiver %s does not have an active crowdsale\n", __func__, receiver);
+            return (PKT_ERROR_TOKENS -47);
+        }
+        logicHelper_CrowdsaleParticipation();
     }
-
-    logicHelper_CrowdsaleParticipation();
 
     return 0;
 }
