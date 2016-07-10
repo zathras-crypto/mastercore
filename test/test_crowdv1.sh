@@ -66,9 +66,10 @@ if [ $FEATUREID == "11" ]
     printf "FAIL (result:%s)\n" $FEATUREID
     FAIL=$((FAIL+1))
 fi
-printf "\nTesting a crowdsale using BTC after activation...\n"
+printf "\nTesting crowdsales using BTC after activation...\n"
+printf "\nTesting an indivisible BTC crowdsale...\n"
 printf "   * Creating an indivisible test property and opening a crowdsale\n"
-CROWDTXID=$(./src/omnicore-cli --regtest omni_sendissuancecrowdsale $ADDR 1 1 0 "Z_TestCat" "Z_TestSubCat" "Z_IndivisTestProperty" "Z_TestURL" "Z_TestData" 0 10 1477488310 0 0)
+CROWDTXID=$(./src/omnicore-cli --regtest omni_sendissuancecrowdsale $ADDR 1 1 0 "Z_TestCat" "Z_TestSubCat" "Z_IndivisTestProperty" "Z_TestURL" "Z_TestData" 0 1000 1477488310 0 0)
 ./src/omnicore-cli --regtest setgenerate true 1 >null
 printf "     # Checking the transaction was valid... "
 RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $CROWDTXID | grep valid | cut -c15-)
@@ -82,9 +83,9 @@ if [ $RESULT == "true," ]
 fi
 printf "\nTesting sending a BTC payment to the crowdsale...\n"
 printf "   * Sending some BTC to %s\n" ${ADDRESS[1]}
-./src/omnicore-cli --regtest sendtoaddress ${ADDRESS[1]} 0.002 >null
+./src/omnicore-cli --regtest sendtoaddress ${ADDRESS[1]} 0.2 >null
 printf "   * Sending some BTC from %s to the crowdsale\n" ${ADDRESS[1]}
-TXID=$(./src/omnicore-cli --regtest omni_sendbtcpayment ${ADDRESS[1]} $ADDR $CROWDTXID 0.001)
+TXID=$(./src/omnicore-cli --regtest omni_sendbtcpayment ${ADDRESS[1]} $ADDR $CROWDTXID 0.1)
 ./src/omnicore-cli --regtest setgenerate true 1 >null
 printf "     # Checking the transaction was valid... "
 RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep valid | cut -c15-)
@@ -96,20 +97,206 @@ if [ $RESULT == "true," ]
     printf "FAIL (result:%s)\n" $RESULT
     FAIL=$((FAIL+1))
 fi
-printf "     # TODO: Check the transaction is listed in crowdsale participants...\n"
-printf "     # TODO: Check the sending address now owns X tokens...\n "
-
+printf "     # Checking the payment was linked to the correct transaction... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep $CROWDTXID | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the payment was linked to the correct recipient... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep recipient | grep $ADDR | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the payment amount was 0.1 BTC... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep amount | cut -c22-)
+if [ $RESULT == "\"0.10000000\"," ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the sending address now has 100 of property 3... "
+BALANCE=$(./src/omnicore-cli --regtest omni_getbalance ${ADDRESS[1]} 3 | grep balance | cut -d '"' -f4)
+if [ $BALANCE == "100" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $BALANCE
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the transaction is listed in crowdsale participants... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 3 true | grep $TXID | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the crowdsale amount raised is now 0.1 BTC... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 3 true | grep amountraised | cut -d '"' -f4)
+if [ $RESULT == "0.10000000" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the amount of tokens issued to users is now 100... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 3 true | grep tokensissued | cut -d '"' -f4)
+if [ $RESULT == "100" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the amount of tokens issued to uthe isuser is still 0... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 3 true | grep addedissuertokens | cut -d '"' -f4)
+if [ $RESULT == "0" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "\nTesting a divisible BTC crowdsale...\n"
+printf "   * Sending some BTC to %s\n" ${ADDRESS[3]}
+./src/omnicore-cli --regtest sendtoaddress ${ADDRESS[3]} 0.2 >null
+printf "   * Sending some BTC to %s\n" ${ADDRESS[4]}
+./src/omnicore-cli --regtest sendtoaddress ${ADDRESS[4]} 0.2 >null
+./src/omnicore-cli --regtest setgenerate true 1 >null
+printf "   * Creating a divisible test property and opening a crowdsale\n"
+CROWDTXID=$(./src/omnicore-cli --regtest omni_sendissuancecrowdsale ${ADDRESS[3]} 1 2 0 "Z_TestCat" "Z_TestSubCat" "Z_DivisTestProperty" "Z_TestURL" "Z_TestData" 0 1000 1477488310 0 0)
+./src/omnicore-cli --regtest setgenerate true 1 >null
+printf "     # Checking the transaction was valid... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $CROWDTXID | grep valid | cut -c15-)
+if [ $RESULT == "true," ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "   * Sending some BTC from %s to the crowdsale\n" ${ADDRESS[4]}
+TXID=$(./src/omnicore-cli --regtest omni_sendbtcpayment ${ADDRESS[4]} ${ADDRESS[3]} $CROWDTXID 0.1)
+./src/omnicore-cli --regtest setgenerate true 1 >null
+printf "     # Checking the transaction was valid... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep valid | cut -c15-)
+if [ $RESULT == "true," ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the payment was linked to the correct transaction... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep $CROWDTXID | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the payment was linked to the correct recipient... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep recipient | grep ${ADDRESS[3]} | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the payment amount was 0.1 BTC... "
+RESULT=$(./src/omnicore-cli --regtest omni_gettransaction $TXID | grep amount | cut -c22-)
+if [ $RESULT == "\"0.10000000\"," ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the sending address now has 100.0 of property 4... "
+BALANCE=$(./src/omnicore-cli --regtest omni_getbalance ${ADDRESS[4]} 4 | grep balance | cut -d '"' -f4)
+if [ $BALANCE == "100.00000000" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $BALANCE
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the transaction is listed in crowdsale participants... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 4 true | grep $TXID | wc -l)
+if [ $RESULT == "1" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the crowdsale amount raised is now 0.1 BTC... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 4 true | grep amountraised | cut -d '"' -f4)
+if [ $RESULT == "0.10000000" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the amount of tokens issued to users is now 100.0... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 4 true | grep tokensissued | cut -d '"' -f4)
+if [ $RESULT == "100.00000000" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
+printf "     # Checking the amount of tokens issued to uthe isuser is still 0... "
+RESULT=$(./src/omnicore-cli --regtest omni_getcrowdsale 4 true | grep addedissuertokens | cut -d '"' -f4)
+if [ $RESULT == "0.00000000" ]
+  then
+    printf "PASS\n"
+    PASS=$((PASS+1))
+  else
+    printf "FAIL (result:%s)\n" $RESULT
+    FAIL=$((FAIL+1))
+fi
 
 printf "\n"
 printf "####################\n"
 printf "#  Summary:        #\n"
-printf "#    Passed = %d    #\n" $PASS
+printf "#    Passed = %d   #\n" $PASS
 printf "#    Failed = %d    #\n" $FAIL
 printf "####################\n"
 printf "\n"
 
 ./src/omnicore-cli --regtest stop
-
-
-
 

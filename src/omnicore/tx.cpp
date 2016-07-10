@@ -805,11 +805,6 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
         return (PKT_ERROR_CROWD -2);
     }
 
-    int64_t participationAmount = nValue;
-    if (version > MP_TX_PKT_V0 && pcrowdsale->getCurrDes() == BTC_PROPERTY_ID) {
-        participationAmount = 0; //BTC amount goes here, create a helper
-    }
-
     CMPSPInfo::Entry sp;
     assert(_my_sps->getSP(pcrowdsale->getPropertyId(), sp));
     PrintToLog("INVESTMENT SEND to Crowdsale Issuer: %s\n", receiver);
@@ -829,15 +824,16 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
     bool inflateAmount = isPropertyDivisible(property) ? false : true;
 
     // Calculate the amounts to credit for this fundraiser
-    calculateFundraiser(inflateAmount, participationAmount, sp.early_bird, sp.deadline, blockTime,
+    calculateFundraiser(inflateAmount, nValue, sp.early_bird, sp.deadline, blockTime,
             sp.num_tokens, sp.percentage, getTotalTokens(pcrowdsale->getPropertyId()),
             tokens, close_crowdsale);
 
     if (msc_debug_sp) {
+        uint32_t crowdPropertyId = pcrowdsale->getPropertyId();
         PrintToLog("%s(): granting via crowdsale to user: %s %d (%s)\n",
-                __func__, FormatMP(property, tokens.first), property, strMPProperty(property));
+                __func__, FormatMP(crowdPropertyId, tokens.first), crowdPropertyId, strMPProperty(crowdPropertyId));
         PrintToLog("%s(): granting via crowdsale to issuer: %s %d (%s)\n",
-                __func__, FormatMP(property, tokens.second), property, strMPProperty(property));
+                __func__, FormatMP(crowdPropertyId, tokens.second), crowdPropertyId, strMPProperty(crowdPropertyId));
     }
 
     // Update the crowdsale object
@@ -845,7 +841,7 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
     pcrowdsale->incTokensIssuerCreated(tokens.second);
 
     // Data to pass to txFundraiserData
-    int64_t txdata[] = {(int64_t) participationAmount, blockTime, tokens.first, tokens.second};
+    int64_t txdata[] = {(int64_t) nValue, blockTime, tokens.first, tokens.second};
     std::vector<int64_t> txDataVec(txdata, txdata + sizeof(txdata) / sizeof(txdata[0]));
 
     // Insert data about crowdsale participation
@@ -2036,16 +2032,37 @@ int CMPTransaction::logicMath_BitcoinPayment()
         return (PKT_ERROR_TOKENS -61);
     }
 
-    if (receiver.empty()) {
-        PrintToLog("%s(): rejected: receiver is empty\n", __func__);
-        return (PKT_ERROR_TOKENS -45);
+    std::string linked_sender = mp_obj.getSender();
+    nValue = GetBitcoinPaymentAmount(txid, linked_sender);
+    PrintToLog("\tlinked tx sender: %s\n", linked_sender);
+    PrintToLog("\t  psyment amount: %s\n", FormatDivisibleMP(nValue));
+
+    if (nValue == 0) {
+        PrintToLog("%s(): rejected: no payment to sender of linked transaction\n",
+                __func__,
+                linked_sender,
+                linked_txid.GetHex());
+        return (PKT_ERROR_TOKENS -62);
     }
 
+    // empty receiver & receiver == linked_sender checks are skipped, since we don't care if the payment was last vout
+
     if (linked_type == MSC_TYPE_CREATE_PROPERTY_VARIABLE) {
-        if (NULL == getCrowd(receiver)) {
+        CMPCrowd* pcrowdsale = getCrowd(receiver);
+        if (pcrowdsale == NULL) {
             PrintToLog("%s(): rejected: receiver %s does not have an active crowdsale\n", __func__, receiver);
             return (PKT_ERROR_TOKENS -47);
         }
+
+        // confirm the crowdsale that the receiver has open now is the same as the transaction referenced in the payment
+        // CMPCrowd class doesn't contain txid, work around by comparing propid for current crowdsale & propid for linked crowdsale
+        uint32_t crowdPropertyId = pcrowdsale->getPropertyId();
+        uint32_t linkPropertyId = _my_sps->findSPByTX(linked_txid); // TODO: Is this safe to lookup the crowdsale this way??
+        if (linkPropertyId != crowdPropertyId) {
+            PrintToLog("%s(): rejected: active crowdsale for receiver %s did not originate from linked txid\n", __func__, receiver);
+            return (PKT_ERROR_TOKENS -48);
+        }
+
         logicHelper_CrowdsaleParticipation();
     }
 

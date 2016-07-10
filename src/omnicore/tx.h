@@ -205,6 +205,7 @@ public:
     uint32_t getMinClientVersion() const { return min_client_version; }
     unsigned int getIndexInBlock() const { return tx_idx; }
     uint32_t getDistributionProperty() const { return distribution_property; }
+    uint256 getLinkedTXID() const { return linked_txid; }
 
     /** Creates a new CMPTransaction object. */
     CMPTransaction()
