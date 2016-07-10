@@ -115,13 +115,10 @@ public:
     int MSC_SEND_ALL_BLOCK;
     //! Block to enable betting transactions
     int MSC_BET_BLOCK;
-<<<<<<< c806479765feb0dd7dce35414e3602200315c8c9
     //! Block to enable cross property STO (v1)
     int MSC_STOV1_BLOCK;
-=======
     //! Block to enable BTC in crowdsales
     int MSC_BTC_CROWDSALE_BLOCK;
->>>>>>> Add feature activation for ID 11 for BTC crowdsales
 
     //! Block to deactivate crowdsale participations when "granting tokens"
     int GRANTEFFECTS_FEATURE_BLOCK;
