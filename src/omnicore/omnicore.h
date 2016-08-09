@@ -201,7 +201,7 @@ public:
     bool GetFeedValue(const std::string& address, uint16_t feedRef, int64_t *feedValue, int *feedBlock, uint256 *feedTXID, int maxBlock=9999999);
     std::set<uint16_t> GetAddressFeeds(const std::string& address);
     std::set<std::pair<int,int64_t> > GetFeedHistory(const std::string& address, uint16_t feedRef);
-    void DeleteAboveBlock(int blocknum);
+    int DeleteAboveBlock(int blocknum);
     void PrintAll();
 };
 

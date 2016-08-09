@@ -2535,11 +2535,30 @@ void COmniFeedDB::PrintAll()
     delete it;
 }
 
-void COmniFeedDB::DeleteAboveBlock(int blockNum)
+int COmniFeedDB::DeleteAboveBlock(int blockNum)
 {
-/*
-TODO
-*/
+    PrintToLog("COmniFeedDB::DeleteAboveBlock called, rolling back to block %d\n", blockNum);
+    assert(pdb);
+
+    unsigned int nDeleted = 0;
+    leveldb::Iterator* it = NewIterator();
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        leveldb::Slice sKey = it->key();
+        std::string sKeyStr = sKey.ToString();
+        std::vector<std::string> vStr;
+        boost::split(vStr, sKeyStr, boost::is_any_of(":"), token_compress_on);
+        int entryBlock = boost::lexical_cast<int>(vStr[2]);
+        if (entryBlock >= blockNum) {
+           PrintToLog("\tDeleting record: %s=%s\n", sKeyStr, it->value().ToString());
+           pdb->Delete(writeoptions, sKey);
+           nDeleted++;
+        }
+    }
+    PrintToLog("COmniFeedDB::DeleteAboveBlock finished, deleted %d records\n", nDeleted);
+
+    delete it;
+
+    return (nDeleted);
 }
 
 void COmniTransactionDB::RecordTransaction(const uint256& txid, uint32_t posInBlock)
