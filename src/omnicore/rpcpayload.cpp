@@ -38,7 +38,6 @@ Value omni_createpayload_simplesend(const Array& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyId);
     int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
 
     std::vector<unsigned char> payload = CreatePayload_SimpleSend(propertyId, amount);
@@ -167,7 +166,6 @@ Value omni_createpayload_sto(const Array& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyId);
     int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
     uint32_t distributionPropertyId = (params.size() > 2) ? ParsePropertyId(params[2]) : propertyId;
 
@@ -266,8 +264,6 @@ Value omni_createpayload_issuancecrowdsale(const Array& params, bool fHelp)
     uint8_t issuerPercentage = ParseIssuerBonus(params[12]);
 
     RequirePropertyName(name);
-    RequireExistingProperty(propertyIdDesired);
-    RequireSameEcosystem(ecosystem, propertyIdDesired);
 
     std::vector<unsigned char> payload = CreatePayload_IssuanceVariable(ecosystem, type, previousId, category, subcategory, name, url, data, propertyIdDesired, numTokens, deadline, earlyBonus, issuerPercentage);
 
@@ -337,8 +333,6 @@ Value omni_createpayload_closecrowdsale(const Array& params, bool fHelp)
 
     uint32_t propertyId = ParsePropertyId(params[0]);
 
-    // checks bypassed because someone may wish to prepare the payload to close a crowdsale creation not yet broadcast
-
     std::vector<unsigned char> payload = CreatePayload_CloseCrowdsale(propertyId);
 
     return HexStr(payload.begin(), payload.end());
@@ -366,8 +360,6 @@ Value omni_createpayload_grant(const Array& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyId);
-    RequireManagedProperty(propertyId);
     int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
     std::string memo = (params.size() > 2) ? ParseText(params[2]): "";
 
@@ -398,8 +390,6 @@ Value omni_createpayload_revoke(const Array& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyId);
-    RequireManagedProperty(propertyId);
     int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
     std::string memo = (params.size() > 2) ? ParseText(params[2]): "";
 
@@ -428,7 +418,6 @@ Value omni_createpayload_changeissuer(const Array& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyId);
 
     std::vector<unsigned char> payload = CreatePayload_ChangeIssuer(propertyId);
 
@@ -458,13 +447,9 @@ Value omni_createpayload_trade(const Array& params, bool fHelp)
         );
 
     uint32_t propertyIdForSale = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyIdForSale);
     int64_t amountForSale = ParseAmount(params[1], isPropertyDivisible(propertyIdForSale));
     uint32_t propertyIdDesired = ParsePropertyId(params[2]);
-    RequireExistingProperty(propertyIdDesired);
     int64_t amountDesired = ParseAmount(params[3], isPropertyDivisible(propertyIdDesired));
-    RequireSameEcosystem(propertyIdForSale, propertyIdDesired);
-    RequireDifferentIds(propertyIdForSale, propertyIdDesired);
     RequireDifferentIds(propertyIdForSale, propertyIdDesired);
 
     std::vector<unsigned char> payload = CreatePayload_MetaDExTrade(propertyIdForSale, amountForSale, propertyIdDesired, amountDesired);
@@ -495,12 +480,9 @@ Value omni_createpayload_canceltradesbyprice(const Array& params, bool fHelp)
         );
 
     uint32_t propertyIdForSale = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyIdForSale);
     int64_t amountForSale = ParseAmount(params[1], isPropertyDivisible(propertyIdForSale));
     uint32_t propertyIdDesired = ParsePropertyId(params[2]);
-    RequireExistingProperty(propertyIdDesired);
     int64_t amountDesired = ParseAmount(params[3], isPropertyDivisible(propertyIdDesired));
-    RequireSameEcosystem(propertyIdForSale, propertyIdDesired);
     RequireDifferentIds(propertyIdForSale, propertyIdDesired);
 
     std::vector<unsigned char> payload = CreatePayload_MetaDExCancelPrice(propertyIdForSale, amountForSale, propertyIdDesired, amountDesired);
@@ -529,10 +511,7 @@ Value omni_createpayload_canceltradesbypair(const Array& params, bool fHelp)
         );
 
     uint32_t propertyIdForSale = ParsePropertyId(params[0]);
-    RequireExistingProperty(propertyIdForSale);
     uint32_t propertyIdDesired = ParsePropertyId(params[1]);
-    RequireExistingProperty(propertyIdDesired);
-    RequireSameEcosystem(propertyIdForSale, propertyIdDesired);
     RequireDifferentIds(propertyIdForSale, propertyIdDesired);
 
     std::vector<unsigned char> payload = CreatePayload_MetaDExCancelPair(propertyIdForSale, propertyIdDesired);
