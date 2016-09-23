@@ -1,1 +1,19 @@
-#
+OMNICORE_H = \
+  omnicore/version.h
+
+OMNICORE_CPP = \
+  omnicore/version.cpp
+
+libbitcoin_server_a_SOURCES += \
+  $(OMNICORE_CPP) \
+  $(OMNICORE_H)
+
+omnicore/libbitcoin_server_a-version.$(OBJEXT): obj/build.h # build info
+
+CLEAN_OMNICORE = omnicore/*.gcda omnicore/*.gcno
+
+CLEANFILES += $(CLEAN_OMNICORE)
+
+if ENABLE_TESTS
+include Makefile.omnitest.include
+endif#
