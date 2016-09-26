@@ -19,7 +19,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
 BITCOIN_DAEMON_NAME=omnicored
-BITCOIN_GUI_NAME=omnicored-qt
+BITCOIN_GUI_NAME=omnicore-qt
 BITCOIN_CLI_NAME=omnicore-cli
 BITCOIN_TX_NAME=bitcoin-tx
 
