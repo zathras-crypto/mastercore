@@ -57,6 +57,10 @@ private:
     // SendToOwners v1
     unsigned int distribution_property;
 
+    // SendMany
+    uint16_t send_many_count;
+    std::set<std::pair<std::string,int64_t> > send_many_recipients;
+
     // CreatePropertyFixed, CreatePropertyVariable, CreatePropertyMananged, MetaDEx, SendAll
     unsigned char ecosystem;
 
@@ -106,6 +110,7 @@ private:
     bool interpret_SimpleSend();
     bool interpret_SendToOwners();
     bool interpret_SendAll();
+    bool interpret_SendMany();
     bool interpret_TradeOffer();
     bool interpret_MetaDExTrade();
     bool interpret_MetaDExCancelPrice();
@@ -128,6 +133,7 @@ private:
     int logicMath_SimpleSend();
     int logicMath_SendToOwners();
     int logicMath_SendAll();
+    int logicMath_SendMany();
     int logicMath_TradeOffer();
     int logicMath_AcceptOffer_BTC();
     int logicMath_MetaDExTrade();
@@ -200,6 +206,8 @@ public:
     uint32_t getMinClientVersion() const { return min_client_version; }
     unsigned int getIndexInBlock() const { return tx_idx; }
     uint32_t getDistributionProperty() const { return distribution_property; }
+    uint16_t getSendManyCount() const { return send_many_count; }
+    std::set<std::pair<std::string,int64_t> > getSendManyRecipients() const { return send_many_recipients; }
 
     /** Creates a new CMPTransaction object. */
     CMPTransaction()

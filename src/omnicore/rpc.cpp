@@ -30,6 +30,7 @@
 #include "omnicore/version.h"
 #include "omnicore/wallettxs.h"
 
+#include "base58.h"
 #include "amount.h"
 #include "init.h"
 #include "main.h"
@@ -53,6 +54,7 @@
 using std::runtime_error;
 using namespace json_spirit;
 using namespace mastercore;
+using namespace std;
 
 /**
  * Throws a JSONRPCError, depending on error code.

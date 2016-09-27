@@ -67,6 +67,7 @@ enum TransactionType {
   MSC_TYPE_RESTRICTED_SEND          =  2,
   MSC_TYPE_SEND_TO_OWNERS           =  3,
   MSC_TYPE_SEND_ALL                 =  4,
+  MSC_TYPE_SEND_MANY                =  6,
   MSC_TYPE_SAVINGS_MARK             = 10,
   MSC_TYPE_SAVINGS_COMPROMISED      = 11,
   MSC_TYPE_RATELIMITED_MARK         = 12,

@@ -8,14 +8,20 @@
 #include "omnicore/sp.h"
 #include "omnicore/tx.h"
 
+#include "base58.h"
 #include "rpcserver.h"
 #include "utilstrencodings.h"
 
+#include <boost/foreach.hpp>
+
 #include "json/json_spirit_value.h"
 
+using namespace boost;
 using std::runtime_error;
 using namespace json_spirit;
 using namespace mastercore;
+
+
 
 Value omni_createpayload_simplesend(const Array& params, bool fHelp)
 {
@@ -68,6 +74,56 @@ Value omni_createpayload_sendall(const Array& params, bool fHelp)
     uint8_t ecosystem = ParseEcosystem(params[0]);
 
     std::vector<unsigned char> payload = CreatePayload_SendAll(ecosystem);
+
+    return HexStr(payload.begin(), payload.end());
+}
+
+Value omni_createpayload_sendmany(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "omni_createpayload_sendmany params\n"
+
+            "\nCreate the payload for a send to many transaction.\n"
+
+            "\nArguments:\n"
+            "1. propertyid           (number, required) the identifier of the tokens to send\n"
+            "2. \"recipients\"       (string, required) A json object with addresses and amounts\n"
+            "    {\n"
+            "      \"address\":amount   (numeric) The address is the key, the amount of tokens is the value\n"
+            "      ,...\n"
+            "    }\n"
+            "\nResult:\n"
+            "\"payload\"               (string) the hex-encoded payload\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("omni_createpayload_sendmany", "2")
+            + HelpExampleRpc("omni_createpayload_sendmany", "2")
+        );
+
+    uint32_t propertyId = ParsePropertyId(params[0]);
+    Object recipients = params[1].get_obj();
+    int64_t total = 0;
+
+    std::set<std::pair<std::string,int64_t> >setSends;
+    std::set<std::string>setAddress;
+
+    BOOST_FOREACH(const Pair& s, recipients) {
+        std::string addressStr(s.name_);
+        CBitcoinAddress address(addressStr);
+        Value amountVal(s.value_);
+        int64_t amount = amountVal.get_int64();
+//        if (!address.IsValid())
+ //           throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+s.name_);
+        if (setAddress.count(addressStr)) // don't sllow wasting space
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+s.name_);
+        setAddress.insert(addressStr);
+        setSends.insert(std::make_pair(addressStr, amount));
+        total += amount;
+    }
+
+
+    std::vector<unsigned char> payload = CreatePayload_SendMany(propertyId, setSends);
 
     return HexStr(payload.begin(), payload.end());
 }

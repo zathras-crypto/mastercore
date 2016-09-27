@@ -278,6 +278,7 @@ extern json_spirit::Value omni_sendrevoke(const json_spirit::Array& params, bool
 extern json_spirit::Value omni_sendclosecrowdsale(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value omni_sendchangeissuer(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value omni_sendall(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value omni_sendmany(const json_spirit::Array& params, bool fHelp);
 
 /* Omni Core payload creation calls */
 extern json_spirit::Value omni_createpayload_simplesend(const json_spirit::Array& params, bool fHelp);
@@ -296,6 +297,7 @@ extern json_spirit::Value omni_createpayload_trade(const json_spirit::Array& par
 extern json_spirit::Value omni_createpayload_canceltradesbyprice(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value omni_createpayload_canceltradesbypair(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value omni_createpayload_cancelalltrades(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value omni_createpayload_sendmany(const json_spirit::Array& params, bool fHelp);
 
 /* Omni Core hidden calls - development usage (not shown in help) */
 extern json_spirit::Value mscrpc(const json_spirit::Array& params, bool fHelp);

@@ -14,6 +14,7 @@
 #include "omnicore/sp.h"
 #include "omnicore/sto.h"
 
+#include "base58.h"
 #include "alert.h"
 #include "amount.h"
 #include "main.h"
@@ -42,6 +43,7 @@ std::string mastercore::strTransactionType(uint16_t txType)
         case MSC_TYPE_RESTRICTED_SEND: return "Restricted Send";
         case MSC_TYPE_SEND_TO_OWNERS: return "Send To Owners";
         case MSC_TYPE_SEND_ALL: return "Send All";
+        case MSC_TYPE_SEND_MANY: return "Send Many";
         case MSC_TYPE_SAVINGS_MARK: return "Savings";
         case MSC_TYPE_SAVINGS_COMPROMISED: return "Savings COMPROMISED";
         case MSC_TYPE_RATELIMITED_MARK: return "Rate-Limiting";
@@ -109,6 +111,9 @@ bool CMPTransaction::interpret_Transaction()
 
         case MSC_TYPE_SEND_ALL:
             return interpret_SendAll();
+
+        case MSC_TYPE_SEND_MANY:
+            return interpret_SendMany();
 
         case MSC_TYPE_TRADE_OFFER:
             return interpret_TradeOffer();
@@ -246,6 +251,68 @@ bool CMPTransaction::interpret_SendAll()
     }
 
     return true;
+}
+
+/** Tx 6 */
+bool CMPTransaction::interpret_SendMany()
+{
+    if (pkt_size < 29) {
+        return false;
+    }
+    memcpy(&property, &pkt[4], 4);
+    swapByteOrder32(property);
+    memcpy(&send_many_count, &pkt[8], 2);
+    swapByteOrder16(send_many_count);
+
+    if ((!rpcOnly && msc_debug_packets) || msc_debug_packets_readonly) {
+        PrintToLog("\t        property: %d (%s)\n", property, strMPProperty(property));
+        PrintToLog("\t number of sends: %d\n", FormatIndivisibleMP(uint64_t(send_many_count)));
+    }
+
+    // make sure the packet is at the expected size
+    int expectedPacketSize = (send_many_count * 29) + 10; // 21 bytes for version & hash160, 8 bytes for amount, +10 for version/type/property/count
+    if (pkt_size < expectedPacketSize) {
+        PrintToLog("Packet is too small for expected size (size: %d, expected; %d\n", pkt_size, expectedPacketSize);
+        return false;
+    }
+
+    int pos = 10;
+    for (uint16_t i = 0; i < send_many_count; i++) {
+        uint64_t sendAmount = 0;
+        memcpy(&sendAmount, &pkt[pos], 8);
+        swapByteOrder64(sendAmount);
+        pos += 8;
+        // address
+        // TODO mem copy pkt[pos] to pkt[pos+21] to vchAddress
+        std::vector<unsigned char> vchAddress[21];
+        memcpy(vchAddress, &pkt[pos], sizeof(vchAddress));
+        std::string sendAddress = EncodeBase58Check(*vchAddress);
+/*
+        if (!setSends.empty()) {
+          for (std::set<std::pair<std::string,int64_t> >::iterator it = setSends.begin(); it != setSends.end(); it++) {
+            std::string address = (*it).first;
+            uint64_t amount = (*it).second;
+            mastercore::swapByteOrder64(amount);
+            PUSH_BACK_BYTES(payload, amount);
+            std::vector<unsigned char> vchDecoded;
+            DecodeBase58(address, vchDecoded);
+            for (int i = 0; i < 4; i++) { // discard the checksum
+                if (!vchDecoded.empty()) {
+                    vchDecoded.pop_back();
+                }
+            }
+            payload.insert(payload.end(), vchDecoded.begin(), vchDecoded.end());
+          }
+        }
+*/
+        //
+        pos += 21;
+        PrintToLog("\t            send: %s = %d\n", sendAddress, FormatMP(property, sendAmount));
+    }
+
+    // nNewValue = nValue; // total
+
+    return false;
 }
 
 /** Tx 20 */
@@ -711,6 +778,9 @@ int CMPTransaction::interpretPacket()
         case MSC_TYPE_SEND_ALL:
             return logicMath_SendAll();
 
+        case MSC_TYPE_SEND_MANY:
+            return logicMath_SendMany();
+
         case MSC_TYPE_TRADE_OFFER:
             return logicMath_TradeOffer();
 
@@ -1065,6 +1135,12 @@ int CMPTransaction::logicMath_SendAll()
 
     nNewValue = numberOfPropertiesSent;
 
+    return 0;
+}
+
+/** Tx 6 */
+int CMPTransaction::logicMath_SendMany()
+{
     return 0;
 }
 

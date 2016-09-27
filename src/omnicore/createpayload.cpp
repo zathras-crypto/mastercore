@@ -5,6 +5,7 @@
 #include "omnicore/convert.h"
 
 #include "tinyformat.h"
+#include "base58.h"
 
 #include <stdint.h>
 #include <string>
@@ -39,6 +40,43 @@ std::vector<unsigned char> CreatePayload_SimpleSend(uint32_t propertyId, uint64_
     PUSH_BACK_BYTES(payload, messageType);
     PUSH_BACK_BYTES(payload, propertyId);
     PUSH_BACK_BYTES(payload, amount);
+
+    return payload;
+}
+
+std::vector<unsigned char> CreatePayload_SendMany(uint32_t propertyId, std::set<std::pair<std::string,int64_t> >setSends)
+{
+    std::vector<unsigned char> payload;
+    uint16_t messageType = 6;
+    uint16_t messageVer = 0;
+    uint16_t sendCount = setSends.size();
+
+    mastercore::swapByteOrder16(messageType);
+    mastercore::swapByteOrder16(messageVer);
+    mastercore::swapByteOrder32(propertyId);
+    mastercore::swapByteOrder16(sendCount);
+
+    PUSH_BACK_BYTES(payload, messageVer);
+    PUSH_BACK_BYTES(payload, messageType);
+    PUSH_BACK_BYTES(payload, propertyId);
+    PUSH_BACK_BYTES(payload, sendCount);
+
+    if (!setSends.empty()) {
+        for (std::set<std::pair<std::string,int64_t> >::iterator it = setSends.begin(); it != setSends.end(); it++) {
+            std::string address = (*it).first;
+            uint64_t amount = (*it).second;
+            mastercore::swapByteOrder64(amount);
+            PUSH_BACK_BYTES(payload, amount);
+            std::vector<unsigned char> vchDecoded;
+            DecodeBase58(address, vchDecoded);
+            for (int i = 0; i < 4; i++) { // discard the checksum
+                if (!vchDecoded.empty()) {
+                    vchDecoded.pop_back();
+                }
+            }
+            payload.insert(payload.end(), vchDecoded.begin(), vchDecoded.end());
+        }
+    }
 
     return payload;
 }

@@ -16,6 +16,7 @@
 #include "omnicore/sp.h"
 #include "omnicore/tx.h"
 
+#include "base58.h"
 #include "init.h"
 #include "main.h"
 #include "rpcserver.h"
@@ -143,6 +144,77 @@ Value omni_sendall(const Array& params, bool fHelp)
             return rawHex;
         } else {
             // TODO: pending
+            return txid.GetHex();
+        }
+    }
+}
+
+// omni_sendmany - send many
+Value omni_sendmany(const Array& params, bool fHelp)
+{
+  if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "omni_sendmany params\n"
+
+            "\nCreate a send to many transaction.\n"
+
+            "\nArguments:\n"
+            "1. fromaddress          (string, required) the address to send from\n"
+            "2. propertyid           (number, required) the identifier of the tokens to send\n"
+            "3. \"recipients\"       (string, required) A json object with addresses and amounts\n"
+            "    {\n"
+            "      \"address\":amount   (numeric) The address is the key, the amount of tokens is the value\n"
+            "      ,...\n"
+            "    }\n"
+            "\nResult:\n"
+            "\"hash\"                  (string) the hex-encoded transaction hash\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("omni_sendmany", "\"3M9qvHKtgARhqcMtM5cRT9VaiDJ5PSfQGY\" 1 \"37FaKponF7zqoMLUjEiko25pDiuVH5YLEa\"")
+            + HelpExampleRpc("omni_sendmany", "\"3M9qvHKtgARhqcMtM5cRT9VaiDJ5PSfQGY\", 1, \"37FaKponF7zqoMLUjEiko25pDiuVH5YLEa\"")
+        );
+
+    std::string fromAddress = ParseAddress(params[0]);
+    uint32_t propertyId = ParsePropertyId(params[1]);
+    Object recipients = params[2].get_obj();
+    int64_t total = 0;
+
+    RequireExistingProperty(propertyId);
+
+    std::set<std::pair<std::string,int64_t> >setSends;
+    std::set<std::string>setAddress;
+
+    BOOST_FOREACH(const Pair& s, recipients) {
+        std::string addressStr(s.name_);
+        CBitcoinAddress address(addressStr);
+        Value amountVal(s.value_);
+        int64_t amount = amountVal.get_int64();
+        if (!address.IsValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+s.name_);
+        if (setAddress.count(addressStr)) // don't sllow wasting space
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+s.name_);
+        setAddress.insert(addressStr);
+        setSends.insert(std::make_pair(addressStr, amount));
+        total += amount;
+    }
+
+    RequireBalance(fromAddress, propertyId, total);
+
+    std::vector<unsigned char> payload = CreatePayload_SendMany(propertyId, setSends);
+
+    // request the wallet build the transaction (and if needed commit it)
+    uint256 txid;
+    std::string rawHex;
+    int result = WalletTxBuilder(fromAddress, "", "", 0, payload, txid, rawHex, autoCommit);
+
+    // check error and return the txid (or raw hex depending on autocommit)
+    if (result != 0) {
+        throw JSONRPCError(result, error_str(result));
+    } else {
+        if (!autoCommit) {
+            return rawHex;
+        } else {
+            // TODO: pending support needed
             return txid.GetHex();
         }
     }

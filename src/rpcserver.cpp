@@ -411,6 +411,7 @@ static const CRPCCommand vRPCCommands[] =
     { "omni layer (transaction creation)",   "omni_sendclosecrowdsale",         &omni_sendclosecrowdsale,         false,      true,       true },
     { "omni layer (transaction creation)",   "omni_sendchangeissuer",           &omni_sendchangeissuer,           false,      true,       true },
     { "omni layer (transaction creation)",   "omni_sendall",                    &omni_sendall,                    false,      true,       true },
+    { "omni layer (transaction creation)",   "omni_sendmany",                   &omni_sendmany,                   false,      true,       true },
 
     /* Omni Core hidden calls - development usage (not shown in help) */
     /* CATEGORY                              NAME                               ACTOR (FUNCTION)                  OKSAFEMODE  THREADSAFE  REQWALLET */
@@ -446,6 +447,7 @@ static const CRPCCommand vRPCCommands[] =
     { "omni layer (payload creation)",       "omni_createpayload_canceltradesbyprice", &omni_createpayload_canceltradesbyprice, true, true, false },
     { "omni layer (payload creation)",       "omni_createpayload_canceltradesbypair",  &omni_createpayload_canceltradesbypair,  true, true, false },
     { "omni layer (payload creation)",       "omni_createpayload_cancelalltrades",     &omni_createpayload_cancelalltrades,     true, true, false },
+    { "omni layer (payload creation)",       "omni_createpayload_sendmany",     &omni_createpayload_sendmany,     true,       true,       false },
 
     /* Omni Core hidden calls - aliased calls for backwards compatibiltiy - to be depreciated (not shown in help) */
     /* CATEGORY                              NAME                               ACTOR (FUNCTION)                  OKSAFEMODE  THREADSAFE  REQWALLET */
