@@ -93,6 +93,11 @@ enum BindFlags {
 
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 
+// Omni Core initialization and shutdown handlers
+extern int mastercore_init();
+extern int mastercore_shutdown();
+extern int CheckWalletUpdate(bool forceUpdate = false);
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // Shutdown
@@ -225,6 +230,10 @@ void Shutdown()
         delete pblocktree;
         pblocktree = NULL;
     }
+
+    //! Omni Core shutdown
+    mastercore_shutdown();
+
 #ifdef ENABLE_WALLET
     if (pwalletMain)
         pwalletMain->Flush(true);
@@ -1368,6 +1377,47 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!est_filein.IsNull())
         mempool.ReadFeeEstimates(est_filein);
     fFeeEstimatesInitialized = true;
+
+    // ********************************************************* Step 7.5: load omni core
+
+    if (!fTxIndex) {
+        // ask the user if they would like us to modify their config file for them
+        std::string msg = _("Disabled transaction index detected.\n\n"
+                            "Omni Core requires an enabled transaction index. To enable "
+                            "transaction indexing, please use the \"-txindex\" option as "
+                            "command line argument or add \"txindex=1\" to your client "
+                            "configuration file within your data directory.\n\n"
+                            "Configuration file"); // allow translation of main text body while still allowing differing config file string
+        msg += ": " + GetConfigFile().string() + "\n\n";
+        msg += _("Would you like Omni Core to attempt to update your configuration file accordingly?");
+        bool fRet = uiInterface.ThreadSafeMessageBox(msg, "", CClientUIInterface::MSG_INFORMATION | CClientUIInterface::BTN_OK | CClientUIInterface::MODAL | CClientUIInterface::BTN_ABORT);
+        if (fRet) {
+            // add txindex=1 to config file in GetConfigFile()
+            boost::filesystem::path configPathInfo = GetConfigFile();
+            FILE *fp = fopen(configPathInfo.string().c_str(), "at");
+            if (!fp) {
+                std::string failMsg = _("Unable to update configuration file at");
+                failMsg += ":\n" + GetConfigFile().string() + "\n\n";
+                failMsg += _("The file may be write protected or you may not have the required permissions to edit it.\n");
+                failMsg += _("Please add txindex=1 to your configuration file manually.\n\nOmni Core will now shutdown.");
+                return InitError(failMsg);
+            }
+            fprintf(fp, "\ntxindex=1\n");
+            fflush(fp);
+            fclose(fp);
+            std::string strUpdated = _(
+                    "Your configuration file has been updated.\n\n"
+                    "Omni Core will now shutdown - please restart the client for your new configuration to take effect.");
+            uiInterface.ThreadSafeMessageBox(strUpdated, "", CClientUIInterface::MSG_INFORMATION | CClientUIInterface::BTN_OK | CClientUIInterface::MODAL);
+            return false;
+        } else {
+            return InitError(_("Please add txindex=1 to your configuration file manually.\n\nOmni Core will now shutdown."));
+        }
+    }
+
+    uiInterface.InitMessage(_("Parsing Omni Layer transactions..."));
+
+    mastercore_init();
 
     // ********************************************************* Step 8: load wallet
 #ifdef ENABLE_WALLET
