@@ -164,6 +164,7 @@ def initialize_datadir(dirname, n):
         f.write("port="+str(p2p_port(n))+"\n")
         f.write("rpcport="+str(rpc_port(n))+"\n")
         f.write("listenonion=0\n")
+        f.write("txindex=1\n")
     return datadir
 
 def rpc_auth_pair(n):
