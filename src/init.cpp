@@ -266,6 +266,7 @@ void HandleSIGTERM(int)
 void HandleSIGHUP(int)
 {
     fReopenDebugLog = true;
+    fReopenOmniCoreLog = true;
 }
 
 bool static Bind(const CService &addr, unsigned int flags) {
@@ -473,6 +474,12 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE));
         strUsage += HelpMessageOpt("-rpcservertimeout=<n>", strprintf("Timeout during HTTP requests (default: %d)", DEFAULT_HTTP_SERVER_TIMEOUT));
     }
+
+    // TODO: append help messages somewhere else
+    // TODO: translation
+    strUsage += HelpMessageGroup("Omni options:");
+    strUsage += HelpMessageOpt("-omnilogfile", "The path of the log file (default: omnicore.log)");
+    strUsage += HelpMessageOpt("-omnidebug=<category>", "Enable or disable log categories, can be \"all\" or \"none\"");
 
     return strUsage;
 }

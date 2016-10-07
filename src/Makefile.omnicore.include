@@ -1,7 +1,9 @@
 OMNICORE_H = \
+  omnicore/log.h \
   omnicore/version.h
 
 OMNICORE_CPP = \
+  omnicore/log.cpp \
   omnicore/version.cpp
 
 libbitcoin_server_a_SOURCES += \
