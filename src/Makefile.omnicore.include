@@ -1,9 +1,11 @@
 OMNICORE_H = \
+  omnicore/convert.h \
   omnicore/log.h \
   omnicore/omnicore.h \
   omnicore/version.h
 
 OMNICORE_CPP = \
+  omnicore/convert.cpp \
   omnicore/log.cpp \
   omnicore/omnicore.cpp \
   omnicore/version.cpp

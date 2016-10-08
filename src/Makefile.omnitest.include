@@ -1,1 +1,12 @@
-#
+OMNICORE_TEST_H = 
+
+OMNICORE_TEST_CPP = \
+  omnicore/test/swapbyteorder_tests.cpp
+
+BITCOIN_TESTS += \
+  $(OMNICORE_TEST_CPP) \
+  $(OMNICORE_TEST_H)
+
+CLEAN_OMNICORE_TEST = omnicore/test/*.gcda omnicore/test/*.gcno
+
+CLEANFILES += $(CLEAN_OMNICORE_TEST)
