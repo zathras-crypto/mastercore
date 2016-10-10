@@ -3,6 +3,7 @@ OMNICORE_TEST_H =
 OMNICORE_TEST_CPP = \
   omnicore/test/create_payload_tests.cpp \
   omnicore/test/mbstring_tests.cpp \
+  omnicore/test/strtoint64_tests.cpp \
   omnicore/test/swapbyteorder_tests.cpp
 
 BITCOIN_TESTS += \
