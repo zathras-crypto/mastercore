@@ -7,7 +7,8 @@ OMNICORE_TEST_CPP = \
   omnicore/test/script_extraction_tests.cpp \
   omnicore/test/script_solver_tests.cpp \
   omnicore/test/strtoint64_tests.cpp \
-  omnicore/test/swapbyteorder_tests.cpp
+  omnicore/test/swapbyteorder_tests.cpp \
+  omnicore/test/uint256_extensions_tests.cpp
 
 BITCOIN_TESTS += \
   $(OMNICORE_TEST_CPP) \

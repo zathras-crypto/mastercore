@@ -10,6 +10,7 @@ OMNICORE_H = \
   omnicore/persistence.h \
   omnicore/script.h \
   omnicore/seedblocks.h \
+  omnicore/uint256_extensions.h \
   omnicore/version.h
 
 OMNICORE_CPP = \
