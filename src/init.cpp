@@ -489,6 +489,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageGroup("Omni options:");
     strUsage += HelpMessageOpt("-omnilogfile", "The path of the log file (default: omnicore.log)");
     strUsage += HelpMessageOpt("-omnidebug=<category>", "Enable or disable log categories, can be \"all\" or \"none\"");
+    strUsage += HelpMessageOpt("-omniactivationignoresender", "Ignore senders of activations");
+    strUsage += HelpMessageOpt("-omniactivationallowsender", "Whitelist senders of activations");
+    strUsage += HelpMessageOpt("-overrideforcedshutdown", "Overwrite shutdown, triggered by an alert (default: 0)");
 
     return strUsage;
 }
