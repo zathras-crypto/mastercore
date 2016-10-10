@@ -4,6 +4,7 @@ OMNICORE_H = \
   omnicore/createpayload.h \
   omnicore/errors.h \
   omnicore/log.h \
+  omnicore/mbstring.h \
   omnicore/omnicore.h \
   omnicore/version.h
 
@@ -12,6 +13,7 @@ OMNICORE_CPP = \
   omnicore/convert.cpp \
   omnicore/createpayload.cpp \
   omnicore/log.cpp \
+  omnicore/mbstring.cpp \
   omnicore/omnicore.cpp \
   omnicore/version.cpp
 
