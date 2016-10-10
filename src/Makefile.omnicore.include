@@ -11,6 +11,7 @@ OMNICORE_H = \
   omnicore/script.h \
   omnicore/seedblocks.h \
   omnicore/uint256_extensions.h \
+  omnicore/utils.h \
   omnicore/version.h
 
 OMNICORE_CPP = \
@@ -24,6 +25,7 @@ OMNICORE_CPP = \
   omnicore/persistence.cpp \
   omnicore/script.cpp \
   omnicore/seedblocks.cpp \
+  omnicore/utils.cpp \
   omnicore/version.cpp
 
 libbitcoin_server_a_SOURCES += \
