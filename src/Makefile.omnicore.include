@@ -7,6 +7,7 @@ OMNICORE_H = \
   omnicore/mbstring.h \
   omnicore/omnicore.h \
   omnicore/parse_string.h \
+  omnicore/persistence.h \
   omnicore/version.h
 
 OMNICORE_CPP = \
@@ -17,6 +18,7 @@ OMNICORE_CPP = \
   omnicore/mbstring.cpp \
   omnicore/omnicore.cpp \
   omnicore/parse_string.cpp \
+  omnicore/persistence.cpp \
   omnicore/version.cpp
 
 libbitcoin_server_a_SOURCES += \
