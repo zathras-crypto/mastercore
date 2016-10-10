@@ -1,6 +1,7 @@
 #include "omnicore/script.h"
 
 #include "amount.h"
+#include "main.h"
 #include "script/script.h"
 #include "test/test_bitcoin.h"
 #include "utilstrencodings.h"
@@ -14,7 +15,7 @@
 
 // Is resetted to a norm value in each test
 extern CFeeRate minRelayTxFee;
-static CFeeRate minRelayTxFeeOriginal = minRelayTxFee;
+static CFeeRate minRelayTxFeeOriginal = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 BOOST_FIXTURE_TEST_SUITE(omnicore_script_dust_tests, BasicTestingSetup)
 
