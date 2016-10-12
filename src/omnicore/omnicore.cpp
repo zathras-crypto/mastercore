@@ -2227,6 +2227,8 @@ int mastercore_shutdown()
         p_feehistory = NULL;
     }
 
+    mastercoreInitialized = 0;
+
     PrintToLog("\nOmni Core shutdown completed\n");
     PrintToLog("Shutdown time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
 
