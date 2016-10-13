@@ -487,11 +487,18 @@ std::string HelpMessage(HelpMessageMode mode)
     // TODO: append help messages somewhere else
     // TODO: translation
     strUsage += HelpMessageGroup("Omni options:");
+    strUsage += HelpMessageOpt("-startclean", "Clear all persistence files on startup; triggers reparsing of Omni transactions (default: 0)");
+    strUsage += HelpMessageOpt("-omnitxcache", "The maximum number of transactions in the input transaction cache (default: 500000)");
+    strUsage += HelpMessageOpt("-omniprogressfrequency", "Time in seconds after which the initial scanning progress is reported (default: 30)");
+    strUsage += HelpMessageOpt("-omniseedblockfilter", "Set skipping of blocks without Omni transactions during initial scan (default: 1)");
     strUsage += HelpMessageOpt("-omnilogfile", "The path of the log file (default: omnicore.log)");
     strUsage += HelpMessageOpt("-omnidebug=<category>", "Enable or disable log categories, can be \"all\" or \"none\"");
+    strUsage += HelpMessageOpt("-autocommit", "Enable or disable broadcasting of transactions, when creating transactions (default: 1)");
+    strUsage += HelpMessageOpt("-overrideforcedshutdown", "Overwrite shutdown, triggered by an alert (default: 0)");
+    strUsage += HelpMessageOpt("-omnialertallowsender", "Whitelist senders of alerts, can be \"any\")");
+    strUsage += HelpMessageOpt("-omnialertignoresender", "Ignore senders of alerts");
     strUsage += HelpMessageOpt("-omniactivationignoresender", "Ignore senders of activations");
     strUsage += HelpMessageOpt("-omniactivationallowsender", "Whitelist senders of activations");
-    strUsage += HelpMessageOpt("-overrideforcedshutdown", "Overwrite shutdown, triggered by an alert (default: 0)");
 
     return strUsage;
 }
