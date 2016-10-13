@@ -20,6 +20,8 @@ void RegisterMiningRPCCommands(CRPCTable &tableRPC);
 /** Register raw transaction RPC commands */
 void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 
+/** Register Omni transaction creation RPC commands */
+void RegisterOmniTransactionCreationRPCCommands(CRPCTable &tableRPC);
 /** Register Omni payload creation RPC commands */
 void RegisterOmniPayloadCreationRPCCommands(CRPCTable &tableRPC);
 
@@ -32,6 +34,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterRawTransactionRPCCommands(tableRPC);
 
     /* Omni Core RPCs: */
+    RegisterOmniTransactionCreationRPCCommands(tableRPC);
     RegisterOmniPayloadCreationRPCCommands(tableRPC);
 }
 

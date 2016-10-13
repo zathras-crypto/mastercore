@@ -19,6 +19,7 @@ OMNICORE_H = \
   omnicore/persistence.h \
   omnicore/rpcpayload.h \
   omnicore/rpcrequirements.h \
+  omnicore/rpctx.h \
   omnicore/rpctxobject.h \
   omnicore/rpcvalues.h \
   omnicore/rules.h \
@@ -37,7 +38,6 @@ OMNICORE_H = \
 
 #  omnicore/rpc.h
 #  omnicore/rpcrawtx.h
-#  omnicore/rpctx.h
 
 OMNICORE_CPP = \
   omnicore/activation.cpp \
@@ -59,6 +59,7 @@ OMNICORE_CPP = \
   omnicore/persistence.cpp \
   omnicore/rpcpayload.cpp \
   omnicore/rpcrequirements.cpp \
+  omnicore/rpctx.cpp \
   omnicore/rpctxobject.cpp \
   omnicore/rpcvalues.cpp \
   omnicore/rules.cpp \
@@ -76,7 +77,6 @@ OMNICORE_CPP = \
 
 #  omnicore/rpc.cpp
 #  omnicore/rpcrawtx.cpp
-#  omnicore/rpctx.cpp
 
 libbitcoin_server_a_SOURCES += \
   $(OMNICORE_CPP) \

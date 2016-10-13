@@ -105,6 +105,46 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getmempoolancestors", 1 },
     { "getmempooldescendants", 1 },
 
+    /* Omni Core - transaction calls */
+    { "omni_send", 2 },
+    { "omni_sendsto", 1 },
+    { "omni_sendsto", 4 },
+    { "omni_sendall", 2 },
+    { "omni_sendtrade", 1 },
+    { "omni_sendtrade", 3 },
+    { "omni_sendcanceltradesbyprice", 1 },
+    { "omni_sendcanceltradesbyprice", 3 },
+    { "omni_sendcanceltradesbypair", 1 },
+    { "omni_sendcanceltradesbypair", 2 },
+    { "omni_sendcancelalltrades", 1 },
+    { "omni_sendissuancefixed", 1 },
+    { "omni_sendissuancefixed", 2 },
+    { "omni_sendissuancefixed", 3 },
+    { "omni_sendissuancemanaged", 1 },
+    { "omni_sendissuancemanaged", 2 },
+    { "omni_sendissuancemanaged", 3 },
+    { "omni_sendissuancecrowdsale", 1 },
+    { "omni_sendissuancecrowdsale", 2 },
+    { "omni_sendissuancecrowdsale", 3 },
+    { "omni_sendissuancecrowdsale", 9 },
+    { "omni_sendissuancecrowdsale", 11 },
+    { "omni_sendissuancecrowdsale", 12 },
+    { "omni_sendissuancecrowdsale", 13 },
+    { "omni_senddexsell", 1 },
+    { "omni_senddexsell", 4 },
+    { "omni_senddexsell", 6 },
+    { "omni_senddexaccept", 2 },
+    { "omni_senddexaccept", 4 },
+    { "omni_sendclosecrowdsale", 1 },
+    { "omni_sendgrant", 2 },
+    { "omni_sendrevoke", 1 },
+    { "omni_sendchangeissuer", 2 },
+    { "omni_sendactivation", 1 },
+    { "omni_sendactivation", 2 },
+    { "omni_sendactivation", 3 },
+    { "omni_sendalert", 1 },
+    { "omni_sendalert", 2 },
+
     /* Omni Core - payload creation */
     { "omni_createpayload_simplesend", 0 },
     { "omni_createpayload_sendall", 0 },
@@ -138,6 +178,26 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "omni_createpayload_canceltradesbypair", 0 },
     { "omni_createpayload_canceltradesbypair", 1 },
     { "omni_createpayload_cancelalltrades", 0 },
+
+    /* Omni Core - backwards compatibility */
+    { "getcrowdsale_MP", 0 },
+    { "getcrowdsale_MP", 1 },
+    { "getgrants_MP", 0 },
+    { "send_MP", 2 },
+    { "getbalance_MP", 1 },
+    { "sendtoowners_MP", 1 },
+    { "getproperty_MP", 0 },
+    { "listtransactions_MP", 1 },
+    { "listtransactions_MP", 2 },
+    { "listtransactions_MP", 3 },
+    { "listtransactions_MP", 4 },
+    { "getallbalancesforid_MP", 0 },
+    { "listblocktransactions_MP", 0 },
+    { "getorderbook_MP", 0 },
+    { "getorderbook_MP", 1 },
+    { "trade_MP", 1 }, // depreciated
+    { "trade_MP", 3 }, // depreciated
+    { "trade_MP", 5 }, // depreciated
 };
 
 class CRPCConvertTable
