@@ -71,7 +71,7 @@ script:
     - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/depends/$HOST/lib
     - if [ "$RUN_TESTS" = "true" ]; then make $MAKEJOBS check VERBOSE=1; fi
     - if [ "$RUN_TESTS" = "true" ]; then qa/pull-tester/rpc-tests.py --coverage; fi
-#   - if [ "$RUN_OMNIJ_TESTS" = "true" ]; then qa/pull-tester/omnicore-rpc-tests.sh "$OMNIJ_SILENT_LOG"; fi
+    - if [ "$RUN_OMNIJ_TESTS" = "true" ]; then qa/pull-tester/omnicore-rpc-tests.sh "$OMNIJ_SILENT_LOG"; fi
 after_script:
     - echo $TRAVIS_COMMIT_RANGE
     - echo $TRAVIS_COMMIT_LOG
