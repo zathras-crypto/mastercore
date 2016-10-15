@@ -251,6 +251,8 @@ void populateRPCTypeSimpleSend(CMPTransaction& omniObj, UniValue& txobj)
             PrintToLog("SP Error: Crowdsale purchase for non-existent property %d in transaction %s", crowdPropertyId, omniObj.getHash().GetHex());
             return;
         }
+/*
+ * TODO: fix and reenable me!
         if (!txobj.empty()) {
             // strip last element (which will be "type:Simple Send") & replace
             std::vector<UniValue> tmpValues = txobj.getValues();
@@ -259,6 +261,7 @@ void populateRPCTypeSimpleSend(CMPTransaction& omniObj, UniValue& txobj)
                 txobj.push_back(*it);
             }
         }
+ */
         txobj.push_back(Pair("type", "Crowdsale Purchase"));
         txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
         txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
