@@ -131,7 +131,9 @@ int populateRPCTransactionObject(const CTransaction& tx, const uint256& blockHas
     txobj.push_back(Pair("ismine", fMine));
     txobj.push_back(Pair("version", (uint64_t)mp_obj.getVersion()));
     txobj.push_back(Pair("type_int", (uint64_t)mp_obj.getType()));
-    txobj.push_back(Pair("type", mp_obj.getTypeString()));
+    if (mp_obj.getType() != MSC_TYPE_SIMPLE_SEND) { // Type 0 will add "Type" attribute during populateRPCTypeSimpleSend
+        txobj.push_back(Pair("type", mp_obj.getTypeString()));
+    }
 
     // populate type specific info and extended details if requested
     // extended details are not available for unconfirmed transactions
@@ -251,17 +253,6 @@ void populateRPCTypeSimpleSend(CMPTransaction& omniObj, UniValue& txobj)
             PrintToLog("SP Error: Crowdsale purchase for non-existent property %d in transaction %s", crowdPropertyId, omniObj.getHash().GetHex());
             return;
         }
-/*
- * TODO: fix and reenable me!
-        if (!txobj.empty()) {
-            // strip last element (which will be "type:Simple Send") & replace
-            std::vector<UniValue> tmpValues = txobj.getValues();
-            txobj.clear();
-            for (std::vector<UniValue>::iterator it = tmpValues.begin(); it != tmpValues.end()-1; ++it) {
-                txobj.push_back(*it);
-            }
-        }
- */
         txobj.push_back(Pair("type", "Crowdsale Purchase"));
         txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
         txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
@@ -272,6 +263,7 @@ void populateRPCTypeSimpleSend(CMPTransaction& omniObj, UniValue& txobj)
         txobj.push_back(Pair("purchasedtokens", FormatMP(crowdPropertyId, crowdTokens)));
         txobj.push_back(Pair("issuertokens", FormatMP(crowdPropertyId, issuerTokens)));
     } else {
+        txobj.push_back(Pair("type", "Simple Send"));
         txobj.push_back(Pair("propertyid", (uint64_t)propertyId));
         txobj.push_back(Pair("divisible", isPropertyDivisible(propertyId)));
         txobj.push_back(Pair("amount", FormatMP(propertyId, omniObj.getAmount())));
