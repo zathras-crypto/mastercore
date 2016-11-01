@@ -85,14 +85,19 @@ private:
     QLabel *labelEncryptionIcon;
     QLabel *labelConnectionsIcon;
     QLabel *labelBlocksIcon;
+    QLabel *labelOmniPendingIcon;
+    QLabel *labelOmniPendingText;
     QLabel *progressBarLabel;
     QProgressBar *progressBar;
     QProgressDialog *progressDialog;
 
     QMenuBar *appMenuBar;
     QAction *overviewAction;
+    QAction *balancesAction;
     QAction *historyAction;
     QAction *quitAction;
+    QAction *toolboxAction;
+    QAction *exchangeAction;
     QAction *sendCoinsAction;
     QAction *sendCoinsMenuAction;
     QAction *usedSendingAddressesAction;
@@ -169,6 +174,9 @@ public Q_SLOTS:
     */
     void setEncryptionStatus(int status);
 
+    /** Set the Omni pending transactions label **/
+    void setOmniPendingStatus(bool pending);
+
     bool handlePaymentRequest(const SendCoinsRecipient& recipient);
 
     /** Show incoming transaction notification for new transactions. */
@@ -179,8 +187,18 @@ private Q_SLOTS:
 #ifdef ENABLE_WALLET
     /** Switch to overview (home) page */
     void gotoOverviewPage();
+    /** Switch to balances page */
+    void gotoBalancesPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch directly to Omni history tab */
+    void gotoOmniHistoryTab();
+    /** Switch directly to bitcoin history tab */
+    void gotoBitcoinHistoryTab();
+    /** Switch to utility page */
+    void gotoToolboxPage();
+    /** Switch to exchange page */
+    void gotoExchangePage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
