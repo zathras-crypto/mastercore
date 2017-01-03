@@ -39,6 +39,7 @@ void COmniFeeCache::UpdateDistributionThresholds()
         uint32_t startPropertyId = (ecosystem == 1) ? 1 : TEST_ECO_PROPERTY_1;
         for (uint32_t itPropertyId = startPropertyId; itPropertyId < _my_sps->peekNextSPID(ecosystem); itPropertyId++) {
             int64_t distributionThreshold = getTotalTokens(itPropertyId) / OMNI_FEE_THRESHOLD;
+            if (distributionThreshold <= 0) distributionThreshold = 1; // protect against zero valued thresholds for low token count properties
             distributionThresholds[itPropertyId] = distributionThreshold;
         }
     }
