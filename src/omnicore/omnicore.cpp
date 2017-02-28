@@ -3103,6 +3103,15 @@ unsigned int n_found = 0;
 }
 
 // MPSTOList here
+std::string CMPSTOList::getAddressSTOReceipts(std::string address)
+{
+  if (!pdb) return "";
+
+  std::string strValue;
+  leveldb::Status status = pdb->Get(readoptions, address, &strValue);
+  return strValue;
+}
+
 std::string CMPSTOList::getMySTOReceipts(string filterAddress)
 {
   if (!pdb) return "";

@@ -198,6 +198,7 @@ public:
     }
 
     void getRecipients(const uint256 txid, string filterAddress, UniValue *recipientArray, uint64_t *total, uint64_t *numRecipients);
+    std::string getAddressSTOReceipts(std::string address);
     std::string getMySTOReceipts(string filterAddress);
     int deleteAboveBlock(int blockNum);
     void printStats();
