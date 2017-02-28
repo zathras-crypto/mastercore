@@ -1748,11 +1748,16 @@ UniValue omni_gethistory(const UniValue& params, bool fHelp)
 
     // iterate backwards (most recent first) over transactions map and decode each one, adding to response array
     UniValue response(UniValue::VARR);
+    int64_t nAdded = 0;
     for (std::map<std::string,uint256>::reverse_iterator it = mapTransactions.rbegin(); it != mapTransactions.rend(); it++) {
         uint256 txHash = it->second;
         UniValue txobj(UniValue::VOBJ);
         int populateResult = populateRPCTransactionObject(txHash, txobj, address);
-        if (0 == populateResult) response.push_back(txobj);
+        if (0 == populateResult) {
+            response.push_back(txobj);
+            nAdded++;
+        }
+        if (nAdded >= nCount) break;
     }
 
     return response;
