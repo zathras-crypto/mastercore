@@ -2486,6 +2486,49 @@ void COmniTransactionDB::RecordTransaction(const uint256& txid, int block, uint3
     ++nWritten;
 }
 
+// Returns a map of transactions involving an address
+std::map<std::string, uint256> COmniTransactionDB::FetchAddressTransactions(std::string address, int count, int startBlock, int endBlock)
+{
+    LOCK(cs_tally);
+    Iterator* it = NewIterator();
+    std::map<std::string, uint256> mapResponse;
+
+    // Iterate database and add transactions involving the specified address to the map using a block/pos sort key
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::vector<std::string> vstr;
+        std::string strValue = it->value().ToString();
+        boost::split(vstr, strValue, boost::is_any_of(":"), boost::token_compress_on);
+        if (vstr.size() != 4) continue;
+        if (address == vstr[2] || address == vstr[3]) {
+            uint256 txHash = uint256S(it->key().ToString());
+            int block = boost::lexical_cast<int>(vstr[0]);
+            uint32_t posInBlock = boost::lexical_cast<uint32_t>(vstr[1]);
+            if (block < startBlock || block > endBlock) continue;
+            std::string sortKey = strprintf("%06d%010d", block, posInBlock);
+            mapResponse.insert(std::make_pair(sortKey, txHash));
+        }
+    }
+    delete it;
+
+    // STO does not explicitly reference receivers, but STO receipts to an address are considered transactions none-the-less so must be manually included
+    std::string strSTOReceipts = s_stolistdb->getAddressSTOReceipts(address);
+    std::vector<std::string> vecReceipts;
+    if (!strSTOReceipts.empty()) boost::split(vecReceipts, strSTOReceipts, boost::is_any_of(","), boost::token_compress_on);
+    for (size_t i = 0; i < vecReceipts.size(); i++) {
+        std::vector<std::string> svstr;
+        boost::split(svstr, vecReceipts[i], boost::is_any_of(":"), boost::token_compress_on);
+        if (svstr.size() != 4) continue;
+        int blockHeight = atoi(svstr[1]);
+        if (blockHeight < startBlock || blockHeight > endBlock) continue;
+        uint256 txHash = uint256S(svstr[0]);
+        int blockPosition = FetchTransactionPosition(txHash);
+        std::string sortKey = strprintf("%06d%010d", blockHeight, blockPosition);
+        mapResponse.insert(std::make_pair(sortKey, txHash));
+    }
+
+    return mapResponse;
+}
+
 uint32_t COmniTransactionDB::FetchTransactionPosition(const uint256& txid)
 {
     assert(pdb);
