@@ -2498,7 +2498,7 @@ std::map<std::string, uint256> COmniTransactionDB::FetchAddressTransactions(std:
         std::vector<std::string> vstr;
         std::string strValue = it->value().ToString();
         boost::split(vstr, strValue, boost::is_any_of(":"), boost::token_compress_on);
-        if (vstr.size() != 4) continue;
+        assert(vstr.size() == 4);
         if (address == vstr[2] || address == vstr[3]) {
             uint256 txHash = uint256S(it->key().ToString());
             int block = boost::lexical_cast<int>(vstr[0]);
