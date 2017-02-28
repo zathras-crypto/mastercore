@@ -2549,6 +2549,20 @@ uint32_t COmniTransactionDB::FetchTransactionPosition(const uint256& txid)
     return posInBlock;
 }
 
+
+void COmniTransactionDB::printAll()
+{
+    int count = 0;
+    Iterator* it = NewIterator();
+
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        ++count;
+        PrintToConsole("entry #%8d= %s:%s\n", count, it->key().ToString(), it->value().ToString());
+    }
+
+    delete it;
+}
+
 std::set<int> CMPTxList::GetSeedBlocks(int startHeight, int endHeight)
 {
     std::set<int> setSeedBlocks;

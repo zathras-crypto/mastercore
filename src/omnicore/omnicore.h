@@ -180,6 +180,7 @@ public:
     void RecordTransaction(const uint256& txid, int block, uint32_t posInBlock, std::string senderAddress, std::string referenceAddress);
     uint32_t FetchTransactionPosition(const uint256& txid);
     std::map<std::string, uint256> FetchAddressTransactions(std::string address, int count, int startBlock, int endBlock);
+    void printAll();
 };
 
 /** LevelDB based storage for STO recipients.
