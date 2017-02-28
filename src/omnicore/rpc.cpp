@@ -1737,10 +1737,10 @@ UniValue omni_gethistory(const UniValue& params, bool fHelp)
     if (params.size() > 1) nCount = params[1].get_int64();
     if (nCount < 0) throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
     int64_t nStartBlock = 0;
-    if (params.size() > 3) nStartBlock = params[3].get_int64();
+    if (params.size() > 2) nStartBlock = params[2].get_int64();
     if (nStartBlock < 0) throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative start block");
     int64_t nEndBlock = 999999;
-    if (params.size() > 4) nEndBlock = params[4].get_int64();
+    if (params.size() > 3) nEndBlock = params[3].get_int64();
     if (nEndBlock < 0) throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative end block");
 
     // obtain a sorted list of Omni layer transactions for the address (including STO receipts)
