@@ -699,8 +699,9 @@ int mastercore::MetaDEx_SHUTDOWN_ALLPAIR()
                 if (it->getDesProperty() > OMNI_PROPERTY_TMSC && it->getProperty() > OMNI_PROPERTY_TMSC) { // no OMNI/TOMNI side to the trade
                     PrintToLog("%s(): REMOVING %s\n", __FUNCTION__, it->ToString());
                     // move from reserve to balance
-                    assert(update_tally_map(it->getAddr(), it->getProperty(), -it->getAmountRemaining(), METADEX_RESERVE));
-                    assert(update_tally_map(it->getAddr(), it->getProperty(), it->getAmountRemaining(), BALANCE));
+                    uint256 txid = 0;
+                    assert(update_tally_map(it->getAddr(), it->getProperty(), -it->getAmountRemaining(), METADEX_RESERVE, txid, "MetaDEx Shutdown All Pairs", strprintf("%s line %d",__FUNCTION__,__LINE__)));
+                    assert(update_tally_map(it->getAddr(), it->getProperty(), it->getAmountRemaining(), BALANCE, txid, "MetaDEx Shutdown All Pairs", strprintf("%s line %d",__FUNCTION__,__LINE__)));
                     indexes.erase(it++);
                 }
             }
@@ -723,8 +724,9 @@ int mastercore::MetaDEx_SHUTDOWN()
             for (md_Set::iterator it = indexes.begin(); it != indexes.end();) {
                 PrintToLog("%s(): REMOVING %s\n", __FUNCTION__, it->ToString());
                 // move from reserve to balance
-                assert(update_tally_map(it->getAddr(), it->getProperty(), -it->getAmountRemaining(), METADEX_RESERVE));
-                assert(update_tally_map(it->getAddr(), it->getProperty(), it->getAmountRemaining(), BALANCE));
+                uint256 txid = 0;
+                assert(update_tally_map(it->getAddr(), it->getProperty(), -it->getAmountRemaining(), METADEX_RESERVE, txid, "MetaDEx Shutdown", strprintf("%s line %d",__FUNCTION__,__LINE__)));
+                assert(update_tally_map(it->getAddr(), it->getProperty(), it->getAmountRemaining(), BALANCE, txid, "MetaDEx Shutdown", strprintf("%s line %d",__FUNCTION__,__LINE__)));
                 indexes.erase(it++);
             }
         }

@@ -2,6 +2,7 @@
 
 #include "omnicore/sp.h"
 
+#include "omnicore/auditor.h"
 #include "omnicore/log.h"
 #include "omnicore/omnicore.h"
 #include "omnicore/uint256_extensions.h"
@@ -866,6 +867,9 @@ unsigned int mastercore::eraseExpiredCrowdsale(const CBlockIndex* pBlockIndex)
             // update values
             if (missedTokens > 0) {
                 assert(update_tally_map(sp.issuer, crowdsale.getPropertyId(), missedTokens, BALANCE, sp.txid, "Close Expired Crowdsale", strprintf("%s line %d",__FUNCTION__,__LINE__)));
+                if (auditorEnabled) {
+                    Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, crowdsale.getPropertyId(), missedTokens, "Close Expired Crowdsale");
+                }
             }
 
             my_crowds.erase(my_it++);

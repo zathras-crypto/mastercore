@@ -848,7 +848,7 @@ int CMPTransaction::logicHelper_CrowdsaleParticipation()
     }
 
     // notify the auditor that we've created some tokens
-    if (auditorEnabled) {
+    if ((tokens.first > 0 || tokens.second > 0) && auditorEnabled) {
         Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, pcrowdsale->getPropertyId(), tokens.first+tokens.second, "Crowdsale Purchase (txid: " + txid.GetHex() + ")");
     }
 
@@ -1671,6 +1671,9 @@ int CMPTransaction::logicMath_CloseCrowdsale()
     assert(_my_sps->updateSP(property, sp));
     if (missedTokens > 0) {
         assert(update_tally_map(sp.issuer, property, missedTokens, BALANCE, txid, "Close crowdsale (fractional catchup)", strprintf("%s line %d",__FUNCTION__,__LINE__)));
+        if (auditorEnabled) {
+            Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, property, missedTokens, "Close crowdsale (fractional catchup)");
+        }
     }
     my_crowds.erase(it);
 
@@ -1818,11 +1821,6 @@ int CMPTransaction::logicMath_GrantTokens()
     // Persist the number of granted tokens
     assert(_my_sps->updateSP(property, sp));
 
-    // notify the auditor that we've granted some tokens
-    if (auditorEnabled) {
-        Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, property, nValue, "Grant (txid: " + txid.GetHex() + ")");
-    }
-
     // Special case: if can't find the receiver -- assume grant to self!
     if (receiver.empty()) {
         receiver = sender;
@@ -1838,6 +1836,11 @@ int CMPTransaction::logicMath_GrantTokens()
     if (!IsFeatureActivated(FEATURE_GRANTEFFECTS, block)) {
         // Is there an active crowdsale running from this recepient?
         logicHelper_CrowdsaleParticipation();
+    }
+
+    // notify the auditor that we've granted some tokens
+    if (auditorEnabled) {
+        Auditor_NotifyPropertyTotalChanged(OMNI_AUDITOR_INCREASE, property, nValue, "Grant (txid: " + txid.GetHex() + ")");
     }
 
     NotifyTotalTokensChanged(property, block);
