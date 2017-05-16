@@ -326,6 +326,10 @@ bool CMPTransaction::interpret_SendAll()
         std::vector<uint8_t> vecVersionBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecTypeBytes = GetNextVarIntBytes(i);
 
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&ecosystem, &pkt[i], 1);
     } else {
         if (pkt_size < 5) {
@@ -356,12 +360,20 @@ bool CMPTransaction::interpret_TradeOffer()
         std::vector<uint8_t> vecAmountBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecAmountDesiredBytes = GetNextVarIntBytes(i);
 
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&blocktimelimit, &pkt[i], 1);
         i++;
 
         std::vector<uint8_t> vecMinFeeBytes = GetNextVarIntBytes(i);
 
         if (version > MP_TX_PKT_V0) {
+            if (i >= pkt_size) {
+                return false;
+            }
+
             memcpy(&subaction, &pkt[i], 1);
             i++;
         }
@@ -600,6 +612,10 @@ bool CMPTransaction::interpret_MetaDExCancelEcosystem()
         std::vector<uint8_t> vecVersionBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecTypeBytes = GetNextVarIntBytes(i);
 
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&ecosystem, &pkt[i], 1);
     } else {
         if (pkt_size < 5) {
@@ -631,6 +647,10 @@ bool CMPTransaction::interpret_CreatePropertyFixed()
 
         std::vector<uint8_t> vecVersionBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecTypeBytes = GetNextVarIntBytes(i);
+
+        if (i >= pkt_size) {
+            return false;
+        }
 
         memcpy(&ecosystem, &pkt[i], 1);
         i++;
@@ -729,6 +749,10 @@ bool CMPTransaction::interpret_CreatePropertyVariable()
         std::vector<uint8_t> vecVersionBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecTypeBytes = GetNextVarIntBytes(i);
 
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&ecosystem, &pkt[i], 1);
         i++;
 
@@ -760,8 +784,17 @@ bool CMPTransaction::interpret_CreatePropertyVariable()
         std::vector<uint8_t> vecAmountPerUnitBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecDeadlineBytes = GetNextVarIntBytes(i);
 
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&early_bird, &pkt[i], 1);
         i++;
+
+        if (i >= pkt_size) {
+            return false;
+        }
+
         memcpy(&percentage, &pkt[i], 1);
         i++;
 
@@ -876,6 +909,10 @@ bool CMPTransaction::interpret_CreatePropertyManaged()
         int i = 0;
         std::vector<uint8_t> vecVersionBytes = GetNextVarIntBytes(i);
         std::vector<uint8_t> vecTypeBytes = GetNextVarIntBytes(i);
+
+        if (i >= pkt_size) {
+            return false;
+        }
 
         memcpy(&ecosystem, &pkt[i], 1);
         i++;
