@@ -90,6 +90,10 @@ static std::string intToClass(int encodingClass)
 std::vector<uint8_t> CMPTransaction::GetNextVarIntBytes(int &i) {
     std::vector<uint8_t> vecBytes;
 
+    if (i >= pkt_size) {
+        return vecBytes;
+    }
+
     do {
         vecBytes.push_back(pkt[i]);
         if (!IsMSBSet(&pkt[i])) break;
