@@ -733,6 +733,11 @@ static int parseTransaction(bool bRPConly, const CTransaction& wtx, int nBlock, 
         PrintToLog("%s(block=%d, %s idx= %d); txid: %s\n", __FUNCTION__, nBlock, DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nTime), idx, wtx.GetHash().GetHex());
     }
 
+    if (omniClass == OMNI_CLASS_D && !IsFeatureActivated(FEATURE_CLASS_D, nBlock)) {
+        PrintToLog("%s() REJECT: transaction is Class D but it's not activated yet (txid %s)\n", __func__, wtx.GetHash().GetHex());
+        return -112; // Class D transaction prior to activation
+    }
+
     // Add previous transaction inputs to the cache
     if (!FillTxInputCache(wtx)) {
         PrintToLog("%s() ERROR: failed to get inputs for %s\n", __func__, wtx.GetHash().GetHex());
