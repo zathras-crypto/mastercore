@@ -526,6 +526,11 @@ void SendMPDialog::sendOmniTransaction()
         payload = CreatePayload_IssuanceFixed(ecosystem, propertyType, 0, strPropName, strPropURL, "", sendAmount);
     }
     if (typeId == MSC_TYPE_CREATE_PROPERTY_VARIABLE) {
+        if (NULL != getCrowd(fromAddress.ToString())) {
+            QMessageBox::critical(this, "Unable to send transaction",
+            "The sending address already has a crowdsale active.\n\nOnly one active crowdsale is permitted per address." );
+            return;
+        }
         std::string strDeadline = ui->deadlineLE->text().toStdString();
         std::string strEarlyBonus = ui->earlybirdLE->text().toStdString();
         std::string strIssuerPercentage = ui->issuerLE->text().toStdString();
