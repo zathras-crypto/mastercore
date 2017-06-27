@@ -127,7 +127,7 @@ public:
                     address = QString::fromStdString(p_pending->src);
                     if (p_pending->type == MSC_TYPE_CREATE_PROPERTY_FIXED) {
                         omniAmountStr = QString::fromStdString(FormatByType(p_pending->amount, 1) +  " NEW TOKENS");
-                    } else if (p_pending->type == MSC_TYPE_CREATE_PROPERTY_MANUAL || p_pending->type == MSC_TYPE_CLOSE_CROWDSALE) {
+                    } else if (p_pending->type == MSC_TYPE_CREATE_PROPERTY_MANUAL || p_pending->type == MSC_TYPE_CREATE_PROPERTY_VARIABLE || p_pending->type == MSC_TYPE_CLOSE_CROWDSALE) {
                         omniAmountStr = QString::fromStdString("N/A");
                     } else {
                         omniAmountStr = QString::fromStdString(FormatMP(p_pending->prop, p_pending->amount) + getTokenLabel(p_pending->prop));
