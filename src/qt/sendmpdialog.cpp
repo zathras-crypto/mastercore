@@ -530,11 +530,16 @@ void SendMPDialog::sendOmniTransaction()
         std::string strEarlyBonus = ui->earlybirdLE->text().toStdString();
         std::string strIssuerPercentage = ui->issuerLE->text().toStdString();
         int64_t deadline = StrToInt64(strDeadline, false);
+        if (!deadline || deadline < (int64_t)intBlockDate) {
+            QMessageBox::critical(this, "Unable to send transaction",
+            "The deadline specified is in the past.\n\nThe deadline to automatically close a crowdsale must be in the future." );
+            return;
+        }
         int64_t earlyBonus = StrToInt64(strEarlyBonus, false);
         int64_t issuerPercentage = StrToInt64(strIssuerPercentage, false);
         if (earlyBonus > 255 || issuerPercentage > 255) {
             QMessageBox::critical(this, "Unable to send transaction",
-            "The deadline, early bonus and issuer percentage fields must be numeric.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
+            "The early bonus and issuer percentage fields must be numeric and have a value under 255.\n\nPlease double-check the transction details thoroughly before retrying your send transaction." );
             return;
         }
         std::string propDetails = getPropertyName(propertyId) + getTokenLabel(propertyId);
