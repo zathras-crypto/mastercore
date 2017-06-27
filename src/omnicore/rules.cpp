@@ -99,8 +99,8 @@ CMainConsensusParams::CMainConsensusParams()
 {
     GENESIS_BLOCK = 1171000;
     // Notice range for feature activations:
-    MIN_ACTIVATION_BLOCKS = 2048;  // ~2 weeks
-    MAX_ACTIVATION_BLOCKS = 12288; // ~12 weeks
+    MIN_ACTIVATION_BLOCKS = 8192;  // ~2 weeks
+    MAX_ACTIVATION_BLOCKS = 49152; // ~12 weeks
     // Script related:
     PUBKEYHASH_BLOCK = 0;
     SCRIPTHASH_BLOCK = 0;
