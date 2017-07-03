@@ -544,6 +544,7 @@ endif
 
 if ENABLE_TESTS
 include Makefile.test.include
+include Makefile.omnitest.include
 endif
 
 if ENABLE_BENCH
