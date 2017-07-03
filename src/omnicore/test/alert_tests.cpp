@@ -25,8 +25,8 @@ BOOST_AUTO_TEST_CASE(alert_positive_authorization)
     // Confirm authorized sources for mainnet
     BOOST_CHECK(CheckAlertAuthorization("LgcdyjEUH822bqqq1YwJFoBrWT3SrHPd8P"));  // Zathras <zathras@omni.foundation>
     BOOST_CHECK(CheckAlertAuthorization("LbVT6BCkqexvBiVvbaH4x4sarytigihCtF"));  // dexX7   <dexx@bitwatch.co>
+    BOOST_CHECK(CheckAlertAuthorization("LiDn7vwmC7K76DSHB9VSRbdwWGn7teDP37"));  // Adam    <adam@omni.foundation>
     // BOOST_CHECK(CheckAlertAuthorization("TODO")); // Craig   <craig@omni.foundation>
-    // BOOST_CHECK(CheckAlertAuthorization("TODO")); // Adam    <adam@omni.foundation>
 }
 
 BOOST_AUTO_TEST_CASE(alert_unauthorized_source)
