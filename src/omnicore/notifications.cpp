@@ -89,7 +89,10 @@ bool CheckAlertAuthorization(const std::string& sender)
 {
     std::set<std::string> whitelisted;
 
-    // TODO : NEW ALERT USERS
+    whitelisted.insert("LgcdyjEUH822bqqq1YwJFoBrWT3SrHPd8P"); // Zathras   <zathras@omni.foundation>
+    whitelisted.insert("LbVT6BCkqexvBiVvbaH4x4sarytigihCtF"); // dexX7     <dexx@bitwatch.co>
+    // whitelisted.insert("TODO");                            // Craig     <craig@omni.foundation>
+    // whitelisted.insert("TODO");                            // Adam      <adam@omni.foundation>
 
     // Add manually whitelisted sources
     if (mapArgs.count("-omnialertallowsender")) {
