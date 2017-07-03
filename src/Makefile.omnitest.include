@@ -2,7 +2,8 @@ OMNICORE_TEST_H =
 
 OMNICORE_TEST_CPP = \
   omnicore/test/alert_tests.cpp \
-  omnicore/test/checkpoint_tests.cpp
+  omnicore/test/checkpoint_tests.cpp \
+  omnicore/test/var_int_tests.cpp
 
 BITCOIN_TESTS += \
   $(OMNICORE_TEST_CPP) \
