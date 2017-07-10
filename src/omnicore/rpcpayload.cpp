@@ -36,9 +36,8 @@ UniValue omni_createpayload_simplesend(const UniValue& params, bool fHelp)
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
-//    RequireExistingProperty(propertyId);
-//    int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
-    int64_t amount = ParseAmount(params[1], false);
+    RequireExistingProperty(propertyId);
+    int64_t amount = ParseAmount(params[1], isPropertyDivisible(propertyId));
 
     std::vector<unsigned char> payload = CreatePayload_SimpleSend(propertyId, amount);
 
