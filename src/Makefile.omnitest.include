@@ -10,6 +10,7 @@ OMNICORE_TEST_CPP = \
   omnicore/test/encoding_d_tests.cpp \
   omnicore/test/lock_tests.cpp \
   omnicore/test/marker_tests.cpp \
+  omnicore/test/params_tests.cpp \
   omnicore/test/utils_tx.cpp \
   omnicore/test/var_int_tests.cpp
 
