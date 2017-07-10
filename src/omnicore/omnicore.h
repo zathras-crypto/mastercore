@@ -102,6 +102,9 @@ enum FILETYPES {
 #define OMNI_PROPERTY_MSC             1
 #define OMNI_PROPERTY_TMSC            2
 
+#define OMNI_ECOSYSTEM_MAIN           1
+#define OMNI_ECOSYSTEM_TEST           2
+
 // forward declarations
 std::string FormatDivisibleMP(int64_t amount, bool fSign = false);
 std::string FormatDivisibleShortMP(int64_t amount);
