@@ -14,7 +14,7 @@
 
 CTxOut PayToPubKeyHash_Unrelated()
 {
-    CBitcoinAddress address("1f2dj45pxYb8BCW5sSbCgJ5YvXBfSapeX");
+    CBitcoinAddress address("LgHpnHW3j9qe6if3wTJ1JivB6dQ2iKTDTb");
     CScript scriptPubKey = GetScriptForDestination(address.Get());
     int64_t amount = GetDustThreshold(scriptPubKey);
 
