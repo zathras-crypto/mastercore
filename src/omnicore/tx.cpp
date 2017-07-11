@@ -3,7 +3,6 @@
 #include "omnicore/tx.h"
 
 #include "omnicore/activation.h"
-#include "omnicore/convert.h"
 #include "omnicore/log.h"
 #include "omnicore/notifications.h"
 #include "omnicore/omnicore.h"

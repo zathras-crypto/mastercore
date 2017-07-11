@@ -1,7 +1,6 @@
 // This file serves to provide payload creation functions.
 
 #include "omnicore/createpayload.h"
-#include "omnicore/convert.h"
 #include "omnicore/varint.h"
 
 #include "tinyformat.h"

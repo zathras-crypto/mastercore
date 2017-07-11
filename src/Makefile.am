@@ -160,7 +160,6 @@ BITCOIN_CORE_H = \
   omnicore/tally.h \
   omnicore/activation.h \
   omnicore/consensushash.h \
-  omnicore/convert.h \
   omnicore/encoding.h \
   omnicore/errors.h \
   omnicore/notifications.h \
@@ -236,7 +235,6 @@ libbitcoin_server_a_SOURCES = \
   omnicore/tally.cpp \
   omnicore/activation.cpp \
   omnicore/consensushash.cpp \
-  omnicore/convert.cpp \
   omnicore/encoding.cpp \
   omnicore/notifications.cpp \
   omnicore/pending.cpp \

@@ -8,7 +8,6 @@
 
 #include "omnicore/activation.h"
 #include "omnicore/consensushash.h"
-#include "omnicore/convert.h"
 #include "omnicore/encoding.h"
 #include "omnicore/errors.h"
 #include "omnicore/log.h"

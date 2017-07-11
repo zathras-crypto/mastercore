@@ -13,7 +13,6 @@ OMNICORE_TEST_CPP = \
   omnicore/test/params_tests.cpp \
   omnicore/test/output_restriction_tests.cpp \
   omnicore/test/parsing_d_tests.cpp \
-  omnicore/test/rounduint64_tests.cpp \
   omnicore/test/rules_txs_tests.cpp \
   omnicore/test/script_dust_tests.cpp \
   omnicore/test/script_extraction_tests.cpp \
