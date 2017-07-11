@@ -18,6 +18,7 @@ OMNICORE_TEST_CPP = \
   omnicore/test/script_dust_tests.cpp \
   omnicore/test/script_extraction_tests.cpp \
   omnicore/test/script_solver_tests.cpp \
+  omnicore/test/sender_firstin_tests.cpp \
   omnicore/test/utils_tx.cpp \
   omnicore/test/var_int_tests.cpp
 
