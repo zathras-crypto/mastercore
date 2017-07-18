@@ -90,8 +90,7 @@ UniValue omni_decodetransaction(const UniValue& params, bool fHelp)
 
     UniValue txObj(UniValue::VOBJ);
     int populateResult = -3331;
-/**
-TODO Figure out what's wrong with swap
+
     {
         LOCK2(cs_main, cs_tx_cache);
         // temporarily switch global coins view cache for transaction inputs
@@ -101,7 +100,6 @@ TODO Figure out what's wrong with swap
         // and restore the original, unpolluted coins view cache
         std::swap(viewTemp, view);
     }
-**/
 
     if (populateResult != 0) PopulateFailure(populateResult);
 
