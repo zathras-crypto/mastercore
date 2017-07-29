@@ -26,6 +26,7 @@
 #include "omnicore/sto.h"
 #include "omnicore/tally.h"
 #include "omnicore/tx.h"
+#include "omnicore/utdb.h"
 #include "omnicore/utilsbitcoin.h"
 #include "omnicore/version.h"
 #include "omnicore/wallettxs.h"
@@ -706,6 +707,13 @@ UniValue mscrpc(const UniValue& params, bool fHelp)
             break;
         }
 #endif
+        case 12:
+        {
+            // dump the unique tokens database
+            p_utdb->printAll();
+            p_utdb->printStats();
+            break;
+        }
         case 14:
         {
             LOCK(cs_tally);
