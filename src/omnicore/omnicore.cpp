@@ -2095,6 +2095,7 @@ void clear_all_state()
     s_stolistdb->Clear();
     t_tradelistdb->Clear();
     p_OmniTXDB->Clear();
+    p_utdb->Clear();
     p_feecache->Clear();
     p_feehistory->Clear();
     assert(p_txlistdb->setDBVersion() == DB_VERSION); // new set of databases, set DB version
