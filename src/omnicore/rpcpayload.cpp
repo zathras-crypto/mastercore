@@ -74,7 +74,7 @@ UniValue omni_createpayload_sendunique(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "omni_createpayload_uniquesend propertyid uniquetokenstart uniquetokenend \n"
+            "omni_createpayload_sendunique propertyid uniquetokenstart uniquetokenend \n"
 
             "\nCreate the payload for a unique send transaction.\n"
 
@@ -87,8 +87,8 @@ UniValue omni_createpayload_sendunique(const UniValue& params, bool fHelp)
             "\"payload\"               (string) the hex-encoded payload\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("omni_createpayload_uniquesend", "70 1 1000")
-            + HelpExampleRpc("omni_createpayload_uniquesend", "70, 1, 1000")
+            + HelpExampleCli("omni_createpayload_sendunique", "70 1 1000")
+            + HelpExampleRpc("omni_createpayload_sendunique", "70, 1, 1000")
         );
 
     uint32_t propertyId = ParsePropertyId(params[0]);
