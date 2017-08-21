@@ -196,6 +196,36 @@ UniValue omni_getuniquetokens(const UniValue& params, bool fHelp)
     return response;
 }
 
+// locates the owner of a token/range of tokens
+UniValue omni_getuniquetokenowner(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "omni_getuniquetokenowner propertyid uniquetokenid\n"
+            "\nReturns the owning address for a unique token.\n"
+            "\nArguments:\n"
+            "1. propertyid           (number, required) the property identifier\n"
+            "2. uniquetokenid        (number, required) the token identifier\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"address\" : \"address\",  (string) the Bitcoin address of the owner\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("omni_getuniquetokenowner", "\"1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P\" 1 55")
+            + HelpExampleRpc("omni_getuniquetokenowner", "\"1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P\", 1 55")
+        );
+
+    uint32_t propertyId = ParsePropertyId(params[0]);
+    int64_t uniqueToken = params[1].get_int64();
+
+    RequireExistingProperty(propertyId);
+
+    std::string response = p_utdb->GetUniqueTokenOwner(propertyId, uniqueToken);
+    UniValue rpcObj(UniValue::VOBJ);
+    rpcObj.push_back(Pair("address", response));
+    return rpcObj;
+}
+
 // Obtains details of a fee distribution
 UniValue omni_getfeedistribution(const UniValue& params, bool fHelp)
 {
@@ -2242,6 +2272,7 @@ static const CRPCCommand commands[] =
     { "omni layer (data retrieval)", "omni_getfeedistribution",        &omni_getfeedistribution,         false },
     { "omni layer (data retrieval)", "omni_getfeedistributions",       &omni_getfeedistributions,        false },
     { "omni layer (data retrieval)", "omni_getuniquetokens",           &omni_getuniquetokens,            false },
+    { "omni layer (data retrieval)", "omni_getuniquetokenowner",       &omni_getuniquetokenowner,        false },
 #ifdef ENABLE_WALLET
     { "omni layer (data retrieval)", "omni_listtransactions",          &omni_listtransactions,           false },
     { "omni layer (data retrieval)", "omni_getfeeshare",               &omni_getfeeshare,                false },

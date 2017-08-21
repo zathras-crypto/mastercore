@@ -136,6 +136,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "omni_getfeedistribution", 0 },
     { "omni_getfeedistributions", 0 },
     { "omni_getuniquetokens", 1 },
+    { "omni_getuniquetokenowner", 0 },
+    { "omni_getuniquetokenowner", 1 },
 
     /* Omni Core - transaction calls */
     { "omni_send", 2 },
