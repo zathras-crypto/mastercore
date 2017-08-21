@@ -273,6 +273,37 @@ std::string CMPUniqueTokensDB::GetUniqueTokenOwner(const uint32_t &propertyId, c
     return ""; // not found
 }
 
+/* Gets the ranges of unique tokens owned by an address
+ */
+std::vector<std::pair<int64_t,int64_t> > CMPUniqueTokensDB::GetAddressUniqueTokens(const uint32_t &propertyId, const std::string &address)
+{
+    std::vector<std::pair<int64_t,int64_t> > uniqueMap;
+    assert(pdb);
+    leveldb::Iterator* it = NewIterator();
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::string key = it->key().ToString();
+        std::string value = it->value().ToString();
+        if (value != address) continue;
+        std::vector<std::string> vPropertyId;
+        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
+        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
+        std::string strPropId = vPropertyId[0];
+        strPropId.erase(0, strPropId.find_first_not_of('0'));
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        if (dbPropertyId != propertyId) continue;
+        std::vector<std::string> vRanges;
+        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
+        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
+        std::string strIdStart = vRanges[0];
+        std::string strIdEnd = vRanges[1];
+        strIdStart.erase(0, strIdStart.find_first_not_of('0'));
+        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
+        uniqueMap.push_back(std::make_pair(boost::lexical_cast<int64_t>(strIdStart), boost::lexical_cast<int64_t>(strIdEnd)));
+    }
+    delete it;
+    return uniqueMap;
+}
+
 void CMPUniqueTokensDB::printStats()
 {
     PrintToLog("CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
