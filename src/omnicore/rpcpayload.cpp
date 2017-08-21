@@ -615,6 +615,7 @@ static const CRPCCommand commands[] =
     { "omni layer (payload creation)", "omni_createpayload_canceltradesbyprice", &omni_createpayload_canceltradesbyprice, true },
     { "omni layer (payload creation)", "omni_createpayload_canceltradesbypair",  &omni_createpayload_canceltradesbypair,  true },
     { "omni layer (payload creation)", "omni_createpayload_cancelalltrades",     &omni_createpayload_cancelalltrades,     true },
+    { "omni layer (payload creation)", "omni_createpayload_sendunique",          &omni_createpayload_sendunique,          true },
 };
 
 void RegisterOmniPayloadCreationRPCCommands(CRPCTable &tableRPC)

@@ -2241,6 +2241,7 @@ static const CRPCCommand commands[] =
     { "omni layer (data retrieval)", "omni_getfeetrigger",             &omni_getfeetrigger,              false },
     { "omni layer (data retrieval)", "omni_getfeedistribution",        &omni_getfeedistribution,         false },
     { "omni layer (data retrieval)", "omni_getfeedistributions",       &omni_getfeedistributions,        false },
+    { "omni layer (data retrieval)", "omni_getuniquetokens",           &omni_getuniquetokens,            false },
 #ifdef ENABLE_WALLET
     { "omni layer (data retrieval)", "omni_listtransactions",          &omni_listtransactions,           false },
     { "omni layer (data retrieval)", "omni_getfeeshare",               &omni_getfeeshare,                false },
