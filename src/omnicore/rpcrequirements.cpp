@@ -153,6 +153,19 @@ void RequireSaneDExFee(const std::string& address, uint32_t propertyId)
     }
 }
 
+void RequireSaneUniqueRange(int64_t uniqueTokenStart, int64_t uniqueTokenEnd)
+{
+    if (uniqueTokenStart <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unique range start value must not be zero or negative");
+    }
+    if (uniqueTokenEnd <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unique range end value must not be zero or negative");
+    }
+    if (uniqueTokenStart >= uniqueTokenEnd) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unique range start value must be higher than unique range end value");
+    }
+}
+
 void RequireHeightInChain(int blockHeight)
 {
     if (blockHeight < 0 || mastercore::GetHeight() < blockHeight) {

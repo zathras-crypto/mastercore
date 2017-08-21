@@ -19,6 +19,7 @@ void RequireNoOtherDExOffer(const std::string& address, uint32_t propertyId);
 void RequireSaneReferenceAmount(int64_t amount);
 void RequireSaneDExPaymentWindow(const std::string& address, uint32_t propertyId);
 void RequireSaneDExFee(const std::string& address, uint32_t propertyId);
+void RequireSaneUniqueRange(int64_t uniqueTokenStart, int64_t uniqueTokenEnd);
 void RequireHeightInChain(int blockHeight);
 
 // TODO:
