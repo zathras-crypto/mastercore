@@ -10,6 +10,7 @@ class CTransaction;
 #include "omnicore/log.h"
 #include "omnicore/persistence.h"
 #include "omnicore/tally.h"
+#include "omnicore/utdb.h"
 
 #include "sync.h"
 #include "uint256.h"
@@ -319,6 +320,7 @@ extern CMPTxList *p_txlistdb;
 extern CMPTradeList *t_tradelistdb;
 extern CMPSTOList *s_stolistdb;
 extern COmniTransactionDB *p_OmniTXDB;
+extern CMPUniqueTokensDB *p_utdb;
 
 // TODO: move, rename
 extern CCoinsView viewDummy;
