@@ -172,3 +172,13 @@ void RequireHeightInChain(int blockHeight)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height is out of range");
     }
 }
+
+void RequireUniqueTokenOwner(const std::string& address, uint32_t propertyId, int64_t uniqueTokenStart, int64_t uniqueTokenEnd)
+{
+    std::string rangeStartOwner = mastercore::p_utdb->GetUniqueTokenOwner(propertyId, uniqueTokenStart);
+    std::string rangeEndOwner = mastercore::p_utdb->GetUniqueTokenOwner(propertyId, uniqueTokenEnd);
+    bool contiguous = mastercore::p_utdb->IsRangeContiguous(propertyId, uniqueTokenStart, uniqueTokenEnd);
+    if (rangeStartOwner != address || rangeEndOwner != address || !contiguous) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Sender does not own the range being sent");
+    }
+}
