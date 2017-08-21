@@ -258,6 +258,8 @@ public:
     void recordMetaDExCancelTX(const uint256 &txidMaster, const uint256 &txidSub, bool fValid, int nBlock, unsigned int propertyId, uint64_t nValue);
     /** Records a "send all" sub record. */
     void recordSendAllSubRecord(const uint256& txid, int subRecordNumber, uint32_t propertyId, int64_t nvalue);
+    /** Records the range awarded in a grant applied to a unique property. */
+    void RecordUniqueGrant(const uint256 &txid, int64_t start, int64_t end);
 
     string getKeyValue(string key);
     uint256 findMetaDExCancel(const uint256 txid);
@@ -267,6 +269,9 @@ public:
     bool getPurchaseDetails(const uint256 txid, int purchaseNumber, string *buyer, string *seller, uint64_t *vout, uint64_t *propertyId, uint64_t *nValue);
     /** Retrieves details about a "send all" record. */
     bool getSendAllDetails(const uint256& txid, int subSend, uint32_t& propertyId, int64_t& amount);
+    /** Retrieves details about the range awarded in a grant to a unique property. */
+    std::pair<int64_t,int64_t> GetUniqueGrant(const uint256& txid);
+
     int getMPTransactionCountTotal();
     int getMPTransactionCountBlock(int block);
 
