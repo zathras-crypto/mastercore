@@ -13,6 +13,7 @@
 #include "omnicore/rules.h"
 #include "omnicore/sp.h"
 #include "omnicore/sto.h"
+#include "omnicore/utdb.h"
 
 #include "amount.h"
 #include "main.h"
@@ -41,6 +42,7 @@ std::string mastercore::strTransactionType(uint16_t txType)
         case MSC_TYPE_RESTRICTED_SEND: return "Restricted Send";
         case MSC_TYPE_SEND_TO_OWNERS: return "Send To Owners";
         case MSC_TYPE_SEND_ALL: return "Send All";
+        case MSC_TYPE_SEND_UNIQUE: return "Unique Send";
         case MSC_TYPE_SAVINGS_MARK: return "Savings";
         case MSC_TYPE_SAVINGS_COMPROMISED: return "Savings COMPROMISED";
         case MSC_TYPE_RATELIMITED_MARK: return "Rate-Limiting";
@@ -109,6 +111,9 @@ bool CMPTransaction::interpret_Transaction()
 
         case MSC_TYPE_SEND_ALL:
             return interpret_SendAll();
+
+        case MSC_TYPE_SEND_UNIQUE:
+            return interpret_SendUnique();
 
         case MSC_TYPE_TRADE_OFFER:
             return interpret_TradeOffer();
@@ -246,6 +251,28 @@ bool CMPTransaction::interpret_SendAll()
 
     if ((!rpcOnly && msc_debug_packets) || msc_debug_packets_readonly) {
         PrintToLog("\t       ecosystem: %d\n", (int)ecosystem);
+    }
+
+    return true;
+}
+
+/** Tx 5 */
+bool CMPTransaction::interpret_SendUnique()
+{
+    if (pkt_size < 24) {
+        return false;
+    }
+    memcpy(&property, &pkt[4], 4);
+    swapByteOrder32(property);
+    memcpy(&unique_token_start, &pkt[8], 8);
+    swapByteOrder64(unique_token_start);
+    memcpy(&unique_token_end, &pkt[16], 8);
+    swapByteOrder64(unique_token_end);
+
+    if ((!rpcOnly && msc_debug_packets) || msc_debug_packets_readonly) {
+        PrintToLog("\t        property: %d (%s)\n", property, strMPProperty(property));
+        PrintToLog("\tuniquetokenstart: %d\n", unique_token_start);
+        PrintToLog("\t  uniquetokenend: %d\n", unique_token_end);
     }
 
     return true;
@@ -730,6 +757,9 @@ int CMPTransaction::interpretPacket()
         case MSC_TYPE_SEND_ALL:
             return logicMath_SendAll();
 
+        case MSC_TYPE_SEND_UNIQUE:
+            return logicMath_SendUnique();
+
         case MSC_TYPE_TRADE_OFFER:
             return logicMath_TradeOffer();
 
@@ -1092,6 +1122,83 @@ int CMPTransaction::logicMath_SendAll()
     }
 
     nNewValue = numberOfPropertiesSent;
+
+    return 0;
+}
+
+/** Tx 5 */
+int CMPTransaction::logicMath_SendUnique()
+{
+    if (!IsTransactionTypeAllowed(block, property, type, version)) {
+        PrintToLog("%s(): rejected: type %d or version %d not permitted for property %d at block %d\n",
+                __func__,
+                type,
+                version,
+                property,
+                block);
+        return (PKT_ERROR_SEND -22);
+    }
+
+    if (unique_token_start <= 0 || MAX_INT_8_BYTES < unique_token_start) {
+        PrintToLog("%s(): rejected: unique token range start value out of range or zero: %d", __func__, unique_token_start);
+        return (PKT_ERROR_SEND -23);
+    }
+
+    if (unique_token_end <= 0 || MAX_INT_8_BYTES < unique_token_end) {
+        PrintToLog("%s(): rejected: unique token range end value out of range or zero: %d", __func__, unique_token_end);
+        return (PKT_ERROR_SEND -23);
+    }
+
+    if (unique_token_start > unique_token_end) {
+        PrintToLog("%s(): rejected: unique token range start value: %d is less than or equal to range end value: %d", __func__, unique_token_start, unique_token_end);
+        return (PKT_ERROR_SEND -23);
+    }
+
+    int64_t amount = (unique_token_end - unique_token_start) + 1;
+    if (amount <= 0) {
+        PrintToLog("%s(): rejected: unique token range amount out of range or zero: %d", __func__, amount);
+        return (PKT_ERROR_SEND -23);
+    }
+
+    if (!_my_sps->hasSP(property)) {
+        PrintToLog("%s(): rejected: property %d does not exist\n", __func__, property);
+        return (PKT_ERROR_SEND -24);
+    }
+
+    int64_t nBalance = getMPbalance(sender, property, BALANCE);
+    if (nBalance < amount) {
+        PrintToLog("%s(): rejected: sender %s has insufficient balance of property %d [%s < %s]\n",
+                __func__,
+                sender,
+                property,
+                FormatMP(property, nBalance),
+                FormatMP(property, amount));
+        return (PKT_ERROR_SEND -25);
+    }
+
+    std::string rangeStartOwner = p_utdb->GetUniqueTokenOwner(property, unique_token_start);
+    std::string rangeEndOwner = p_utdb->GetUniqueTokenOwner(property, unique_token_end);
+    bool contiguous = p_utdb->IsRangeContiguous(property, unique_token_start, unique_token_end);
+    if (rangeStartOwner != sender || rangeEndOwner != sender || !contiguous) {
+        PrintToLog("%s(): rejected: sender %s does not own the range being sent\n",
+                __func__,
+                sender,
+                property);
+        return (PKT_ERROR_SEND -26);
+    }
+
+    // ------------------------------------------
+
+    // Special case: if can't find the receiver -- assume send to self!
+    if (receiver.empty()) {
+        receiver = sender;
+    }
+
+    // Move the tokens
+    assert(update_tally_map(sender, property, -amount, BALANCE));
+    assert(update_tally_map(receiver, property, amount, BALANCE));
+    bool success = p_utdb->MoveUniqueTokens(property,unique_token_start,unique_token_end,sender,receiver);
+    assert(success);
 
     return 0;
 }
@@ -1678,6 +1785,7 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
         return (PKT_ERROR_SP -21);
     }
 
+    // TODO: When we think about making unique tokens live we need to activate, and reusing current version txs may be problematic
     if (!IsTransactionTypeAllowed(block, ecosystem, type, version)) {
         PrintToLog("%s(): rejected: type %d or version %d not permitted for property %d at block %d\n",
                 __func__,
@@ -1688,7 +1796,7 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
         return (PKT_ERROR_SP -22);
     }
 
-    if (MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type && MSC_PROPERTY_TYPE_DIVISIBLE != prop_type) {
+    if (MSC_PROPERTY_TYPE_INDIVISIBLE != prop_type && MSC_PROPERTY_TYPE_DIVISIBLE != prop_type && MSC_PROPERTY_TYPE_UNIQUE != prop_type) {
         PrintToLog("%s(): rejected: invalid property type: %d\n", __func__, prop_type);
         return (PKT_ERROR_SP -36);
     }
@@ -1709,6 +1817,11 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
     newSP.name.assign(name);
     newSP.url.assign(url);
     newSP.data.assign(data);
+    if (prop_type != MSC_PROPERTY_TYPE_UNIQUE) {
+        newSP.unique = false;
+    } else {
+        newSP.unique = true;
+    }
     newSP.fixed = false;
     newSP.manual = true;
     newSP.creation_block = blockHash;
@@ -1717,7 +1830,11 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
     uint32_t propertyId = _my_sps->putSP(ecosystem, newSP);
     assert(propertyId > 0);
 
-    PrintToLog("CREATED MANUAL PROPERTY id: %d admin: %s\n", propertyId, sender);
+    if (prop_type != MSC_PROPERTY_TYPE_UNIQUE) {
+        PrintToLog("CREATED MANUAL PROPERTY id: %d admin: %s\n", propertyId, sender);
+    } else {
+        PrintToLog("CREATED MANUAL PROPERTY WITH UNIQUE TOKENS id: %d admin: %s\n", propertyId, sender);
+    }
 
     return 0;
 }
@@ -1770,6 +1887,7 @@ int CMPTransaction::logicMath_GrantTokens()
         return (PKT_ERROR_TOKENS -43);
     }
 
+    // TODO: getTotalTokens support for unique
     int64_t nTotalTokens = getTotalTokens(property);
     if (nValue > (MAX_INT_8_BYTES - nTotalTokens)) {
         PrintToLog("%s(): rejected: no more than %s tokens can ever exist [%s + %s > %s]\n",
@@ -1798,6 +1916,11 @@ int CMPTransaction::logicMath_GrantTokens()
     }
 
     // Move the tokens
+    if (sp.unique) {
+        std::pair<int64_t,int64_t> grantedRange = p_utdb->CreateUniqueTokens(property, nValue, receiver);
+        p_txlistdb->RecordUniqueGrant(txid, grantedRange.first, grantedRange.second);
+        PrintToLog("%s(): unique: granted range %d to %d of property %d to %s\n", __func__, grantedRange.first, grantedRange.second, property, receiver);
+    }
     assert(update_tally_map(receiver, property, nValue, BALANCE));
 
     /**
