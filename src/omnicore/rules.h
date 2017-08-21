@@ -115,6 +115,8 @@ public:
     int MSC_BET_BLOCK;
     //! Block to enable cross property STO (v1)
     int MSC_STOV1_BLOCK;
+    //! Block to enable unique tokens
+    int MSC_UNIQUE_BLOCK;
 
     //! Block to deactivate crowdsale participations when "granting tokens"
     int GRANTEFFECTS_FEATURE_BLOCK;
