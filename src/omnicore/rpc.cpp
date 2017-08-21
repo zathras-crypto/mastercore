@@ -150,6 +150,52 @@ bool BalanceToJSON(const std::string& address, uint32_t property, UniValue& bala
     }
 }
 
+// display the unique tokens owned by an address for a property
+UniValue omni_getuniquetokens(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "omni_getuniquetokens \"address\" propertyid\n"
+            "\nReturns the unique tokens for a given address and property.\n"
+            "\nArguments:\n"
+            "1. address              (string, required) the address\n"
+            "2. propertyid           (number, required) the property identifier\n"
+            "\nResult:\n"
+            "[                           (array of JSON objects)\n"
+            "  {\n"
+            "  \"uniquetokenstart\" : n,  (number) the first token in this range\n"
+            "  \"uniquetokenend\" : n,    (number) the last token in this range\n"
+            "  \"amount\" : n             (number) the amount of tokens in the range\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("omni_getuniquetokens", "\"1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P\" 1")
+            + HelpExampleRpc("omni_getuniquetokens", "\"1EXoDusjGwvnjZUyKkxZ4UHEf77z6A5S4P\", 1")
+        );
+
+    std::string address = ParseAddress(params[0]);
+    uint32_t propertyId = ParsePropertyId(params[1]);
+
+    RequireExistingProperty(propertyId);
+
+    UniValue response(UniValue::VARR);
+
+    std::vector<std::pair<int64_t,int64_t> > uniqueRanges = p_utdb->GetAddressUniqueTokens(propertyId, address);
+
+    for (std::vector<std::pair<int64_t,int64_t> >::iterator it = uniqueRanges.begin(); it != uniqueRanges.end(); ++it) {
+        std::pair<int64_t,int64_t> range = *it;
+        int64_t amount = (range.second - range.first) + 1;
+        UniValue uniqueRangeObj(UniValue::VOBJ);
+        uniqueRangeObj.push_back(Pair("uniquetokenstart", range.first));
+        uniqueRangeObj.push_back(Pair("uniquetokenend", range.second));
+        uniqueRangeObj.push_back(Pair("amount", amount));
+        response.push_back(uniqueRangeObj);
+    }
+
+    return response;
+}
+
 // Obtains details of a fee distribution
 UniValue omni_getfeedistribution(const UniValue& params, bool fHelp)
 {
