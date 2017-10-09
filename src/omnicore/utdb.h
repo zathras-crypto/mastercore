@@ -13,11 +13,6 @@
  */
 class CMPUniqueTokensDB : public CDBBase
 {
-// helper for setting owner on range of tokens
-// helper for getting owner on range of tokens
-// helper for checking if owner=x on range of tokens
-// helper for checking if token exists
-// helper for getting all tokens an owner has
 
 public:
     CMPUniqueTokensDB(const boost::filesystem::path& path, bool fWipe)
@@ -33,7 +28,6 @@ public:
 
     void printStats();
     void printAll();
-
 
     // Helper to extract the property ID from a DB key
     uint32_t GetPropertyIdFromKey(const std::string& key);

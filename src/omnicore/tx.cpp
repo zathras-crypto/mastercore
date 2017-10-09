@@ -1834,7 +1834,6 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
         return (PKT_ERROR_SP -21);
     }
 
-    // TODO: When we think about making unique tokens live we need to activate, and reusing current version txs may be problematic
     if (!IsTransactionTypeAllowed(block, ecosystem, type, version)) {
         PrintToLog("%s(): rejected: type %d or version %d not permitted for property %d at block %d\n",
                 __func__,
@@ -1936,7 +1935,6 @@ int CMPTransaction::logicMath_GrantTokens()
         return (PKT_ERROR_TOKENS -43);
     }
 
-    // TODO: getTotalTokens support for unique
     int64_t nTotalTokens = getTotalTokens(property);
     if (nValue > (MAX_INT_8_BYTES - nTotalTokens)) {
         PrintToLog("%s(): rejected: no more than %s tokens can ever exist [%s + %s > %s]\n",

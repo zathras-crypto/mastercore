@@ -243,7 +243,7 @@ UniValue omni_sendunique(const UniValue& params, bool fHelp)
         if (!autoCommit) {
             return rawHex;
         } else {
-            PendingAdd(txid, fromAddress, MSC_TYPE_SEND_UNIQUE, propertyId, uniqueTokenAmount); // TODO: look at pending for unique tokens
+            PendingAdd(txid, fromAddress, MSC_TYPE_SEND_UNIQUE, propertyId, uniqueTokenAmount);
             return txid.GetHex();
         }
     }
