@@ -17,9 +17,31 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
- // TODO: getTotalTokens and sanity check tokenIdEnd is not > the total number of tokens, can only be added once getTotalTokens supports unique tokens
- // TODO: optimize - start the iterator at leveldb key propertyId_1* as this will position the iterator at the start of the ranges for the property
- // TODO: re-enable & increase logging
+/* Extracts the property ID from a DB key
+ */
+uint32_t CMPUniqueTokensDB::GetPropertyIdFromKey(const std::string& key)
+{
+    std::vector<std::string> vPropertyId;
+    boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
+    assert(vPropertyId.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
+    return boost::lexical_cast<uint32_t>(vPropertyId[0]);
+}
+
+/* Extracts the range from a DB key
+ */
+void CMPUniqueTokensDB::GetRangeFromKey(const std::string& key, int64_t *start, int64_t *end)
+{
+   std::vector<std::string> vPropertyId;
+   boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
+   assert(vPropertyId.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
+
+   std::vector<std::string> vRanges;
+   boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
+   assert(vRanges.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
+
+   *start = boost::lexical_cast<int64_t>(vRanges[0]);
+   *end = boost::lexical_cast<int64_t>(vRanges[1]);
+}
 
 /* Gets the range a unique token is in
  */
@@ -29,26 +51,12 @@ std::pair<int64_t,int64_t> CMPUniqueTokensDB::GetRange(const uint32_t &propertyI
     leveldb::Iterator* it = NewIterator();
 
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        // Obtain the property ID of this entry
-        std::string key = it->key().ToString();
-        std::vector<std::string> vPropertyId;
-        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        assert(vPropertyId.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
 
-        // Go to next iteration of FOR if the property ID of this entry doesn't match the one we're looking for
-        if (dbPropertyId != propertyId) continue;
-
-        // Obtain the range of this entry
-        std::vector<std::string> vRanges;
-        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        assert(vRanges.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
-
-        // Check if the token ID supplied is within the range of this entry and if so, return the range
-        if (tokenId >= dbTokenIdStart && tokenId <= dbTokenIdEnd) {
-            return std::make_pair(dbTokenIdStart, dbTokenIdEnd);
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+        if (tokenId >= start && tokenId <= end) {
+            return std::make_pair(start, end);
         }
     }
 
@@ -58,42 +66,37 @@ std::pair<int64_t,int64_t> CMPUniqueTokensDB::GetRange(const uint32_t &propertyI
 
 /* Checks if the range of tokens is contiguous (ie owned by a single address)
  */
-bool CMPUniqueTokensDB::IsRangeContiguous(const uint32_t &propertyId, const int64_t &tokenIdStart, const int64_t &tokenIdEnd)
+bool CMPUniqueTokensDB::IsRangeContiguous(const uint32_t &propertyId, const int64_t &rangeStart, const int64_t &rangeEnd)
 {
-    assert(pdb); // not safe to continue without access to utdb
 
+    assert(pdb);
     leveldb::Iterator* it = NewIterator();
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        std::string key = it->key().ToString();
-        // break into component integers
-        std::vector<std::string> vPropertyId;
-        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
-        if (dbPropertyId != propertyId) continue;
-        std::vector<std::string> vRanges;
-        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
-        // check if the range supplied to the function is within this range in the DB
-        if (tokenIdStart >= dbTokenIdStart && tokenIdStart <= dbTokenIdEnd) {
-            if (tokenIdEnd <= dbTokenIdEnd) { // the start ID falls within this range
-                return true; // the end ID falls within this range - owned by a single address
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
+
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+
+        if (rangeStart >= start && rangeStart <= end) {
+            if (rangeEnd > rangeStart && rangeEnd <= end) {
+                return true;
             } else {
-                // the start ID falls within this range but the end ID does not - not owned by a single address
-                return false;
+                return false; // the start ID falls within this range but the end ID does not - not owned by a single address
             }
         }
     }
+
     delete it;
-    return true; // range not found, so cannot be fragmented across multiple owners
+    return false; // range doesn't exist
 }
 
 /* Moves a range of tokens (returns false if not able to move)
  */
 bool CMPUniqueTokensDB::MoveUniqueTokens(const uint32_t &propertyId, const int64_t &tokenIdStart, const int64_t &tokenIdEnd, const std::string &from, const std::string &to)
 {
+    if (msc_debug_utdb) PrintToLog("%s(): %d:%d:%d:%s:%s, line %d, file: %s\n", __FUNCTION__, propertyId, tokenIdStart, tokenIdEnd, from, to, __LINE__, __FILE__);
+
     assert(pdb);
 
     // check that 'from' owns both the start and end token and that the range is contiguous (owns the entire range)
@@ -164,18 +167,13 @@ int64_t CMPUniqueTokensDB::GetHighestRangeEnd(const uint32_t &propertyId)
     int64_t tokenCount = 0;
     leveldb::Iterator* it = NewIterator();
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        std::string key = it->key().ToString();
-        std::vector<std::string> vPropertyId;
-        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
-        if (dbPropertyId != propertyId) continue;
-        std::vector<std::string> vRanges;
-        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
-        if (dbTokenIdEnd > tokenCount) {
-            tokenCount = dbTokenIdEnd;
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
+
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+
+        if (end > tokenCount) {
+            tokenCount = end;
         }
     }
     delete it;
@@ -189,7 +187,8 @@ void CMPUniqueTokensDB::DeleteRange(const uint32_t &propertyId, const int64_t &t
     assert(pdb);
     const std::string key = strprintf("%010d_%020d-%020d", propertyId, tokenIdStart, tokenIdEnd);
     pdb->Delete(leveldb::WriteOptions(), key);
-//    if (msc_debug_utdb) PrintToLog("%s():%s, line %d, file: %s\n", __FUNCTION__, key, __LINE__, __FILE__);
+
+    if (msc_debug_utdb) PrintToLog("%s():%s, line %d, file: %s\n", __FUNCTION__, key, __LINE__, __FILE__);
 }
 
 /* Adds a range of unique tokens
@@ -201,27 +200,40 @@ void CMPUniqueTokensDB::AddRange(const uint32_t &propertyId, const int64_t &toke
     const std::string key = strprintf("%010d_%020d-%020d", propertyId, tokenIdStart, tokenIdEnd);
     leveldb::Status status = pdb->Put(writeoptions, key, owner);
     ++nWritten;
-//    if (msc_debug_utdb) PrintToLog("%s():%s=%s:%s, line %d, file: %s\n", __FUNCTION__, key, owner, status.ToString(), __LINE__, __FILE__);
+
+    if (msc_debug_utdb) PrintToLog("%s():%s=%s:%s, line %d, file: %s\n", __FUNCTION__, key, owner, status.ToString(), __LINE__, __FILE__);
 }
 
 /* Creates a range of unique tokens
  */
 std::pair<int64_t,int64_t> CMPUniqueTokensDB::CreateUniqueTokens(const uint32_t &propertyId, const int64_t &amount, const std::string &owner)
 {
+    if (msc_debug_utdb) PrintToLog("%s(): %d:%d:%s, line %d, file: %s\n", __FUNCTION__, propertyId, amount, owner, __LINE__, __FILE__);
+
     int64_t highestId = GetHighestRangeEnd(propertyId);
     int64_t newTokenStartId = highestId + 1;
-    int64_t newTokenEndId = highestId + amount; // TODO: overflow protection
+    int64_t newTokenEndId = 0;
+
+    if ( ((amount > 0) && (highestId > (std::numeric_limits<int64_t>::max()-amount))) ||   /* overflow */
+         ((amount < 0) && (highestId < (std::numeric_limits<int64_t>::min()-amount))) ) {  /* underflow */
+        newTokenEndId = std::numeric_limits<int64_t>::max();
+    } else {
+        newTokenEndId = highestId + amount;
+    }
+
     std::pair<int64_t,int64_t> newRange = std::make_pair(newTokenStartId, newTokenEndId);
+
     std::string highestRangeOwner = GetUniqueTokenOwner(propertyId, highestId);
     if (highestRangeOwner == owner) {
         std::pair<int64_t,int64_t> oldRange = GetRange(propertyId, highestId);
         DeleteRange(propertyId, oldRange.first, oldRange.second);
         newTokenStartId = oldRange.first; // override range start to merge ranges from same owner
     }
+
     AddRange(propertyId, newTokenStartId, newTokenEndId, owner);
+
     return newRange;
 }
-
 
 /* Gets the owner of a range of unique tokens
  *
@@ -231,21 +243,14 @@ std::string CMPUniqueTokensDB::GetUniqueTokenOwner(const uint32_t &propertyId, c
 {
     assert(pdb);
     leveldb::Iterator* it = NewIterator();
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        std::string key = it->key().ToString();
-        // break into component integers
-        std::vector<std::string> vPropertyId;
-        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
-        if (dbPropertyId != propertyId) continue;
-        std::vector<std::string> vRanges;
-        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
-        // check if the ID supplied to the function is within this range in the DB
-        if (tokenId >= dbTokenIdStart && tokenId <= dbTokenIdEnd) {
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
+
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+
+        if (tokenId >= start && tokenId <= end) {
             return it->value().ToString();
         }
     }
@@ -262,18 +267,15 @@ std::vector<std::pair<int64_t,int64_t> > CMPUniqueTokensDB::GetAddressUniqueToke
     assert(pdb);
     leveldb::Iterator* it = NewIterator();
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        std::string key = it->key().ToString();
         std::string value = it->value().ToString();
         if (value != address) continue;
-        std::vector<std::string> vPropertyId;
-        boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
-        if (dbPropertyId != propertyId) continue;
-        std::vector<std::string> vRanges;
-        boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        uniqueMap.push_back(std::make_pair(boost::lexical_cast<int64_t>(vRanges[0]), boost::lexical_cast<int64_t>(vRanges[1])));
+
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
+
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+
+        uniqueMap.push_back(std::make_pair(start, end));
     }
     delete it;
     return uniqueMap;
@@ -294,9 +296,8 @@ void CMPUniqueTokensDB::printAll()
         skey = it->key();
         svalue = it->value();
         ++count;
-//        TODO: work out why this won't display to console in regtest mode
-//        PrintToConsole("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
-        PrintToLog("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
+        PrintToConsole("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
+//      PrintToLog("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
     }
 
     delete it;

@@ -34,10 +34,16 @@ public:
     void printStats();
     void printAll();
 
+
+    // Helper to extract the property ID from a DB key
+    uint32_t GetPropertyIdFromKey(const std::string& key);
+    // Helper to extracts the range from a DB key
+    void GetRangeFromKey(const std::string& key, int64_t *start, int64_t *end);
+
     // Gets the owner of a range of unique tokens
     std::string GetUniqueTokenOwner(const uint32_t &propertyId, const int64_t &tokenId);
     // Checks if the range of tokens is contiguous (ie owned by a single address)
-    bool IsRangeContiguous(const uint32_t &propertyId, const int64_t &tokenIdStart, const int64_t &tokenIdEnd);
+    bool IsRangeContiguous(const uint32_t &propertyId, const int64_t &rangeStart, const int64_t &rangeEnd);
     // Counts the highest token range end (which is thus the total number of tokens)
     int64_t GetHighestRangeEnd(const uint32_t &propertyId);
     // Creates a range of unique tokens
