@@ -904,6 +904,11 @@ int CMPTransaction::logicMath_SimpleSend()
         return (PKT_ERROR_SEND -22);
     }
 
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (nValue <= 0 || MAX_INT_8_BYTES < nValue) {
         PrintToLog("%s(): rejected: value out of range or zero: %d", __func__, nValue);
         return (PKT_ERROR_SEND -23);
@@ -953,6 +958,11 @@ int CMPTransaction::logicMath_SendToOwners()
                 property,
                 block);
         return (PKT_ERROR_STO -22);
+    }
+
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
     }
 
     if (nValue <= 0 || MAX_INT_8_BYTES < nValue) {
@@ -1080,6 +1090,11 @@ int CMPTransaction::logicMath_SendAll()
                 ecosystem,
                 block);
         return (PKT_ERROR_SEND_ALL -22);
+    }
+
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
     }
 
     // ------------------------------------------
@@ -1215,6 +1230,11 @@ int CMPTransaction::logicMath_TradeOffer()
         return (PKT_ERROR_TRADEOFFER -22);
     }
 
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (MAX_INT_8_BYTES < nValue) {
         PrintToLog("%s(): rejected: value out of range or zero: %d\n", __func__, nValue);
         return (PKT_ERROR_TRADEOFFER -23);
@@ -1311,6 +1331,11 @@ int CMPTransaction::logicMath_AcceptOffer_BTC()
         return (DEX_ERROR_ACCEPT -22);
     }
 
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (nValue <= 0 || MAX_INT_8_BYTES < nValue) {
         PrintToLog("%s(): rejected: value out of range or zero: %d\n", __func__, nValue);
         return (DEX_ERROR_ACCEPT -23);
@@ -1335,6 +1360,11 @@ int CMPTransaction::logicMath_MetaDExTrade()
                 property,
                 block);
         return (PKT_ERROR_METADEX -22);
+    }
+
+    if (isPropertyUnique(property) || isPropertyUnique(desired_property)) {
+        PrintToLog("%s(): rejected: property %d or %d is of type unique\n", __func__, property, desired_property);
+        return (PKT_ERROR_TOKENS -27);
     }
 
     if (property == desired_property) {
@@ -1413,6 +1443,11 @@ int CMPTransaction::logicMath_MetaDExCancelPrice()
         return (PKT_ERROR_METADEX -22);
     }
 
+    if (isPropertyUnique(property) || isPropertyUnique(desired_property)) {
+        PrintToLog("%s(): rejected: property %d or %d is of type unique\n", __func__, property, desired_property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (property == desired_property) {
         PrintToLog("%s(): rejected: property for sale %d and desired property %d must not be equal\n",
                 __func__,
@@ -1467,6 +1502,11 @@ int CMPTransaction::logicMath_MetaDExCancelPair()
                 property,
                 block);
         return (PKT_ERROR_METADEX -22);
+    }
+
+    if (isPropertyUnique(property) || isPropertyUnique(desired_property)) {
+        PrintToLog("%s(): rejected: property %d or %d is of type unique\n", __func__, property, desired_property);
+        return (PKT_ERROR_TOKENS -27);
     }
 
     if (property == desired_property) {
@@ -1722,6 +1762,11 @@ int CMPTransaction::logicMath_CloseCrowdsale()
         return (PKT_ERROR_SP -22);
     }
 
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (!IsPropertyIdValid(property)) {
         PrintToLog("%s(): rejected: property %d does not exist\n", __func__, property);
         return (PKT_ERROR_SP -24);
@@ -1961,6 +2006,11 @@ int CMPTransaction::logicMath_RevokeTokens()
         return (PKT_ERROR_TOKENS -22);
     }
 
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (nValue <= 0 || MAX_INT_8_BYTES < nValue) {
         PrintToLog("%s(): rejected: value out of range or zero: %d\n", __func__, nValue);
         return (PKT_ERROR_TOKENS -23);
@@ -2029,6 +2079,11 @@ int CMPTransaction::logicMath_ChangeIssuer()
                 property,
                 block);
         return (PKT_ERROR_TOKENS -22);
+    }
+
+    if (isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
     }
 
     if (!IsPropertyIdValid(property)) {

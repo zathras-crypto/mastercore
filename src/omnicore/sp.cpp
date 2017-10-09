@@ -594,6 +594,16 @@ bool mastercore::isPropertyDivisible(uint32_t propertyId)
     return true;
 }
 
+bool mastercore::isPropertyUnique(uint32_t propertyId)
+{
+    // TODO: is a lock here needed
+    CMPSPInfo::Entry sp;
+
+    if (_my_sps->getSP(propertyId, sp)) return sp.unique;
+
+    return false;
+}
+
 std::string mastercore::getPropertyName(uint32_t propertyId)
 {
     CMPSPInfo::Entry sp;
