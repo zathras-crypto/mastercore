@@ -79,7 +79,7 @@ bool CMPUniqueTokensDB::IsRangeContiguous(const uint32_t &propertyId, const int6
         GetRangeFromKey(it->key().ToString(), &start, &end);
 
         if (rangeStart >= start && rangeStart <= end) {
-            if (rangeEnd > rangeStart && rangeEnd <= end) {
+            if (rangeEnd >= rangeStart && rangeEnd <= end) {
                 return true;
             } else {
                 return false; // the start ID falls within this range but the end ID does not - not owned by a single address
