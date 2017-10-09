@@ -1965,6 +1965,9 @@ int CMPTransaction::logicMath_GrantTokens()
     // Move the tokens
     if (sp.unique) {
         std::pair<int64_t,int64_t> grantedRange = p_utdb->CreateUniqueTokens(property, nValue, receiver);
+        assert(grantedRange.first > 0);
+        assert(grantedRange.second > 0);
+        assert(grantedRange.second >= grantedRange.first);
         p_txlistdb->RecordUniqueGrant(txid, grantedRange.first, grantedRange.second);
         PrintToLog("%s(): unique: granted range %d to %d of property %d to %s\n", __func__, grantedRange.first, grantedRange.second, property, receiver);
     }
