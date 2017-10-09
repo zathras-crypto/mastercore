@@ -26,25 +26,32 @@
 std::pair<int64_t,int64_t> CMPUniqueTokensDB::GetRange(const uint32_t &propertyId, const int64_t &tokenId)
 {
     assert(pdb);
-
     leveldb::Iterator* it = NewIterator();
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        // Obtain the property ID of this entry
         std::string key = it->key().ToString();
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
-        if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
+        assert(vPropertyId.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
         uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
+
+        // Go to next iteration of FOR if the property ID of this entry doesn't match the one we're looking for
         if (dbPropertyId != propertyId) continue;
+
+        // Obtain the range of this entry
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
-        if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
+        assert(vRanges.size() == 2); // if size !=2 then we cannot trust the data in the DB and we must halt
         int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
         int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
-        // check if the ID supplied to the function is within this range in the DB
+
+        // Check if the token ID supplied is within the range of this entry and if so, return the range
         if (tokenId >= dbTokenIdStart && tokenId <= dbTokenIdEnd) {
             return std::make_pair(dbTokenIdStart, dbTokenIdEnd);
         }
     }
+
     delete it;
     return std::make_pair(0,0); // token not found, return zero'd range
 }
