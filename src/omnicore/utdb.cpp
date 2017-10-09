@@ -33,19 +33,13 @@ std::pair<int64_t,int64_t> CMPUniqueTokensDB::GetRange(const uint32_t &propertyI
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
         if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        std::string strPropId = vPropertyId[0];
-        strPropId.erase(0, strPropId.find_first_not_of('0'));
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
         if (dbPropertyId != propertyId) continue;
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
         if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        std::string strIdStart = vRanges[0];
-        std::string strIdEnd = vRanges[1];
-        strIdStart.erase(0, strIdStart.find_first_not_of('0'));
-        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(strIdStart);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(strIdEnd);
+        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
+        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
         // check if the ID supplied to the function is within this range in the DB
         if (tokenId >= dbTokenIdStart && tokenId <= dbTokenIdEnd) {
             return std::make_pair(dbTokenIdStart, dbTokenIdEnd);
@@ -68,19 +62,13 @@ bool CMPUniqueTokensDB::IsRangeContiguous(const uint32_t &propertyId, const int6
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
         if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        std::string strPropId = vPropertyId[0];
-        strPropId.erase(0, strPropId.find_first_not_of('0'));
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
         if (dbPropertyId != propertyId) continue;
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
         if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        std::string strIdStart = vRanges[0];
-        std::string strIdEnd = vRanges[1];
-        strIdStart.erase(0, strIdStart.find_first_not_of('0'));
-        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(strIdStart);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(strIdEnd);
+        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
+        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
         // check if the range supplied to the function is within this range in the DB
         if (tokenIdStart >= dbTokenIdStart && tokenIdStart <= dbTokenIdEnd) {
             if (tokenIdEnd <= dbTokenIdEnd) { // the start ID falls within this range
@@ -108,13 +96,11 @@ bool CMPUniqueTokensDB::MoveUniqueTokens(const uint32_t &propertyId, const int64
     if (startOwner != from || endOwner != from || !contiguous) return false;
 
     // are we moving the complete range from 'from'?
+    // we know the range is contiguous (above) so we can use a single GetRange call
     bool bMovingCompleteRange = false;
-    std::pair<int64_t,int64_t> startTokenRange = GetRange(propertyId, tokenIdStart);
-    std::pair<int64_t,int64_t> endTokenRange = GetRange(propertyId, tokenIdEnd);
-    if (startTokenRange.first == tokenIdStart && startTokenRange.second == tokenIdEnd) {
-        if (endTokenRange.first == tokenIdStart && endTokenRange.second == tokenIdEnd) {
-            bMovingCompleteRange = true;
-        }
+    std::pair<int64_t,int64_t> senderTokenRange = GetRange(propertyId, tokenIdStart);
+    if (senderTokenRange.first == tokenIdStart && senderTokenRange.second == tokenIdEnd) {
+        bMovingCompleteRange = true;
     }
 
     // does 'to' have adjacent ranges that need to be merged?
@@ -130,15 +116,13 @@ bool CMPUniqueTokensDB::MoveUniqueTokens(const uint32_t &propertyId, const int64
     }
 
     // adjust 'from' ranges
-    if (bMovingCompleteRange == true) {
-        DeleteRange(propertyId, tokenIdStart, tokenIdEnd);
-    } else {
-        DeleteRange(propertyId, startTokenRange.first, endTokenRange.second);
-        if (startTokenRange.first < tokenIdStart) {
-            AddRange(propertyId, startTokenRange.first, tokenIdStart - 1, from);
+    DeleteRange(propertyId, senderTokenRange.first, senderTokenRange.second);
+    if (bMovingCompleteRange != true) {
+        if (senderTokenRange.first < tokenIdStart) {
+            AddRange(propertyId, senderTokenRange.first, tokenIdStart - 1, from);
         }
-        if (endTokenRange.second > tokenIdEnd) {
-            AddRange(propertyId, tokenIdEnd + 1, endTokenRange.second, from);
+        if (senderTokenRange.second > tokenIdEnd) {
+            AddRange(propertyId, tokenIdEnd + 1, senderTokenRange.second, from);
         }
     }
 
@@ -177,16 +161,12 @@ int64_t CMPUniqueTokensDB::GetHighestRangeEnd(const uint32_t &propertyId)
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
         if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        std::string strPropId = vPropertyId[0];
-        strPropId.erase(0, strPropId.find_first_not_of('0'));
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
         if (dbPropertyId != propertyId) continue;
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
         if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        std::string strIdEnd = vRanges[1];
-        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(strIdEnd);
+        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
         if (dbTokenIdEnd > tokenCount) {
             tokenCount = dbTokenIdEnd;
         }
@@ -250,19 +230,13 @@ std::string CMPUniqueTokensDB::GetUniqueTokenOwner(const uint32_t &propertyId, c
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
         if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        std::string strPropId = vPropertyId[0];
-        strPropId.erase(0, strPropId.find_first_not_of('0'));
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
         if (dbPropertyId != propertyId) continue;
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
         if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        std::string strIdStart = vRanges[0];
-        std::string strIdEnd = vRanges[1];
-        strIdStart.erase(0, strIdStart.find_first_not_of('0'));
-        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
-        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(strIdStart);
-        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(strIdEnd);
+        int64_t dbTokenIdStart = boost::lexical_cast<int64_t>(vRanges[0]);
+        int64_t dbTokenIdEnd = boost::lexical_cast<int64_t>(vRanges[1]);
         // check if the ID supplied to the function is within this range in the DB
         if (tokenId >= dbTokenIdStart && tokenId <= dbTokenIdEnd) {
             return it->value().ToString();
@@ -287,18 +261,12 @@ std::vector<std::pair<int64_t,int64_t> > CMPUniqueTokensDB::GetAddressUniqueToke
         std::vector<std::string> vPropertyId;
         boost::split(vPropertyId, key, boost::is_any_of("_"), boost::token_compress_on);
         if (2 != vPropertyId.size()) continue; // unexpected - TODO: log this error
-        std::string strPropId = vPropertyId[0];
-        strPropId.erase(0, strPropId.find_first_not_of('0'));
-        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(strPropId);
+        uint32_t dbPropertyId = boost::lexical_cast<uint32_t>(vPropertyId[0]);
         if (dbPropertyId != propertyId) continue;
         std::vector<std::string> vRanges;
         boost::split(vRanges, vPropertyId[1], boost::is_any_of("-"), boost::token_compress_on);
         if (2 != vRanges.size()) continue; // unexpected - TODO: log this error
-        std::string strIdStart = vRanges[0];
-        std::string strIdEnd = vRanges[1];
-        strIdStart.erase(0, strIdStart.find_first_not_of('0'));
-        strIdEnd.erase(0, strIdEnd.find_first_not_of('0'));
-        uniqueMap.push_back(std::make_pair(boost::lexical_cast<int64_t>(strIdStart), boost::lexical_cast<int64_t>(strIdEnd)));
+        uniqueMap.push_back(std::make_pair(boost::lexical_cast<int64_t>(vRanges[0]), boost::lexical_cast<int64_t>(vRanges[1])));
     }
     delete it;
     return uniqueMap;
@@ -319,7 +287,9 @@ void CMPUniqueTokensDB::printAll()
         skey = it->key();
         svalue = it->value();
         ++count;
-        PrintToConsole("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
+//        TODO: work out why this won't display to console in regtest mode
+//        PrintToConsole("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
+        PrintToLog("entry #%8d= %s:%s\n", count, skey.ToString(), svalue.ToString());
     }
 
     delete it;
