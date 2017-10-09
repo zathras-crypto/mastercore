@@ -1154,6 +1154,11 @@ int CMPTransaction::logicMath_SendUnique()
         return (PKT_ERROR_SEND -22);
     }
 
+    if (!isPropertyUnique(property)) {
+        PrintToLog("%s(): rejected: property %d is not of type unique\n", __func__, property);
+        return (PKT_ERROR_TOKENS -27);
+    }
+
     if (unique_token_start <= 0 || MAX_INT_8_BYTES < unique_token_start) {
         PrintToLog("%s(): rejected: unique token range start value out of range or zero: %d", __func__, unique_token_start);
         return (PKT_ERROR_SEND -23);
