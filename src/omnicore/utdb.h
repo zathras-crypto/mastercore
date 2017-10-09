@@ -60,7 +60,8 @@ public:
     std::vector<std::pair<int64_t,int64_t> > GetAddressUniqueTokens(const uint32_t &propertyId, const std::string &address);
     // Gets the unique token ranges for a property ID
     std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > GetUniqueTokenRanges(const uint32_t &propertyId);
-
+    // Sanity checks the token counts
+    void SanityCheck();
 };
 
 namespace mastercore

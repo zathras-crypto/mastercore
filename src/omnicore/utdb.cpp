@@ -10,6 +10,8 @@
 #include "omnicore/errors.h"
 #include "omnicore/log.h"
 
+#include "main.h"
+
 #include "leveldb/db.h"
 
 #include <stdint.h>
@@ -302,6 +304,37 @@ std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > CMPUniqueTokens
 
     delete it;
     return rangeMap;
+}
+
+void CMPUniqueTokensDB::SanityCheck()
+{
+    assert(pdb);
+
+    std::string result = "";
+
+    std::map<uint32_t,int64_t> totals;
+
+    leveldb::Iterator* it = NewIterator();
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        uint32_t propertyId = GetPropertyIdFromKey(it->key().ToString());
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+        if (end > totals[propertyId]) {
+            totals[propertyId] = end;
+        }
+    }
+    delete it;
+
+    for (std::map<uint32_t,int64_t>::iterator it = totals.begin(); it != totals.end(); ++it) {
+        if (mastercore::getTotalTokens(it->first) != it->second) {
+            std::string abortMsg = strprintf("Failed sanity check on property %d (%d != %d)\n", it->first, mastercore::getTotalTokens(it->first), it->second);
+            AbortNode(abortMsg);
+        } else {
+            result = result + strprintf("%d:%d=%d,", it->first, mastercore::getTotalTokens(it->first), it->second);
+        }
+    }
+
+    if (msc_debug_utdb) PrintToLog("UTDB sanity check OK (%s)\n", result);
 }
 
 void CMPUniqueTokensDB::printStats()
