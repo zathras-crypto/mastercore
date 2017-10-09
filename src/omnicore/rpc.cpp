@@ -178,6 +178,7 @@ UniValue omni_getuniquetokens(const UniValue& params, bool fHelp)
     uint32_t propertyId = ParsePropertyId(params[1]);
 
     RequireExistingProperty(propertyId);
+    RequireUniqueProperty(propertyId);
 
     UniValue response(UniValue::VARR);
 
@@ -219,6 +220,7 @@ UniValue omni_getuniquetokenowner(const UniValue& params, bool fHelp)
     int64_t uniqueToken = params[1].get_int64();
 
     RequireExistingProperty(propertyId);
+    RequireUniqueProperty(propertyId);
 
     std::string response = p_utdb->GetUniqueTokenOwner(propertyId, uniqueToken);
     UniValue rpcObj(UniValue::VOBJ);
@@ -253,6 +255,7 @@ UniValue omni_getuniquetokenranges(const UniValue& params, bool fHelp)
     uint32_t propertyId = ParsePropertyId(params[0]);
 
     RequireExistingProperty(propertyId);
+    RequireUniqueProperty(propertyId);
 
     UniValue response(UniValue::VARR);
 

@@ -94,6 +94,18 @@ void RequireManagedProperty(uint32_t propertyId)
     }
 }
 
+void RequireUniqueProperty(uint32_t propertyId)
+{
+    LOCK(cs_tally);
+    CMPSPInfo::Entry sp;
+    if (!mastercore::_my_sps->getSP(propertyId, sp)) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, "Failed to retrieve property");
+    }
+    if (!sp.unique) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Property identifier does not refer to a unique property");
+    }
+}
+
 void RequireTokenIssuer(const std::string& address, uint32_t propertyId)
 {
     LOCK(cs_tally);
