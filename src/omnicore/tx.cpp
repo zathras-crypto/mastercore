@@ -1849,6 +1849,11 @@ int CMPTransaction::logicMath_CreatePropertyManaged()
         return (PKT_ERROR_SP -36);
     }
 
+    if (MSC_PROPERTY_TYPE_UNIQUE == prop_type && !IsFeatureActivated(FEATURE_UIT, block)) {
+        PrintToLog("%s(): rejected: unique tokens are not yet activated (property type: %d)\n", __func__, prop_type);
+        return (PKT_ERROR_SP -38);
+    }
+
     if ('\0' == name[0]) {
         PrintToLog("%s(): rejected: property name must not be empty\n", __func__);
         return (PKT_ERROR_SP -37);
