@@ -58,6 +58,8 @@ public:
     void AddRange(const uint32_t &propertyId, const int64_t &tokenIdStart, const int64_t &tokenIdEnd, const std::string &owner);
     // Gets the unique token ranges for a property ID and address
     std::vector<std::pair<int64_t,int64_t> > GetAddressUniqueTokens(const uint32_t &propertyId, const std::string &address);
+    // Gets the unique token ranges for a property ID
+    std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > GetUniqueTokenRanges(const uint32_t &propertyId);
 
 };
 

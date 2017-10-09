@@ -281,6 +281,29 @@ std::vector<std::pair<int64_t,int64_t> > CMPUniqueTokensDB::GetAddressUniqueToke
     return uniqueMap;
 }
 
+/* Gets the ranges of unique tokens for a property
+ */
+std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > CMPUniqueTokensDB::GetUniqueTokenRanges(const uint32_t &propertyId)
+{
+    std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > rangeMap;
+
+    assert(pdb);
+
+    leveldb::Iterator* it = NewIterator();
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        if (propertyId != GetPropertyIdFromKey(it->key().ToString())) continue;
+
+        std::string address = it->value().ToString();
+        int64_t start, end;
+        GetRangeFromKey(it->key().ToString(), &start, &end);
+
+        rangeMap.push_back(std::make_pair(address,std::make_pair(start, end)));
+    }
+
+    delete it;
+    return rangeMap;
+}
+
 void CMPUniqueTokensDB::printStats()
 {
     PrintToLog("CMPTxList stats: nWritten= %d , nRead= %d\n", nWritten, nRead);

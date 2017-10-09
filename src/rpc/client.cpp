@@ -138,6 +138,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "omni_getuniquetokens", 1 },
     { "omni_getuniquetokenowner", 0 },
     { "omni_getuniquetokenowner", 1 },
+    { "omni_getuniquetokenranges", 0 },
 
     /* Omni Core - transaction calls */
     { "omni_send", 2 },

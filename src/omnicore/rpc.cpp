@@ -226,6 +226,56 @@ UniValue omni_getuniquetokenowner(const UniValue& params, bool fHelp)
     return rpcObj;
 }
 
+// displays all the ranges and their addresses for a property
+UniValue omni_getuniquetokenranges(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "omni_getuniquetokenranges propertyid\n"
+            "\nReturns the ranges and their addresses for a unique token property.\n"
+            "\nArguments:\n"
+            "1. propertyid           (number, required) the property identifier\n"
+            "\nResult:\n"
+            "[                           (array of JSON objects)\n"
+            "  {\n"
+            "  \"address\" : \"address\", (string) the address\n"
+            "  \"uniquetokenstart\" : n,  (number) the first token in this range\n"
+            "  \"uniquetokenend\" : n,    (number) the last token in this range\n"
+            "  \"amount\" : n             (number) the amount of tokens in the range\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("omni_getuniquetokenranges", "1")
+            + HelpExampleRpc("omni_getuniquetokenranges", "1")
+        );
+
+    uint32_t propertyId = ParsePropertyId(params[0]);
+
+    RequireExistingProperty(propertyId);
+
+    UniValue response(UniValue::VARR);
+
+    std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > > rangeMap = p_utdb->GetUniqueTokenRanges(propertyId);
+
+    for (std::vector<std::pair<std::string,std::pair<int64_t,int64_t> > >::iterator it = rangeMap.begin(); it!= rangeMap.end(); ++it) {
+        std::pair<std::string,std::pair<int64_t,int64_t> > entry = *it;
+        std::string address = entry.first;
+        std::pair<int64_t,int64_t> range = entry.second;
+        int64_t amount = (range.second - range.first) + 1;
+
+        UniValue uniqueRangeObj(UniValue::VOBJ);
+        uniqueRangeObj.push_back(Pair("address", address));
+        uniqueRangeObj.push_back(Pair("uniquetokenstart", range.first));
+        uniqueRangeObj.push_back(Pair("uniquetokenend", range.second));
+        uniqueRangeObj.push_back(Pair("amount", amount));
+
+        response.push_back(uniqueRangeObj);
+    }
+
+    return response;
+}
+
 // Obtains details of a fee distribution
 UniValue omni_getfeedistribution(const UniValue& params, bool fHelp)
 {
@@ -2273,6 +2323,7 @@ static const CRPCCommand commands[] =
     { "omni layer (data retrieval)", "omni_getfeedistributions",       &omni_getfeedistributions,        false },
     { "omni layer (data retrieval)", "omni_getuniquetokens",           &omni_getuniquetokens,            false },
     { "omni layer (data retrieval)", "omni_getuniquetokenowner",       &omni_getuniquetokenowner,        false },
+    { "omni layer (data retrieval)", "omni_getuniquetokenranges",      &omni_getuniquetokenranges,       false },
 #ifdef ENABLE_WALLET
     { "omni layer (data retrieval)", "omni_listtransactions",          &omni_listtransactions,           false },
     { "omni layer (data retrieval)", "omni_getfeeshare",               &omni_getfeeshare,                false },
