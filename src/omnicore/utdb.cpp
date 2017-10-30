@@ -58,6 +58,7 @@ std::pair<int64_t,int64_t> CMPUniqueTokensDB::GetRange(const uint32_t &propertyI
         int64_t start, end;
         GetRangeFromKey(it->key().ToString(), &start, &end);
         if (tokenId >= start && tokenId <= end) {
+            delete it;
             return std::make_pair(start, end);
         }
     }
@@ -81,6 +82,7 @@ bool CMPUniqueTokensDB::IsRangeContiguous(const uint32_t &propertyId, const int6
         GetRangeFromKey(it->key().ToString(), &start, &end);
 
         if (rangeStart >= start && rangeStart <= end) {
+            delete it;
             if (rangeEnd >= rangeStart && rangeEnd <= end) {
                 return true;
             } else {
@@ -253,7 +255,9 @@ std::string CMPUniqueTokensDB::GetUniqueTokenOwner(const uint32_t &propertyId, c
         GetRangeFromKey(it->key().ToString(), &start, &end);
 
         if (tokenId >= start && tokenId <= end) {
-            return it->value().ToString();
+            std::string retval = it->value().ToString();
+            delete it;
+            return retval;
         }
     }
 
