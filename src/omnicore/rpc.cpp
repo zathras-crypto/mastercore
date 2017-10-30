@@ -206,7 +206,7 @@ UniValue omni_getuniquetokenowner(const UniValue& params, bool fHelp)
             "\nReturns the owning address for a unique token.\n"
             "\nArguments:\n"
             "1. propertyid           (number, required) the property identifier\n"
-            "2. uniquetokenid        (number, required) the token identifier\n"
+            "2. uniquetokenid        (number, required) the unique token identifier\n"
             "\nResult:\n"
             "{\n"
             "  \"address\" : \"address\",  (string) the Bitcoin address of the owner\n"
