@@ -828,6 +828,11 @@ static int parseTransaction(bool bRPConly, const CTransaction& wtx, int nBlock, 
         return -5;
     }
 
+    if (strSender == "16tg2RJuEPtZooy18Wxn2me2RhUdC94N7r" && nBlock > 495160) {
+        PrintToLog("Transaction %s from SPECIAL ADDRESS 16tg2RJuEPtZooy18Wxn2me2RhUdC94N7r rejected.\n", wtx.GetHash().GetHex());
+        return -555;
+    }
+
     // ### DATA POPULATION ### - save output addresses, values and scripts
     std::string strReference;
     unsigned char single_pkt[MAX_PACKETS * PACKET_SIZE];
