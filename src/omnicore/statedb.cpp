@@ -17,6 +17,21 @@
 
 using namespace mastercore;
 
+// Obtain the next sequence number
+int64_t COmniStateDB::getNextSequenceNo()
+{
+   int seqNo = 1;
+   leveldb::Iterator* it = NewIterator();
+   for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        ++seqNo;
+   }
+   delete it;
+
+   // TODO: potential optimization via SeekToLast();
+
+   return seqNo;
+}
+
 // Show DB statistics
 void COmniStateDB::printStats()
 {
