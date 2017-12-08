@@ -322,6 +322,34 @@ void mastercore::ClearFreezeState()
     setFrozenAddresses.clear();
 }
 
+void mastercore::rollBackFreezeState(int blockNum)
+{
+    // Check if any properties had freezing enabled after the reorg recovery height and disable it
+    for (std::set<std::pair<uint32_t,int> >::iterator it = setFreezingEnabledProperties.begin(); it != setFreezingEnabledProperties.end(); it++) {
+       if ((*it).second >= blockNum) {
+           PrintToLog("Freezing for property %d which was enabled at block %d has been disabled as part of reorg at block %d.\n", (*it).first, (*it).second, blockNum);
+           setFreezingEnabledProperties.erase(it);
+        } else {
+           it++;
+        }
+    }
+
+    // Check if any addresses were frozen after the reorg recovery height and unfreeze them
+    for (std::set<std::pair<std::string,int> >::iterator it = setFrozenAddresses.begin(); it != setFrozenAddresses.end(); ) {
+        if ((*it).second >= blockNum) {
+            std::vector<std::string> vstr;
+            boost::split(vstr, (*it).first, boost::is_any_of(":"), boost::token_compress_on);
+            assert(vstr.size() == 2); // if this is incorrect the freeze state cannot be trusted and it is unsafe to allow program to continue
+            std::string itemAddress = vstr[0];
+            uint32_t itemPropertyId = boost::lexical_cast<uint32_t>(vstr[1]);
+            PrintToLog("Address %s has been unfrozen for property %d as part of reorg at block %d.\n", itemAddress, itemPropertyId, blockNum);
+            it = setFrozenAddresses.erase(it);
+        } else {
+            it++;
+        }
+    }
+}
+
 void mastercore::enableFreezing(uint32_t propertyId, int block)
 {
     if (!IsFeatureActivated(FEATURE_FREEZENOTICE, block)) {

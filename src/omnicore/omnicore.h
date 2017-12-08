@@ -383,6 +383,8 @@ void disableFreezing(uint32_t propertyId);
 bool isFreezingEnabled(uint32_t propertyId, int block);
 /** Clears the freeze state in the event of a reorg **/
 void ClearFreezeState();
+/** Rolls back the freeze state in the event of a reorg **/
+void rollBackFreezeState(int blockNum);
 
 }
 
