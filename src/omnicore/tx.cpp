@@ -2248,7 +2248,7 @@ int CMPTransaction::logicMath_FreezeTokens()
         return (PKT_ERROR_TOKENS -50);
     }
 
-    freezeAddress(receiver, property);
+    freezeAddress(receiver, property, block);
 
     return 0;
 }

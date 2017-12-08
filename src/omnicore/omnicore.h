@@ -370,7 +370,7 @@ std::string getTokenLabel(uint32_t propertyId);
           managed by a central issuer that have enabled freezing.
  **/
 /** Adds an address and property to the frozenMap **/
-void freezeAddress(const std::string& address, uint32_t propertyId);
+void freezeAddress(const std::string& address, uint32_t propertyId, int block);
 /** Removes an address and property from the frozenMap **/
 void unfreezeAddress(const std::string& address, uint32_t propertyId);
 /** Checks whether an address and property are frozen **/

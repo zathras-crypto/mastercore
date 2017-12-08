@@ -112,8 +112,8 @@ std::set<uint32_t> global_wallet_property_list;
 
 //! Set containing properties that have freezing enabled
 std::set<std::pair<uint32_t,int> > setFreezingEnabledProperties;
-//! Set containing addresses that have been frozen
-std::set<std::pair<std::string,uint32_t> > setFrozenAddresses;
+//! Set containing addresses that have been frozen - ("address:propid", blockFrozen)
+std::set<std::pair<std::string,int> > setFrozenAddresses;
 
 /**
  * Used to indicate, whether to automatically commit created transactions.
@@ -345,9 +345,14 @@ void mastercore::disableFreezing(uint32_t propertyId)
     }
 
     // When disabling freezing for a property, all frozen addresses for that property will be unfrozen!
-    for (std::set<std::pair<std::string,uint32_t> >::iterator it = setFrozenAddresses.begin(); it != setFrozenAddresses.end(); ) {
-        if ((*it).second == propertyId) {
-            PrintToLog("Address %s has been unfrozen for property %d.\n", (*it).first, propertyId);
+    for (std::set<std::pair<std::string,int> >::iterator it = setFrozenAddresses.begin(); it != setFrozenAddresses.end(); ) {
+        std::vector<std::string> vstr;
+        boost::split(vstr, (*it).first, boost::is_any_of(":"), boost::token_compress_on);
+        assert(vstr.size() == 2);
+        uint32_t itemPropertyId = boost::lexical_cast<uint32_t>(vstr[1]);
+        if (itemPropertyId == propertyId) {
+            std::string itemAddress = vstr[0];
+            PrintToLog("Address %s has been unfrozen for property %d as part of disabling freezing.\n", itemAddress, itemPropertyId);
             it = setFrozenAddresses.erase(it);
         } else {
             it++;
@@ -367,23 +372,35 @@ bool mastercore::isFreezingEnabled(uint32_t propertyId, int block)
     return false;
 }
 
-void mastercore::freezeAddress(const std::string& address, uint32_t propertyId)
+void mastercore::freezeAddress(const std::string& address, uint32_t propertyId, int block)
 {
-    setFrozenAddresses.insert(std::make_pair(address, propertyId));
-    PrintToLog("Address %s has been frozen for property %d.\n", address, propertyId);
+    std::string freezeDetails = strprintf("%s:%d", address, propertyId);
+    setFrozenAddresses.insert(std::make_pair(freezeDetails, block));
+    PrintToLog("Address %s has been frozen for property %d at block %d.\n", address, propertyId, block);
 }
 
 void mastercore::unfreezeAddress(const std::string& address, uint32_t propertyId)
 {
-    setFrozenAddresses.erase(std::make_pair(address, propertyId));
-    PrintToLog("Address %s has been unfrozen for property %d.\n", address, propertyId);
+    std::string freezeDetails = strprintf("%s:%d", address, propertyId);
+    for (std::set<std::pair<std::string,int> >::iterator it = setFrozenAddresses.begin(); it != setFrozenAddresses.end(); ) {
+        if (freezeDetails == (*it).first) {
+            PrintToLog("Address %s has been unfrozen for property %d.\n", address, propertyId);
+            it = setFrozenAddresses.erase(it);
+        } else {
+            it++;
+        }
+    }
 }
 
 bool mastercore::isAddressFrozen(const std::string& address, uint32_t propertyId)
 {
-    if (setFrozenAddresses.find(std::make_pair(address, propertyId)) != setFrozenAddresses.end()) {
-        return true;
+    std::string freezeDetails = strprintf("%s:%d", address, propertyId);
+    for (std::set<std::pair<std::string,int> >::iterator it = setFrozenAddresses.begin(); it != setFrozenAddresses.end(); it++) {
+        if (freezeDetails == (*it).first) {
+            return true;
+        }
     }
+
     return false;
 }
 
