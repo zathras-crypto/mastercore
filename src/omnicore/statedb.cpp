@@ -32,6 +32,17 @@ int64_t COmniStateDB::getNextSequenceNo()
    return seqNo;
 }
 
+// Write a new entry into the stateDB
+void COmniStateDB::writeStateEntry(const uint256& txid, int block, const std::string& action)
+{
+   std::string key = strprintf("%d", getNextSequenceNo());
+   std::string value = strprintf("%s:%d:%s", txid.GetHex(), block, action);
+
+   leveldb::Status status = pdb->Put(writeoptions, key, value);
+   assert(status.ok());
+   ++nWritten;
+}
+
 // Show DB statistics
 void COmniStateDB::printStats()
 {
