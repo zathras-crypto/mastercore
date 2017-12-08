@@ -24,6 +24,9 @@ public:
         PrintToLog("COmniStateDB closed\n");
     }
 
+    // Get the next sequence number
+    int64_t getNextSequenceNo();
+
     // Show DB statistics
     void printStats();
     // Show DB records
