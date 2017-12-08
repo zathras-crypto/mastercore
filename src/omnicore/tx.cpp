@@ -12,6 +12,7 @@
 #include "omnicore/omnicore.h"
 #include "omnicore/rules.h"
 #include "omnicore/sp.h"
+#include "omnicore/statedb.h"
 #include "omnicore/sto.h"
 #include "omnicore/utils.h"
 
@@ -2139,6 +2140,9 @@ int CMPTransaction::logicMath_EnableFreezing()
 
     enableFreezing(property, block);
 
+    std::string action = strprintf("enablefreezing,%d", property);
+    p_stateDB->writeStateEntry(txid, block, action);
+
     return 0;
 }
 
@@ -2191,6 +2195,9 @@ int CMPTransaction::logicMath_DisableFreezing()
     }
 
     disableFreezing(property);
+
+    std::string action = strprintf("disablefreezing,%d", property);
+    p_stateDB->writeStateEntry(txid, block, action);
 
     return 0;
 }
@@ -2250,6 +2257,9 @@ int CMPTransaction::logicMath_FreezeTokens()
 
     freezeAddress(receiver, property, block);
 
+    std::string action = strprintf("freeze,%s,%d", receiver, property);
+    p_stateDB->writeStateEntry(txid, block, action);
+
     return 0;
 }
 
@@ -2307,6 +2317,9 @@ int CMPTransaction::logicMath_UnfreezeTokens()
     }
 
     unfreezeAddress(receiver, property);
+
+    std::string action = strprintf("unfreeze,%s,%d", receiver, property);
+    p_stateDB->writeStateEntry(txid, block, action);
 
     return 0;
 }
