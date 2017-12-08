@@ -22,6 +22,7 @@
 #include "omnicore/script.h"
 #include "omnicore/seedblocks.h"
 #include "omnicore/sp.h"
+#include "omnicore/statedb.h"
 #include "omnicore/tally.h"
 #include "omnicore/tx.h"
 #include "omnicore/utils.h"
@@ -138,6 +139,7 @@ CMPSTOList *mastercore::s_stolistdb;
 COmniTransactionDB *mastercore::p_OmniTXDB;
 COmniFeeCache *mastercore::p_feecache;
 COmniFeeHistory *mastercore::p_feehistory;
+COmniStateDB *mastercore::p_stateDB;
 
 // indicate whether persistence is enabled at this point, or not
 // used to write/read files, for breakout mode, debugging, etc.
@@ -2195,6 +2197,7 @@ void clear_all_state()
     p_OmniTXDB->Clear();
     p_feecache->Clear();
     p_feehistory->Clear();
+    p_stateDB->Clear();
     assert(p_txlistdb->setDBVersion() == DB_VERSION); // new set of databases, set DB version
     exodus_prev = 0;
 }
@@ -2245,6 +2248,7 @@ int mastercore_init()
             boost::filesystem::path omniTXDBPath = GetDataDir() / "Omni_TXDB";
             boost::filesystem::path feesPath = GetDataDir() / "OMNI_feecache";
             boost::filesystem::path feeHistoryPath = GetDataDir() / "OMNI_feehistory";
+            boost::filesystem::path stateDBPath = GetDataDir() / "OMNI_stateDB";
             if (boost::filesystem::exists(persistPath)) boost::filesystem::remove_all(persistPath);
             if (boost::filesystem::exists(txlistPath)) boost::filesystem::remove_all(txlistPath);
             if (boost::filesystem::exists(tradePath)) boost::filesystem::remove_all(tradePath);
@@ -2253,6 +2257,7 @@ int mastercore_init()
             if (boost::filesystem::exists(omniTXDBPath)) boost::filesystem::remove_all(omniTXDBPath);
             if (boost::filesystem::exists(feesPath)) boost::filesystem::remove_all(feesPath);
             if (boost::filesystem::exists(feeHistoryPath)) boost::filesystem::remove_all(feeHistoryPath);
+            if (boost::filesystem::exists(stateDBPath)) boost::filesystem::remove_all(stateDBPath);
             PrintToLog("Success clearing persistence files in datadir %s\n", GetDataDir().string());
             startClean = true;
         } catch (const boost::filesystem::filesystem_error& e) {
@@ -2268,6 +2273,7 @@ int mastercore_init()
     p_OmniTXDB = new COmniTransactionDB(GetDataDir() / "Omni_TXDB", fReindex);
     p_feecache = new COmniFeeCache(GetDataDir() / "OMNI_feecache", fReindex);
     p_feehistory = new COmniFeeHistory(GetDataDir() / "OMNI_feehistory", fReindex);
+    p_stateDB = new COmniStateDB(GetDataDir() / "OMNI_stateDB", fReindex);
 
     MPPersistencePath = GetDataDir() / "MP_persist";
     TryCreateDirectory(MPPersistencePath);
@@ -2385,6 +2391,10 @@ int mastercore_shutdown()
     if (p_feehistory) {
         delete p_feehistory;
         p_feehistory = NULL;
+    }
+    if (p_stateDB) {
+        delete p_stateDB;
+        p_stateDB = NULL;
     }
 
     mastercoreInitialized = 0;

@@ -28,6 +28,7 @@ OMNICORE_H = \
   omnicore/script.h \
   omnicore/seedblocks.h \
   omnicore/sp.h \
+  omnicore/statedb.h \
   omnicore/sto.h \
   omnicore/tally.h \
   omnicore/tx.h \
@@ -67,6 +68,7 @@ OMNICORE_CPP = \
   omnicore/script.cpp \
   omnicore/seedblocks.cpp \
   omnicore/sp.cpp \
+  omnicore/statedb.cpp \
   omnicore/sto.cpp \
   omnicore/tally.cpp \
   omnicore/tx.cpp \
