@@ -6,6 +6,8 @@
 #include "omnicore/log.h"
 #include "omnicore/persistence.h"
 
+#include "uint256.h"
+
 #include <boost/filesystem.hpp>
 
 /** LevelDB based storage for the database of state actions
@@ -26,6 +28,8 @@ public:
 
     // Get the next sequence number
     int64_t getNextSequenceNo();
+    // Write a new state entry
+    void writeStateEntry(const uint256& txid, int block, const std::string& action);
 
     // Show DB statistics
     void printStats();
