@@ -30,6 +30,8 @@ public:
     int64_t getNextSequenceNo();
     // Write a new state entry
     void writeStateEntry(const uint256& txid, int block, const std::string& action);
+    // Roll back the state - iterate backwards to block N reversing each action
+    void rollBackState(int block);
 
     // Show DB statistics
     void printStats();
