@@ -3915,6 +3915,7 @@ int mastercore_handler_block_begin(int nBlockPrev, CBlockIndex const * pBlockInd
         s_stolistdb->deleteAboveBlock(pBlockIndex->nHeight);
         p_feecache->RollBackCache(pBlockIndex->nHeight);
         p_feehistory->RollBackHistory(pBlockIndex->nHeight);
+        p_stateDB->rollBackState(pBlockIndex->nHeight);
         reorgRecoveryMaxHeight = 0;
 
         nWaterlineBlock = ConsensusParams().GENESIS_BLOCK - 1;
