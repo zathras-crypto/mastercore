@@ -28,27 +28,27 @@ using namespace mastercore;
 // Obtain the next sequence number
 int64_t COmniStateDB::getNextSequenceNo()
 {
-   int seqNo = 1;
-   leveldb::Iterator* it = NewIterator();
-   for (it->SeekToFirst(); it->Valid(); it->Next()) {
+    int seqNo = 1;
+    leveldb::Iterator* it = NewIterator();
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ++seqNo;
-   }
-   delete it;
+    }
+    delete it;
 
-   // TODO: potential optimization via SeekToLast();
+    // TODO: potential optimization via SeekToLast();
 
-   return seqNo;
+    return seqNo;
 }
 
 // Write a new entry into the stateDB
 void COmniStateDB::writeStateEntry(const uint256& txid, int block, const std::string& action)
 {
-   std::string key = strprintf("%d", getNextSequenceNo());
-   std::string value = strprintf("%s:%d:%s", txid.GetHex(), block, action);
+    std::string key = strprintf("%d", getNextSequenceNo());
+    std::string value = strprintf("%s:%d:%s", txid.GetHex(), block, action);
 
-   leveldb::Status status = pdb->Put(writeoptions, key, value);
-   assert(status.ok());
-   ++nWritten;
+    leveldb::Status status = pdb->Put(writeoptions, key, value);
+    assert(status.ok());
+    ++nWritten;
 }
 
 // Roll back the state - iterate backwards to block N reversing each action
@@ -117,7 +117,7 @@ void COmniStateDB::rollBackState(int block)
 // Show DB statistics
 void COmniStateDB::printStats()
 {
-    PrintToConsole("COmniStateDB stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
+    PrintToLog("COmniStateDB stats: nWritten= %d , nRead= %d\n", nWritten, nRead);
 }
 
 // Show DB records
@@ -127,7 +127,7 @@ void COmniStateDB::printAll()
     leveldb::Iterator* it = NewIterator();
     for(it->SeekToFirst(); it->Valid(); it->Next()) {
         ++count;
-        PrintToConsole("entry #%8d= %s:%s\n", count, it->key().ToString(), it->value().ToString());
+        PrintToLog("entry #%8d= %s:%s\n", count, it->key().ToString(), it->value().ToString());
     }
     delete it;
 }
