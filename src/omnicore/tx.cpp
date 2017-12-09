@@ -2202,9 +2202,10 @@ int CMPTransaction::logicMath_DisableFreezing()
         return (PKT_ERROR_TOKENS -47);
     }
 
-    disableFreezing(property);
+    int liveBlock = 0;
+    disableFreezing(property, &liveBlock, txid, block);
 
-    std::string action = strprintf("disablefreezing,%d", property);
+    std::string action = strprintf("disablefreezing,%d,%d", property, liveBlock);
     p_stateDB->writeStateEntry(txid, block, action);
 
     return 0;
