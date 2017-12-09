@@ -378,7 +378,7 @@ bool isAddressFrozen(const std::string& address, uint32_t propertyId);
 /** Adds a property to the freezingEnabledMap **/
 void enableFreezing(uint32_t propertyId, int liveBlock);
 /** Removes a property from the freezingEnabledMap **/
-void disableFreezing(uint32_t propertyId);
+void disableFreezing(uint32_t propertyId, int *liveBlock, const uint256& txid, int txBlock);
 /** Checks whether a property has freezing enabled **/
 bool isFreezingEnabled(uint32_t propertyId, int block);
 /** Clears the freeze state in the event of a reorg **/
