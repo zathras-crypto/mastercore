@@ -2138,7 +2138,15 @@ int CMPTransaction::logicMath_EnableFreezing()
         return (PKT_ERROR_TOKENS -49);
     }
 
-    enableFreezing(property, block);
+    int liveBlock = 0;
+    if (!IsFeatureActivated(FEATURE_FREEZENOTICE, block)) {
+        liveBlock = block;
+    } else {
+        const CConsensusParams& params = ConsensusParams();
+        liveBlock = params.OMNI_FREEZE_WAIT_PERIOD + block;
+    }
+
+    enableFreezing(property, liveBlock);
 
     std::string action = strprintf("enablefreezing,%d", property);
     p_stateDB->writeStateEntry(txid, block, action);
